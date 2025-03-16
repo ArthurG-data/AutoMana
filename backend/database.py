@@ -1,8 +1,15 @@
 import psycopg2 
-from psycopg2 import pool
 from psycopg2.extras import RealDictCursor
 from fastapi import HTTPException, Depends
 from typing import Annotated, Any
+import os, dotenv
+from pathlib import Path
+from dotenv import load_dotenv
+
+BASE_DIR = Path(__file__).resolve().parent
+ENV_PATH = BASE_DIR / ".env"
+load_dotenv(ENV_PATH)
+
 
 
 def connect_db(host, database, user, password):
@@ -20,7 +27,8 @@ def connect_db(host, database, user, password):
         raise HTTPException(status_code=500, detail='Oups, could not connect the database')
 
 def get_db():
-    db = connect_db('localhost', 'postgres', 'postgres', 'Pre45tkJ')
+    print(os.getenv('POSTGRES_USER'))
+    db = connect_db(os.getenv('POSTGRES_HOST'), os.getenv('POSTGRES_DB'), os.getenv('POSTGRES_USER'), os.getenv('POSTGRES_PASSWORD'))
     try:
         yield db
     except HTTPException:
