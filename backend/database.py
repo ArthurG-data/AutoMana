@@ -1,44 +1,75 @@
-import psycopg2 
+import logging, os
 from psycopg2.extras import RealDictCursor
-from fastapi import HTTPException, Depends
-from typing import Annotated, Any
-import os, dotenv
+from fastapi import Depends
+from typing import Annotated, Any, Sequence,Generator, Optional
 from pathlib import Path
 from dotenv import load_dotenv
+from psycopg2.extensions import connection
+from psycopg2 import pool
 
 BASE_DIR = Path(__file__).resolve().parent
 ENV_PATH = BASE_DIR / ".env"
 load_dotenv(ENV_PATH)
 
+logging.basicConfig(level=logging.ERROR)
+
+db_pool = pool.SimpleConnectionPool(
+    minconn=1,
+    maxconn=10,  # Adjust based on your app's load
+    host=os.getenv('POSTGRES_HOST'),
+    database=os.getenv('POSTGRES_DB'),
+    user=os.getenv('POSTGRES_USER'),
+    password=os.getenv('POSTGRES_PASSWORD'),
+    cursor_factory=RealDictCursor
+)
 
 
-def connect_db(host, database, user, password):
-    try:
-        connection = psycopg2.connect(
-            host=host,
-            database=database,
-            user=user,
-            password=password,
-            cursor_factory=RealDictCursor
-        )
-        print("Database connection was successful")
-        return connection
-    except Exception:
-        raise HTTPException(status_code=500, detail='Oups, could not connect the database')
-
-def get_db():
-    print(os.getenv('POSTGRES_USER'))
-    db = connect_db(os.getenv('POSTGRES_HOST'), os.getenv('POSTGRES_DB'), os.getenv('POSTGRES_USER'), os.getenv('POSTGRES_PASSWORD'))
+def get_connection() -> Generator[connection, Any, Any]:
+    db = db_pool.getconn() 
     try:
         yield db
-    except HTTPException:
-        raise
     finally:
-        db.close()
+        db_pool.putconn(db)
+ 
+def create_insert_query(table : str, columns : Sequence[str]) -> str:
+    """
 
-def get_cursor(db : Annotated[psycopg2.extensions.connection, Depends(get_db)]):
-    cursor = db.cursor()
+    create a query to insert one or many parameters
+    """
+    columns_str = f"({', '.join(columns)})"
+    placeholders = ", ".join(["%s"] * len(columns))
+    query = f"INSERT INTO {table} {columns_str} VALUES ({placeholders})"
+    print('this is a query:', query)
+    return query
+
+
+def execute_query(
+    connection: connection, query: str, values : Sequence[tuple[Any]], fetch: bool = False
+) -> Optional[list[Any]]:
+    """
+    Execute an SQL query with optional parameters.
+    
+    Parameters:
+    - connection: Active PostgreSQL connection
+    - query: SQL query string
+    - values: Tuple of query parameters (default: None)
+    - fetch: If True, returns query results (for SELECT queries)
+    
+    Returns:
+    - List of results for SELECT queries, None otherwise.
+    """
     try:
-        yield cursor
-    finally:
-        cursor.close()
+        with connection.cursor() as cursor:
+            cursor.executemany(query, values)
+            if fetch:  
+                return cursor.fetchall()  # Fetch results only for SELECT queries
+            connection.commit()  # Commit for INSERT, UPDATE, DELETE
+    except Exception as e:
+        connection.rollback()  # Rollback on failure
+        logging.error(f"Database error: {e}")
+        raise  # Re-raise the exception for better debugging
+
+    return None
+
+
+cursorDep = Annotated[connection, Depends(get_connection)]
