@@ -1,6 +1,6 @@
 import logging, os
 from psycopg2.extras import RealDictCursor
-from fastapi import Depends
+from fastapi import Depends, HTTPException
 from typing import Annotated, Any, Sequence,Generator, Optional
 from pathlib import Path
 from dotenv import load_dotenv
@@ -39,13 +39,45 @@ def create_insert_query(table : str, columns : Sequence[str]) -> str:
     columns_str = f"({', '.join(columns)})"
     placeholders = ", ".join(["%s"] * len(columns))
     query = f"INSERT INTO {table} {columns_str} VALUES ({placeholders})"
-    print('this is a query:', query)
+    return query
+
+
+def create_select_query(
+    table: str, 
+    columns: Sequence[str] | None=None, 
+    where_columns: Optional[Sequence[str]] = None, 
+    order_by: Optional[str] = None, 
+    limit: Optional[int] = None
+) -> str:
+    """
+    Generates a SELECT SQL query dynamically.
+    
+    :param table: Name of the table.
+    :param columns: List of column names to retrieve.
+    :param where_columns: Optional list of column names to filter with WHERE conditions.
+    :param order_by: Optional column name to sort by.
+    :param limit: Optional integer to limit results.
+    :return: Generated SQL query as a string.
+    """
+    columns_str = ", ".join(columns) if columns else "*"
+    query = f"SELECT {columns_str} FROM {table}"
+
+    if where_columns:
+        conditions = " AND ".join([f"{col} = %s" for col in where_columns])
+        query += f" WHERE {conditions}"
+
+    if order_by:
+        query += f" ORDER BY {order_by}"
+
+    if limit:
+        query += f" LIMIT {limit}"
+
     return query
 
 
 def execute_query(
-    connection: connection, query: str, values : Sequence[tuple[Any]], fetch: bool = False
-) -> Optional[list[Any]]:
+    connection: connection, query: str, values : Sequence[tuple[Any]] | tuple[Any], fetch: bool = False
+, execute_many : bool = False) -> Optional[list[Any]]:
     """
     Execute an SQL query with optional parameters.
     
@@ -58,18 +90,26 @@ def execute_query(
     Returns:
     - List of results for SELECT queries, None otherwise.
     """
+    print( query, values)
     try:
         with connection.cursor() as cursor:
-            cursor.executemany(query, values)
-            if fetch:  
-                return cursor.fetchall()  # Fetch results only for SELECT queries
+            if values:
+                if execute_many:
+                    cursor.executemany(query, values)
+                else:
+                    cursor.execute(query, values)
+       
+            if fetch:
+                data =cursor.fetchall()
+                if not data:  # Check if no results found
+                    raise HTTPException(status_code=404, detail="Entry not found")
+                return data
             connection.commit()  # Commit for INSERT, UPDATE, DELETE
     except Exception as e:
         connection.rollback()  # Rollback on failure
         logging.error(f"Database error: {e}")
-        raise  # Re-raise the exception for better debugging
+        raise e # Re-raise the exception for better debugging
 
     return None
 
 
-cursorDep = Annotated[connection, Depends(get_connection)]

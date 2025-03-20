@@ -1,7 +1,4 @@
-from pydantic import BaseModel, Field, EmailStr
-from datetime import datetime
-from enum import Enum
-
+from pydantic import BaseModel, Field
 
 class BaseCard(BaseModel):
     card_version_id : str
@@ -14,13 +11,3 @@ class BaseCard(BaseModel):
     layout_id : int = Field(ge=0)
     is_promo : bool
     is_digital : bool
-
-class Cookies(BaseModel):
-    session_id : str
-    auth : bool
-    user : str
-
-
-class ObjectName(str, Enum):
-    cards = 'cards'
-    sets = 'sets'

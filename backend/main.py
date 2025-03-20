@@ -1,15 +1,35 @@
-from fastapi import FastAPI, Query, Path, Body,HTTPException, Depends, Request
+from fastapi import FastAPI, Depends, Request
 from typing import Annotated, Any
 import time, logging
-from models import  ObjectName, BaseCard
-from authentification import login, get_user, get_current_active_user
-from db_models.users import BaseUser, UserInDB, create_user
-from database import cursorDep, execute_query
+from backend.authentification import login
 from fastapi.middleware.cors import CORSMiddleware
+from backend.routers import users, cards
+
 
 logging.basicConfig(level=logging.INFO)
 
-app = FastAPI()
+with open("README.md", "r", encoding="utf-8") as f:
+    readme_content = f.read()
+
+app = FastAPI(
+    title='AutoManaApp',
+    description=readme_content,
+    summary='Will be a massive app to automanticly manger card collection sale',
+    version='0.0.1',
+    terms_of_service="http://example.com/terms/",
+    contact={
+        "name": "Arthur Guillaume",
+        "url": "http://x-force.example.com/contact/",
+        "email": "todecide@gmail.com",
+    },
+    license_info={
+        "name": "Apache 2.0",
+        "url": "https://www.apache.org/licenses/LICENSE-2.0.html",
+    }
+
+)
+app.include_router(users.router)
+app.include_router(cards.router)
 
 origins =[
     'http://localhost',
@@ -33,58 +53,12 @@ async def add_process_time_header(request: Request, call_next):
     response.headers['X-Process-Time'] = str(process_time)
     return response
 
-@app.get('/objects/{object_name}')
-async def get_object(object_name : ObjectName):
-    if object_name is ObjectName.cards:
-        return {'object_name' : object_name, 'message': 'You will get all the cards'}
-    if object_name is ObjectName.sets:
-        return {'object_name' : object_name, 'message' : 'You will get all the sets'}
-    return {'object_name' : 'Enter a valid object: cards or sets'}
-
-@app.get('/cards/{card_id}', response_model=list[BaseCard] )
-async def read_card(card_id : Annotated[str, Path(title='The unique version id of the card to get', min_length=36, max_length=36)],  connection: cursorDep ) -> list[BaseCard] | dict :
-    query =  """ SELECT * FROM card_version WHERE card_version_id = %s """ 
-    logging.info("🔹 Route handler started!")
-    try:
-        cards =  execute_query(connection, query, (card_id,), fetch=True)
-        if cards:
-            return cards
-        else :
-            raise HTTPException(status_code=404, detail="Card ID not found")
-    except Exception as e:
-        return {'card-id' : card_id, 'error':str(e)}
-    
-class CommonQueryParams:
-    def __init__ (self, q : str | None=None, skip: Annotated[int, Query(ge=0)] =0, limit: Annotated[int , Query(ge=1, le=50)]= 10):
-        self.q = q,
-        self.skip = skip,
-        self.limit = limit
-     
-@app.get('/cards/', response_model=list[BaseCard]) 
-async def read_card(commons: Annotated[CommonQueryParams, Depends(CommonQueryParams)], connection : cursorDep):
-    query = """ SELECT * FROM card_version LIMIT %s OFFSET %s """
-    try:
-        cards =  execute_query(connection, query, (commons.limit, commons.skip), fetch=True)
-        return cards
-    except Exception as e:
-        return {'error':str(e)}
-
-@app.get('/users/me', response_model=BaseUser)
-async def read_user_me(user : Annotated[BaseUser, Depends(get_current_active_user)]):
-    return user
 
 
-@app.post('/users/')
-async def add_user( user: UserInDB, connexion: cursorDep):
-    return create_user(user, connexion)
-
-@app.post("/token")
+@app.post("/token", tags=['users'])
 async def token_endpoint(auth_data: dict = Depends(login)):
     return auth_data
 
-@app.get('/users/{user_id}', response_model=BaseUser) 
-async def user_endpoint(user_data : UserInDB = Depends(get_user)):
-    return user_data
 
 @app.get('/')
 async def root():
