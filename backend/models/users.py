@@ -27,9 +27,7 @@ class UserPublic(BaseModel):
 class UserInDB(BaseUser):
     hashed_password : str
 
-class UserUpdate(UserInDB):
+class UserUpdate(BaseModel):
     username: str | None=None
     email: str | None=None
     fullname:str | None=None
-    hashed_password : str | None=None
-    disabled : bool | None=None
