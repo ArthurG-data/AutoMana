@@ -1,10 +1,9 @@
 
 from typing import Annotated,  Union, Optional, List
-from psycopg2 import IntegrityError, Error
+from psycopg2 import Error
 from psycopg2.extensions import connection
-from fastapi import  Body, HTTPException, APIRouter, Depends, status, Query, Response
-from pydantic import BaseModel, Field
-from backend.database import create_insert_query, execute_query,create_select_query, create_delete_query, create_update_query, execute_delete_query, execute_insert_query,execute_update_query, execute_select_query
+from fastapi import  Body, HTTPException, APIRouter, Depends,  Query, Response
+from backend.database.database_utilis import create_insert_query, create_select_query, create_delete_query, create_update_query, execute_delete_query, execute_insert_query,execute_update_query, execute_select_query
 from backend.dependancies import get_token_header, cursorDep
 from backend.models.users import  BaseUser, UserPublic, UserInDB, UserUpdate
 from backend.authentification import get_current_active_user, get_hash_password, get_user
@@ -47,25 +46,29 @@ def create_user(user : Annotated[UserInDB, Body(
         raise
 
    
-def get_users(usernames : Union[list[str], None, str],connection : connection, limit : int=1, offset :int=0 ) -> list[UserPublic]:
-    condition_lists = ['username = Any(%s)' ]
+def get_users(usernames : Union[list[str], None, str],connection : connection, limit : int=1, offset :int=0 ) -> Union[list[UserPublic], UserPublic]:
+    select_many = False
+    if isinstance(usernames, list):    
+        condition_lists = ['username = Any(%s)' ]
+        select_many = True
+    else:
+        condition_lists = ['username = %s']
 
-    if isinstance(usernames, str):
-        usernames = [usernames]
     values =  (usernames , limit, offset)
     
     if usernames is None:
         condition_lists = []
         values =  (limit, offset)
+        select_many=True
      
     query = create_select_query('users', conditions_list=condition_lists)
 
     try:
-        users = execute_select_query(connection, query, values)
+        users = execute_select_query(connection, query, values,select_all=select_many)
         if not users:
             raise HTTPException(status_code=404, detail='Users not found')
        
-        return [UserPublic.model_validate(user) for user in users]
+        return users
     except HTTPException as e:
         raise e 
 
@@ -117,7 +120,7 @@ async def user_endpoints( connection : cursorDep,
                         usernames : Annotated[list[str] , Query(title='Query string')] = None):
     return get_users(usernames=usernames,limit=limit, offset=offset, connection=connection)
 
-@router.get('/{username}', response_model=List[UserPublic]) 
+@router.get('/{username}', response_model=UserPublic) 
 async def user_endpoint( connection : cursorDep,
                          username : str):
     return get_users(usernames=username, connection=connection)

@@ -1,6 +1,6 @@
 from fastapi import Header, HTTPException, Depends
 from typing_extensions import Annotated
-from backend.database import connection, get_connection
+from backend.database.get_database import connection, get_connection
 
 
 async def get_token_header(x_token: Annotated[str, Header()]):

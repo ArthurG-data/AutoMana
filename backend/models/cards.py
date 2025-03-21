@@ -1,13 +1,31 @@
 from pydantic import BaseModel, Field
+import datetime
 
 class BaseCard(BaseModel):
-    card_version_id : str
-    unique_card_id : str
-    oracle_text : str | None = None
-    set_id : str
-    collector_number : str
-    rarity_id : int = Field(ge=0, le=5)
-    frame_id : int = Field(ge=0)
-    layout_id : int = Field(ge=0)
-    is_promo : bool
-    is_digital : bool
+    card_name : str =Field(
+        title="The name of the card"
+    )
+    set_name : str = Field(
+        title='The complete name of the set'
+    )
+    set_code : str = Field(
+        title='The abbreviation of the set'
+    )
+    cmc: int = Field(
+        title='The converted mana cost'
+    )
+    rarity_name : str = Field(
+        title='The rarity of the card'
+    )
+    oracle_text : str = Field(
+        title='The  text on the card'
+    )
+
+    released_at : datetime.date = Field(
+        title='The data the card was released'
+    )
+    digital : bool = Field(
+        title='Is the set a released only on digital plateform'
+    )
+
+

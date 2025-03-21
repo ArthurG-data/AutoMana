@@ -1,10 +1,11 @@
 import logging
 from fastapi import APIRouter, Depends, Path, HTTPException, Query
-from typing import Annotated
+from typing import Annotated, Union, Sequence, Optional, List
 from backend.dependancies import get_token_header
 from backend.models.cards import BaseCard
-from backend.database import execute_query
+from backend.database.database_utilis import create_delete_query,create_insert_query,create_select_query,create_update_query, execute_queries, execute_select_query
 from backend.dependancies import cursorDep
+from psycopg2.extensions import connection
 
 
 router = APIRouter(
@@ -14,14 +15,55 @@ router = APIRouter(
     responses={404:{'description' : 'Not found'}}
 )
 
-@router.get('/{card_id}', response_model=list[BaseCard])
-async def read_card(card_id : Annotated[str, Path(title='The unique version id of the card to get', min_length=36, max_length=36)],  connection: cursorDep ) -> list[BaseCard] | dict :
-    query =  """ SELECT * FROM card_version WHERE card_version_id = %s """ 
+
+        
+    #query = create_select_query('card_version',['card_version_id'], conditions_list=['card_version_id = %s'])
+
+def get_cards_info(connection: connection,
+                        card_id : Optional[str|Sequence[str]]=None, 
+                        limit : Annotated[int, Query(le=100)]=100,
+                        offset: int = 0,
+                        select_all : bool = True)-> Union[List[BaseCard] , BaseCard]:
+    is_list = isinstance(card_id, list)  
+    query = """ SELECT uc.card_name, r.rarity_name, s.set_name,s.set_code, uc.cmc, cv.oracle_text, s.released_at, s.digital, r.rarity_name
+            FROM unique_cards uc
+            JOIN card_version cv ON uc.unique_card_id = cv.unique_card_id
+            JOIN rarities r ON cv.rarity_id = r.rarity_id
+            JOIN sets s ON cv.set_id = s.set_id """
+    if is_list:
+        query += "WHERE cv.card_version_id = ANY(%s) LIMIT %s OFFSET %s;"
+        values = ((card_id ), limit , offset)
+    elif card_id:
+        query += "WHERE cv.card_version_id = %s LIMIT %s OFFSET %s"
+        values = (card_id , limit , offset)
+    else:
+        query += "LIMIT %s OFFSET %s "
+        values = (limit , offset)
+    query += ";"
+
+    try:
+        cards = execute_select_query(connection, query, values, execute_many=False, select_all=select_all)
+        return cards
+    except Exception:
+        raise
+    
+
+@router.get('/{card_id}', response_model=BaseCard)
+async def get_card_info(connection: cursorDep, card_id : str, limit : int=100, offset : int=0 ):
+    return  get_cards_info(connection, card_id, limit, offset, select_all=False )
+    
+@router.get('/', response_model=List[BaseCard])
+async def get_all_cards(connection: cursorDep,  limit : int=100, offset : int=0 ):
+    return  get_cards_info(connection, limit=limit, offset=offset , select_all=True)
+
+async def read_card(card_id : Annotated[str, Path(title='The unique version id of the card to get', min_length=36, max_length=36)],  connection: cursorDep ) -> list[BaseCard]  :
+    query = create_select_query('card_version',['card_version_id'], conditions_list=['card_version_id = %s'])
+    #query =  """ SELECT * FROM card_version WHERE card_version_id = %s """ 
     logging.info("🔹 Route handler started!")
     try:
-        cards =  execute_query(connection, query, (card_id,), fetch=True)
-        if cards:
-            return cards
+        card =  execute_select_query(connection, query, (card_id, 10, 0))
+        if card:
+            return {'unique_id': card_id, 'version_id' : card}
         else :
             raise HTTPException(status_code=404, detail="Card ID not found")
     except Exception as e:
@@ -32,8 +74,8 @@ class CommonQueryParams:
         self.q = q,
         self.skip = skip,
         self.limit = limit
-     
-@router.get('/', response_model=list[BaseCard]) 
+
+@router.get('/asassd', response_model=list[BaseCard]) 
 async def read_card(commons: Annotated[CommonQueryParams, Depends(CommonQueryParams)], connection : cursorDep):
     query = """ SELECT * FROM card_version LIMIT %s OFFSET %s """
     try:
@@ -41,3 +83,4 @@ async def read_card(commons: Annotated[CommonQueryParams, Depends(CommonQueryPar
         return cards
     except Exception as e:
         return {'error':str(e)}
+

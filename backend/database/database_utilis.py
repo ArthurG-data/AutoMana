@@ -1,36 +1,14 @@
 import logging, os, psycopg2
-from psycopg2.extras import RealDictCursor
 from fastapi import Depends, HTTPException
-from typing import Annotated, Any, Sequence,Generator, Optional
-from pathlib import Path
-from dotenv import load_dotenv
+from typing import  Any, Sequence, Optional
 from psycopg2.extensions import connection, cursor
-from psycopg2 import pool
+from backend.database.get_database import get_cursor
 
-BASE_DIR = Path(__file__).resolve().parent
-ENV_PATH = BASE_DIR / ".env"
-load_dotenv(ENV_PATH)
 
 logging.basicConfig(level=logging.ERROR)
 
-db_pool = pool.SimpleConnectionPool(
-    minconn=1,
-    maxconn=10,  # Adjust based on your app's load
-    host=os.getenv('POSTGRES_HOST'),
-    database=os.getenv('POSTGRES_DB'),
-    user=os.getenv('POSTGRES_USER'),
-    password=os.getenv('POSTGRES_PASSWORD'),
-    cursor_factory=RealDictCursor
-)
 
 
-def get_connection() -> Generator[connection, Any, Any]:
-    db = db_pool.getconn() 
-    try:
-        yield db
-    finally:
-        db_pool.putconn(db)
- 
 def create_insert_query(table : str, columns : Sequence[str]) -> str:
     """
 
@@ -87,13 +65,6 @@ def create_select_query(
 
     return query
 
-
-def get_cursor(connection : connection) -> cursor:
-    pointer = connection.cursor()
-    try:
-        return pointer
-    except Exception as e:
-        raise
   
 def exception_handler(exception: Exception):
     """Handles database exceptions and raises appropriate HTTP responses."""
@@ -151,11 +122,14 @@ def execute_insert_query(connection : connection, query : str, values : Sequence
         return inserted_ids if execute_many else inserted_ids[0]
     except Exception:
         raise
-def execute_select_query(connection : connection, query : str, values : Sequence[tuple[Any]] | tuple[Any], execute_many = False):
+def execute_select_query(connection : connection, query : str, values : Sequence[tuple[Any]] | tuple[Any], execute_many = False, select_all=True):
     try:
         with get_cursor(connection) as cursor:
             execute_queries(cursor, query, values, execute_many)
-            rows = cursor.fetchall()
+            if select_all:
+                rows = cursor.fetchall()
+            else:
+                rows = cursor.fetchone()
         return rows
     except Exception:
         raise
@@ -167,40 +141,4 @@ def execute_update_query(connection : connection, query : str, values : Sequence
             
     except Exception:
         raise
-
-def execute_query(
-    connection: connection, query: str, values : Sequence[tuple[Any]] | tuple[Any], fetch: bool = False, execute_many : bool = False) -> Optional[list[Any]]:
-    """
-    Execute an SQL query with optional parameters.
-    
-    Parameters:
-    - connection: Active PostgreSQL connection
-    - query: SQL query string
-    - values: Tuple of query parameters (default: None)
-    - fetch: If True, returns query results (for SELECT queries)
-    
-    Returns:
-    - List of results for SELECT queries, None otherwise.
-    """
-    try:
-        with connection.cursor() as cursor:
-            if values:
-                if execute_many:
-                    cursor.executemany(query, values)
-                else:
-                    cursor.execute(query, values)
-       
-            if fetch:
-                data =cursor.fetchall()
-                if not data:  # Check if no results found
-                    raise HTTPException(status_code=404, detail="Entry not found")
-                return data
-            connection.commit()  # Commit for INSERT, UPDATE, DELETE
-    except Exception as e:
-        connection.rollback()  # Rollback on failure
-        logging.error(f"Database error: {e}")
-        raise e # Re-raise the exception for better debugging
-
-    return None
-
 
