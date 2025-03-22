@@ -3,7 +3,7 @@ from typing import Annotated,  Union, Optional, List
 from psycopg2 import Error
 from psycopg2.extensions import connection
 from fastapi import  Body, HTTPException, APIRouter, Depends,  Query, Response
-from backend.database.database_utilis import create_insert_query, create_select_query, create_delete_query, create_update_query, execute_delete_query, execute_insert_query,execute_update_query, execute_select_query
+from backend.database.database_utilis import create_insert_query, create_select_query, create_delete_query, create_update_query, execute_delete_query, execute_insert_query,execute_update_query, execute_select_query, delete_rows
 from backend.dependancies import get_token_header, cursorDep
 from backend.models.users import  BaseUser, UserPublic, UserInDB, UserUpdate
 from backend.authentification import get_current_active_user, get_hash_password, get_user
@@ -113,6 +113,9 @@ def update_user(username : str, user : Annotated[UserUpdate, Body(
         raise HTTPException(status_code=500, detail=str(e))
     """ UPDATE users SET username = %s, email = %s, fullname = %s, hashed_password = %s; """
 
+
+
+\
 @router.get('/', response_model=List[UserPublic]) 
 async def user_endpoints( connection : cursorDep,
                         limit : Annotated[int, Query(le=100)]=100,
@@ -151,3 +154,4 @@ async def add_user( user: UserInDB,  connexion: cursorDep) -> dict:
 @router.put('/{username}')
 async def modify_user(username : str, user_update: UserUpdate, connection : cursorDep):
     update_user(username, user_update, connection)
+
