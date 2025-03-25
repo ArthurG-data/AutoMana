@@ -1,8 +1,9 @@
-import requests
-from concurrent.futures import ThreadPoolExecutor
-from typing import Annotated
+import glob
 import aiohttp, asyncio
-import os, tqdm
+from table_population import populate_cards, populate_set
+from backend.database.get_database import get_connection
+#from backend.database.get_database import get_connection, get_cursor
+
 
 
 # download the files
@@ -53,6 +54,38 @@ async def download_data(url: str, destination_folder : str = 'files', chunk_size
 
         except Exception as e:
             return {'error': f'Error downloading {file_name}.json: {str(e)}'}
+        
+def execute_sql_files(folder_path, conn):
+
+    """Executes all .sql files in a given folder in one transaction."""
+
+    cursor = conn.cursor()
+
+    try:
+        # Get all .sql files in the folder
+        sql_files = sorted(glob.glob(f"{folder_path}/*.sql"))  # Sort to maintain order
+
+        
+        print(f"📂 Found {len(sql_files)} SQL files. Executing...")
+        
+        for sql_file in sql_files:
+            with open(sql_file, "r", encoding="utf-8") as file:
+                sql_script = file.read()
+                cursor.execute(sql_script)
+                print(f"✅ Executed {sql_file}")
+
+        conn.commit()  # Commit all scripts at once
+        print("🎉 All SQL scripts executed successfully!")
+    
+    except Exception as e:
+        conn.rollback()  # Rollback if any error occurs
+        print(f"❌ Error executing SQL files: {e}")
+    
+    finally:
+        cursor.close()
+        conn.close()
+
+
 
 async def main():
     """Runs the entire process: Fetch URLs, then download in parallel."""
@@ -62,7 +95,14 @@ async def main():
    
     # 🔹 Step 2: Start downloading all files in parallel
     results = await asyncio.gather(*(download_data(uri) for uri in download_uris if uri))
-
+    connection = get_connection()
+    execute_sql_files('database_startup/schemas', connection)
+    populate_set(connection)
+    populate_cards(connection)
 
 # ✅ Run the async workflow
 asyncio.run(main())
+
+
+
+
