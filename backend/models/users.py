@@ -9,9 +9,12 @@ class BaseUser(BaseModel):
         default=None,title='the user first and last name', max_length=50
     ) 
     
+    hashed_password : str = Field(
+        title='Hashed user password'
+    )
     
     disabled : bool | None = Field(
-        default=None, title='Is the user account still active'
+        default=False, title='Is the user account still active'
     ) 
 
 
@@ -25,7 +28,7 @@ class UserPublic(BaseModel):
     ) 
 
 class UserInDB(BaseUser):
-    hashed_password : str
+    unique_id : str
 
 class UserUpdate(BaseModel):
     username: str | None=None

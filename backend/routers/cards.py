@@ -75,12 +75,3 @@ class CommonQueryParams:
         self.skip = skip,
         self.limit = limit
 
-@router.get('/asassd', response_model=list[BaseCard]) 
-async def read_card(commons: Annotated[CommonQueryParams, Depends(CommonQueryParams)], connection : cursorDep):
-    query = """ SELECT * FROM card_version LIMIT %s OFFSET %s """
-    try:
-        cards =  execute_query(connection, query, (commons.limit, commons.skip), fetch=True)
-        return cards
-    except Exception as e:
-        return {'error':str(e)}
-

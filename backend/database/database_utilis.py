@@ -1,6 +1,7 @@
 import logging, os, psycopg2
-from fastapi import Depends, HTTPException
-from typing import  Any, Sequence, Optional
+from fastapi import Depends, HTTPException, Query, Response
+from typing import List, Union, Optional, Sequence, Annotated, Callable, Any
+from pydantic import BaseModel
 from psycopg2.extensions import connection, cursor
 from backend.database.get_database import get_cursor
 
@@ -94,7 +95,6 @@ def execute_queries(cursor : cursor, query : str, values : Sequence[tuple[Any]] 
         if execute_many:
             cursor.executemany(query, values)
         else:
-            print(query, values)
             cursor.execute(query, values)
         cursor.connection.commit()
     except Exception as e:
@@ -112,12 +112,12 @@ def execute_delete_query(connection : connection, query : str, values : Sequence
     except Exception:
         raise
 
-def execute_insert_query(connection : connection, query : str, values : Sequence[tuple[Any]] | tuple[Any], execute_many = False):
+def execute_insert_query(connection : connection, query : str, values : Sequence[tuple[Any]] | tuple[Any], unique_id = 'unique_id', execute_many = False):
     try:
         with get_cursor(connection) as cursor:
             execute_queries(cursor, query, values, execute_many)
             rows = cursor.fetchall()
-            inserted_ids = [row['unique_id'] for row in rows] 
+            inserted_ids = [row[unique_id] for row in rows] 
 
         return inserted_ids if execute_many else inserted_ids[0]
     except Exception:
@@ -142,3 +142,43 @@ def execute_update_query(connection : connection, query : str, values : Sequence
     except Exception:
         raise
 
+
+def create_value(values, is_list, limit, offset):
+    if is_list:
+        values = ((values ), limit , offset)
+    elif values:
+        values = (values ,)
+    else:
+        values = (limit , offset)
+    return values
+
+def get_rows(connection : connection,
+            query_creator_function : Callable[[bool, Optional[Union[Sequence[str], str]]], str],
+            values: Optional[str|Sequence[str]]=None,  
+            limit : Annotated[int, Query(le=100)]=100,
+            offset: int = 0,
+            select_all : bool = True ) -> Union[BaseModel|List[BaseModel]]:
+    is_list = isinstance(values, list)  
+    query = query_creator_function(is_list, values)
+    values = create_value(values, is_list, limit, offset)
+    
+    try:
+        rows = execute_select_query(connection, query, values, execute_many=False, select_all=select_all)
+        return rows
+    except Exception:
+        raise
+
+def delete_rows(connection : connection,
+                query_creator_function : Callable,
+                values: Optional[str|Sequence[str]]=None,
+                ):
+    is_list = isinstance(values, list)  
+    query = query_creator_function(is_list, values)
+    try:
+        execute_delete_query(connection, query, values, execute_many=False)
+        return Response(status_code=204)
+    
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
