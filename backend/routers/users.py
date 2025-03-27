@@ -24,7 +24,7 @@ def ensure_list(value: Optional[Union[str, List[str]]]) -> Optional[List[str]]:
     return [value] if isinstance(value, str) else value
 
 
-def create_user(user : Annotated[UserInDB, Body(
+def create_user(user : Annotated[BaseUser, Body(
     examples=[
         {
             'username' : 'johnDow',
@@ -37,13 +37,14 @@ def create_user(user : Annotated[UserInDB, Body(
     hashed_password = get_hash_password(user.hashed_password)
     user.hashed_password = hashed_password
     query = create_insert_query('users', ['username', 'email','fullname', 'hashed_password'])
-   
+    
     values = (user.username, user.email, user.fullname, user.hashed_password)
     try:
         ids = execute_insert_query(connexion,query, values)
         return {'message' : 'user added successfuly', 'ids' : ids}
-    except Exception:
+    except Exception as e:
         raise
+     
 
    
 def get_users(usernames : Union[list[str], None, str],connection : connection, limit : int=1, offset :int=0 ) -> Union[list[UserPublic], UserPublic]:
@@ -148,7 +149,7 @@ async def delete_user(connection : cursorDep, username : Annotated[list[str] , Q
         raise
 
 @router.post('/')
-async def add_user( user: UserInDB,  connexion: cursorDep) -> dict:
+async def add_user( user: BaseUser,  connexion: cursorDep) -> dict:
     return create_user(user, connexion)
 
 @router.put('/{username}')

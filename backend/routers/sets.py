@@ -43,6 +43,6 @@ async def get_sets(connection: cursorDep,
 
 @router.delete('/{set_id}')
 async def delete_set(connection: cursorDep,
-                    set_id : Annotated[List[str],Query(title='Optional set_is')]=None):
+                    set_id : str):
     return delete_rows(connection, get_query_creator, values=set_id)
 

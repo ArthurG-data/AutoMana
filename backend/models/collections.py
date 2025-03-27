@@ -1,24 +1,49 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, UUID4
 from typing import Optional
-import datetime
+from datetime import datetime
+from uuid import uuid4
 
-class BaseCollection(BaseModel):
-    user_id : str = Field(
-        title='The unique secret collection owner'
+class PublicCollection(BaseModel):
+    username : str = Field(
+        title='The ucollection owner'
     )
-    collection_id : str =Field(
-        title='The collection id'
+    
+    collection_name : str=Field(
+        title='The name of the collection'
+    )
+    
+    is_active : bool=Field(
+        default=True, title='Has the collection been deleted'
+    )
+
+class CreateCollection(BaseModel):
+    collection_name : str=Field(
+        title='The name of the collection'
+    )
+    user_id : str=Field(
+        title='The secret user id'
+    )
+class CollectionInDB(BaseModel):
+    collection_id : str=Field(
+        title='The unique secret collection id',
+        default_factory=uuid4
     )
     collection_name : str=Field(
         title='The name of the collection'
+    )
+    user_id : str=Field(
+        title='The secret user id'
     )
     created_at : datetime=Field(
         title='The date of the collection creation'
     )
     is_active : bool=Field(
-        title='Has the collection been deleted'
+        default=True, title='Has the collection been deleted'
     )
 
+class UpdateCollection(BaseModel):
+    collection_name : str | None=None
+    is_active : bool | None=None
 
 class CollectionEntry(BaseModel):
     collection_id : str
