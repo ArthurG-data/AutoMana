@@ -1,10 +1,8 @@
-from backend.models.sets import BaseSet, SetInDB, SetwCount
+from backend.models.sets import  SetwCount
 from fastapi import APIRouter, Query
-from pydantic import BaseModel
 from backend.dependancies import cursorDep
 from backend.database.database_utilis import get_rows, delete_rows
-from psycopg2.extensions import connection
-from typing import List, Union, Optional, Sequence, Annotated
+from typing import List,  Optional, Sequence, Annotated
 
 
 router = APIRouter(

@@ -5,7 +5,7 @@ from psycopg2.extensions import connection
 from fastapi import  Body, HTTPException, APIRouter, Depends,  Query, Response
 from backend.database.database_utilis import create_insert_query, create_select_query, create_delete_query, create_update_query, execute_delete_query, execute_insert_query,execute_update_query, execute_select_query, delete_rows
 from backend.dependancies import get_token_header, cursorDep
-from backend.models.users import  BaseUser, UserPublic, UserInDB, UserUpdate
+from backend.models.users import  BaseUser, UserPublic,  UserUpdate
 from backend.authentification import get_current_active_user, get_hash_password, get_user
 
 

@@ -1,10 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter,  HTTPException
 from backend.dependancies import cursorDep
-from backend.models.collections import CreateCollection, PublicCollection, UpdateCollection, CollectionEntry
+from backend.models.collections import CreateCollection, PublicCollection, UpdateCollection
 from psycopg2.extensions import connection
 from backend.database.database_utilis import execute_insert_query, execute_select_query, execute_delete_query, execute_update_query
-from typing import Annotated
-from backend.database.get_database import get_connection, get_cursor
+
 
 import logging
 

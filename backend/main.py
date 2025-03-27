@@ -3,7 +3,7 @@ from typing import Annotated, Any
 import time, logging
 from backend.authentification import login
 from fastapi.middleware.cors import CORSMiddleware
-from backend.routers import users, cards, sets, collection
+from backend.routers import users, cards, sets, collection, collectionEntry
 
 
 logging.basicConfig(level=logging.INFO)
@@ -32,6 +32,7 @@ app.include_router(users.router)
 app.include_router(cards.router)
 app.include_router(sets.router)
 app.include_router(collection.router)
+app.include_router(collectionEntry.router)
 
 origins =[
     'http://localhost',

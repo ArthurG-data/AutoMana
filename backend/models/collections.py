@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field, field_validator
 from enum import Enum
 from typing import Optional
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID, uuid4
 
 ### Collections schemas
@@ -62,16 +62,20 @@ class Conditions(Enum):
     Grd = 'Grd'
 
 
+
 class CollectionEntry(BaseModel):
-    collection_id : UUID = uuid4()
+    collection_id : UUID
     entry_id : UUID = uuid4()
-    card_version_id : UUID = uuid4()
+    card_version_id : UUID
     is_foil : bool=Field(
         default=False, title='Is the card foil'
     )
-    purchase_data : datetime
-    purchase_price : float
-    condition : Conditions
+    purchase_date : date = Field(default_factory=date.today)
+    purchase_price : float = Field(ge=0)
+    condition : Conditions = Field(
+        default='NM', title='The condition of the card, must be one of NM (near Mint), Grd (graded), G (good), D(Damaged)' 
+    )
+   
 
 class order_items(BaseModel):
     order_id : str
