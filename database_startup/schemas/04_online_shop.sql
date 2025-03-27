@@ -32,7 +32,8 @@ CREATE TABLE IF NOT EXISTS Collections (
     collection_name VARCHAR(100) NOT NULL,
     user_id UUID REFERENCES users(unique_id) ON DELETE CASCADE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    is_active BOOLEAN DEFAULT TRUE
+    is_active BOOLEAN DEFAULT TRUE,
+    UC_Collection UNIQUE (collection_name,user_id)
 );
 
 

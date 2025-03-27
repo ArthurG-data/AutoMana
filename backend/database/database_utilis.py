@@ -95,7 +95,6 @@ def execute_queries(cursor : cursor, query : str, values : Sequence[tuple[Any]] 
         if execute_many:
             cursor.executemany(query, values)
         else:
-            print(query, values)
             cursor.execute(query, values)
         cursor.connection.commit()
     except Exception as e:
@@ -113,12 +112,12 @@ def execute_delete_query(connection : connection, query : str, values : Sequence
     except Exception:
         raise
 
-def execute_insert_query(connection : connection, query : str, values : Sequence[tuple[Any]] | tuple[Any], execute_many = False):
+def execute_insert_query(connection : connection, query : str, values : Sequence[tuple[Any]] | tuple[Any], unique_id = 'unique_id', execute_many = False):
     try:
         with get_cursor(connection) as cursor:
             execute_queries(cursor, query, values, execute_many)
             rows = cursor.fetchall()
-            inserted_ids = [row['unique_id'] for row in rows] 
+            inserted_ids = [row[unique_id] for row in rows] 
 
         return inserted_ids if execute_many else inserted_ids[0]
     except Exception:

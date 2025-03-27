@@ -1,11 +1,14 @@
-from pydantic import BaseModel, Field, field_validator, UUID4
+from pydantic import BaseModel, Field, field_validator
+from enum import Enum
 from typing import Optional
 from datetime import datetime
-from uuid import uuid4
+from uuid import UUID, uuid4
+
+### Collections schemas
 
 class PublicCollection(BaseModel):
     username : str = Field(
-        title='The ucollection owner'
+        title='The ucollection owner',
     )
     
     collection_name : str=Field(
@@ -18,7 +21,8 @@ class PublicCollection(BaseModel):
 
 class CreateCollection(BaseModel):
     collection_name : str=Field(
-        title='The name of the collection'
+        title='The name of the collection',
+        max_length=20
     )
     user_id : str=Field(
         title='The secret user id'
@@ -42,18 +46,32 @@ class CollectionInDB(BaseModel):
     )
 
 class UpdateCollection(BaseModel):
-    collection_name : str | None=None
+    collection_name : str | None=Field(
+        default=None, 
+        max_length=20
+    )
     is_active : bool | None=None
 
+
+### collection entries
+
+class Conditions(Enum):
+    D = 'D'
+    G = 'G'
+    NM = 'NM'
+    Grd = 'Grd'
+
+
 class CollectionEntry(BaseModel):
-    collection_id : str
-    entry_id : str
-    card_version_id : str
-    is_foil : bool
+    collection_id : UUID = uuid4()
+    entry_id : UUID = uuid4()
+    card_version_id : UUID = uuid4()
+    is_foil : bool=Field(
+        default=False, title='Is the card foil'
+    )
     purchase_data : datetime
     purchase_price : float
-    condition : int
-    profit: Optional[float] = None
+    condition : Conditions
 
 class order_items(BaseModel):
     order_id : str

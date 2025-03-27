@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from backend.dependancies import cursorDep
-from backend.models.collections import CreateCollection, PublicCollection, UpdateCollection
+from backend.models.collections import CreateCollection, PublicCollection, UpdateCollection, CollectionEntry
 from psycopg2.extensions import connection
+from backend.database.database_utilis import execute_insert_query, execute_select_query, execute_delete_query, execute_update_query
 from typing import Annotated
 from backend.database.get_database import get_connection, get_cursor
 
@@ -15,32 +16,25 @@ router = APIRouter(
     responses={404:{'description':'Not found'}}
 )
 
+
+
 def create_collection(created_user : CreateCollection, connection : connection )->dict:
     query = "INSERT INTO collections (collection_name, user_id) VALUES (%s, %s)  RETURNING collection_id"
-    with connection.cursor() as cursor:
-        try:
-            cursor.execute(query, (created_user.collection_name, created_user.user_id))
-            connection.commit()
-            row = cursor.fetchone()
-            if row:
-                return {'id' : str(row['collection_id'])}
-            else:
-                raise HTTPException(status_code=500, detail="Failed to retrieve collection ID")
-            
-                
-        except Exception as e:
-            return {'status' : 'error creating collection', 'message': str(e)}
+    try:
+        ids = execute_insert_query(connection, query,  (created_user.collection_name, created_user.user_id), unique_id='collection_id')
+        return{'message' : 'collection successfuly created', 'ids' : ids}
+    except Exception:
+        raise
 
+   
 def collect_collection(collection_id : str, connection : connection) -> dict:
     query = """ SELECT u.username, c.collection_name, c.is_active FROM collections c JOIN users u ON c.user_id = u.unique_id WHERE c.collection_id = %s """
-    with connection.cursor() as cursor:
-        try:
-            cursor.execute(query, (collection_id,))
-            row = cursor.fetchone()
-            return row
-    
-        except Exception as e:
-            return {'status' : 'error fetching collection', 'message': str(e)}
+
+    try:
+        return execute_select_query(connection, query, (collection_id,), select_all=False)
+    except Exception:
+        raise
+
 
 def update_collection(collection_id : str, updated_collection : UpdateCollection , conn : connection)->dict:
     update_fields = {k: v for k, v in updated_collection.model_dump(exclude_unset=True).items()}
@@ -49,27 +43,19 @@ def update_collection(collection_id : str, updated_collection : UpdateCollection
 
     query = "UPDATE collections SET " + ", ".join(f"{k} = %s" for k in update_fields.keys()) + " WHERE collection_id = %s RETURNING collection_id"
     values = tuple(update_fields.values()) + (collection_id,)
-    with conn.cursor() as cursor:
-        cursor.execute(query, values)
-        conn.commit()
-        row = cursor.fetchone()
-
-        if not row:
-            raise HTTPException(status_code=404, detail="Collection not found")
-
-    return {"message": "Collection updated successfully", "collection_id": collection_id}
+    try:
+        execute_update_query(conn, query, values)
+        return {'message' : 'collection data updated', 'ids': collection_id}
+    except Exception:
+        raise
 
 def delete_collection( collection_id : str, connection : connection):
     query = "DELETE FROM collections WHERE collection_id = %s"
-    with connection.cursor() as cursor:
-        try:
-            cursor.execute(query, (collection_id,))
-            connection.commit()
-            return {'message' : 'collection deleted', 'id' : collection_id}
-    
-        except Exception as e:
-            return {'status' : 'error creating collection', 'message': str(e)}
-   
+    try:
+        execute_delete_query(connection, query, (collection_id,))
+        return {'message' : 'collection deleted', 'id' : collection_id}
+    except Exception:
+        raise
     
 @router.post('/')
 async def add_collection(created_user : CreateCollection, connection : cursorDep )->dict:
