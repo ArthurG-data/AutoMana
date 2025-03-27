@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS Ref_Condition (
 
 
 CREATE TABLE IF NOT EXISTS Collections (
-    collection_id SERIAL PRIMARY KEY,
+    collection_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     collection_name VARCHAR(100) NOT NULL,
     user_id UUID REFERENCES users(unique_id) ON DELETE CASCADE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS Collections (
 -- Collection Items (Tracks Owned Cards)
 CREATE TABLE  IF NOT EXISTS CollectionItems (
     item_id UUID PRIMARY KEY,
-    collection_id INT REFERENCES Collections(collection_id) ON DELETE CASCADE,
+    collection_id UUID REFERENCES Collections(collection_id) ON DELETE CASCADE,
     unique_card_id UUID REFERENCES card_version(card_version_id) ON DELETE CASCADE,
     is_foil BOOLEAN DEFAULT FALSE,
     purchase_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
