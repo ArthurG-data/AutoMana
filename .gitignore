@@ -4,3 +4,4 @@
 
 files/
 /backend/__pycache__
+/backend/.pytest_cache
