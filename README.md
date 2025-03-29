@@ -93,7 +93,7 @@
 
 ### Built With
 
-[![FastAPI][FastAPI-logo]][FastAPI-url]
+* [![FastAPI][FastAPI-logo]][FastAPI-url]
 
 [FastAPI-logo]: https://fastapi.tiangolo.com/img/logo-margin/logo-teal.png
 [FastAPI-url]: https://fastapi.tiangolo.com/
