@@ -85,7 +85,23 @@
 
 [![Product Name Screen Shot][product-screenshot]](https://example.com)
 
+# MTG Collection Tracker (Backend)
 
+A backend service for managing **Magic: The Gathering (MTG) collections** and automating **card sales**. This project provides the foundational backend and database for tracking MTG cards, storing user data, and preparing for future features like price tracking and automated eBay posting.
+
+## Key Features (Completed)
+
+✔ **Database Design** – Structured database for storing MTG card data, user collections, and other related information.  
+✔ **CRUD Operations** – Backend endpoints to create, read, update, and delete collection entries.  
+✔ **Authentication & Authorization** – User accounts to securely manage collections.
+
+## Tech Stack
+
+🔹 **Backend:** FastAPI (Python)  
+🔹 **Database:** PostgreSQL  
+🔹 **Authentication:** OAuth2, JWT
+
+This project lays the groundwork for a comprehensive MTG collection management system, with future plans for price tracking, sales automation, and a user-friendly frontend interface.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
