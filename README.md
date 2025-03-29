@@ -93,10 +93,7 @@
 
 ### Built With
 
-* [![FastAPI][FastAPI-logo]][FastAPI-url]
-
-[FastAPI-logo]: https://fastapi.tiangolo.com/img/logo-margin/logo-teal.png
-[FastAPI-url]: https://fastapi.tiangolo.com/
+* [![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
