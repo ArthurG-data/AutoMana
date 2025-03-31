@@ -1,5 +1,5 @@
 import logging, os
-from psycopg2.extras import RealDictCursor
+from psycopg2.extras import RealDictCursor, register_uuid, register_uuid
 from typing import  Any, Generator
 from pathlib import Path
 from dotenv import load_dotenv
@@ -11,6 +11,8 @@ ENV_PATH = BASE_DIR / ".env"
 load_dotenv(ENV_PATH)
 
 logging.basicConfig(level=logging.ERROR)
+
+register_uuid()
 
 db_pool = pool.SimpleConnectionPool(
     minconn=1,

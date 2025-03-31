@@ -107,8 +107,7 @@ def execute_delete_query(connection : connection, query : str, values : Sequence
         with get_cursor(connection) as cursor:
             execute_queries(cursor, query, values, execute_many)
             connection.commit()
-            if cursor.rowcount == 0:
-                raise HTTPException(status_code=404, detail="User not found")
+            return Response(status_code=204)    
     except Exception:
         raise
 
@@ -138,8 +137,10 @@ def execute_update_query(connection : connection, query : str, values : Sequence
     try:
         with get_cursor(connection) as cursor:
             execute_queries(cursor, query, values, execute_many)
+            return Response(status_code=204)
             
     except Exception:
+        connection
         raise
 
 
