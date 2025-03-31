@@ -1,4 +1,5 @@
 from pydantic import BaseModel, Field, EmailStr
+from uuid import UUID
 
 class BaseUser(BaseModel):
     username : str = Field(
@@ -28,7 +29,7 @@ class UserPublic(BaseModel):
     ) 
 
 class UserInDB(BaseUser):
-    unique_id : str
+    unique_id : UUID
 
 class UserUpdate(BaseModel):
     username: str | None=None

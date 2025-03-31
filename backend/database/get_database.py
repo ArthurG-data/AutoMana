@@ -6,8 +6,10 @@ from dotenv import load_dotenv
 from psycopg2.extensions import connection, cursor
 from psycopg2 import pool
 
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parent.parent
 ENV_PATH = BASE_DIR / ".env"
+
+
 load_dotenv(ENV_PATH)
 
 logging.basicConfig(level=logging.ERROR)
@@ -21,7 +23,7 @@ db_pool = pool.SimpleConnectionPool(
     database=os.getenv('POSTGRES_DB'),
     user=os.getenv('POSTGRES_USER'),
     password=os.getenv('POSTGRES_PASSWORD'),
-    cursor_factory=RealDictCursor
+    cursor_factory=RealDictCursor,
 )
 
 

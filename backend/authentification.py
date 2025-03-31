@@ -6,6 +6,10 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi import Depends, HTTPException, status
 from jwt.exceptions import InvalidTokenError
 from passlib.context import CryptContext
+from psycopg2.extensions import connection
+from backend.database.get_database import get_connection
+from backend.database.database_utilis import execute_select_query
+from backend.dependancies import cursorDep
 
 
 from backend.models.users import BaseUser, UserInDB
@@ -41,13 +45,20 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 
-def get_user(db, username: str):
-    if username in db:
-        user_dict = db[username]
-        return UserInDB(**user_dict)
+
+
+def get_user(conn : connection, username: str)-> UserInDB:
+    query = "SELECT * FROM users WHERE username = %s"
+    try:
+        user = execute_select_query(conn,query, (username,), select_all=False)
+        if user:
+            return UserInDB(**user)
+    except Exception:
+        raise 
     
-def authenticate_user(db, username : str, password : str):
-    user = get_user(db, username)
+def authenticate_user(conn : connection, username : str, password : str):
+    user = get_user(conn, username)
+   
     if not user:
         return False
     if not verify_password(password, user.hashed_password):
@@ -92,8 +103,9 @@ async def get_current_active_user(
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user
 
-async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> Token:
-    user = authenticate_user(fake_users_db, form_data.username, form_data.password)
+async def login(conn : cursorDep , form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> Token:
+    user = authenticate_user(conn, form_data.username, form_data.password)
+  
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -102,7 +114,7 @@ async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> T
         )
     access_token_expires = timedelta(minutes=int(os.getenv('ACCESS_TOKEN_EXPIRY')))
     access_token = create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
+        data={"sub": user.username, "id" : str(user.unique_id)}, expires_delta=access_token_expires
     )
     return Token(access_token=access_token, token_type="bearer")
 
