@@ -3,7 +3,7 @@ from backend.dependancies import cursorDep
 from backend.models.collections import CreateCollection, PublicCollection, UpdateCollection
 from psycopg2.extensions import connection
 from backend.database.database_utilis import execute_insert_query, execute_select_query, execute_delete_query, execute_update_query
-
+from typing import List, Optional
 
 import logging
 
@@ -26,11 +26,14 @@ def create_collection(created_user : CreateCollection, connection : connection )
         raise
 
    
-def collect_collection(collection_id : str, connection : connection) -> dict:
-    query = """ SELECT u.username, c.collection_name, c.is_active FROM collections c JOIN users u ON c.user_id = u.unique_id WHERE c.collection_id = %s """
+def collect_collection(collection_id : Optional[str] , connection : connection) -> dict:
+
+    query = """ SELECT u.username, c.collection_name, c.is_active FROM collections c JOIN users u ON c.user_id = u.unique_id """
+    if collection_id:
+        query.join('WHERE c.collection_id = %s')
 
     try:
-        return execute_select_query(connection, query, (collection_id,), select_all=False)
+        return execute_select_query(connection, query, values=(collection_id,), select_all=False)
     except Exception:
         raise
 
@@ -68,6 +71,10 @@ async def remove_collection(collection_id : str, connection : cursorDep):
 @router.get('/{collection_id}', response_model=PublicCollection)
 async def get_collection(collection_id : str, conn : cursorDep):
     return collect_collection(collection_id, conn)
+
+@router.get('/', response_model=List[PublicCollection])
+async def get_collection(conn : cursorDep):
+    return collect_collection(conn)
 
 @router.put('/{collection_id}')
 async def change_collection(collection_id : str, updated_collection : UpdateCollection , conn : cursorDep):
