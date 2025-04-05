@@ -173,8 +173,10 @@ def delete_rows(connection : connection,
                 query_creator_function : Callable,
                 values: Optional[str|Sequence[str]]=None,
                 ):
-    is_list = isinstance(values, list)  
+    is_list = isinstance(values, list)
+   
     query = query_creator_function(is_list, values)
+    print(query)
     try:
         execute_delete_query(connection, query, values, execute_many=False)
         return Response(status_code=204)

@@ -1,7 +1,8 @@
 from backend.models.sets import  SetwCount, NewSet, UpdatedSet
 from fastapi import APIRouter, Query
+from fastapi.responses import JSONResponse
 from backend.dependancies import cursorDep
-from backend.database.database_utilis import get_rows, delete_rows, execute_insert_query, execute_update_query
+from backend.database.database_utilis import get_rows,  execute_insert_query, execute_update_query,execute_delete_query, create_delete_query
 from typing import List,  Optional, Sequence, Annotated
 from psycopg2.extensions import connection
 from uuid import UUID
@@ -54,17 +55,45 @@ def post_set(conn : connection, new_set : NewSet):
                 ),
                 get_parent_set AS (
                 SELECT set_id FROM sets WHERE set_name = %s
-                )
-                INSERT INTO sets (set_name, set_code, set_type_id, released_at,digital,  foil_status_id, parent_set)
-                SELECT %s, %s, gst.set_type_id, %s,%s, gfr.foil_status_id, gps.set_id
-                FROM get_foil_ref gfr
-                JOIN get_set_type gst ON TRUE
-                LEFT JOIN get_parent_set gps ON TRUE
-                RETURNING set_id;
+                ),
+                insert_set AS (
+                    INSERT INTO sets (
+                        set_name, set_code, set_type_id, released_at,
+                        digital, foil_status_id, parent_set
+                    )
+                    SELECT
+                        %s, %s, gst.set_type_id, %s ,
+                        %s, gfr.foil_status_id, gps.set_id
+                    FROM get_foil_ref gfr
+                    JOIN get_set_type gst ON TRUE
+                    LEFT JOIN get_parent_set gps ON TRUE
+                    ON CONFLICT (set_name) DO NOTHING
+                    RETURNING set_id
+                    )
+                SELECT set_id FROM insert_set
+                UNION
+                SELECT set_id FROM sets WHERE set_name = 'test_set';
  """
+    params = (
+    new_set.foil_status_id, new_set.foil_status_id,  # 1–2
+    new_set.set_type, new_set.set_type,              # 3–4
+    new_set.parent_set,                              # 5 — for get_parent_set
+    new_set.set_name, new_set.set_code,              # 6–7
+    new_set.released_at, new_set.digital             # 8–9
+)
+
     try:
-        id = execute_insert_query(conn, query, (new_set.foil_status_id, new_set.foil_status_id, new_set.set_type, new_set.set_type))
-        return new_set
+        ids =  execute_insert_query(conn, query,params, unique_id='set_id')
+        return JSONResponse(
+            status_code=201,
+            content={
+                "status": "success",
+                "message": "Set created or fetched successfully.",
+                "data": {
+                    "set_ids": str(ids)
+                }
+            }
+        )
     except Exception:
         raise
    
@@ -80,9 +109,16 @@ async def get_sets(connection: cursorDep,
     return  get_rows(connection, get_query_creator, set_id, limit=limit, offset=offset, select_all=True)
 
 @router.delete('/{set_id}')
-async def delete_set(connection: cursorDep,
-                    set_id : str):
-    return delete_rows(connection, get_query_creator, values=set_id)
+async def delete_set(conn: cursorDep,
+                    set_id : UUID):
+    query=create_delete_query('sets', ['set_id = %s'])
+    print(query)
+    try:
+        return execute_delete_query(conn, query, (str(set_id),), execute_many=False)
+    except Exception:
+        conn.rollback()
+        raise
+
 
 
 @router.post('/')
