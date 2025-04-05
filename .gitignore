@@ -2,7 +2,7 @@
 .env/
 *.env
 
-files/
+database_startup/files/
 
 /backend/.pytest_cache
 

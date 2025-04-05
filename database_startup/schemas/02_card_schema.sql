@@ -113,7 +113,14 @@ CREATE TABLE IF NOT EXISTS illustrations (
 );
 
 
-
+CREATE OR REPLACE VIEW card_version_count AS
+SELECT
+    uc.card_id,
+    uc.name,
+    COUNT(cv.version_id) AS version_count
+FROM unique_card uc
+LEFT JOIN card_version cv ON uc.card_id = cv.card_id
+GROUP BY uc.card_id, uc.name;
 /*
 CREATE INDEX idx_card_types_category ON card_types (type_category);
 CREATE INDEX idx_card_types_name ON card_types (type_name);
