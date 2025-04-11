@@ -52,7 +52,8 @@ class BaseCard(BaseModel):
 class CreateCard(BaseCard):
     artist: str = Field(max_length=100)
     illustration_id: Optional[UUID] = None
-    collector_number: Union[int, str] = Field(max_length=20)
+    mana_cost : str=Field(max_length=100)
+    collector_number: Union[int, str] = Field(max_length=50)
     border_color: str = Field(max_length=20)
     frame: str = Field(max_length=20)
     layout: str = Field(max_length=20)
@@ -66,6 +67,7 @@ class CreateCard(BaseCard):
     supertypes: List[str] = []
     types: List[str] = []
     subtypes: List[str] = []
+    reserved : bool=Field(default=False)
    
     @model_validator(mode='after')
     def process_type_line(cls, values):
