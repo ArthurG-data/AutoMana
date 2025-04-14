@@ -1,18 +1,19 @@
 
+
 from typing import Annotated,  Union, Optional, List
 from psycopg2 import Error
 from psycopg2.extensions import connection
 from fastapi import  Body, HTTPException, APIRouter, Depends,  Query, Response
 from backend.database.database_utilis import create_insert_query, create_select_query, create_delete_query, create_update_query, execute_delete_query, execute_insert_query,execute_update_query, execute_select_query, delete_rows
-from backend.dependancies import get_token_header, cursorDep
-from backend.models.users import  BaseUser, UserPublic,  UserUpdate
-from backend.authentification import get_current_active_user, get_hash_password
+from backend.models.users import  BaseUser, UserPublic,  UserUpdate, Session
+from backend.authentification import get_current_user, get_hash_password, get_current_active_user, check_token_validity
+from backend.dependancies import cursorDep
 
 
 router = APIRouter(
     prefix='/users',
     tags=['users'],
-    dependencies=[Depends(get_token_header)],
+    dependencies=[Depends(check_token_validity)],
     responses={404:{'description' : 'Not found'}}
 )
 
@@ -124,6 +125,11 @@ async def user_endpoints( connection : cursorDep,
                         usernames : Annotated[list[str] , Query(title='Query string')] = None):
     return get_users(usernames=usernames,limit=limit, offset=offset, connection=connection)
 
+@router.get('/test')
+async def test():
+    return {'status' : 'ok'}
+
+
 @router.get('/{username}', response_model=UserPublic) 
 async def user_endpoint( connection : cursorDep,
                          username : str):
@@ -156,3 +162,19 @@ async def add_user( user: BaseUser,  connexion: cursorDep) -> dict:
 async def modify_user(username : str, user_update: UserUpdate, connection : cursorDep):
     update_user(username, user_update, connection)
 
+@router.post('/session')
+async def create_session(session : Session, connection : cursorDep):
+    return session
+
+@router.get('/refresh')
+async def refresh_access_token():
+    pass
+
+@router.get('/logout')
+async def logout_user():
+    pass
+
+
+@router.get('/test')
+async def test():
+    return {'status' : 'ok'}

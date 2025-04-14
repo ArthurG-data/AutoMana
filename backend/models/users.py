@@ -1,5 +1,7 @@
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field, EmailStr, model_validator
+from typing import Optional
 from uuid import UUID
+from datetime import datetime, timedelta, timezone
 
 class BaseUser(BaseModel):
     username : str = Field(
@@ -35,3 +37,19 @@ class UserUpdate(BaseModel):
     username: str | None=None
     email: str | None=None
     fullname:str | None=None
+
+class Session(BaseModel):
+    user_id : UUID
+    created_at : datetime = Field(default_factory=datetime.now)
+    expires_at : Optional[datetime] = None
+    ip_address : str = Field(max_length=64)
+    user_agent : str
+    active : Optional[bool] = None
+
+    @model_validator(mode='after')
+    def set_expiry(cls, values):
+        if not values.expires_at:
+            values.expires_at = values.created_at + timedelta(seconds=7200)
+        values.active = values.expires_at > datetime.now(timezone.utc)
+        return values
+        

@@ -1,19 +1,17 @@
-import jwt, os
+import os
+import jwt
+from datetime import datetime
 from dotenv import load_dotenv
-from typing import Annotated
+from typing import Annotated, Optional
 from datetime import datetime, timedelta, timezone
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from fastapi import Depends, HTTPException, status
-from jwt.exceptions import InvalidTokenError
+from fastapi.security import OAuth2PasswordBearer
+from fastapi import Depends, HTTPException, status, Request
 from passlib.context import CryptContext
 from psycopg2.extensions import connection
-from backend.database.get_database import get_connection
 from backend.database.database_utilis import execute_select_query
 from backend.dependancies import cursorDep
+from backend.models.users import BaseUser, UserInDB, Session
 
-
-from backend.models.users import BaseUser, UserInDB
-from backend.models.utils import Token,TokenData
 
 
 load_dotenv()
@@ -42,7 +40,7 @@ def get_hash_password(password: str):
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="aut/login")
 
 
 
@@ -55,6 +53,18 @@ def get_user(conn : connection, username: str)-> UserInDB:
             return UserInDB(**user)
     except Exception:
         raise 
+
+
+def create_session(conn: connection, new_session : Session):
+    query = "INSERT INTO sessions (user_id, created_at, expires_at, ip_address, user_agent, active) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id"
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(query, new_session.model_dump())
+            session_id = cursor.fetchone()
+            print(session_id)
+        conn.commit()
+    except Exception:
+        raise
     
 def authenticate_user(conn : connection, username : str, password : str):
     user = get_user(conn, username)
@@ -65,6 +75,8 @@ def authenticate_user(conn : connection, username : str, password : str):
         return False
     return user
     
+
+
 def create_access_token(data: dict, expires_delta: timedelta | None = None):
     to_encode = data.copy()
     if expires_delta:
@@ -75,24 +87,42 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     encoded_jwt = jwt.encode(to_encode, os.getenv('SECRET_KEY'), os.getenv('ENCRYPT_ALGORITHM'))
     return encoded_jwt
 
+def decode_access_token(token : str) ->dict:
+    try:
+        payload =  jwt.decode(token, os.getenv('SECRET_KEY'), algorithms=[os.getenv('ENCRYPT_ALGORITHM')])
+        return payload
+    except jwt.ExpiredSignatureError:
+        raise Exception("Token expired")
+    except jwt.InvalidTokenError:
+        raise Exception("Invalid token")
 
-
-async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
+async def get_current_user(request : Request, conn = Depends(cursorDep)):
+    print(request)
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    try:
-        payload = jwt.decode(token, os.getenv('SECRET_KEY'), algorithms=[os.getenv('ENCRYPT_ALGORITHM')])
-        username = payload.get("sub")
-        if username is None:
-            raise credentials_exception
-        token_data = TokenData(username=username)
-    except InvalidTokenError:
+    token = None
+    auth = request.headers.get("Authorization")
+
+    if auth and auth.lower().startswith("bearer "):
+        token = auth.split(" ", 1)[1]
+
+    elif 'access_token' in request.cookies:
+        token = request.cookies.get('access_token')
+    else:
         raise credentials_exception
-    user = get_user(cursorDep, username=token_data.username)
-    if user is None:
+    try:
+        payload = decode_access_token(token)
+        username = payload.get("sub")
+        if not username:
+            raise credentials_exception
+    except Exception:
+        raise credentials_exception
+    
+    user = get_user(conn, username=username)
+    if not user:
         raise credentials_exception
     return user
 
@@ -103,18 +133,19 @@ async def get_current_active_user(
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user
 
-async def login(conn : cursorDep , form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> Token:
-    user = authenticate_user(conn, form_data.username, form_data.password)
-  
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    access_token_expires = timedelta(minutes=int(os.getenv('ACCESS_TOKEN_EXPIRY')))
-    access_token = create_access_token(
-        data={"sub": user.username, "id" : str(user.unique_id)}, expires_delta=access_token_expires
-    )
-    return Token(access_token=access_token, token_type="bearer")
+async def check_token_validity(request : Request):
+    token = None
+    auth = request.headers.get("Authorization")
 
+    if auth and auth.lower().startswith("bearer "):
+        token = auth.split(" ", 1)[1]
+
+    elif 'access_token' in request.cookies:
+        token = request.cookies.get('access_token')
+    if not token:
+        raise HTTPException(status_code=401, detail='No Token')
+    try:
+        payload = decode_access_token(token)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Token invalid")
+  
