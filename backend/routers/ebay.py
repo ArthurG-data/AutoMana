@@ -74,6 +74,10 @@ async def exange_auth(settings : Annotated[Settings, Depends(get_settings)], cod
 
     return token_response
 
+@ebay_router.get('/refresh')
+async def refrech_token(token : str):
+    pass
+
 @ebay_router.get('/settings')
 async def get_settings(settings : Annotated[dict, Depends(get_settings)]):
     return settings

@@ -9,7 +9,7 @@ from uuid import UUID
 router =  APIRouter(
     prefix = '/inventory',
     tags = ['inventory'],
-    dependencies=[]
+
 )
 
 

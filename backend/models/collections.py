@@ -24,9 +24,7 @@ class CreateCollection(BaseModel):
         title='The name of the collection',
         max_length=20
     )
-    user_id : str=Field(
-        title='The secret user id'
-    )
+   
 class CollectionInDB(BaseModel):
     collection_id : str=Field(
         title='The unique secret collection id',

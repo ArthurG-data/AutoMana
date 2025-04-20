@@ -5,6 +5,7 @@ from backend.database.get_database import connection, get_connection
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 
+
 class Settings(BaseSettings):
     postgres_host : str
     postgres_password : str
@@ -25,6 +26,7 @@ def get_settings():
     return Settings()
 
 
+    
 async def get_token_header(x_token: Annotated[str, Header()]):
     if x_token != "fake-super-secret-token":
         raise HTTPException(status_code=400, detail="X-Token header invalid")

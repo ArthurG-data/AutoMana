@@ -1,9 +1,9 @@
 from fastapi import FastAPI, Depends, Request
 from typing import Annotated, Any
 import time, logging
-#from backend.authentification import login
 from fastapi.middleware.cors import CORSMiddleware
-from backend.routers import users, cards, sets, collection, collectionEntry, ebay, authentification
+from backend.routers import sets, users, cards, collection, collectionEntry, ebay, authentification
+from backend.routers.internal import admin_router
 
 
 logging.basicConfig(level=logging.INFO)
@@ -36,6 +36,7 @@ app.include_router(collection.router)
 app.include_router(collectionEntry.router)
 app.include_router(ebay.ebay_router)
 app.include_router(authentification.authentification_router)
+app.include_router(admin_router)
 origins =[
     'http://localhost',
     'http://localhost:8080'
@@ -57,14 +58,6 @@ async def add_process_time_header(request: Request, call_next):
     process_time = time.perf_counter() - start_time
     response.headers['X-Process-Time'] = str(process_time)
     return response
-
-
-'''
-@app.post("/token", tags=['users'])
-async def token_endpoint(auth_data: dict = Depends(login)):
-    return auth_data
-'''
-
 
 @app.get('/')
 async def root():

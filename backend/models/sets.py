@@ -15,7 +15,7 @@ class BaseSet(BaseModel):
 
 
 class SetInDB(BaseSet):
-    set_id : str=Field(
+    set_id : UUID=Field(
     title='The id in the database'
 )
     set_type : str = Field(
@@ -38,12 +38,14 @@ class SetwCount(SetInDB):
 
 
 class NewSet(BaseModel):
+    set_id : UUID
     set_name : str=Field(max_length=100)
     set_code : str=Field(max_length=10)
     set_type : str=Field(max_length=30)
     released_at : datetime.date
     digital : bool=Field(default=False)
-    foil_status_id : str=Field(max_length=20)
+    nonfoil_only : bool=Field(default=False)
+    foil_only : bool=Field(default=False)
     parent_set : Optional[str]=None
  
 class UpdatedSet(BaseModel):
