@@ -29,14 +29,14 @@ def collect_collection(collection_id : Optional[str] , connection : connection, 
     query = """ SELECT u.username, c.collection_name, c.is_active 
                 FROM collections c JOIN users u 
                 ON c.user_id = u.unique_id 
-                WHERE c.user_id = %s """
+                WHERE c.user_id = %s AND c.is_active = True"""
     values = (user.unique_id,)
-    if collection_id :
+    if collection_id:
         query.join('AND c.collection_id = %s')
         values= (user.unique_id, collection_id,)
 
     try:
-        return execute_select_query(connection, query, values=values, select_all=False)
+        return execute_select_query(connection, query, values=values, select_all=True)
     except Exception:
         raise
 
@@ -55,7 +55,7 @@ def update_collection(collection_id : str, updated_collection : UpdateCollection
         raise
 
 def delete_collection( collection_id : str, connection : connection, user : UserInDB = Depends(get_current_active_user)):
-    query = "DELETE FROM collections WHERE collection_id = %s AND user_id = %s"
+    query = "UPDATE collections set is_active = False WHERE collection_id = %s AND user_id = %s"
     try:
         execute_delete_query(connection, query, (collection_id,user.unique_id))
         return {'message' : 'collection deleted', 'id' : collection_id}
@@ -78,7 +78,8 @@ async def get_collection(collection_id : str, conn : cursorDep, current_user = D
 
 @router.get('/', response_model=List[PublicCollection])
 async def get_collection(conn : cursorDep, current_user = Depends(get_current_user)):
-    return collect_collection(connextion = conn, user=current_user)
+    collections = collect_collection(collection_id=None, connection = conn, user=current_user)
+    return collections
 
 @router.put('/{collection_id}', status_code=204)
 async def change_collection(collection_id : str, updated_collection : UpdateCollection , conn : cursorDep,  current_user = Depends(get_current_user)):

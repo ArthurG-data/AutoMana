@@ -1,12 +1,10 @@
-from fastapi import APIRouter,  HTTPException, Depends
-from typing import Annotated
-from backend.models.users import UserInDB
+from fastapi import APIRouter,  Depends
 from backend.dependancies import cursorDep
-from backend.models.collections import CreateCollection, PublicCollection, UpdateCollection
+from backend.models.collections import PublicCollection
 from psycopg2.extensions import connection
-from backend.database.database_utilis import execute_insert_query, execute_select_query, execute_delete_query, execute_update_query
+from backend.database.database_utilis import  execute_select_query, execute_delete_query
 from typing import List, Optional
-from backend.authentification import get_current_user, get_hash_password, get_current_active_user, check_token_validity
+
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -14,16 +12,33 @@ logging.basicConfig(level=logging.INFO)
 collection_router = APIRouter(
     prefix='/collections',
     tags=['admin-collection'],
-    dependencies=[Depends(check_token_validity)],
     responses={404:{'description':'Not found'}}
 )
 
 
+   
+def collect_collection(collection_id : Optional[str] , connection : connection)-> dict:
 
-@collection_router.post('/')
-async def add_collection(created_collection : CreateCollection, connection : cursorDep , current_user = Depends(get_current_user))->dict:
+    query = """ SELECT u.username, c.collection_name, c.is_active 
+                FROM collections c JOIN users u 
+                ON c.user_id = u.unique_id 
+                WHERE c.user_id = %s """
+    if collection_id :
+        query.join('AND c.collection_id = %s')
+        values= (collection_id,)
+    try:
+        return execute_select_query(connection, query, values=values, select_all=True)
+    except Exception:
+        raise
+
+def delete_collection( collection_id : str, connection : connection, ):
+    query = "DELETE FROM collections WHERE collection_id = %s "
+    try:
+        execute_delete_query(connection, query, (collection_id,))
+        return {'message' : 'collection deleted', 'id' : collection_id}
+    except Exception:
+        raise
     
-    return create_collection(created_collection, connection)
 
 @collection_router.delete('/{collection_id}')
 async def remove_collection(collection_id : str, connection : cursorDep):
@@ -38,6 +53,3 @@ async def get_collection(collection_id : str, conn : cursorDep):
 async def get_collection(conn : cursorDep):
     return collect_collection(conn)
 
-@collection_router.put('/{collection_id}')
-async def change_collection(collection_id : str, updated_collection : UpdateCollection , conn : cursorDep):
-    return update_collection(collection_id, updated_collection, conn)
