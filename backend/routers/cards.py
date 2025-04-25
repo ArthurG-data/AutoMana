@@ -1,9 +1,10 @@
+from uuid import UUID
 import logging
 from fastapi import APIRouter, Depends, Path, HTTPException, Query
 from typing import Annotated, Union, Sequence, Optional, List
 from backend.dependancies import get_token_header
-from backend.models.cards import BaseCard
-from backend.database.database_utilis import create_delete_query,create_insert_query,create_select_query,create_update_query, execute_queries, execute_select_query
+from backend.models.cards import BaseCard, CreateCard
+from backend.database.database_utilis import create_delete_query,create_insert_query,create_select_query,create_update_query, execute_select_query, execute_delete_query, execute_insert_query
 from backend.dependancies import cursorDep
 from psycopg2.extensions import connection
 
@@ -11,7 +12,6 @@ from psycopg2.extensions import connection
 router = APIRouter(
     prefix='/cards',
     tags=['cards'],
-    dependencies=[Depends(get_token_header)],
     responses={404:{'description' : 'Not found'}}
 )
 
@@ -19,8 +19,8 @@ router = APIRouter(
         
     #query = create_select_query('card_version',['card_version_id'], conditions_list=['card_version_id = %s'])
 
-def get_cards_info(connection: connection,
-                        card_id : Optional[str|Sequence[str]]=None, 
+def get_cards_info(conn: connection,
+                        card_id : Optional[UUID|Sequence[UUID]]=None, 
                         limit : Annotated[int, Query(le=100)]=100,
                         offset: int = 0,
                         select_all : bool = True)-> Union[List[BaseCard] , BaseCard]:
@@ -42,19 +42,23 @@ def get_cards_info(connection: connection,
     query += ";"
 
     try:
-        cards = execute_select_query(connection, query, values, execute_many=False, select_all=select_all)
+        cards = execute_select_query(conn, query, values, execute_many=False, select_all=select_all)
         return cards
     except Exception:
         raise
     
 
+
+
+    #return {"received": len(cards), "cards": cards}
+ 
 @router.get('/{card_id}', response_model=BaseCard)
-async def get_card_info(connection: cursorDep, card_id : str, limit : int=100, offset : int=0 ):
-    return  get_cards_info(connection, card_id, limit, offset, select_all=False )
+async def get_card_info(card_id : str, limit : int=100, offset : int=0 , conn : connection=Depends(cursorDep)):
+    return  get_cards_info(conn, card_id, limit, offset, select_all=False )
     
 @router.get('/', response_model=List[BaseCard])
-async def get_all_cards(connection: cursorDep,  limit : int=100, offset : int=0 ):
-    return  get_cards_info(connection, limit=limit, offset=offset , select_all=True)
+async def get_all_cards(limit : int=100, offset : int=0 , conn : connection=Depends(cursorDep)):
+    return  get_cards_info(conn, limit=limit, offset=offset , select_all=True)
 
 async def read_card(card_id : Annotated[str, Path(title='The unique version id of the card to get', min_length=36, max_length=36)],  connection: cursorDep ) -> list[BaseCard]  :
     query = create_select_query('card_version',['card_version_id'], conditions_list=['card_version_id = %s'])

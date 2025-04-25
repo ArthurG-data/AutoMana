@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field, field_validator
 from enum import Enum
 from typing import Optional
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID, uuid4
 
 ### Collections schemas
@@ -24,9 +24,7 @@ class CreateCollection(BaseModel):
         title='The name of the collection',
         max_length=20
     )
-    user_id : str=Field(
-        title='The secret user id'
-    )
+   
 class CollectionInDB(BaseModel):
     collection_id : str=Field(
         title='The unique secret collection id',
@@ -62,17 +60,30 @@ class Conditions(Enum):
     Grd = 'Grd'
 
 
-class CollectionEntry(BaseModel):
-    collection_id : UUID = uuid4()
-    entry_id : UUID = uuid4()
-    card_version_id : UUID = uuid4()
+
+class PublicCollectionEntry(BaseModel):
+    unique_card_id : UUID=Field(title='The card ID')
     is_foil : bool=Field(
         default=False, title='Is the card foil'
     )
-    purchase_data : datetime
-    purchase_price : float
-    condition : Conditions
+    purchase_date : date = Field(default_factory=date.today)
+    purchase_price : float = Field(ge=0)
+    condition : Conditions = Field(
+        default='NM', title='The condition of the card, must be one of NM (near Mint), Grd (graded), G (good), D(Damaged)' 
+    )
 
+class NewCollectionEntry(PublicCollectionEntry):
+    collection_id : UUID=Field(title='The collection ID')
+   
+class CollectionEntryInDB(NewCollectionEntry):
+    item_id : UUID
+
+class UpdateCollectionEntry(BaseModel):
+    is_foil : Optional[bool] =None
+    purchase_date : Optional[date] = None
+    purchase_price : Optional[float] = None
+    condition : Optional[Conditions] = None
+   
 class order_items(BaseModel):
     order_id : str
     entry_id : str

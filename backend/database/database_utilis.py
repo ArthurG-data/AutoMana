@@ -36,7 +36,9 @@ def create_update_query(table : str, updates : Sequence[str], conditions : Seque
 def create_select_query(
     table: str, 
     return_columns: Sequence[str] | None=None, 
-    conditions_list: Optional[Sequence[str]] = None, 
+    conditions_list: Optional[Sequence[str]] = None,
+    limit : Optional[int]= None, 
+    offset : Optional[int]= None, 
     order_by: Optional[str] = None, 
 ) -> str:
     """
@@ -59,10 +61,10 @@ def create_select_query(
     if order_by:
         query += f" ORDER BY {order_by}"
 
-    
-    query += f" LIMIT %s "
-    
-    query += f" OFFSET %s "
+    if limit:
+        query += f" LIMIT %s "
+    if offset is not None:
+        query += f" OFFSET %s "
 
     return query
 
@@ -107,8 +109,7 @@ def execute_delete_query(connection : connection, query : str, values : Sequence
         with get_cursor(connection) as cursor:
             execute_queries(cursor, query, values, execute_many)
             connection.commit()
-            if cursor.rowcount == 0:
-                raise HTTPException(status_code=404, detail="User not found")
+            return Response(status_code=204)    
     except Exception:
         raise
 
@@ -138,8 +139,10 @@ def execute_update_query(connection : connection, query : str, values : Sequence
     try:
         with get_cursor(connection) as cursor:
             execute_queries(cursor, query, values, execute_many)
+            return Response(status_code=204)
             
     except Exception:
+        connection
         raise
 
 
@@ -172,8 +175,10 @@ def delete_rows(connection : connection,
                 query_creator_function : Callable,
                 values: Optional[str|Sequence[str]]=None,
                 ):
-    is_list = isinstance(values, list)  
+    is_list = isinstance(values, list)
+   
     query = query_creator_function(is_list, values)
+    print(query)
     try:
         execute_delete_query(connection, query, values, execute_many=False)
         return Response(status_code=204)

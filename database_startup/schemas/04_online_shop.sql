@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS Collections (
 
 -- Collection Items (Tracks Owned Cards)
 CREATE TABLE  IF NOT EXISTS CollectionItems (
-    item_id UUID PRIMARY KEY,
+    item_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     collection_id UUID REFERENCES Collections(collection_id) ON DELETE CASCADE,
     unique_card_id UUID REFERENCES card_version(card_version_id) ON DELETE CASCADE,
     is_foil BOOLEAN DEFAULT FALSE,

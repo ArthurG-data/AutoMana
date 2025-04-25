@@ -1,7 +1,7 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 CREATE TABLE IF NOT EXISTS unique_cards_ref (
-    unique_card_id UUID PRIMARY KEY,
+    unique_card_id UUID PRIMARY KEY DEFAULT uuid_generate_v4() ON DELETE CASCADE,
     card_name TEXT NOT NULL UNIQUE,
     cmc int,
     mana_cost VARCHAR(50),
@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS rarities_ref (
 
 
 CREATE TABLE IF NOT EXISTS artists_ref (
-    artist_id uuid PRIMARY KEY,
+    artist_id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
     artist_name VARCHAR(50) NOT NULL UNIQUE
 );
 
@@ -92,7 +92,7 @@ CREATE TABLE IF NOT EXISTS legalities (
 
 
 CREATE TABLE IF NOT EXISTS card_version (
-    card_version_id UUID PRIMARY KEY,
+    card_version_id UUID PRIMARY KEY DEFAULT uuid_generate_v4() ON DELETE CASCADE,
     unique_card_id UUID NOT NULL REFERENCES unique_cards_ref(unique_card_id) ON DELETE CASCADE,
     oracle_text TEXT,
     set_id UUID NOT NULL REFERENCES sets(set_id),
@@ -113,7 +113,14 @@ CREATE TABLE IF NOT EXISTS illustrations (
 );
 
 
-
+CREATE OR REPLACE VIEW card_version_count AS
+SELECT
+    uc.card_id,
+    uc.name,
+    COUNT(cv.version_id) AS version_count
+FROM unique_card uc
+LEFT JOIN card_version cv ON uc.card_id = cv.card_id
+GROUP BY uc.card_id, uc.name;
 /*
 CREATE INDEX idx_card_types_category ON card_types (type_category);
 CREATE INDEX idx_card_types_name ON card_types (type_name);

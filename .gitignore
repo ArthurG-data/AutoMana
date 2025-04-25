@@ -2,6 +2,12 @@
 .env/
 *.env
 
-files/
-/backend/__pycache__
+database_startup/files/
+
 /backend/.pytest_cache
+
+# Ignore Python cache files
+*__pycache__/
+*.pyc
+*.pyo
+*.pyd

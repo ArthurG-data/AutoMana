@@ -1,8 +1,8 @@
-import glob
+import glob, os
 import aiohttp, asyncio
 from table_population import populate_cards, populate_set
-from backend.database.get_database import get_connection
-#from backend.database.get_database import get_connection, get_cursor
+#from backend.database.get_database import get_connection
+
 
 
 
@@ -92,13 +92,13 @@ async def main():
     # 🔹 Step 1: Get all download URLs in parallel
     download_uris = await asyncio.gather(*(get_download_url(url) for url in urls))
     download_uris.append(template_url.format(ressource='sets'))
-   
     # 🔹 Step 2: Start downloading all files in parallel
     results = await asyncio.gather(*(download_data(uri) for uri in download_uris if uri))
-    connection = get_connection()
-    execute_sql_files('database_startup/schemas', connection)
-    populate_set(connection)
-    populate_cards(connection)
+    print(results)
+    #connection = get_connection()
+    #execute_sql_files('database_startup/schemas', connection)
+    #populate_set(connection)
+    #populate_cards(connection)
 
 # ✅ Run the async workflow
 asyncio.run(main())

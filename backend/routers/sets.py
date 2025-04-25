@@ -1,10 +1,10 @@
-from backend.models.sets import BaseSet, SetInDB, SetwCount
-from fastapi import APIRouter, Query
-from pydantic import BaseModel
+from fastapi import APIRouter, Query, Response, HTTPException
+from typing import List,  Optional, Sequence, Annotated
+from uuid import UUID
 from backend.dependancies import cursorDep
-from backend.database.database_utilis import get_rows, delete_rows
+from backend.database.database_utilis import get_rows, create_select_query, execute_select_query
+from backend.models.sets import  SetwCount
 from psycopg2.extensions import connection
-from typing import List, Union, Optional, Sequence, Annotated
 
 
 router = APIRouter(
@@ -14,35 +14,40 @@ router = APIRouter(
         
 )
 
-def get_query_creator(is_list : bool, values : Optional[Sequence[str]|str]=None) -> str:
-    query = """ SELECT s.set_id, s.set_name, s.set_code, stl.set_type,  COUNT(cv.set_id) AS card_count,s.released_at, s.digital
-            FROM sets s
-            JOIN set_type_list stl ON s.set_type_id = stl.set_type_id
-            JOIN card_version cv ON cv.set_id = s.set_id """
-    if is_list:
-        query += "WHERE s.set_id = ANY(%s) LIMIT %s OFFSET %s;"
-    elif values :
-        query += "WHERE s.set_id = %s "
-    query += " GROUP BY s.set_id,  stl.set_type, s.released_at "
-    if is_list or not values:
-        query += "LIMIT %s OFFSET %s "
-    query += ';'
-    return query
 
+def create_value(values, is_list : bool, limit : Optional[int]=None, offset : Optional[int]=None):
+    if is_list:
+        values = ((values ), limit , offset)
+    elif values:
+        values = (values ,)
+    else:
+        values = (limit , offset)
+    return values
+
+
+def retrieve_set( conn : connection, limit : Optional[int]=None, offset : Optional[int]=None, ids : Optional[Sequence[UUID]|UUID]=None, select_all : Optional[bool]=False) -> dict:
+    conditions = None
+    if isinstance(ids, List):
+        conditions =  ["set_id IN %s "]
+    elif isinstance(ids, UUID):
+        conditions =  ["set_id = %s "]
+    query = create_select_query('joined_set_materialized',conditions_list=conditions,limit=limit, offset=offset )
+    values= create_value(ids, isinstance(ids, List), limit, offset)
+    try:
+        return execute_select_query(conn, query, values, execute_many=False, select_all=select_all)
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get('/{set_id}', response_model=SetwCount)
-async def get_set(connection: cursorDep, set_id : str):
-    return  get_rows(connection, get_query_creator, set_id, select_all=False )
+async def get_set(set_id : UUID, connection: cursorDep):
+    return  retrieve_set(connection, ids=set_id, select_all=False )
 
 @router.get('/', response_model=List[SetwCount])
 async def get_sets(connection: cursorDep,
                     limit : Annotated[int, Query(le=100)]=100,
                     offset: int =0,
-                    set_id : Annotated[List[str],Query(title='Optional set_is')]=None):
-    return  get_rows(connection, get_query_creator, set_id, limit=limit, offset=offset, select_all=True)
-
-@router.delete('/{set_id}')
-async def delete_set(connection: cursorDep,
-                    set_id : str):
-    return delete_rows(connection, get_query_creator, values=set_id)
+                    set_ids : Annotated[List[str],Query(title='Optional set_is')]=None):
+     return  retrieve_set(connection, ids=set_ids,  limit=limit, offset=offset, select_all=True)
 
