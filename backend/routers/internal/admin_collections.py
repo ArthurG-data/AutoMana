@@ -4,6 +4,7 @@ from backend.models.collections import PublicCollection
 from psycopg2.extensions import connection
 from backend.database.database_utilis import  execute_select_query, execute_delete_query
 from typing import List, Optional
+from psycopg2.extensions import connection
 
 import logging
 

@@ -1,16 +1,14 @@
-import os
-import jwt
+import os, jwt
 from datetime import datetime
 from dotenv import load_dotenv
-from typing import Annotated
 from datetime import datetime, timedelta, timezone
 from fastapi.security import OAuth2PasswordBearer
-from fastapi import Depends, HTTPException, status, Request, Response, Security
+from fastapi import Depends, HTTPException, status, Request, Security
 from passlib.context import CryptContext
 from psycopg2.extensions import connection
-from backend.database.database_utilis import execute_select_query
+from backend.database.database_utilis import execute_select_query, execute_insert_query
 from backend.dependancies import cursorDep
-from backend.models.users import BaseUser, UserInDB, Session
+from backend.models.users import UserInDB, CreateSession, PublicSession
 from backend.models.utils import TokenData
 
 
@@ -36,14 +34,10 @@ def get_user(conn : connection, username: str)-> UserInDB:
     except Exception:
         raise 
 
-def create_session(conn: connection, new_session : Session):
-    query = "INSERT INTO sessions (user_id, created_at, expires_at, ip_address, user_agent, active) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id"
+def create_session(conn: connection, new_session : CreateSession):
+    query = "INSERT INTO sessions (user_id, created_at, expires_at,refresh_token,refresh_token_expires_at, ip_address, user_agent) VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id"
     try:
-        with conn.cursor() as cursor:
-            cursor.execute(query, new_session.model_dump())
-            session_id = cursor.fetchone()
-            print(session_id)
-        conn.commit()
+        return execute_insert_query(query, new_session.model_dump())
     except Exception:
         raise
     
@@ -56,7 +50,6 @@ def authenticate_user(conn : connection, username : str, password : str):
         return False
     return user
     
-
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None):
     to_encode = data.copy()

@@ -47,18 +47,36 @@ class UserUpdateAdmin(BaseModel):
     is_admin : bool | None = None
 
 
-class Session(BaseModel):
+
+class PublicSession(BaseModel):
+    user : str = Field(max_length=20)
+    expires_at : datetime
+
+
+def now_utc() -> datetime:
+    return datetime.now(timezone.utc)
+
+class CreateSession(BaseModel):
     user_id : UUID
-    created_at : datetime = Field(default_factory=datetime.now)
+    created_at : datetime = Field(default_factory=now_utc)
     expires_at : Optional[datetime] = None
     ip_address : str = Field(max_length=64)
+    refresh_token : str
+    refresh_token_expires_at : datetime
     user_agent : str
     active : Optional[bool] = None
 
+
+    
+
     @model_validator(mode='after')
-    def set_expiry(cls, values):
-        if not values.expires_at:
+    def set_expiry_and_active(cls, values):
+        if values.expires_at is None:
+            # Set default expiry to 2 hours from created_at
             values.expires_at = values.created_at + timedelta(seconds=7200)
+
+        # Set active if expires_at is known
         values.active = values.expires_at > datetime.now(timezone.utc)
         return values
+    
         
