@@ -11,25 +11,25 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 CREATE TABLE IF NOT EXISTS sessions (
-    id SERIAL PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES users(unique_id) ON DELETE CASCADE,
-    created_at TIMESTAMP DEFAULT now(),
-    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    expires_at TIMESTAMPTZ NOT NULL,
     ip_address VARCHAR(45),
     user_agent TEXT,
     device_id UUID UNIQUE, 
     active BOOLEAN DEFAULT TRUE
-)
+);
 
 
 CREATE TABLE IF NOT EXISTS refresh_tokens (
-    token_id SERIAL PRIMARY KEY,
-    session_id INT REFERENCES sessions(id) ON DELETE CASCADE NOT NULL,
+    token_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    session_id UUID REFERENCES sessions(id) ON DELETE CASCADE NOT NULL,
     refresh_token TEXT NOT NULL,
-    refresh_token_expires_at TIMESTAMP NOT NULL,
+    refresh_token_expires_at TIMESTAMPTZ NOT NULL,
     used BOOLEAN DEFAULT FALSE,
     revoked BOOLEAN DEFAULT FALSE
-)
+);
 
 CREATE VIEW active_sessions_view AS
     SELECT u.username, s.created_at, s.expires_at AS session_expires_at, s.ip_address, s.user_agent, rt.refresh_token, rt.refresh_token_expires_at
@@ -40,56 +40,37 @@ CREATE VIEW active_sessions_view AS
 
 
 CREATE OR REPLACE FUNCTION insert_add_token(
-    p_user_id TEXT,
-    p_created_at TIMESTAMP,
-    p_expires_at TIMESTAMP,
+    p_user_id UUID,
+    p_created_at TIMESTAMPTZ,
+    p_expires_at TIMESTAMPTZ,
     p_ip_address TEXT, 
     p_user_agent TEXT,
     p_refresh_token TEXT,
-    p_refresh_token_expires_at TIMESTAMP,
-    p_device_id TEXT
+    p_refresh_token_expires_at TIMESTAMPTZ,
+    p_device_id TEXT DEFAULT NULL
 )
-RETURNS INT AS $$
+RETURNS TABLE (session_id UUID, token_id UUID) AS $$
 DECLARE
-    v_session_id INT;
-    v_token_id INT;
---fill
+    v_session_id UUID;
+    v_refresh_token_id UUID;
+
 BEGIN
---create the session if none exists, if yes reset the time
+
     INSERT INTO sessions ( user_id, created_at, expires_at, ip_address, user_agent)
     VALUES (p_user_id, p_created_at, p_expires_at,p_ip_address, p_user_agent)
+
     RETURNING id INTO v_session_id;
-    -- insert the token
-    INSERT INTO refresh_token (
+  
+    INSERT INTO refresh_tokens (
         session_id, refresh_token, refresh_token_expires_at
     )
     VALUES (
         v_session_id, p_refresh_token, p_refresh_token_expires_at
     )
-    RETURNING id INTO v_token_id;
 
-    RETURN v_token_id
-END;
-LANGUAGE LANGUAGE plpgsql;
+    RETURNING refresh_tokens.token_id INTO v_refresh_token_id;
 
-
-CREATE OR REPLACE FUNCTION trigger_insert_add_add_token()
-RETURNS trigger AS $$
-BEGIN
-    PERFORM insert_add_token(
-        NEW.user_id,
-        NEW.created_at,
-        NEW.expires_at,
-        NEW.ip_address,
-        NEW.user_agent,
-        NEW.refresh_token,
-        NEW.refresh_token_expires_at
-    );
-    RETURN NULL;
+    RETURN SELECT v_session_id, v_refresh_token_id;
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER create_session
-INSTEAD OF INSERT ON active_sessions_view
-FOR EACH ROW 
-EXECUTE FUNCTION trigger_insert_add_add_token();

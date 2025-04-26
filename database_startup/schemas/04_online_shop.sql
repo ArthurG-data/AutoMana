@@ -48,6 +48,7 @@ CREATE TABLE  IF NOT EXISTS CollectionItems (
     condition INT REFERENCES Ref_Condition(condition_code) DEFAULT 1  -- Assuming 1 = NM (Near Mint)
 );
 
+
 /*
 
 -- Reference: Order Status Codes

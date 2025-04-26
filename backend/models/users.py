@@ -65,6 +65,7 @@ class CreateSession(BaseModel):
     refresh_token_expires_at : datetime
     user_agent : str
     active : Optional[bool] = None
+    device_id : Optional[UUID] = None
 
 
     
@@ -76,7 +77,7 @@ class CreateSession(BaseModel):
             values.expires_at = values.created_at + timedelta(seconds=7200)
 
         # Set active if expires_at is known
-        values.active = values.expires_at > datetime.now(timezone.utc)
+        values.active = values.expires_at > now_utc()
         return values
     
         
