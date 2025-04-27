@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
 from backend.authentification import decode_access_token, get_token_from_header_or_cookie
-from backend.routers.internal import admin_users, admin_sets, admin_collections
+from backend.routers.internal import admin_users, admin_sets, admin_collections, admin_sessions
 from fastapi.responses import JSONResponse
 
 async def admin_required(token: str = Depends(get_token_from_header_or_cookie)):
@@ -17,6 +17,7 @@ admin_router = APIRouter(
 admin_router.include_router(admin_users.admin_user_router)
 admin_router.include_router(admin_sets.sets_router)
 admin_router.include_router(admin_collections.collection_router)
+admin_router.include_router(admin_sessions.session_router)
 
 @admin_router.get('/')
 async def admin_root():

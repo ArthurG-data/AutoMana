@@ -4,7 +4,8 @@ import time, logging
 from fastapi.middleware.cors import CORSMiddleware
 from backend.routers import sets, users, cards, collection, collectionEntry, ebay, authentification
 from backend.routers.internal import admin_router
-
+from apscheduler.schedulers.background import BackgroundScheduler
+from backend.utilis import desactivate_expired
 
 logging.basicConfig(level=logging.INFO)
 
@@ -62,3 +63,5 @@ async def add_process_time_header(request: Request, call_next):
 @app.get('/')
 async def root():
     return {'message' : 'Hello World'}
+
+

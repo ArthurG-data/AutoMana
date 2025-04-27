@@ -31,8 +31,17 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
     revoked BOOLEAN DEFAULT FALSE
 );
 
+CREATE TABLE IF NOT EXISTS session_audit_logs (
+    log_id SERIAL PRIMARY KEY,
+    session_id UUID REFERENCES sessions(id) ON DELETE CASCADE NOT NULL ,
+    action TEXT NOT NULL, -- e.g., 'deactivated', 'revoked', etc.
+    reason TEXT,          -- optional description
+    performed_at TIMESTAMPTZ DEFAULT now(), -- when the action happened
+    performed_by UUID,     -- optional: who did the action (admin, user, system)
+    source_ip TEXT         -- optional: from which IP the action was triggered
+);
 CREATE VIEW active_sessions_view AS
-    SELECT u.username, s.created_at, s.expires_at AS session_expires_at, s.ip_address, s.user_agent, rt.refresh_token, rt.refresh_token_expires_at
+    SELECT u.unique_id AS user_id, u.username, s.created_at, s.expires_at AS session_expires_at, s.ip_address, s.user_agent, rt.refresh_token, rt.refresh_token_expires_at, rt.token_id, s.id AS session_id
     FROM sessions s
     JOIN refresh_tokens rt ON rt.session_id = s.id
     JOIN users u ON u.unique_id = s.user_id
@@ -70,7 +79,27 @@ BEGIN
 
     RETURNING refresh_tokens.token_id INTO v_refresh_token_id;
 
-    RETURN SELECT v_session_id, v_refresh_token_id;
+    RETURN QUERY SELECT v_session_id, v_refresh_token_id;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION inactivate_session(
+	p_session_id UUID
+)
+RETURNS VOID AS $$
+DECLARE
+    v_exists BOOLEAN;
+BEGIN --check if the session exists
+    SELECT EXISTS (
+        SELECT 1 FROM sessions WHERE id = p_session_id
+    ) INTO v_exists;
+    IF NOT v_exists THEN
+        RAISE EXCEPTION 'Session ID % not found.', p_session_id;
+    END IF;
+
+	UPDATE sessions SET active = FALSE WHERE id = p_session_id;
+	UPDATE refresh_tokens SET revoked = TRUE WHERE session_id = p_session_id;
+    INSERT INTO session_audit_logs (session_id, action, reason) VALUES (p_session_id, 'desactivated', 'Session inactivated manually.');
 END;
 $$ LANGUAGE plpgsql;
 

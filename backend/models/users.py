@@ -67,9 +67,6 @@ class CreateSession(BaseModel):
     active : Optional[bool] = None
     device_id : Optional[UUID] = None
 
-
-    
-
     @model_validator(mode='after')
     def set_expiry_and_active(cls, values):
         if values.expires_at is None:
@@ -80,4 +77,7 @@ class CreateSession(BaseModel):
         values.active = values.expires_at > now_utc()
         return values
     
-        
+class AdminReturnSession(BaseModel):
+    username : str
+    session_id : UUID
+    session_expires_at : datetime

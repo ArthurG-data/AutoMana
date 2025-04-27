@@ -27,3 +27,7 @@ class Cookies(BaseModel):
     session_id : str
     auth : bool
     user : str
+
+class CookiesData(BaseModel):
+    session_id : UUID
+    refresh_token_id : UUID
