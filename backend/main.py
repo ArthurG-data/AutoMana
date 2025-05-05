@@ -2,8 +2,9 @@ from fastapi import FastAPI, Depends, Request
 from typing import Annotated, Any
 import time, logging
 from fastapi.middleware.cors import CORSMiddleware
-from backend.routers import sets, users, cards, collection, collectionEntry, ebay, authentification
+from backend.routers import sets, users, cards, collection, collectionEntry, authentification
 from backend.routers.internal import admin_router
+from backend.routers.ebay import router
 from apscheduler.schedulers.background import BackgroundScheduler
 from backend.utilis import desactivate_expired
 
@@ -35,7 +36,7 @@ app.include_router(cards.router)
 app.include_router(sets.router)
 app.include_router(collection.router)
 app.include_router(collectionEntry.router)
-app.include_router(ebay.ebay_router)
+app.include_router(router.router)
 app.include_router(authentification.authentification_router)
 app.include_router(admin_router)
 origins =[

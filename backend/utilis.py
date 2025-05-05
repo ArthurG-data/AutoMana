@@ -1,7 +1,6 @@
 from psycopg2.extensions import connection
 from backend.dependancies import cursorDep
-from fastapi import Request
-
+from datetime import datetime, timezone
 
 def desactivate_expired(conn : connection =  cursorDep):
     with conn.cursor() as cur:
@@ -23,3 +22,5 @@ def desactivate_expired(conn : connection =  cursorDep):
         )
         conn.commit()
 
+def now_utc() -> datetime:
+    return datetime.now(timezone.utc)

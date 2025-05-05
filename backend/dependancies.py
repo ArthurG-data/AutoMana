@@ -44,6 +44,7 @@ def extract_ip (request : Request)-> str:
         ip = request.client.host
     return ip
 
+
     
 ipDep = Annotated[str, Depends(extract_ip)]
 cursorDep = Annotated[connection, Depends(get_connection)]

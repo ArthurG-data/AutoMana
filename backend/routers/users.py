@@ -11,7 +11,6 @@ from backend.dependancies import cursorDep
 router = APIRouter(
     prefix='/users',
     tags=['users'],
-    dependencies=[Depends(check_token_validity)],
     responses={404:{'description' : 'Not found'}}
 )
 
@@ -22,17 +21,16 @@ def create_user(user : Annotated[BaseUser, Body(
             'email' : 'johndow@gmail.com',
             'fullname' : 'John Dow',
             'password' : 'password',
-            'is_admin' : 'False'
         }
     ])], connexion : connection) -> dict:
 
     hashed_password = get_hash_password(user.hashed_password)
     user.hashed_password = hashed_password
-    query = create_insert_query('users', ['username', 'email','fullname', 'hashed_password', 'is_admin'])
+    query = create_insert_query('users', ['username', 'email','fullname', 'hashed_password'], 'unique_id')
     
-    values = (user.username, user.email, user.fullname, user.hashed_password, user.is_admin)
+    values = (user.username, user.email, user.fullname, user.hashed_password)
     try:
-        ids = execute_insert_query(connexion,query, values)
+        ids = execute_insert_query(connexion,query, values )
         return {'message' : 'user added successfuly', 'ids' : ids}
     except Exception as e:
         raise

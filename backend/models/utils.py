@@ -31,3 +31,5 @@ class Cookies(BaseModel):
 class CookiesData(BaseModel):
     session_id : UUID
     refresh_token_id : UUID
+    ip_address : str
+    user_agent : str

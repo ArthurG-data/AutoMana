@@ -2,9 +2,19 @@ from pydantic import BaseModel, Field, EmailStr, model_validator
 from typing import Optional
 from uuid import UUID
 from enum import Enum
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+from backend.utilis import now_utc
 
 
+class Role(str, Enum):
+    admin = "admin"
+    system = "system"
+    developer = "developer"
+    tester = "tester"
+
+class AssignRoleRequest(BaseModel):
+    role: Role
+    reason : Optional[str] = "Assigned via admin endpoint"
 
 class UserPublic(BaseModel):
     username : str = Field(
@@ -26,13 +36,8 @@ class UserInDB(BaseUser):
     disabled : bool | None = Field(
     default=False, title='Is the user account still active'
 )
-    is_admin : bool =Field(default=False)
-    role : str | None=None
-    @model_validator(mode='after')
-    def validate_role(cls, values):
-        values.role = 'admin'  if values.is_admin else  'user'
-        return values
-
+    created_at : Optional[datetime]
+    
 
 class UserUpdatePublic(BaseModel):
     username: str | None=None
@@ -44,17 +49,12 @@ class UserUpdatePublic(BaseModel):
    
 class UserUpdateAdmin(BaseModel):
     disabled : bool | None=None
-    is_admin : bool | None = None
 
 
 
 class PublicSession(BaseModel):
     user : str = Field(max_length=20)
     expires_at : datetime
-
-
-def now_utc() -> datetime:
-    return datetime.now(timezone.utc)
 
 class CreateSession(BaseModel):
     user_id : UUID

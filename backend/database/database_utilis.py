@@ -4,20 +4,21 @@ from typing import List, Union, Optional, Sequence, Annotated, Callable, Any
 from pydantic import BaseModel
 from psycopg2.extensions import connection, cursor
 from backend.database.get_database import get_cursor
+from uuid import UUID
 
 
 logging.basicConfig(level=logging.ERROR)
 
 
 
-def create_insert_query(table : str, columns : Sequence[str]) -> str:
+def create_insert_query(table : str, columns : Sequence[str], column_id : str) -> str:
     """
 
     create a query to insert one or many parameters
     """
     columns_str = f"({', '.join(columns)})"
     placeholders = ", ".join(["%s"] * len(columns))
-    query = f"INSERT INTO {table} {columns_str} VALUES ({placeholders})"
+    query = f"INSERT INTO {table} {columns_str} VALUES ({placeholders}) RETURNING {column_id} "
     return query
 
 def create_delete_query(table : str, conditions : Sequence[str]) -> str:
@@ -118,6 +119,7 @@ def execute_insert_query(connection : connection, query : str, values : Sequence
         with get_cursor(connection) as cursor:
             execute_queries(cursor, query, values, execute_many)
             rows = cursor.fetchall()
+            print(rows)
             inserted_ids = [row[unique_id] for row in rows] 
 
         return inserted_ids if execute_many else inserted_ids[0]

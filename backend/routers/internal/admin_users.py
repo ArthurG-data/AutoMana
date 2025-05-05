@@ -2,10 +2,11 @@
 from typing import Annotated,  Union, Optional, List, Any
 from psycopg2 import Error
 from psycopg2.extensions import connection
-from fastapi import  HTTPException, APIRouter,Query, Response
-from backend.database.database_utilis import create_select_query, create_delete_query, create_update_query, execute_delete_query, execute_update_query, execute_select_query
-from backend.models.users import  UserPublic, UserInDB
+from fastapi import  HTTPException, APIRouter,Query, Response, Depends
+from backend.database.database_utilis import create_select_query, execute_queries,create_delete_query, create_update_query, execute_delete_query, execute_insert_query, execute_update_query, execute_select_query, create_insert_query
+from backend.models.users import  UserPublic, UserInDB, AssignRoleRequest
 from backend.dependancies import cursorDep
+from backend.authentification import get_current_active_user
 from uuid import UUID
 
 admin_user_router = APIRouter(
@@ -65,11 +66,13 @@ def delete_users(usernames : Union[list[str], str], connection : connection) :
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def patch_user(user_id: UUID, field : str, value : Any, conn: connection):
+def patch_user(user_id: UUID, admin_id : UUID, action : str, reason:str, source_id : str, field : str, value : Any, conn: connection):
     query = create_update_query('users', [f'{field}'], ['unique_id = %s '])
+    query_2 = "SELCT FROM inactivate_user(%s, %s, %s, %s, %s)"
     values = (value, str(user_id) )
     try:
         execute_update_query(conn, query,values)
+        execute_insert_query(conn, query_2, (user_id, admin_id, action, reason, source_id))
         return Response(status_code=204)
     
     except HTTPException as e:
@@ -98,16 +101,34 @@ async def delete_user(connection : cursorDep, username : str):
     except Exception:
         raise
 
+
+@admin_user_router.post('/{user_id}/roles')
+async def add_role(user_id : UUID, conn : cursorDep, role : AssignRoleRequest):
+    query = """INSERT INTO user_roles (user_id, role_id)
+            VALUES (%s, (
+            SELECT unique_id FROM roles WHERE role = %s))
+         """
+    query_1 = "SET LOCAL app.current_user_id = %s"
+    query_2 = "SET LOCAL app.role_change_reason = %s"
+    try:
+        with conn.cursor() as cur:
+            cur.execute(query_1,(user_id,))
+            cur.execute(query_2, (role.reason,))
+            cur.execute(query,  (user_id, role.role))
+        return {"status": "role added", "user_id": str(user_id), "role": role.role}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to assign role: {str(e)}")    
+
 @admin_user_router.delete('/', description="delete a list of users from the db")
 async def delete_user(connection : cursorDep, username : Annotated[list[str] , Query(title='Query string')] = None):
     try:
         return(delete_users(username, connection))
     except Exception:
         raise
-
+'''
 @admin_user_router.patch('/{user_id}/promote', description='update a user to admin')
-async def promote_user( user_id: UUID,  conn: cursorDep):
-    return(patch_user(user_id, 'is_admin', True, conn))
+async def promote_user( admin_id : Annotated[UUID, Depends(get_current_active_user)], user_id: UUID,  conn: cursorDep):
+    return(patch_user(user_id, admin_id, ,'is_admin', True, conn))
    
 
 @admin_user_router.patch('/{user_id}/demote', description='demote an admin to user')
@@ -122,3 +143,4 @@ async def disable_user(user_id: UUID,  conn: cursorDep):
 @admin_user_router.patch('/{user_id}/activate', description='activate an account')
 async def activate_user(user_id: UUID,  conn: cursorDep):
     return(patch_user(user_id, 'disabled', False, conn))
+'''

@@ -3,11 +3,12 @@ from fastapi import APIRouter, Response, Depends, HTTPException, status, Request
 from datetime import timedelta, datetime, timezone
 from backend.authentification import authenticate_user, create_access_token, decode_access_token, get_token_from_header_or_cookie, get_current_user
 from typing import Annotated
+from backend.utilis import now_utc
 from backend.dependancies import cursorDep, ipDep
 from fastapi.security import OAuth2PasswordRequestForm
 from backend.models.utils import Token, CookiesData
 from backend.models.users import CreateSession, UserInDB
-from backend.database.database_utilis import create_insert_query, execute_insert_query, execute_select_query
+from backend.database.database_utilis import execute_select_query
 from psycopg2.extensions import connection
 
 
@@ -52,10 +53,10 @@ async def login(conn : cursorDep ,  ip_address : ipDep, response : Response, req
         
         access_token_expires = timedelta(minutes=int(os.getenv('ACCESS_TOKEN_EXPIRY')))
         access_token = create_access_token(
-            data={"sub": user.username, "id" : str(user.unique_id), "role":user.role},expires_delta=access_token_expires
+            data={"sub": user.username, "id" : str(user.unique_id)},expires_delta=access_token_expires
         )
         refresh_token = create_access_token(
-                data={"sub": user.username, "id" : str(user.unique_id), "role":user.role}, expires_delta=timedelta(days=7)
+                data={"sub": user.username, "id" : str(user.unique_id)}, expires_delta=timedelta(days=7)
         )
         #now in a transaction
         user_agent = request.headers.get('user-agent')
@@ -87,19 +88,21 @@ async def login(conn : cursorDep ,  ip_address : ipDep, response : Response, req
         raise
 
 @authentification_router.post('/session', description='create a session for a user, add an entry to the DB')
-async def add_session(  conn : cursorDep, request: Request, token : str = Depends(get_token_from_header_or_cookie)):
+async def add_session(  conn : cursorDep, ip_address : ipDep, request: Request, token : str = Depends(get_token_from_header_or_cookie)):
     decoded_token = decode_access_token(token)
-    ip = extract_ip(request)
+  
     id = decoded_token.get('id')
-    new_session = CreateSession(id, ip_address=ip,)
+    new_session = CreateSession(id, ip_address=ip_address,)
     return new_session
 
-def validate_cookie(cookies : CookiesData, conn: connection, user_id : str):
+def validate_cookie(cookies : CookiesData, conn: connection):
     '''
-    from the cookie, validate the informations
+    from the cookie, validate the informations, check that the ip is the same, user agent is same. then refresh the toekn
     '''
     session_id = cookies.session_id
     token_id = cookies.refresh_token_id
+    ip_address = cookies.ip_address
+    user_agent = cookies.user_agent
     if not session_id or not token_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -109,32 +112,37 @@ def validate_cookie(cookies : CookiesData, conn: connection, user_id : str):
     
     query = """
     SELECT refresh_token
-    FROM refresh_tokens
-    WHERE token_id = %s AND session_id = %s
+    FROM active_sessions_view
+    WHERE token_id = %s AND session_id = %s AND user_agent = %s AND ip_address = %s;
     """
     try:
-        row = execute_select_query(conn, query, (session_id, token_id,), select_all=False)
+        row = execute_select_query(conn, query, ( token_id,session_id,user_agent, ip_address,), select_all=False)
         if not row:
+            
             raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or Expired Token",
             headers={"WWW-Authenticate": "Bearer"},
         )
+        #next, disable the refresh_token
         return row
     except Exception as e:
+        print(e)
         # You can optionally log the error here
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Server error validating token",
+            detail=f"Server error validating token:",
         )
-    
+
+   
 
 @authentification_router.get('/exange-cookie', description='exanges the refresh token in a cookie for a auth token')
-async def read_cookie( conn : cursorDep,request: Request):
+async def read_cookie( conn : cursorDep, ip_address : ipDep,response : Response, request: Request):
     session_id = request.cookies.get('session_id')
     token_id = request.cookies.get('refresh_token_id')
-    cookie = CookiesData(session_id, token_id)
-    refresh_token = validate_cookie(cookie)
+    user_agent = request.headers.get('user-agent')
+    cookie = CookiesData(session_id=session_id, refresh_token_id=token_id, ip_address=ip_address, user_agent=user_agent)
+    refresh_token = validate_cookie(cookie, conn,).get('refresh_token')
     if not refresh_token:
         raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -147,6 +155,28 @@ async def read_cookie( conn : cursorDep,request: Request):
     if not user.disabled:
         access_token_expires = timedelta(minutes=int(os.getenv('ACCESS_TOKEN_EXPIRY')))
         access_token = create_access_token( data={"sub": user.username, "id" : str(user.unique_id), "role":user.role},expires_delta=access_token_expires)
+        refresh_expiry = now_utc() + timedelta(days=7)
+        refresh_token = create_access_token(
+            data={"sub": user.username, "id" : str(user.unique_id), "role":user.role}, expires_delta=timedelta(days=7)
+        )
+        #remove the old refresh token from cookie
+        response.delete_cookie('refresh_token_id')
+        
+        query = """ SELECT rotate_refresh_token(%s, %s, %s, %s); """
+        values = (token_id, session_id, refresh_token, refresh_expiry,)
+        try:
+            token_id = execute_select_query(conn, query, values, select_all=False)
+            response.set_cookie(
+                key="refresh_token_id",
+                value=str(token_id),
+                httponly=True,
+                secure=True,
+                samesite="strict",
+                max_age=60*60*24*7,
+            )
+        except Exception:
+            raise
+        #add the token_id to the cookie
         return Token(access_token=access_token, token_type="bearer")
    
     raise HTTPException(

@@ -1,16 +1,11 @@
-from fastapi import APIRouter, HTTPException, Depends
-from backend.authentification import decode_access_token, get_token_from_header_or_cookie
+from fastapi import APIRouter,Depends
+from backend.authentification import  has_role
 from backend.routers.internal import admin_users, admin_sets, admin_collections, admin_sessions
 from fastapi.responses import JSONResponse
 
-async def admin_required(token: str = Depends(get_token_from_header_or_cookie)):
-        payload = decode_access_token(token)
-        if payload.get('role') != 'admin':
-            raise HTTPException(status_code=400, detail='You are not an admin')
-
 admin_router = APIRouter(
     prefix='/admin',
-    dependencies=[Depends(admin_required)],
+    dependencies=[Depends(has_role('admin'))],
     responses={418 :{'description': 'I am an admin'}}
 )
 
