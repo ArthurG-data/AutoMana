@@ -15,10 +15,6 @@ class Settings(BaseSettings):
     secret_key : str
     encrypt_algorithm : str
     access_token_expiry : int =Field(title='The duration in minute of the access token', default=30)
-
-    ebay_client_id : str
-    ebay_redirect_uri : str
-    ebay_client_secret : str
     model_config =  SettingsConfigDict(env_file='.env')
 
 @lru_cache

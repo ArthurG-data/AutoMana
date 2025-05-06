@@ -2,16 +2,30 @@
 import urllib,  base64, httpx
 from fastapi.responses import RedirectResponse
 from backend.dependancies import  Settings
-from backend.routers.ebay.utils import scopeDep
+from psycopg2.extensions import connection
+from backend.routers.ebay import queries
+from backend.database.database_utilis import exception_handler
+from uuid import UUID
 
+def login_ebay(conn : connection, user : UUID, app_id : str):
+   
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(queries.get_info_login, (user, app_id,))
+            infos = cursor.fetchone()
+            cursor.execute(queries.get_scopes_app, (app_id, ))
+            scopes = cursor.fetchall()
+            scopes = [row['scope_description'].strip('"') for row in scopes]
+    except Exception as e:
+        exception_handler(e)
+    #het the info
 
-def login_ebay(settings : Settings, scopes : scopeDep):
     params = {
-        "client_id": settings.ebay_client_id,
-        "response_type": "code",
-        "redirect_uri": settings.ebay_redirect_uri,
+        "client_id":infos['app_id'],
+        "response_type": infos['response_type'],
+        "redirect_uri": infos['redirect_uri'],
         "scope": " ".join(scopes),
-        "secret" : settings.ebay_client_secret
+        "secret" : infos['decrypted_secret']
     }
 
     auth_url = f"https://auth.ebay.com/oauth2/authorize?{urllib.parse.urlencode(params)}"

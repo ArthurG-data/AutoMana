@@ -5,6 +5,8 @@ from psycopg2.extensions import connection
 from uuid import UUID
 from typing import List
 from backend.database.database_utilis import exception_handler
+from backend.dependancies import get_settings, Settings
+
 
 from backend.routers.ebay import queries
 
@@ -16,6 +18,7 @@ def save_refresh_token(conn: connection, new_refresh : TokenInDb):
         exception_handler(e)
     
 def register_ebay_user(dev_id : UUID , conn : connection, user_id : UUID):
+
     try:
         with conn.cursor() as cursor:
             cursor.execute(queries.register_user_query,(user_id, dev_id,))
@@ -23,10 +26,11 @@ def register_ebay_user(dev_id : UUID , conn : connection, user_id : UUID):
     except Exception as e:
         exception_handler(e)
 
-def register_app(conn: connection, input:InputEbaySettings):
+def register_app(conn: connection, input:InputEbaySettings, settings : Settings):
     try:
         with conn.cursor() as cursor:
-            cursor.execute(queries.register_app_query,(input.app_id, input.redirect_uri, input.response_type, input.hash_secret, ))
+            cursor.execute(queries.register_app_query,(input.app_id, input.redirect_uri, input.response_type, input.secret,input.secret, settings.secret_key))
+            conn.commit()
     except Exception as e:
         exception_handler(e)
 
@@ -38,17 +42,19 @@ def register_scope(conn: connection, scopes: str):
     except Exception as e:
         exception_handler(e)
 
-def assign_scope(conn: connection, scope : str):
+def assign_scope(conn: connection, scope : str, app_id : str):
     try:
         with conn.cursor() as cursor:
-            cursor.executemany(queries.assign_scope_query, (scope,))
+            cursor.execute(queries.assign_scope_query, (app_id,scope,))
+            conn.commit()
     except Exception as e:
         exception_handler(e)
 
-def assign_app(conn : connection, scope : str, ebay_id :str):
+def assign_app(conn : connection, app_id : UUID, ebay_id :str):
     try:
         with conn.cursor() as cursor:
-            cursor.executemany(queries.assign_user_app_query (ebay_id, scope))
+            cursor.execute(queries.assign_user_app_query, (ebay_id, app_id,))
+            conn.commit()
     except Exception as e:
         exception_handler(e)
 

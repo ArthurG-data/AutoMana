@@ -13,15 +13,13 @@ class TokenInDb(BaseModel):
      token_type : str
 
 class InputEbaySettings(BaseModel):
-     app_id : UUID
-     client_id :str = Field(title='The ebay user_id')
-     response_type: str = Field(default="code", title="The type of auth")
-     redirect_uri: str = Field(title='The uri field associated to the dev account')
-     scope: Optional[List[str]] = Field(exclude=True)
-     secret : str  = Field(title='The secret associated to the ebay dev account')
-     hashed_secret : Optional[str]= Field( default=None, exclude=True)
+    app_id: str
+    response_type: str = Field(default="code", title="The type of auth")
+    redirect_uri: str = Field(title="The URI field associated with the dev account")
+    secret: str = Field(title="The raw secret for the eBay dev account")
 
-     @model_validator(mode='after')
-     def hash_secret(cls, values):
-          values.hashed_password = get_hash_password(values.secret)
-          return values
+
+    @model_validator(mode="after")
+    def compute_hashed_secret(self) -> "InputEbaySettings":
+        self.secret = get_hash_password(self.secret)
+        return self
