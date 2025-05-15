@@ -94,7 +94,7 @@ CREATE TABLE role_permissions (
 );
 -----------------------------------------------------------------------------------------------------------------------------------
 --VIEWS
-CREATE VIEW active_sessions_view AS
+CREATE OR REPLACE VIEW active_sessions_view AS
     SELECT u.unique_id AS user_id, u.username, s.created_at, s.expires_at AS session_expires_at, s.ip_address, s.user_agent, rt.refresh_token, rt.refresh_token_expires_at, rt.token_id, s.id AS session_id
     FROM sessions s
     JOIN refresh_tokens rt ON rt.session_id = s.id
@@ -122,6 +122,7 @@ JOIN permissions p on p.permission_id = rp.permission_id;
 ----------------------------------------------------------------------------------------------------------------------------------
 --FUNCTIONS
 CREATE OR REPLACE FUNCTION insert_add_token(
+    p_id UUID,
     p_user_id UUID,
     p_created_at TIMESTAMPTZ,
     p_expires_at TIMESTAMPTZ,
@@ -137,9 +138,8 @@ DECLARE
     v_refresh_token_id UUID;
 
 BEGIN
-
-    INSERT INTO sessions ( user_id, created_at, expires_at, ip_address, user_agent)
-    VALUES (p_user_id, p_created_at, p_expires_at,p_ip_address, p_user_agent)
+    INSERT INTO sessions ( id, user_id, created_at, expires_at, ip_address, user_agent)
+    VALUES (p_id, p_user_id, p_created_at, p_expires_at,p_ip_address, p_user_agent)
 
     RETURNING id INTO v_session_id;
   

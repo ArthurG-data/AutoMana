@@ -1,6 +1,6 @@
 from fastapi import APIRouter,Depends
-from backend.authentification import  has_role
-from backend.routers.internal import admin_users, admin_sets, admin_collections, admin_sessions
+from backend.routers.security.authorisation import  has_role
+from backend.routers.admin import admin_users, admin_sets, admin_collections, admin_sessions
 from fastapi.responses import JSONResponse
 
 admin_router = APIRouter(

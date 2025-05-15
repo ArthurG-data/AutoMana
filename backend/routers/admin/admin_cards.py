@@ -1,6 +1,8 @@
-from fastapi import APIRouter, Depends, Path, HTTPException, Query
-from backend.dependancies import cursorDep
-from backend.models.cards import BaseCard, CreateCard
+from fastapi import APIRouter, Depends
+from backend.database.get_database import cursorDep
+from backend.routers.cards.models import CreateCard
+from psycopg2.extensions import connection
+from backend.database.database_utilis import execute_delete_query
 from uuid import UUID
 
 router = APIRouter(
@@ -10,9 +12,7 @@ router = APIRouter(
     responses={404:{'description' : 'Not found'}}
 )
 
-
 from psycopg2.extras import execute_values
-
 
 @router.post('/', response_model=None)
 async def add_card(conn: cursorDep,  card : CreateCard):

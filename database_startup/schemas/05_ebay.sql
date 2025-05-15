@@ -51,6 +51,16 @@ CREATE TABLE IF NOT EXISTS scope_app (
     PRIMARY KEY (scope_id, app_id)
 );
 
+
+CREATE TABLE IF NOT EXISTS log_oauth_request (
+    unique_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    session_id UUID NOT NULL REFERENCES sessions(id),
+    timestamp TIMESTAMPTZ DEFAULT now(),
+    expires_on TIMESTAMPTZ DEFAULT now() + INTERVAL '1 minute',
+    request TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_oauth_session ON log_oauth_request(session_id);
+
 -- VEWS----------------------------------------------------------------------------------------------------------------------------------------------
 CREATE OR REPLACE VIEW ebay_app AS 
     SELECT ai.app_id, ai.redirect_uri, ai.response_type,ai.client_secret_encrypted, ue.unique_id AS user_id

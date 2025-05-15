@@ -1,5 +1,5 @@
 from psycopg2.extensions import connection
-from backend.dependancies import cursorDep
+from backend.database.get_database import cursorDep
 from datetime import datetime, timezone
 
 def desactivate_expired(conn : connection =  cursorDep):

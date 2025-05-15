@@ -1,6 +1,6 @@
-from backend.models.sets import   NewSet, UpdatedSet
+from backend.routers.sets.models import   NewSet, UpdatedSet
 from fastapi import APIRouter
-from backend.dependancies import cursorDep
+from backend.database.get_database import cursorDep
 from backend.database.database_utilis import execute_insert_query, execute_delete_query, create_delete_query
 from psycopg2.extensions import connection
 from uuid import UUID

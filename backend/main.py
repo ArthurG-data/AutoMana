@@ -1,11 +1,8 @@
-from fastapi import FastAPI, Depends, Request
-from typing import Annotated, Any
+from fastapi import FastAPI, Request
 import time, logging
 from fastapi.middleware.cors import CORSMiddleware
-from backend.routers import sets, users, cards, collection, collectionEntry, authentification
-from backend.routers.internal import admin_router
-from backend.routers.ebay import router
-from apscheduler.schedulers.background import BackgroundScheduler
+from backend.routers import ebay, auth, users, cards,collections, admin,security,sets
+
 from backend.utilis import desactivate_expired
 
 logging.basicConfig(level=logging.INFO)
@@ -31,14 +28,13 @@ app = FastAPI(
 
 )
 
-app.include_router(users.router)
-app.include_router(cards.router)
+app.include_router(users.user_router)
+app.include_router(cards.card_router)
 app.include_router(sets.router)
-app.include_router(collection.router)
-app.include_router(collectionEntry.router)
-app.include_router(router.router)
-app.include_router(authentification.authentification_router)
-app.include_router(admin_router)
+app.include_router(collections.collection_router)
+app.include_router(ebay.ebay_router)
+app.include_router(auth.router)
+app.include_router(admin.admin_router)
 origins =[
     'http://localhost',
     'http://localhost:8080'
@@ -50,7 +46,6 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=['*'],
     allow_headers=['*']
-
 )
 
 @app.middleware('http')

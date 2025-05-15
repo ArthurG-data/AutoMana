@@ -1,15 +1,26 @@
 
 
-from backend.dependancies import get_settings, Settings
+from backend.dependancies import get_general_settings, GeneralSettings
 
-settings : Settings = get_settings()
+settings : GeneralSettings = get_general_settings()
 encryption_key = settings.secret_key
 
-nsert_token_query =  """INSERT INTO ebay_tokens (user_id, refresh_token, aquired_on, expires_on, token_type)
-                        VALUES (%s, %s, %s, %s, %s);
+
+
+insert_token_query =  """INSERT INTO ebay_tokens (dev_id, app_id, refresh_token, acquired_on, expires_on, token_type)
+                         SELECT ue.dev_id, %s, %s, %s, %s, %s
+                         FROM user_ebay ue
+                         WHERE ue.unique_id = %s
+                         ON CONFLICT (dev_id, app_id) DO NOTHING;
                         """
-get_info_login = f""" SELECT app_id, redirect_uri, response_type, pgp_sym_decrypt(client_secret_encrypted, '{encryption_key}') AS decrypted_secret
-                     FROM ebay_app
+get_refresh_token_query = """ SELECT et.refresh_token
+                              FROM ebay_tokens et
+                              JOIN user_ebay ue ON ue.dev_id = et.dev_id
+                              WHERE ue.unique_id = %s AND et.app_id = %s;
+                        """
+
+get_info = f"""SELECT app_id, redirect_uri, response_type, pgp_sym_decrypt(client_secret_encrypted, '{encryption_key}') AS decrypted_secret """
+get_info_login =    get_info + """FROM ebay_app
                      WHERE user_id = %s AND app_id = %s """
 
 get_scopes_app = """ SELECT s.scope_description 
@@ -31,4 +42,6 @@ assign_scope_query = """
                             WHERE scope_description = %s
                             ON CONFLICT (scope_id, app_id) DO NOTHING; """
 
-
+register_oauth_request = """
+                              INSERT INTO log_oauth_request (session_id, request )VALUES (%s, %s) RETURNING session_id;
+"""

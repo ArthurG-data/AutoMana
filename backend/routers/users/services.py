@@ -1,18 +1,10 @@
-
 from typing import Annotated
 from psycopg2.extensions import connection
-from fastapi import  Body, HTTPException, APIRouter, Depends, Response
+from fastapi import  Body, HTTPException, Response
 from backend.database.database_utilis import create_insert_query, execute_insert_query, create_update_query, execute_update_query
-from backend.models.users import  BaseUser, UserPublic,  UserUpdatePublic,  UserInDB
-from backend.authentification import  get_hash_password, get_current_active_user, check_token_validity
-from backend.dependancies import cursorDep
+from backend.routers.users.models import  BaseUser,  UserUpdatePublic
+from backend.routers.auth.utils import  get_hash_password
 
-
-router = APIRouter(
-    prefix='/users',
-    tags=['users'],
-    responses={404:{'description' : 'Not found'}}
-)
 
 def create_user(user : Annotated[BaseUser, Body(
     examples=[
@@ -53,16 +45,3 @@ def update_user(username : str, user : Annotated[UserUpdatePublic, Body(
         raise e
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get('/me', response_model= UserPublic)
-async def get_me_user(current_user: UserInDB = Depends(get_current_active_user)):
-    return current_user
-
-@router.post('/')
-async def add_user( user: BaseUser,  connexion: cursorDep) -> dict:
-    return create_user(user, connexion)
-
-@router.put('/')
-async def modify_user( user_update: UserUpdatePublic, connection : cursorDep, current_user : UserPublic=Depends(get_current_active_user)):
-    return update_user(current_user.username, user_update, connection)

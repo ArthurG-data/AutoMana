@@ -1,21 +1,20 @@
 from fastapi import APIRouter, HTTPException, Request, Depends
 from typing import List, Annotated
-from backend.dependancies import cursorDep, ipDep
+from backend.dependancies import ipDep
+from backend.database.get_database import cursorDep
 from psycopg2.extensions import connection
-from backend.models.users import AdminReturnSession
+from backend.routers.users.models import AdminReturnSession, UserInDB
 from uuid import UUID
 
 #from backend.utilis import extract_ip
-from backend.authentification import get_current_active_user
+from backend.routers.auth.depndancies import currentActiveUser
 from backend.database.database_utilis import create_select_query, execute_select_query, create_update_query, execute_queries
-from backend.models.users import UserInDB
 import psycopg2
 
 session_router = APIRouter(
     prefix='/session',
     tags=['admin-sessions']
 )
-
 
 @session_router.get('/', response_model=List[AdminReturnSession])
 async def get_sessions(conn: cursorDep):
@@ -36,7 +35,7 @@ async def get_sessions(conn: cursorDep, session_id : UUID):
         raise
 
 @session_router.delete('/{session_id}/desactivate')
-async def delete_session(conn : cursorDep, ip_address : ipDep, current_user : Annotated[ UserInDB, Depends(get_current_active_user)], request : Request, session_id : UUID):
+async def delete_session(conn : cursorDep, ip_address : ipDep, current_user : currentActiveUser, request : Request, session_id : UUID):
     query="SELECT inactivate_session(%s, %s, %s);"
     user = current_user.unique_id
     try:

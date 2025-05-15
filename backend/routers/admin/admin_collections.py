@@ -1,6 +1,6 @@
-from fastapi import APIRouter,  Depends
-from backend.dependancies import cursorDep
-from backend.models.collections import PublicCollection
+from fastapi import APIRouter
+from backend.database.get_database import cursorDep
+from backend.routers.collections.models import PublicCollection
 from psycopg2.extensions import connection
 from backend.database.database_utilis import  execute_select_query, execute_delete_query
 from typing import List, Optional
@@ -16,8 +16,6 @@ collection_router = APIRouter(
     responses={404:{'description':'Not found'}}
 )
 
-
-   
 def collect_collection(collection_id : Optional[str] , connection : connection)-> dict:
 
     query = """ SELECT u.username, c.collection_name, c.is_active 

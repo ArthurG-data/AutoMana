@@ -2,11 +2,10 @@
 from typing import Annotated,  Union, Optional, List, Any
 from psycopg2 import Error
 from psycopg2.extensions import connection
-from fastapi import  HTTPException, APIRouter,Query, Response, Depends
-from backend.database.database_utilis import create_select_query, execute_queries,create_delete_query, create_update_query, execute_delete_query, execute_insert_query, execute_update_query, execute_select_query, create_insert_query
-from backend.models.users import  UserPublic, UserInDB, AssignRoleRequest
-from backend.dependancies import cursorDep
-from backend.authentification import get_current_active_user
+from fastapi import  HTTPException, APIRouter,Query, Response
+from backend.database.database_utilis import create_select_query, create_delete_query, create_update_query, execute_delete_query, execute_insert_query, execute_update_query, execute_select_query, create_insert_query
+from backend.routers.users.models import  UserPublic, UserInDB, AssignRoleRequest
+from backend.database.get_database import cursorDep
 from uuid import UUID
 
 admin_user_router = APIRouter(

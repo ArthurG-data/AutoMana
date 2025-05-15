@@ -2,7 +2,6 @@ from pydantic import BaseModel, Field
 import datetime
 from uuid import UUID
 from typing import Optional
-from enum import Enum
 
 class BaseSet(BaseModel):
   
@@ -12,7 +11,6 @@ class BaseSet(BaseModel):
     set_code : str =Field(
         title='The set symbols'
     )
-
 
 class SetInDB(BaseSet):
     set_id : UUID=Field(
@@ -35,7 +33,6 @@ class SetwCount(SetInDB):
     card_count : int= Field(
         title='The number of card per sets'
     )
-
 
 class NewSet(BaseModel):
     set_id : UUID

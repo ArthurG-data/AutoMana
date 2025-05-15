@@ -1,28 +1,22 @@
 from fastapi import Header, HTTPException, Depends, Request
-from typing_extensions import Annotated, Optional
-from pydantic import Field
-from backend.database.get_database import connection, get_connection
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing_extensions import Annotated
 from functools import lru_cache
+from backend.models.settings import PostgreSettings, GeneralSettings, EbaySettings
 
-
-class Settings(BaseSettings):
-    postgres_host : str
-    postgres_password : str
-    postgres_db : str
-    postgres_user : str
-
-    secret_key : str
-    encrypt_algorithm : str
-    access_token_expiry : int =Field(title='The duration in minute of the access token', default=30)
-    model_config =  SettingsConfigDict(env_file='.env')
 
 @lru_cache
-def get_settings():
-    return Settings()
+def get_db_settings()->PostgreSettings:
+    return PostgreSettings()
+
+@lru_cache
+def get_general_settings()->GeneralSettings:
+    return GeneralSettings()
+
+@lru_cache
+def get_ebay_settings()->EbaySettings:
+    return EbaySettings()
 
 
-    
 async def get_token_header(x_token: Annotated[str, Header()]):
     if x_token != "fake-super-secret-token":
         raise HTTPException(status_code=400, detail="X-Token header invalid")
@@ -39,8 +33,6 @@ def extract_ip (request : Request)-> str:
     else:
         ip = request.client.host
     return ip
-
-
     
 ipDep = Annotated[str, Depends(extract_ip)]
-cursorDep = Annotated[connection, Depends(get_connection)]
+

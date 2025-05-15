@@ -1,18 +1,16 @@
-from fastapi import APIRouter, Query, Depends, Response
-from backend.dependancies import get_settings, Settings, cursorDep
-from backend.authentification import currentActiveUser
-from typing import Annotated, List
-from backend.routers.ebay.models import TokenInDb, InputEbaySettings
-from backend.routers.ebay.auth import login_ebay, exange_auth
+
+from fastapi import APIRouter,Response, Request, HTTPException
+from backend.routers.ebay import queries
+from backend.database.get_database import cursorDep
+from backend.routers.auth.depndancies import currentActiveUser
+from backend.routers.ebay.models import TokenResponse, InputEbaySettings
+from backend.routers.ebay.auth import login_ebay, exange_auth, exange_refresh_token
 from backend.routers.ebay.services import register_ebay_user,assign_scope, register_scope, register_app, assign_app
 from uuid import UUID
-
-
 
 router = APIRouter(
     tags=['ebay-routes']
 )
-
 
 @router.post('/scopes/', description='add a new scope to the the available scope', tags=['scopes'])
 async def regist_scope(conn : cursorDep, scope: str):
@@ -46,12 +44,42 @@ async def assign_user_app(conn: cursorDep, app_id : str, ebay_id : UUID):
     return Response(status_code=200, content='User assigned to app')
 
 
+@router.get('/callback')
+async def check_token(request : Request):
+    code = request.query_params.get('code')
+    origin = request.headers.get("origin")
+    referer = request.headers.get("referer")
+    user_agent = request.headers.get("user-agent")
+    state = request.headers.get("state")
+    if code:
+        return {'code' : code,
+                 'origin': origin,
+                 'referer' : referer,
+                 'user_agent': user_agent, 
+                 'state' : state}
+    return {'error' : 'authorization not found'}
+
+@router.get("/token", response_model=TokenResponse)
+async def exange_auth_token(conn : cursorDep,  request : Request, user : UUID = 'to add'):
+    code = request.query_params.get('code')
+    if code:
+        return await exange_auth(conn, user_id=user, code=code)
+    return {'error' : 'authorization not found'}
 
 
-@router.get("/token", response_model=TokenInDb)
-async def exange_auth_token(settings : Annotated[Settings, Depends(get_settings)], code : str = Query(...)):
-    return exange_auth(settings, code)
-
+@router.post('/auth/exange_token')
+async def do_exange_refresh_token(conn : cursorDep, user : currentActiveUser, app_id  :str):
+    #check if the has a non expired token for the app
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(queries.get_refresh_token_query, (user.unique_id, app_id,))
+            row = cursor.fetchone()
+            if not row:
+                raise HTTPException(status_code=401, detail='App not available for this user')
+            return await exange_refresh_token(conn, row.get('refresh_token'), user.unique_id, app_id)
+    except Exception as e:
+        raise
+            
 
 @router.get('/refresh')
 async def do_exange_token():

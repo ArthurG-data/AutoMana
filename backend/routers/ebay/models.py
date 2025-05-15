@@ -1,16 +1,88 @@
 
-from typing import Optional, List
+from typing import Optional, List, Dict
 from pydantic import BaseModel, Field, model_validator
-from datetime import datetime
+from datetime import datetime, timedelta
 from uuid import UUID
-from backend.authentification import get_hash_password
+from backend.routers.auth.utils import get_hash_password
+from pydantic_settings import BaseSettings, SettingsConfigDict
+import base64
 
-class TokenInDb(BaseModel):
-     user_id : UUID = Field(title='The ebay user_id')
-     refresh_token : str
-     aquired_on :datetime = Field(default_factory=datetime.now)
-     expires_on : Optional[datetime] = None
-     token_type : str
+
+class AuthHeader(BaseModel):
+    app_id : str 
+    secret : str 
+    authorization : Optional[str] = None
+
+    @model_validator(mode='after')
+    def encode_authorisation(self) -> "AuthHeader":
+        ci_cs = f"{self.app_id}:{self.secret}"
+        encoded_ci_cs =ci_cs.encode()
+        b64_e_ci_cs = base64.b64encode(encoded_ci_cs).decode()
+        self.authorization = 'Basic ' + b64_e_ci_cs
+        return self
+    
+    def to_header(self) -> dict:
+        return {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Authorization": self.authorization
+        }
+
+
+class TokenRequestData(BaseModel):
+    grant_type: str
+
+    def to_data(self) -> Dict[str, str]:
+        raise NotImplementedError("Subclasses must implement to_data()")
+    
+class AuthData(TokenRequestData):
+   
+    code : str
+    redirect_uri : str
+
+    def __init__(self, **data):
+        data['grant_type'] = 'authorization_code'
+        super().__init__(**data)
+
+    def to_data(self)->dict:
+        return {
+            'grant_type' : self.grant_type,
+            'code' : self.code,
+            "redirect_uri" : self.redirect_uri
+        }
+    
+class ExangeRefreshData(TokenRequestData):
+    token : str
+    scope : List[str]
+
+    def __init__(self, **data):
+        data['grant_type'] = 'refresh_token'
+        super().__init__(**data)
+
+
+    def to_data(self)->dict:
+        return {
+            'grant_type' : self.grant_type,
+            "refresh_token": self.token ,
+            'scope' : " ".join(self.scope)
+        }
+
+class TokenResponse(BaseModel):
+    access_token : str
+    expires_in : int
+    expires_on: Optional[datetime] = None  
+    refresh_token : Optional[str]=None
+    acquired_on :datetime = Field(default_factory=datetime.now)
+    refresh_token_expires_in : Optional[int]=None 
+    token_type : str
+    refresh_expires_on: Optional[datetime] = None 
+    @model_validator(mode='after')
+    def compute_expires_on(self) -> "TokenResponse":
+        if self.refresh_token_expires_in is not None:
+            self.refresh_expires_on = self.acquired_on + timedelta(seconds=self.refresh_token_expires_in)
+        if self.expires_in is not None:
+            self.expires_on = self.acquired_on + timedelta(seconds=self.expires_in)
+        return self
+
 
 class InputEbaySettings(BaseModel):
     app_id: str
