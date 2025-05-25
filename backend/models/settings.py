@@ -6,6 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class GeneralSettings(BaseSettings):
     encrypt_algorithm : str
     secret_key : str
+    access_token_expiry : int
     model_config =  SettingsConfigDict(env_file='.env',  extra="allow")
 
 class PostgreSettings(BaseSettings):

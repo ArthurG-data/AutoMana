@@ -2,7 +2,7 @@ from fastapi import APIRouter
 
 from fastapi import APIRouter, Depends
 from backend.routers.users.models import  BaseUser, UserPublic,  UserUpdatePublic
-from backend.shared.dependancies  import  currentActiveUser
+from backend.shared.dependancies  import  currentActiveUser, currentActiveSession
 from backend.database.get_database import cursorDep
 from backend.routers.users import services
 
@@ -22,3 +22,7 @@ async def add_user( user: BaseUser,  connexion: cursorDep) -> dict:
 @router.put('/')
 async def modify_user( user_update: UserUpdatePublic, connection : cursorDep, current_user :currentActiveUser):
     return services.update_user(current_user.username, user_update, connection)
+
+@router.get('/session')
+async def get_session(session : currentActiveSession):
+    return {'session' : session}

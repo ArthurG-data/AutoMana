@@ -7,8 +7,8 @@ from fastapi import  HTTPException, status, Request
 from datetime import timedelta, datetime, timezone
 from fastapi.security import OAuth2PasswordBearer
 from fastapi import  HTTPException, status, Request, Security
+from backend.dependancies import get_general_settings
 
-load_dotenv()
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -72,8 +72,10 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     else:
         expire = datetime.now(timezone.utc) + timedelta(minutes=15)
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, os.getenv('SECRET_KEY'), os.getenv('ENCRYPT_ALGORITHM'))
+    encoded_jwt = jwt.encode(to_encode, get_general_settings().secret_key , get_general_settings().encrypt_algorithm )
     return encoded_jwt
+
+
 
 def decode_access_token(token : str) ->dict:
     """
@@ -88,8 +90,9 @@ def decode_access_token(token : str) ->dict:
     Raises:
         Exception: If the token is expired or invalid.
     """
+   
     try:
-        payload =  jwt.decode(token, os.getenv('SECRET_KEY'), algorithms=[os.getenv('ENCRYPT_ALGORITHM')])
+        payload =  jwt.decode(token,key=get_general_settings().secret_key ,algorithms=get_general_settings().encrypt_algorithm)
         return payload
     except jwt.ExpiredSignatureError:
         raise Exception("Token expired")
@@ -111,6 +114,7 @@ async def get_token_from_header_or_cookie(request: Request, token: str = Securit
     Raises:
         HTTPException: If no token is found.
     """
+
     if token:
         return token
     cookie_token = request.cookies.get("access_token")
@@ -121,6 +125,7 @@ async def get_token_from_header_or_cookie(request: Request, token: str = Securit
 
 
 async def check_token_validity(request : Request):
+    print('cheking validity')
     token = None
     auth = request.headers.get("Authorization")
 

@@ -1,27 +1,23 @@
 import os
 
-from datetime import timedelta
+from datetime import timedelta,datetime, timezone
 from uuid import UUID, uuid4
 from backend.utilis import now_utc
 
-from fastapi import HTTPException, status
+from fastapi import HTTPException, status,  Request, Response
 from psycopg2.extensions import connection
 
-from backend.routers.auth.models import CookiesData, CreateSession
+from backend.routers.auth.models import CookiesData, CreateSession, Token
 from backend.routers.auth import  utils
 from backend.routers.users.models import UserInDB
 from backend.database.database_utilis import (
     execute_insert_query,
     execute_select_query
 )
-
-from fastapi import  Response,HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
-from datetime import timedelta, datetime, timezone
-from backend.routers.auth import utils
-from backend.routers.auth.models import Token
-
 from backend.shared.dependancies import get_current_user
+from backend.dependancies import get_general_settings
+from backend.routers.auth import queries
 
 def insert_session(conn : connection, new_session : CreateSession):
      #create the session
@@ -39,13 +35,13 @@ def insert_session(conn : connection, new_session : CreateSession):
     except Exception: 
         conn.rollback()
         raise
-def get_active_session(conn, user_id: UUID):
+def get_active_session(conn : connection, user_id: UUID):
     with conn.cursor() as cursor:
         cursor.execute("SELECT session_id, token_id FROM active_sessions_view WHERE user_id = %s", (user_id,))
         result = cursor.fetchone()
         return result 
 
-def handle_session_rotation_or_creation(conn, user, ip_address, user_agent, session_info, expire_time):
+def handle_session_rotation_or_creation(conn : connection, user , ip_address, user_agent, session_info, expire_time):
     if session_info:
         session_id = session_info.get('session_id')
         token_id = session_info.get('token_id')
@@ -67,6 +63,7 @@ def handle_session_rotation_or_creation(conn, user, ip_address, user_agent, sess
             refresh_token_expires_at=expire_time,
             user_agent=user_agent
         )
+       
         session_id, _ = insert_session(conn, new_session)
         return session_id, refresh_token
     
@@ -163,19 +160,18 @@ def validate_credentials(conn, username: str, password: str):
         )
     return user
 
+
 async def login(conn : connection ,  ip_address : str, response : Response, request: Request, form_data: OAuth2PasswordRequestForm) -> Token:
 
-    access_token_expires = timedelta(minutes=int(os.getenv('ACCESS_TOKEN_EXPIRY')))
+    access_token_expires = timedelta(minutes=int(get_general_settings().access_token_expiry))
     user_agent = request.headers.get('user-agent')
     expire_time = datetime.now(timezone.utc) +  timedelta(days=7)
-
     try:
         user = validate_credentials(conn, form_data.username, form_data.password)
         session_info = get_active_session(conn, user.unique_id)
         session_id, refresh_token = handle_session_rotation_or_creation(conn, user, ip_address, user_agent, session_info, expire_time)
-
         access_token = utils.create_access_token(
-            data={"session_id": session_id},
+            data={"session_id": str(session_id)},
             expires_delta=access_token_expires
         )
 
@@ -208,7 +204,7 @@ async def read_cookie( conn : connection, ip_address : str ,response : Response,
     user : UserInDB =  await get_current_user(conn, token=refresh_token)
 
     if not user.disabled:
-        access_token_expires = timedelta(minutes=int(os.getenv('ACCESS_TOKEN_EXPIRY')))
+        access_token_expires = timedelta(minutes=int(get_general_settings().access_token_expiry))
         access_token = utils.create_access_token( data={"sub": user.username, "id" : str(user.unique_id), "role":user.role},expires_delta=access_token_expires)
         refresh_expiry = now_utc() + timedelta(days=7)
         refresh_token = utils.create_access_token(
@@ -239,3 +235,14 @@ async def read_cookie( conn : connection, ip_address : str ,response : Response,
         detail="Token Invalid",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+async def get_info_session(conn: connection, session_id :UUID)->UUID:
+    try:
+        row = execute_select_query(conn, queries.get_info_session_query, (str(session_id),), select_all=False)
+        if row:
+            return row
+        else:
+            raise HTTPException(status_code=401, detail="No sessions files")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"{e}")
+        

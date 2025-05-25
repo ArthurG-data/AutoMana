@@ -1,21 +1,18 @@
 
-from fastapi import APIRouter,Response, Request, HTTPException
+from fastapi import APIRouter,Response, Request, HTTPException, Query
 from backend.routers.ebay import queries
 from backend.database.get_database import cursorDep
-from backend.routers.auth.depndancies import currentActiveUser
 from backend.routers.ebay.models import TokenResponse, InputEbaySettings
+from backend.shared.dependancies import currentActiveUser, currentActiveSession
 from backend.routers.ebay.auth import login_ebay, exange_auth, exange_refresh_token
-from backend.routers.ebay.services import register_ebay_user,assign_scope, register_scope, register_app, assign_app
+from backend.routers.ebay.services import register_ebay_user,assign_scope, register_app, assign_app, check_auth_request
 from uuid import UUID
+from backend.routers.auth.services import get_active_session,get_info_session
+
 
 router = APIRouter(
-    tags=['ebay-routes']
 )
 
-@router.post('/scopes/', description='add a new scope to the the available scope', tags=['scopes'])
-async def regist_scope(conn : cursorDep, scope: str):
-    register_scope(conn, scope)
-    return Response(status_code=200, content='{scope} scope added')
 
 @router.post('/dev/register', description='Add a ebay_user to the database that will be linked to the current user', tags=['dev'])
 async def regist_user(conn: cursorDep, current_user : currentActiveUser, dev_id : UUID):
@@ -23,13 +20,17 @@ async def regist_user(conn: cursorDep, current_user : currentActiveUser, dev_id 
     return Response(status_code=200, content='Dev added')
 
 @router.post('/app/login')
-async def login(conn : cursorDep, user : currentActiveUser, app_id : str):
-     return login_ebay(conn, user.unique_id, app_id)
+async def login(conn : cursorDep, user : currentActiveUser,session_id: currentActiveSession, app_id : str):
+     return login_ebay(conn, user.unique_id, app_id, session_id)
    
 
 @router.post('/app/{app_id}/scopes', description='add a scope to an app', tags=['app'])
 async def add_user_scope(conn : cursorDep, scope : str, app_id : str):
-    assign_scope(conn,  app_id, '{scope}')
+   
+    try:
+        assign_scope(conn,  app_id, scope)
+    except Exception as e:
+        return {'message' : 'Could not assign scope to app', 'error' : f'{e}'}
     return Response(status_code=200)
 
 @router.post('/app', description='add an app to the database', tags=['app'])
@@ -44,26 +45,23 @@ async def assign_user_app(conn: cursorDep, app_id : str, ebay_id : UUID):
     return Response(status_code=200, content='User assigned to app')
 
 
-@router.get('/callback')
-async def check_token(request : Request):
-    code = request.query_params.get('code')
-    origin = request.headers.get("origin")
-    referer = request.headers.get("referer")
-    user_agent = request.headers.get("user-agent")
-    state = request.headers.get("state")
-    if code:
-        return {'code' : code,
-                 'origin': origin,
-                 'referer' : referer,
-                 'user_agent': user_agent, 
-                 'state' : state}
-    return {'error' : 'authorization not found'}
+
+
 
 @router.get("/token", response_model=TokenResponse)
-async def exange_auth_token(conn : cursorDep,  request : Request, user : UUID = 'to add'):
+async def exange_auth_token(conn : cursorDep,  request : Request):
     code = request.query_params.get('code')
-    if code:
-        return await exange_auth(conn, user_id=user, code=code)
+    request_id = request.query_params.get("state")
+    #next from the request_id, get the session
+    try:
+        session_id, app_id = check_auth_request(conn, request_id)
+        user = await get_info_session(conn, session_id)
+        user = user.get('user_id')
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Cannot confirm request info: {e}")
+    #next from the session get user and app
+    if code and request_id:
+        return await exange_auth(conn, user_id=user, code=code, app_id=app_id)
     return {'error' : 'authorization not found'}
 
 
@@ -84,3 +82,22 @@ async def do_exange_refresh_token(conn : cursorDep, user : currentActiveUser, ap
 @router.get('/refresh')
 async def do_exange_token():
     pass
+
+@router.get('/app/listings')
+
+@router.get('/app/listing/{listing_id}')
+async def getActiveListing():
+    raise HTTPException(status_code=400, detail='Not implemented')
+
+from backend.routers.ebay.ebay_api import doPostTradingRequest, create_xml_body, HeaderApi
+from typing import Annotated
+
+@router.get("/ebay/active-listings/")
+async def do_api_call(token, limit : Annotated[int , Query(gt=1, le=50)] , offset :  Annotated[int , Query(gt=1,)]):
+    header = HeaderApi('00', 967,'GetMyeBaySelling', token)
+    xml_body = create_xml_body('GetMyeBaySelling', limit, offset)
+    try:
+        return await doPostTradingRequest(xml_body,header)
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f'xould not get all active listings: {e}')
+

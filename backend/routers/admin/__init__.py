@@ -1,6 +1,6 @@
 from fastapi import APIRouter,Depends
 from backend.routers.security.authorisation import  has_role
-from backend.routers.admin import admin_users, admin_sets, admin_collections, admin_sessions
+from backend.routers.admin import admin_users, admin_sets, admin_collections, admin_sessions, admin_ebay
 from fastapi.responses import JSONResponse
 
 admin_router = APIRouter(
@@ -13,6 +13,7 @@ admin_router.include_router(admin_users.admin_user_router)
 admin_router.include_router(admin_sets.sets_router)
 admin_router.include_router(admin_collections.collection_router)
 admin_router.include_router(admin_sessions.session_router)
+admin_router.include_router(admin_ebay.admin_ebay_router)
 
 @admin_router.get('/')
 async def admin_root():

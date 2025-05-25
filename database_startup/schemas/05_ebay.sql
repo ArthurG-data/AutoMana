@@ -27,7 +27,6 @@ CREATE TABLE IF NOT EXISTS app_user (
 );
 
 
-
 CREATE TABLE IF NOT EXISTS ebay_tokens(
     dev_id UUID REFERENCES user_ebay(dev_id) ON DELETE CASCADE NOT NULL,
     app_id TEXT REFERENCES app_info(app_id) ON DELETE CASCADE NOT NULL,
@@ -41,7 +40,8 @@ CREATE TABLE IF NOT EXISTS ebay_tokens(
 
 CREATE TABLE IF NOT EXISTS scopes (
     scope_id SERIAL PRIMARY KEY, 
-    scope_description TEXT UNIQUE NOT NULL
+    scope_url TEXT UNIQUE NOT NULL, 
+    scope_description TEXT 
 );
 
 CREATE TABLE IF NOT EXISTS scope_app (
@@ -57,7 +57,8 @@ CREATE TABLE IF NOT EXISTS log_oauth_request (
     session_id UUID NOT NULL REFERENCES sessions(id),
     timestamp TIMESTAMPTZ DEFAULT now(),
     expires_on TIMESTAMPTZ DEFAULT now() + INTERVAL '1 minute',
-    request TEXT NOT NULL
+    request TEXT NOT NULL,
+    app_id TEXT REFERENCES app_info(app_id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_oauth_session ON log_oauth_request(session_id);
 

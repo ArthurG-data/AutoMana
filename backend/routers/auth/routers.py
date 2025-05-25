@@ -6,6 +6,8 @@ from backend.database.get_database import cursorDep
 from fastapi.security import OAuth2PasswordRequestForm
 from backend.routers.auth.models import Token
 from backend.routers.auth.services import login, read_cookie
+from uuid import UUID
+from backend.shared.dependancies import currentActiveSession
 
 authentification_router = APIRouter(
     tags=['authentificate'])
@@ -15,7 +17,7 @@ async def do_login(conn : cursorDep ,  ip_address : ipDep, response : Response, 
     try:
         return await login(conn, ip_address, response,request,form_data)
     except Exception as e:
-        return HTTPException(status_code=400, detail='Authentification failed')
+        raise HTTPException(status_code=400, detail=f'{e}')
     
 @authentification_router.post('/exange-cookie', description='exanges the refresh token in a cookie for a auth token')
 async def do_read_cookie( conn : cursorDep, ip_address : ipDep,response : Response, request: Request):
@@ -27,4 +29,10 @@ async def do_read_cookie( conn : cursorDep, ip_address : ipDep,response : Respon
 @authentification_router.post('/logout', status_code=204, description='remove a refresh token')
 async def remove_cookie(response : Response):
     response.delete_cookie('refresh_token')
+
+
+@authentification_router.get('/sessions/')
+async def test_function( session_id : currentActiveSession):
+    return session_id
+
     
