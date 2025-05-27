@@ -1,13 +1,18 @@
-
 from typing import Optional, List, Dict
 from pydantic import BaseModel, Field, model_validator
 from datetime import datetime, timedelta
 from uuid import UUID
 from backend.routers.auth.utils import get_hash_password
-from pydantic_settings import BaseSettings, SettingsConfigDict
 import base64
 
-
+class HeaderApi(BaseModel):
+    site_id: str = Field(default="0", alias="X-EBAY-API-SITEID")
+    compatibility_level: str = Field(default="967", alias="X-EBAY-API-COMPATIBILITY-LEVEL")
+    call_name: str = Field(default="GetMyeBaySelling", alias="X-EBAY-API-CALL-NAME")
+    iaf_token: str = Field(..., alias="X-EBAY-API-IAF-TOKEN")
+    class Config:
+        populate_by_name = True 
+        
 class AuthHeader(BaseModel):
     app_id : str 
     secret : str 

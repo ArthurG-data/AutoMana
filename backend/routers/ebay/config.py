@@ -1,0 +1,5 @@
+EBAY_TRADING_API_URL = "https://api.ebay.com/ws/api.dll"
+EBAY_OAUTH_TOKEN_URL = "https://api.ebay.com/identity/v1/oauth2/token"
+EBAY_INVENTORY_API_BASE = "https://api.ebay.com/sell/inventory/v1"
+EBAY_FULFILLMENT_API_BASE = "https://api.ebay.com/sell/fulfillment/v1"
+EBAY_MARKETING_API_BASE = "https://api.ebay.com/sell/marketing/v1"

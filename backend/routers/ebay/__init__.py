@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
-from backend.routers.ebay import router
+from backend.routers.ebay.routers import app,auth, dev, inventory, listing, orders, stores
 from backend.routers.auth.utils import check_token_validity
 
 ebay_router = APIRouter(
@@ -8,7 +8,10 @@ ebay_router = APIRouter(
     tags=['ebay']
 )
 
-ebay_router.include_router(router.router)
+ebay_router.include_router(app.ebay_app_router)
+ebay_router.include_router(auth.ebay_auth_router)
+ebay_router.include_router(dev.ebay_dev_router)
+ebay_router.include_router(listing.ebay_listing_router)
 
 @ebay_router.get('/')
 async def admin_root():

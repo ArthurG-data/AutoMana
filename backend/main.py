@@ -1,9 +1,9 @@
 from fastapi import FastAPI, Request
 import time, logging
 from fastapi.middleware.cors import CORSMiddleware
-from backend.routers import ebay, auth, users, cards,collections, admin,security,sets
-
-from backend.utilis import desactivate_expired
+from backend.routers import auth, users, cards,collections, admin,sets, ebay
+from backend.routers.ebay.models.errors import EbayServiceError
+from backend.routers.ebay.handlers import ebay_error_handler
 
 logging.basicConfig(level=logging.INFO)
 
@@ -40,6 +40,7 @@ origins =[
     'http://localhost:8080'
 ]
 
+app.add_exception_handler(EbayServiceError, ebay_error_handler)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,

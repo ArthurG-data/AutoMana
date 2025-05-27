@@ -1,23 +1,31 @@
 
-import urllib,  base64, httpx
+import urllib, httpx
+from pydantic import  HttpUrl
 from fastapi import HTTPException
 from fastapi.responses import RedirectResponse
-from backend.routers.ebay.models import  AuthHeader, AuthData, ExangeRefreshData, TokenRequestData
-from backend.routers.ebay import queries
+from backend.database.database_utilis import execute_insert_query, execute_select_query
+from backend.routers.ebay.models.auth import  AuthHeader, AuthData, ExangeRefreshData, TokenRequestData, TokenResponse
+from backend.routers.ebay.queries import auth, app
 from backend.models.settings import EbaySettings
 from psycopg2.extensions import connection
-from backend.routers.ebay.services import log_auth_request
 from backend.database.database_utilis import exception_handler
 from uuid import UUID,uuid4
-from backend.routers.ebay.models import TokenResponse
+
+
+def save_refresh_token(conn: connection, new_refresh : TokenResponse):
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(auth.insert_token_query, (new_refresh.user_id, new_refresh.refresh_token, new_refresh.aquired_on, new_refresh.expires_on, new_refresh.token_type))          
+    except Exception as e:
+        exception_handler(e)
 
 def set_ebay_settings(conn: connection, user : UUID, app_id : str)->EbaySettings:
     #to be implemented latter once in AWS
     try:
         with conn.cursor() as cursor:
-            cursor.execute(queries.get_info_login, (user,app_id,))
+            cursor.execute(auth.get_info_login, (user,app_id,))
             infos = cursor.fetchone()
-            cursor.execute(queries.get_scopes_app, (app_id, ))
+            cursor.execute(app.get_scopes_app, (app_id, ))
             scopes = cursor.fetchall()
             scopes = [row['scope_url']for row in scopes]
             return EbaySettings(app_id=infos['app_id'], 
@@ -28,7 +36,7 @@ def set_ebay_settings(conn: connection, user : UUID, app_id : str)->EbaySettings
     except Exception as e:
         exception_handler(e)
   
-    
+
 def login_ebay(conn : connection, user : UUID, app_id : str, session_id :UUID):
     #add the params state with the request_id, but better to store a encrypted value, store the query and check if it exists when received
     print('Logging Into the Ebay App...')
@@ -61,12 +69,10 @@ async def  do_request_auth_ebay(headers : AuthHeader, data : TokenRequestData)->
 
 
 async def exange_auth(conn : connection, code : str, user_id : UUID, app_id : UUID):
-    
     settings : EbaySettings = set_ebay_settings(conn, user_id, app_id)
     headers = AuthHeader(app_id=app_id,secret=settings.secret ).to_header()
     data = AuthData(code = code, redirect_uri = settings.redirect_uri).to_data()
     res : TokenResponse = await do_request_auth_ebay(headers, data)  
-  
     try:
         await save_refresh_token(conn,res, app_id, user_id)
     except Exception as e:
@@ -85,8 +91,30 @@ async def exange_refresh_token(conn : connection, refresh_token : str, user_id :
 async def save_refresh_token(conn : connection, token : TokenResponse, app_id : str, user_id : UUID):
     try:
         with conn.cursor() as cursor:
-            cursor.execute(queries.insert_token_query, (app_id, token.refresh_token, token.acquired_on, token.expires_on,  token.token_type, user_id,))
+            cursor.execute(auth.insert_token_query, (app_id, token.refresh_token, token.acquired_on, token.expires_on,  token.token_type, user_id,))
             conn.commit()
             return {'message' : 'refresh token added'}
     except Exception as e:
         exception_handler(e)
+
+def log_auth_request(conn : connection, request_id: UUID, session_id : UUID, request : HttpUrl, app_id)->UUID:
+    try:
+
+        request_id = execute_insert_query(conn, auth.register_oauth_request, (request_id, session_id, request,app_id,))
+        if request_id:
+            return request_id
+    except Exception as e:
+        raise e     
+    
+def check_auth_request(conn : connection, request_id : UUID) :
+    try:
+        row = execute_select_query(conn,auth.get_valid_oauth_request, (request_id,), select_all=False)
+        session_id = row.get('session_id')
+        app_id = row.get('app_id')
+        if session_id and app_id:
+            return session_id, app_id
+        else:
+            raise HTTPException(status_code=400, detail='message : Request invalid')
+    except Exception as e:
+        raise e
+
