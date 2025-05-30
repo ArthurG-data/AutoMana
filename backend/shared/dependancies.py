@@ -1,8 +1,8 @@
 
 from fastapi import Depends, HTTPException, status
 from typing_extensions import Annotated
-from backend.routers.users.models import UserInDB
-from backend.routers.auth.utils import get_token_from_header_or_cookie, decode_access_token
+from backend.modules.public.users.models import UserInDB
+from backend.modules.auth.utils import get_token_from_header_or_cookie, decode_access_token
 from backend.database.get_database import cursorDep
 from backend.database.database_utilis import execute_select_query
 from uuid import UUID
