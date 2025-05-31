@@ -4,7 +4,8 @@ from psycopg2 import Error
 from psycopg2.extensions import connection
 from fastapi import  HTTPException, APIRouter,Query, Response
 from backend.database.database_utilis import create_select_query, create_delete_query, create_update_query, execute_delete_query, execute_insert_query, execute_update_query, execute_select_query, create_insert_query
-from backend.modules.public.users.models import  UserPublic, UserInDB, AssignRoleRequest
+from backend.modules.public.users.models import  UserPublic, AssignRoleRequest
+from backend.modules.auth.models import UserInDB
 from backend.database.get_database import cursorDep
 from uuid import UUID
 

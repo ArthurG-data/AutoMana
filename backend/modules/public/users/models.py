@@ -24,7 +24,7 @@ class UserPublic(BaseModel):
         default=None,title='the user first and last name', max_length=50
     ) 
 
-
+"""
 class BaseUser(UserPublic):
     email : EmailStr | None = Field(default=None)
     hashed_password : str = Field(
@@ -38,7 +38,8 @@ class UserInDB(BaseUser):
 )
     created_at : Optional[datetime]
     
-
+"""
+   
 class UserUpdatePublic(BaseModel):
     username: str | None=None
     email: str | None=None
@@ -46,7 +47,6 @@ class UserUpdatePublic(BaseModel):
     hashed_password: str | None=None
  
 
-   
 class UserUpdateAdmin(BaseModel):
     disabled : bool | None=None
 

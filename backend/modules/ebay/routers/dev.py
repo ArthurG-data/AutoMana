@@ -1,7 +1,7 @@
 
 from fastapi import APIRouter,Response
 from backend.database.get_database import cursorDep
-from backend.shared.dependancies import currentActiveUser
+from backend.modules.auth.dependancies import currentActiveUser
 from backend.modules.ebay.services.dev import register_ebay_user
 from uuid import UUID
 

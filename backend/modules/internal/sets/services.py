@@ -1,38 +1,38 @@
-from backend.modules.public.sets.models import   NewSet, UpdatedSet
-from fastapi import APIRouter
-from backend.database.get_database import cursorDep
-from backend.database.database_utilis import execute_insert_query, execute_delete_query, create_delete_query
+from backend.modules.internal.sets.models import  UpdatedSet
+from backend.database.database_utilis import execute_insert_query
 from psycopg2.extensions import connection
 from uuid import UUID
+from backend.modules.internal.sets.models import NewSet, NewSets
 
-sets_router = APIRouter(
-        prefix='/sets',
-        tags=['admin-sets'], 
-        responses={404:{'description':'Not found'}}
-        
-)
 
-@sets_router.delete('/{set_id}')
-async def delete_set(conn: cursorDep,
-                    set_id : UUID):
-    query=create_delete_query('sets', ['set_id = %s'])
-    print(query)
-    try:
-        return execute_delete_query(conn, query, (str(set_id),), execute_many=False)
-    except Exception:
-        conn.rollback()
-        raise
-
-@sets_router.post('/')
-async def add_set(new_set : NewSet, conn: cursorDep):
-    query = "INSERT INTO joined_set (set_id, set_name, set_code, set_type, nonfoil_only, foil_only,  released_at, digital, parent_set) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"
+def add_set(new_set : NewSet, conn: connection):
+    query = "SELECT insert_joined_set (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
     data = new_set.model_dump()
-    values = tuple(v for _, v in data.items())
-    try:
-        return execute_insert_query(conn, query, values)
-    except Exception:
-        raise
+    #values = tuple(v for _, v in data.items())
+    values = (
+        data["id"],
+        data["name"],
+        data["code"],
+        data["set_type"],
+        data["released_at"],
+        data["digital"],
+        data["nonfoil_only"],
+        data["foil_only"],
+        data["parent_set_code"],
+        data["icon_svg_uri"]
+    )
+    execute_insert_query(conn, query, values)
+    
 
+def add_sets_bulk(new_sets : NewSets, conn: connection):
+    query = "SELECT insert_joined_set (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+    values_list = []
+    for item in new_sets.items:
+        data = item.model_dump()
+        values = tuple(v for _, v in data.items())
+        values_list.append(values)
+    return execute_insert_query(conn, query, values_list, execute_many=True)
+    
 def put_set(conn: connection, set_id : UUID, update_set : UpdatedSet):
     not_nul = [k for k,v in update_set.model_dump().items() if v != None]
     update_string = ', '.join([f'{update} = %s'for update in not_nul])
@@ -79,9 +79,3 @@ def put_set(conn: connection, set_id : UUID, update_set : UpdatedSet):
         execute_insert_query(conn, query, params)
     except Exception:
         raise
-
-@sets_router.put('/{set_id}')
-async def update_set(conn: cursorDep,
-                    set_id  : UUID, 
-                    update_set : UpdatedSet):
-    return put_set(conn, set_id, update_set)

@@ -9,7 +9,7 @@ from psycopg2.extensions import connection
 
 from backend.modules.auth.models import CookiesData, CreateSession, Token
 from backend.modules.auth import  utils, queries
-from backend.modules.public.users.models import UserInDB
+from backend.modules.auth.models import UserInDB
 from backend.database.database_utilis import (
     execute_insert_query,
     execute_select_query

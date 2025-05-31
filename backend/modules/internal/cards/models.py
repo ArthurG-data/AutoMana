@@ -1,8 +1,8 @@
 from pydantic import Field, model_validator
 from uuid import UUID
 from typing import Optional,  List, Union,Annotated
-from backend.modules.cards.utils import process_type_line
-from backend.models
+from backend.modules.internal.cards.utils import process_type_line
+from backend.modules.public.cards.models import BaseCard
 
 
 class CreateCard(BaseCard):

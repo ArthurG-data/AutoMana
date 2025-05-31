@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 from typing import List
 from uuid import UUID
 from backend.modules.public.collections.models import CreateCollection, UpdateCollection, PublicCollection, PublicCollectionEntry, UpdateCollectionEntry, NewCollectionEntry
-from backend.shared.dependancies import currentActiveUser
+from backend.modules.auth.dependancies import currentActiveUser
 from backend.database.get_database import cursorDep
 from backend.modules.public.collections.services import create_collection, delete_collection,collect_collection, update_collection, execute_delete_query, execute_select_query, execute_update_query
 

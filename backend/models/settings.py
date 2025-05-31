@@ -3,6 +3,15 @@ from typing_extensions import  Optional, List
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+
+class InternalSettings(BaseSettings):
+    internal_api_key: str
+
+    class Config:
+        env_file = ".env"
+        env_file_encoding = "utf-8"
+
+        
 class GeneralSettings(BaseSettings):
     encrypt_algorithm : str
     secret_key : str

@@ -3,11 +3,11 @@ from typing import List, Annotated
 from backend.dependancies import ipDep
 from backend.database.get_database import cursorDep
 from psycopg2.extensions import connection
-from backend.modules.public.users.models import AdminReturnSession, UserInDB
+from backend.modules.public.users.models import AdminReturnSession
 from uuid import UUID
 
 #from backend.utilis import extract_ip
-from backend.modules.auth.depndancies import currentActiveUser
+from backend.modules.auth.dependancies import currentActiveUser
 from backend.database.database_utilis import create_select_query, execute_select_query, create_update_query, execute_queries
 import psycopg2
 

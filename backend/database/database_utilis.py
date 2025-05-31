@@ -158,8 +158,8 @@ def execute_queries(cursor : cursor, query : str, values : Sequence[tuple[Any]] 
     if execute_many:
         cursor.executemany(query, values)
     else:
-            cursor.execute(query, values)
-    cursor.connection.rollback()
+        cursor.execute(query, values)
+ 
    
 
 def execute_delete_query(connection : connection, query : str, values : Sequence[tuple[Any]] | tuple[Any], execute_many = False):    
@@ -169,13 +169,19 @@ def execute_delete_query(connection : connection, query : str, values : Sequence
         return Response(status_code=204)    
 
 
-def execute_insert_query(connection : connection, query : str, values : Sequence[tuple[Any]] | tuple[Any], unique_id = 'unique_id', execute_many = False):
+def execute_insert_query(connection : connection, query : str, values : Sequence[tuple[Any]] | tuple[Any], return_id : Optional[str]=None, execute_many = False):
     with get_cursor(connection) as cursor:
         execute_queries(cursor, query, values, execute_many)
-        rows = cursor.fetchall()
         connection.commit()
-        inserted_ids = [row[unique_id] for row in rows] 
-        return inserted_ids if execute_many else inserted_ids[0]
+        if return_id:
+            try:
+                rows = cursor.fetchall()
+                inserted_ids = [row[return_id] for row in rows]
+                return inserted_ids if execute_many else inserted_ids[0]
+            except Exception:
+                raise RuntimeError("Expected return_id but function returned nothing")
+        else:
+            return
   
 def execute_select_query(connection : connection, query : str, values : Sequence[tuple[Any]] | tuple[Any], execute_many = False, select_all=True):
     with  connection.cursor() as cursor:

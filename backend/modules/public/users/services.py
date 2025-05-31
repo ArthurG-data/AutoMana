@@ -2,7 +2,8 @@ from typing import Annotated
 from psycopg2.extensions import connection
 from fastapi import  Body, HTTPException, Response
 from backend.database.database_utilis import create_insert_query, execute_insert_query, create_update_query, execute_update_query
-from backend.modules.public.users.models import  BaseUser,  UserUpdatePublic
+from backend.modules.public.users.models import  UserUpdatePublic
+from backend.modules.auth.models import  BaseUser
 from backend.modules.auth.utils import  get_hash_password
 
 

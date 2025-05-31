@@ -77,3 +77,26 @@ class AssignRoleRequest(BaseModel):
     role: Role
     reason : Optional[str] = "Assigned via admin endpoint"
 
+
+
+
+class UserPublic(BaseModel):
+    username : str = Field(
+         title='the user defined username', max_length=50
+    )
+    fullname : str | None = Field(
+        default=None,title='the user first and last name', max_length=50
+    ) 
+
+class BaseUser(UserPublic):
+    email : EmailStr | None = Field(default=None)
+    hashed_password : str = Field(
+        title='Hashed user password'
+    )
+class UserInDB(BaseUser):
+    unique_id : UUID
+    disabled : bool | None = Field(
+    default=False, title='Is the user account still active'
+)
+    created_at : Optional[datetime]
+    

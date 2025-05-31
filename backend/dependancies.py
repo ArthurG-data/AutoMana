@@ -1,7 +1,7 @@
 from fastapi import Header, HTTPException, Depends, Request
 from typing_extensions import Annotated
 from functools import lru_cache
-from backend.models.settings import PostgreSettings, GeneralSettings, EbaySettings
+from backend.models.settings import PostgreSettings, GeneralSettings, EbaySettings, InternalSettings
 
 
 @lru_cache
@@ -16,6 +16,9 @@ def get_general_settings()->GeneralSettings:
 def get_ebay_settings()->EbaySettings:
     return EbaySettings()
 
+@lru_cache
+def get_internal_settings()-> InternalSettings:
+    return InternalSettings()
 
 async def get_token_header(x_token: Annotated[str, Header()]):
     if x_token != "fake-super-secret-token":

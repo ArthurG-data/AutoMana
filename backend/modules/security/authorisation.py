@@ -1,7 +1,8 @@
-from backend.modules.auth.depndancies import currentActiveUser
+from backend.modules.auth.dependancies import currentActiveUser
 from backend.database.get_database import cursorDep
 from backend.database.database_utilis import execute_select_query
-from fastapi import HTTPException
+from fastapi import HTTPException, Header
+from backend.dependancies import get_internal_settings
 
 def has_role_permission(permission : str):
     """
@@ -49,3 +50,12 @@ def has_role(role : str):
         except Exception as e:
             raise HTTPException(status_code=500, detail='Error Finding the permission:{e}',)
     return checker
+
+def require_internal_access(x_internal_api_key: str = Header(...)):
+
+    """
+    to implement for internal router
+    """
+    if x_internal_api_key != get_internal_settings():
+         raise HTTPException(status_code=403, detail="Unauthorized internal access")
+    return True

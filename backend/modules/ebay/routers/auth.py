@@ -1,7 +1,8 @@
 from fastapi import HTTPException, APIRouter, Request
 from backend.modules.ebay.models.auth import  TokenResponse
 from backend.modules.ebay.queries.auth import get_refresh_token_query
-from backend.shared.dependancies import cursorDep, currentActiveUser, currentActiveSession
+from backend.modules.auth.dependancies import currentActiveUser
+from backend.shared.dependancies import cursorDep, currentActiveSession
 from backend.modules.ebay.services import auth
 
 ebay_auth_router = APIRouter(prefix='/auth', tags=['auth'])

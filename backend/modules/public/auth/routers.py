@@ -27,7 +27,5 @@ async def do_read_cookie( conn : cursorDep, ip_address : ipDep,response : Respon
     except Exception as e:
         return HTTPException(status_code=401, detail='Could not exange cookie')
     
-@authentification_router.post('/logout', status_code=204, description='remove a refresh token')
-async def remove_cookie(response : Response):
-    response.delete_cookie('refresh_token')
+
 

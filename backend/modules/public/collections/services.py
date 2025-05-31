@@ -1,8 +1,8 @@
 from fastapi import   HTTPException, Depends, Response
-from backend.modules.public.users.models import UserInDB
+from backend.modules.auth.models import UserInDB
 from psycopg2.extensions import connection
 from backend.modules.public.collections.models import CreateCollection, UpdateCollection
-from backend.shared.dependancies import currentActiveUser
+from backend.modules.auth.dependancies import currentActiveUser
 from backend.database.database_utilis import execute_insert_query, execute_select_query, execute_delete_query, execute_update_query
 from typing import  Optional
 
