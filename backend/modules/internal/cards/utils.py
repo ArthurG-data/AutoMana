@@ -1,3 +1,5 @@
+from uuid import UUID
+import json
 
 def process_type_line(card_type_line : str):
     super_types = {'Basic', 'Elite','Host', 'Legendary', 'Ongoing', 'Snow', 'World'}
@@ -35,3 +37,15 @@ def process_type_line(card_type_line : str):
         "types": types,
         "subtypes": subtypes
     }
+
+def to_json_safe(data):
+    def clean(obj):
+        if isinstance(obj, dict):
+            return {k: clean(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [clean(v) for v in obj]
+        elif isinstance(obj, UUID):
+            return str(obj)
+        else:
+            return obj
+    return json.dumps(clean(data))

@@ -1,9 +1,10 @@
 from backend.modules.internal.sets.models import   NewSet, UpdatedSet, NewSets
-from fastapi import APIRouter, Response, status
+from fastapi import APIRouter, Response, status, File, UploadFile
 from backend.database.get_database import cursorDep
 from backend.database.database_utilis import execute_delete_query, create_delete_query
 from psycopg2.extensions import connection
 from uuid import UUID
+from backend.modules.internal.sets.utils import sets_from_json
 from backend.modules.internal.sets.services import put_set, add_set,add_sets_bulk
 
 sets_router = APIRouter(
@@ -33,6 +34,16 @@ async def insert_set(new_set : NewSet, conn: cursorDep):
     add_set(new_set, conn)
     return Response(status_code=status.HTTP_201_CREATED)
   
+
+@sets_router.post('/from_json')
+async def insert_sets_from_file(conn : cursorDep, file: UploadFile = File(...)):
+    #while be bytes
+    try:
+        parsed_sets : NewSets = await sets_from_json(file)
+        add_sets_bulk(parsed_sets, conn)
+        return {'success'}
+    except Exception as e:
+        return [f"Error: {str(e)}"]
 
 
 @sets_router.put('/{set_id}')

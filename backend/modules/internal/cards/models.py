@@ -1,9 +1,8 @@
 from pydantic import Field, model_validator, BaseModel
 from uuid import UUID
 from typing import Optional,  List, Union,Annotated, Any
-from backend.modules.internal.cards.utils import process_type_line
+from backend.modules.internal.cards.utils import process_type_line, to_json_safe
 from backend.modules.public.cards.models import BaseCard
-
 
 
 class CardFace(BaseModel):
@@ -34,9 +33,7 @@ class CardFace(BaseModel):
 
 
 def parse_card_faces(raw_faces_list: list[dict]) -> list[CardFace]:
-    """
-    Convert a dict of card faces like {"0": {...}, "1": {...}} into a sorted list of CardFace objects.
-    """
+    
     card_faces = []
     for i in range(len(raw_faces_list)):
         face_data = raw_faces_list[i]
@@ -52,7 +49,7 @@ class CreateCard(BaseCard):
     artist_ids : List[UUID] = []
     illustration_id: Optional[UUID] = None
     games : List[str] = []
-    mana_cost : str=Field(max_length=100)
+    mana_cost : Optional[str]=Field(max_length=100, default=None)
     collector_number: Union[int, str] 
     border_color: str = Field(max_length=20)
     frame: str = Field(max_length=20)
@@ -85,7 +82,8 @@ class CreateCard(BaseCard):
     #in prograss
     def parse_card_faces(cls, values):
         faces = values.get('card_faces')
-        values["card_faces"] = parse_card_faces(faces)
+        if faces:
+            values["card_faces"] = parse_card_faces(faces)
         return values
    
     @model_validator(mode='after')
