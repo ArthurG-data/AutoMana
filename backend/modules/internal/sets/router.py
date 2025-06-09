@@ -2,7 +2,6 @@ from backend.modules.internal.sets.models import   NewSet, UpdatedSet, NewSets
 from fastapi import APIRouter, Response, status, File, UploadFile
 from backend.database.get_database import cursorDep
 from backend.database.database_utilis import execute_delete_query, create_delete_query
-from psycopg2.extensions import connection
 from uuid import UUID
 from backend.modules.internal.sets.utils import sets_from_json
 from backend.modules.internal.sets.services import put_set, add_set,add_sets_bulk

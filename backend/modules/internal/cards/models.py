@@ -1,8 +1,44 @@
-from pydantic import Field, model_validator, BaseModel
+from pydantic import Field, model_validator, BaseModel, computed_field
 from uuid import UUID
-from typing import Optional,  List, Union,Annotated, Any
-from backend.modules.internal.cards.utils import process_type_line, to_json_safe
+from typing import Optional,  List, Union
 from backend.modules.public.cards.models import BaseCard
+
+def process_type_line(card_type_line : str):
+    super_types = {'Basic', 'Elite','Host', 'Legendary', 'Ongoing', 'Snow', 'World'}
+    obsolet_map = {'Continuous Artifact' : 'Artifact','Interrupt' : 'Instant','Local enchantment' : 'Enchantment','Mana source':'Instant', 'Mono Artifact' : 'Artifact', 'Poly Artifact' : 'Artifact', 'Summon' : 'Creature'}
+    CARD_TYPES = {
+    "Artifact", "Creature", "Enchantment", "Instant", "Land", "Planeswalker",
+    "Sorcery", "Kindred", "Dungeon", "Battle", "Plane", "Phenomenon", 
+    "Vanguard", "Scheme", "Conspiracy"
+    }
+    supertypes = []
+    types = []
+    subtypes = []
+    # check for double faced cards
+
+    if "—" in card_type_line:
+        main_part, sub_part = map(str.strip, card_type_line.split("—", 1))
+        subtypes = sub_part.split()
+    else:
+        main_part = card_type_line
+
+    for part in main_part.split():
+        if part in super_types:
+            supertypes.append(part)
+        elif part in CARD_TYPES:
+            types.append(part)
+        elif part in obsolet_map:
+            # Convert legacy types (e.g., Summon → Creature)
+            types.append(obsolet_map[part])
+        else:
+            # If no clear mapping, assume it's an old or custom subtype
+            subtypes.append(card_type_line)
+
+    return {
+        "supertypes": supertypes,
+        "types": types,
+        "subtypes": subtypes
+    }
 
 
 class CardFace(BaseModel):
@@ -33,7 +69,6 @@ class CardFace(BaseModel):
 
 
 def parse_card_faces(raw_faces_list: list[dict]) -> list[CardFace]:
-    
     card_faces = []
     for i in range(len(raw_faces_list)):
         face_data = raw_faces_list[i]
@@ -47,7 +82,8 @@ def parse_card_faces(raw_faces_list: list[dict]) -> list[CardFace]:
 class CreateCard(BaseCard):
     artist: str = Field(max_length=100)
     artist_ids : List[UUID] = []
-    illustration_id: Optional[UUID] = None
+    cmc : int=Field(default=0)
+    illustration_id: Optional[UUID] = '00000000-0000-0000-0000-000000000001'
     games : List[str] = []
     mana_cost : Optional[str]=Field(max_length=100, default=None)
     collector_number: Union[int, str] 
@@ -76,16 +112,40 @@ class CreateCard(BaseCard):
     toughness : Optional[int|str]=[]
     variation : Optional[bool]=False
     reserved : bool=Field(default=False)
-    card_faces : Optional[List[CardFace]]=None
+    card_faces : List[CardFace]=[],
+    set_name : str=Field('MISSING_SET')
+    set : str
+    set_id : UUID
+    
 
-    @model_validator(mode='before' )
-    #in prograss
-    def parse_card_faces(cls, values):
-        faces = values.get('card_faces')
-        if faces:
-            values["card_faces"] = parse_card_faces(faces)
+    @model_validator(mode='before')
+    @classmethod
+    def parse_and_clean_card_faces(cls, values):
+        faces = values.get("card_faces")
+
+        if faces is None:
+            values["card_faces"] = []
+        else:
+            # If faces is a dict → call your parse_card_faces() function
+            if isinstance(faces, dict):
+                faces = parse_card_faces(faces)  # returns List[CardFace]
+
+            # Now clean the list
+            clean_faces = []
+            for face in faces:
+                if face is None:
+                    continue
+                if isinstance(face, CardFace):
+                    clean_faces.append(face)
+                elif isinstance(face, dict):
+                    clean_faces.append(CardFace(**face))
+                else:
+                    raise ValueError(f"Invalid card_face entry: {face}")
+
+            values["card_faces"] = clean_faces
+
         return values
-   
+    
     @model_validator(mode='after')
     def process_type_line(cls, values):
     
@@ -94,4 +154,17 @@ class CreateCard(BaseCard):
         values.supertypes = parsed["supertypes"]
         values.subtypes = parsed["subtypes"]
         return values
+    
 
+class CreateCards(BaseModel):
+ 
+    items :List[CreateCard] = []
+
+    def __iter__(self):
+        return iter(self.items)
+
+    @computed_field
+    @property
+    def count(self) -> int:
+        return len(self.items)
+    

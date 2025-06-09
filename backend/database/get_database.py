@@ -28,6 +28,7 @@ def get_connection() -> Generator[connection, Any, Any]:
         yield db
     finally:
         db_pool.putconn(db)
+
     
 def get_cursor(connection : connection) -> cursor:
     pointer = connection.cursor()

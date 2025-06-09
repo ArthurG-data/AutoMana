@@ -1,0 +1,18 @@
+# <type>(<scope>): <short summary>
+#
+# Types:
+#   feat      - new feature
+#   fix       - bug fix
+#   refactor  - code refactoring
+#   chore     - maintenance (deps, CI, build)
+#   docs      - documentation update
+#
+# Example:
+# feat(api): add support for /cards/json upload
+#
+# --- Commit Body (optional) ---
+# Provide additional context if necessary.
+# Explain why the change was made.
+#
+# --- Footer (optional) ---
+# e.g. Closes #123, Related to #456
