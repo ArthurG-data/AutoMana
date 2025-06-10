@@ -1,11 +1,13 @@
-from fastapi import FastAPI, Depends, Request
-from typing import Annotated, Any
+from fastapi import FastAPI, Request
 import time, logging
 from fastapi.middleware.cors import CORSMiddleware
-from backend.routers import sets, users, cards, collection, collectionEntry, ebay, authentification
-from backend.routers.internal import admin_router
-
-
+from backend.modules import  admin, public,internal
+from backend.modules.ebay.models.errors import EbayServiceError
+from backend.modules.ebay.handlers import ebay_error_handler
+from backend.modules.auth.errors import AuthError
+from backend.modules.auth.handlers import auth_error_handler
+from backend.database.errors import DatabaseError
+from backend.database.handlers import psycopg_exception_handler
 logging.basicConfig(level=logging.INFO)
 
 with open("README.md", "r", encoding="utf-8") as f:
@@ -28,19 +30,17 @@ app = FastAPI(
     }
 
 )
-
-app.include_router(users.router)
-app.include_router(cards.router)
-app.include_router(sets.router)
-app.include_router(collection.router)
-app.include_router(collectionEntry.router)
-app.include_router(ebay.ebay_router)
-app.include_router(authentification.authentification_router)
-app.include_router(admin_router)
+app.include_router(internal.internal_router)
+app.include_router(public.api_router)
+app.include_router(admin.admin_router)
 origins =[
     'http://localhost',
     'http://localhost:8080'
 ]
+
+app.add_exception_handler(EbayServiceError, ebay_error_handler)
+app.add_exception_handler(DatabaseError, psycopg_exception_handler)
+app.add_exception_handler(AuthError, auth_error_handler)
 
 app.add_middleware(
     CORSMiddleware,
@@ -48,7 +48,6 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=['*'],
     allow_headers=['*']
-
 )
 
 @app.middleware('http')
@@ -62,3 +61,5 @@ async def add_process_time_header(request: Request, call_next):
 @app.get('/')
 async def root():
     return {'message' : 'Hello World'}
+
+

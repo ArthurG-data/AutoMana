@@ -3,9 +3,6 @@ CREATE TABLE IF NOT EXISTS set_type_list_ref(
     set_type VARCHAR(20) UNIQUE NOT NULL
 );
 
-
-
-
 CREATE TABLE IF NOT EXISTS sets(
     set_id UUID NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
     set_name VARCHAR(100) UNIQUE NOT NULL,
@@ -15,7 +12,18 @@ CREATE TABLE IF NOT EXISTS sets(
     digital BOOL DEFAULT FALSE,
     nonfoil_only BOOL DEFAULT FALSE,
     foil_only BOOL DEFAULT FALSE,
-    parent_set UUID DEFAULT NULL,
+    parent_set UUID DEFAULT NULL
+);
+
+CREATE TABLE IF NOT EXISTS icon_query_ref(
+    icon_query_id SERIAL PRIMARY KEY,
+    icon_query_uri VARCHAR(10) UNIQUE NOT NULL
+);
+
+CREATE TABLE  IF NOT EXISTS icon_set(
+    icon_query_id INT REFERENCES icon_query_ref(icon_query_id),
+    set_id UUID REFERENCES sets(set_id) UNIQUE,
+    PRIMARY KEY (icon_query_id, set_id)
 );
 
 DROP VIEW IF EXISTS joined_set;
@@ -27,8 +35,6 @@ CREATE VIEW joined_set (set_id, set_name, set_code, set_type, nonfoil_only, foil
     JOIN set_type_list_ref stl ON s.set_type_id = stl.set_type_id
     JOIN card_version cv ON cv.set_id = s.set_id
     GROUP BY s.set_id,  stl.set_type, s.released_at,  ss.set_id;
-
-
 
 CREATE  MATERIALIZED VIEW IF NOT EXISTS joined_set_materialized (set_id, set_name, set_code, set_type, card_count, released_at, digital)
     AS
@@ -48,6 +54,7 @@ CREATE INDEX ON joined_set_materialized(set_code);
 
 --function to insert a new set
 CREATE OR REPLACE FUNCTION insert_joined_set(
+    p_set_id UUID,
     p_set_name TEXT,
     p_set_code TEXT,
     p_set_type TEXT,
@@ -55,14 +62,14 @@ CREATE OR REPLACE FUNCTION insert_joined_set(
     p_digital BOOLEAN,
     p_nonfoil_only BOOLEAN,
     p_foil_only BOOLEAN,
-    p_parent_set TEXT
+    p_parent_set UUID,
+    p_uri TEXT
 )
-
-RETURNS UUID AS $$
+RETURNS VOID AS $$
 DECLARE
-    v_set_id UUID;
     v_set_type_id INT;
     v_parent_id UUID;
+    v_icon_query_id INT;
 BEGIN
     -- Upsert set type
     INSERT INTO set_type_list_ref (set_type)
@@ -73,26 +80,58 @@ BEGIN
     FROM set_type_list_ref
     WHERE set_type = p_set_type;
 
+    RAISE NOTICE 'Set type: %, ID: %', p_set_type, v_set_type_id;
+
     -- Optional: Get parent set ID
     SELECT set_id INTO v_parent_id
     FROM sets
-    WHERE set_name = p_parent_set;
+    WHERE set_code = p_parent_set;
 
     -- Insert set
     INSERT INTO sets (
-        set_name, set_code, set_type_id, released_at,
+        set_id, set_name, set_code, set_type_id, released_at,
         digital, nonfoil_only, foil_only, parent_set
     )
     VALUES (
-        p_set_name, p_set_code, v_set_type_id,
+        p_set_id, p_set_name, p_set_code, v_set_type_id,
         p_released_at, p_digital, p_nonfoil_only, p_foil_only, v_parent_id
     )
-    ON CONFLICT (set_name) DO NOTHING;
+    ON CONFLICT (set_id) DO NOTHING;
 
-    -- Get the set_id
-    SELECT set_id INTO v_set_id FROM sets WHERE set_name = p_set_name;
+    IF NOT EXISTS (SELECT 1 FROM sets WHERE set_id = p_set_id) THEN
+        RAISE NOTICE 'Set not inserted (conflict or error).';
+    ELSE
+        RAISE NOTICE 'Set inserted successfully.';
+    END IF;
 
-    RETURN v_set_id;
+    -- add the icon uri
+    INSERT INTO icon_query_ref (icon_query_uri)
+    VALUES (p_uri)
+    ON CONFLICT (icon_query_uri) DO NOTHING;
+
+    -- Get icon_query_id
+    SELECT icon_query_id INTO v_icon_query_id
+    FROM icon_query_ref
+    WHERE icon_query_uri = p_uri;
+
+    RAISE NOTICE 'Icon URI: %, ID: %', p_uri, v_icon_query_id;
+
+    -- 5. Link icon to set
+    IF v_icon_query_id IS NOT NULL THEN
+        INSERT INTO icon_set (icon_query_id, set_id)
+        VALUES (v_icon_query_id, p_set_id)
+        ON CONFLICT DO NOTHING;
+
+        IF NOT EXISTS (
+            SELECT 1 FROM icon_set WHERE icon_query_id = v_icon_query_id AND set_id = p_set_id
+        ) THEN
+            RAISE NOTICE 'Set-icon link not inserted (conflict or error).';
+        ELSE
+            RAISE NOTICE 'Set-icon link inserted successfully.';
+        END IF;
+    ELSE
+        RAISE NOTICE 'Icon ID could not be resolved. Skipping set-icon link.';
+    END IF;
 END;
 $$ LANGUAGE plpgsql;
 
