@@ -1,32 +1,25 @@
 from fastapi import Header, HTTPException, Depends, Request
-from typing_extensions import Annotated, Optional
-from pydantic import Field
-from backend.database.get_database import connection, get_connection
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing_extensions import Annotated
 from functools import lru_cache
+from backend.models.settings import PostgreSettings, GeneralSettings, EbaySettings, InternalSettings
 
-
-class Settings(BaseSettings):
-    postgres_host : str
-    postgres_password : str
-    postgres_db : str
-    postgres_user : str
-
-    secret_key : str
-    encrypt_algorithm : str
-    access_token_expiry : int =Field(title='The duration in minute of the access token', default=30)
-
-    ebay_client_id : str
-    ebay_redirect_uri : str
-    ebay_client_secret : str
-    model_config =  SettingsConfigDict(env_file='.env')
 
 @lru_cache
-def get_settings():
-    return Settings()
+def get_db_settings()->PostgreSettings:
+    return PostgreSettings()
 
+@lru_cache
+def get_general_settings()->GeneralSettings:
+    return GeneralSettings()
 
-    
+@lru_cache
+def get_ebay_settings()->EbaySettings:
+    return EbaySettings()
+
+@lru_cache
+def get_internal_settings()-> InternalSettings:
+    return InternalSettings()
+
 async def get_token_header(x_token: Annotated[str, Header()]):
     if x_token != "fake-super-secret-token":
         raise HTTPException(status_code=400, detail="X-Token header invalid")
@@ -35,6 +28,14 @@ async def get_token_header(x_token: Annotated[str, Header()]):
 async def get_query_token(token: str):
     if token != "jessica":
         raise HTTPException(status_code=400, detail="No Jessica token provided")
+
+def extract_ip (request : Request)-> str:
+    forwarded_for = request.headers.get("x-forwarded-for")
+    if forwarded_for:
+        ip = forwarded_for.split(",")[0]  # Use the first IP
+    else:
+        ip = request.client.host
+    return ip
     
-    
-cursorDep = Annotated[connection, Depends(get_connection)]
+ipDep = Annotated[str, Depends(extract_ip)]
+
