@@ -7,7 +7,7 @@ from uuid import UUID
 ebay_app_router = APIRouter(prefix='/app', tags=['app'])
 
 
-@ebay_app_router.post('/app/{app_id}/scopes', description='add a scope to an app')
+@ebay_app_router.post('/{app_id}/scopes', description='add a scope to an app')
 async def add_user_scope(conn : cursorDep, scope : str, app_id : str):
    
     try:
@@ -16,12 +16,12 @@ async def add_user_scope(conn : cursorDep, scope : str, app_id : str):
         return {'message' : 'Could not assign scope to app', 'error' : f'{e}'}
     return Response(status_code=200)
 
-@ebay_app_router.post('/app', description='add an app to the database')
+@ebay_app_router.post('/', description='add an app to the database')
 async def regist_app(conn: cursorDep, input : InputEbaySettings ):
     register_app(conn, input)
     return Response(status_code=200, content='app added')
 
-@ebay_app_router.post('/app/{app_id}/{ebay_id}')
+@ebay_app_router.post('/{app_id}/{ebay_id}')
 async def assign_user_app(conn: cursorDep, app_id : str, ebay_id : UUID):
     #add auhoixation later
     assign_app(conn, app_id, ebay_id)

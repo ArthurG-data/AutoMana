@@ -38,7 +38,7 @@ def set_ebay_settings(conn: connection, user : UUID, app_id : str)->EbaySettings
   
 
 def login_ebay(conn : connection, user : UUID, app_id : str, session_id :UUID):
-    #add the params state with the request_id, but better to store a encrypted value, store the query and check if it exists when received
+
     print('Logging Into the Ebay App...')
     settings : EbaySettings = set_ebay_settings(conn, user, app_id)
     print(settings)
@@ -117,4 +117,35 @@ def check_auth_request(conn : connection, request_id : UUID) :
             raise HTTPException(status_code=400, detail='message : Request invalid')
     except Exception as e:
         raise e
+    
+from backend.modules.auth.dependancies import currentActiveUser
+from uuid import UUID
 
+def validate_refresh_token(user_id : UUID, conn: connection):
+    query = """ SELECT refresh_token
+                FROM refresh_tokens
+                WHERE app_id = (SELECT app_id FROM ebay_app
+                WHERE user_id = %s);
+            """
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(query, (user_id,))
+            row = cursor.fetchone()
+            if row:
+                return row
+            else:
+                return {'Error validating token: ' : str(e)}
+    except Exception as e:
+        return {'Error validating token: ' : str(e)}
+
+async def get_access_from_refresh(user_id : UUID, app_id, conn: connection)->TokenResponse:
+    # check if valide session
+    #check if access token is valid wirh session
+    refresh_token = validate_refresh_token(user_id , conn)
+    #if not check if valid refresh token is available
+    # if yes , exange it for an access token and replace refresh token
+    token : TokenResponse = await exange_refresh_token(conn, refresh_token,user_id , app_id)
+    return token
+    # if not send to ebay for first auth
+
+    pass

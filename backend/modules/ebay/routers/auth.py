@@ -21,8 +21,11 @@ async def do_exange_refresh_token(conn : cursorDep, user : currentActiveUser, ap
         raise
             
 @ebay_auth_router.get('/refresh')
-async def do_exange_token():
-    pass
+async def do_exange_token(conn: cursorDep, app_id, user : currentActiveUser):
+    try:
+        return await auth.get_access_from_refresh(user.unique_id,app_id, conn)
+    except Exception as e:
+        raise str(e)
 
 @ebay_auth_router.get("/token", response_model=TokenResponse)
 async def exange_auth_token(conn : cursorDep,  request : Request):
