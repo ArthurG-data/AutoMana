@@ -21,6 +21,10 @@ def save_refresh_token(conn: connection, new_refresh : TokenResponse):
 
 def set_ebay_settings(conn: connection, user : UUID, app_id : str)->EbaySettings:
     #to be implemented latter once in AWS
+
+    with conn.cursor() as cursor:
+            cursor.execute(auth.get_info_login, (user,app_id,))
+            infos = cursor.fetchone()
     try:
         with conn.cursor() as cursor:
             cursor.execute(auth.get_info_login, (user,app_id,))
@@ -41,7 +45,6 @@ def login_ebay(conn : connection, user : UUID, app_id : str, session_id :UUID):
 
     print('Logging Into the Ebay App...')
     settings : EbaySettings = set_ebay_settings(conn, user, app_id)
-    print(settings)
     request_id = uuid4()
     params = {
         "client_id":settings.app_id,
@@ -83,7 +86,7 @@ async def exange_auth(conn : connection, code : str, user_id : UUID, app_id : UU
 
 async def exange_refresh_token(conn : connection, refresh_token : str, user_id : UUID, app_id : str):
     settings : EbaySettings = set_ebay_settings(conn, user_id, app_id)
-    headers = AuthHeader(app_id=app_id,secret=settings.secret ).to_header()
+    headers = AuthHeader(app_id=app_id,secret=settings.secret).to_header()
     data = ExangeRefreshData(token=refresh_token, scope=settings.scope).to_data()
     return await do_request_auth_ebay(headers, data)
    
@@ -123,7 +126,7 @@ from uuid import UUID
 
 def validate_refresh_token(user_id : UUID, conn: connection):
     query = """ SELECT refresh_token
-                FROM refresh_tokens
+                FROM ebay_tokens
                 WHERE app_id = (SELECT app_id FROM ebay_app
                 WHERE user_id = %s);
             """
@@ -132,19 +135,26 @@ def validate_refresh_token(user_id : UUID, conn: connection):
             cursor.execute(query, (user_id,))
             row = cursor.fetchone()
             if row:
-                return row
+                return row.get('refresh_token')
             else:
                 return {'Error validating token: ' : str(e)}
     except Exception as e:
+        conn.rollback()
         return {'Error validating token: ' : str(e)}
 
 async def get_access_from_refresh(user_id : UUID, app_id, conn: connection)->TokenResponse:
     # check if valide session
     #check if access token is valid wirh session
-    refresh_token = validate_refresh_token(user_id , conn)
+    try:
+        refresh_token = validate_refresh_token(user_id , conn)
+    except Exception as e:
+        return str(e)
     #if not check if valid refresh token is available
     # if yes , exange it for an access token and replace refresh token
-    token : TokenResponse = await exange_refresh_token(conn, refresh_token,user_id , app_id)
+    try:
+        token : TokenResponse = await exange_refresh_token(conn, refresh_token,user_id , app_id)
+    except Exception as e:
+        return {'error in exange:' : str(e)}
     return token
     # if not send to ebay for first auth
 

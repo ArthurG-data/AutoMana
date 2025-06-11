@@ -4,10 +4,11 @@ from backend.modules.ebay.queries.auth import get_refresh_token_query
 from backend.modules.auth.dependancies import currentActiveUser
 from backend.shared.dependancies import cursorDep, currentActiveSession
 from backend.modules.ebay.services import auth
+from backend.modules.auth.services import get_info_session
 
 ebay_auth_router = APIRouter(prefix='/auth', tags=['auth'])
 
-@ebay_auth_router.post('/auth/exange_token')
+@ebay_auth_router.post('/exange_token')
 async def do_exange_refresh_token(conn : cursorDep, user : currentActiveUser, app_id  :str):
     #check if the has a non expired token for the app
     try:
@@ -25,7 +26,7 @@ async def do_exange_token(conn: cursorDep, app_id, user : currentActiveUser):
     try:
         return await auth.get_access_from_refresh(user.unique_id,app_id, conn)
     except Exception as e:
-        raise str(e)
+        return {"Errro refreshing" : str(e)}
 
 @ebay_auth_router.get("/token", response_model=TokenResponse)
 async def exange_auth_token(conn : cursorDep,  request : Request):
@@ -34,7 +35,7 @@ async def exange_auth_token(conn : cursorDep,  request : Request):
     #next from the request_id, get the session
     try:
         session_id, app_id = auth.check_auth_request(conn, request_id)
-        user = await auth.get_info_session(conn, session_id)
+        user = await get_info_session(conn, session_id)
         user = user.get('user_id')
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Cannot confirm request info: {e}")

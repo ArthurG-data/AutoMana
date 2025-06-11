@@ -1,7 +1,7 @@
-from backend.dependancies import get_general_settings, GeneralSettings
+from backend.dependancies import get_ebay_settings, EbaySettings
 
-settings : GeneralSettings = get_general_settings()
-encryption_key = settings.secret_key
+settings : EbaySettings = get_ebay_settings()
+encryption_key = settings.pgp_secret_key
 
 assign_refresh_token_query = """ INSERT INTO ebay_token (dev_id, app_id, refresh_token, expires_on, token_type ) VALUES (%s, %s, %s, %s, %s); """
 
