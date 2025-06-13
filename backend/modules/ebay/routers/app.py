@@ -1,4 +1,4 @@
-from fastapi import APIRouter,Response
+from fastapi import APIRouter,Response, Depends
 from backend.database.get_database import cursorDep
 from backend.modules.ebay.models.auth import InputEbaySettings
 from backend.modules.ebay.services.app import assign_scope, register_app, assign_app
