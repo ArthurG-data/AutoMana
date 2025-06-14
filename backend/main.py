@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Request
 import time, logging
+from backend.modules.ebay import routers as ebay_router
 from fastapi.middleware.cors import CORSMiddleware
 from backend.modules import  admin, public,internal
 from backend.modules.ebay.models.errors import EbayServiceError
@@ -33,6 +34,8 @@ app = FastAPI(
 app.include_router(internal.internal_router)
 app.include_router(public.api_router)
 app.include_router(admin.admin_router)
+app.include_router(ebay_router.ebay_router)
+app.include_router
 origins =[
     'http://localhost',
     'http://localhost:8080'
