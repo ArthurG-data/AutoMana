@@ -139,7 +139,7 @@ async def check_app_access(conn : connection, user_id: UUID, app_id :str)->bool:
             """
     return execute_select_query(conn, query, (user_id,app_id), select_all=False)
 
-async def get_access_from_refresh(app_id : str, user_id : UUID, conn: connection)->TokenResponse:
+async def get_access_from_refresh(app_id : str, user_id : UUID, conn: connection):
     # check if valide session
     query_2 = """ SELECT token
                 FROM ebay_tokens
@@ -147,32 +147,40 @@ async def get_access_from_refresh(app_id : str, user_id : UUID, conn: connection
             """
     #check if access token is valid wirh session
     try:
-        refresh_token = execute_select_query(conn, query_2, (app_id,),select_all=False)
+        row = execute_select_query(conn, query_2, (app_id,),select_all=False)
+        refresh_token = row.get('token')
     except Exception as e:
         return str(e)
     try:
-        access_token : TokenResponse = await exange_refresh_token(conn, refresh_token,user_id , app_id)
+        access_token = await exange_refresh_token(conn, refresh_token,user_id , app_id)
     except Exception as e:
         return {'error in exange:' : str(e)}
     return access_token
 
-async def get_valid_access_token(user_id : UUID,app_id : UUID, conn: connection):
+async def get_valid_access_token(user_id : UUID,app_id : UUID, conn: connection)->str:
     query_1 = """ SELECT token
                 FROM ebay_tokens
-                WHERE app_id = %s AND used = false AND token_type= 'access_token';
+                WHERE app_id = %s
+                AND expires_on > now()
+                AND used = false
+                AND token_type = 'access_token'
+                ORDER BY acquired_on DESC
+                LIMIT 1;
             """
     if await check_app_access(conn, user_id, app_id):
         #if valid , get access token
-        token = execute_select_query(conn, query_1, (app_id,),select_all=False)
-        print('access_token: ', token)
-    if not token:
+        row = execute_select_query(conn, query_1, (app_id,),select_all=False)
+    if not row:
         token = await get_access_from_refresh(app_id, user_id, conn)
+    else:
+        token = row.get("token")
     #here check if a toke has beer returned
+  
     return token
    
-async def check_validity(app_id : str, user : currentActiveUser, conn : cursorDep):
+async def check_validity(app_id : str, user : currentActiveUser, conn : cursorDep)->str:
     try:
-        token = await get_valid_access_token(user.unique_id, app_id,conn)
+        token : str = await get_valid_access_token(user.unique_id, app_id,conn)
         return token
     except Exception as e:
         raise HTTPException(status_code=401, detail=f"Token validation failed: {str(e)}")
