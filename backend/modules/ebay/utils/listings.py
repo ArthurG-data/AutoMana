@@ -3,45 +3,64 @@ import xml.etree.ElementTree as ET
 from typing import List, Any
 from xml.dom.minidom import parseString
 from pydantic import BaseModel
+import xmltodict
+from backend.modules.ebay.utils import listings as listing_utils
 
+def clean_ebay_data(data):
+    def strip_keys(obj):
+        if isinstance(obj, dict):
+            new_obj = {}
+            for k, v in obj.items():
+                key = k.lstrip('@#')
+                new_obj[key] = strip_keys(v)
+            return new_obj
+        elif isinstance(obj, list):
+            return [strip_keys(item) for item in obj]
+        elif isinstance(obj, str):
+            val = obj.lower()
+            if val == "true":
+                return True
+            if val == "false":
+                return False
+            try:
+                return float(obj) if '.' in obj else obj
+            except ValueError:
+                return obj
+        return obj
 
+    return strip_keys(data)
 
-def extract_total_pages(xml_text: str):
+async def parse_listings_response(xml_text : str):
     ns = {'e': 'urn:ebay:apis:eBLBaseComponents'}
     root = ET.fromstring(xml_text)
-    page_number = root.findall(".//e:TotalNumberOfPages", ns)
-    return page_number
 
-def parse_single_item(item: ET.Element, ns: dict) -> listings.ActiveListing:
-    return listings.ActiveListing(
-        item_id=item.find("e:ItemID", ns).text,
-        title=item.find("e:Title", ns).text,
-        buy_it_now_price=float(item.find("e:BuyItNowPrice", ns).text),
-        currency=item.find("e:BuyItNowPrice", ns).attrib.get("currencyID"),
-        start_time=item.find("e:ListingDetails/e:StartTime", ns).text,
-        time_left=item.find("e:TimeLeft", ns).text,
-        quantity=int(item.find("e:Quantity", ns).text),
-        quantity_available=int(item.find("e:QuantityAvailable", ns).text),
-        current_price=float(item.find("e:SellingStatus/e:CurrentPrice", ns).text),
-        view_url=item.find("e:ListingDetails/e:ViewItemURL", ns).text,
-        image_url=(item.find("e:PictureDetails/e:GalleryURL", ns).text
-                   if item.find("e:PictureDetails/e:GalleryURL", ns) is not None else None)
-    )
+    # Parse entire XML with xmltodict
+    xml_dict = xmltodict.parse(xml_text)
+    items_data = xml_dict.get("GetMyeBaySellingResponse", {}).get("ActiveList", {}).get("ItemArray", {}).get("Item")
+    return await parse_multiple_items(items_data)
 
 
-def parse_active_listings(xml_text: str) -> listings.ActiveListingResponse:
-    ns = {'e': 'urn:ebay:apis:eBLBaseComponents'}
-    root = ET.fromstring(xml_text)
-    items = root.findall(".//e:Item", ns)
-    parsed_items: List[listings.ActiveListing] = []
-    
-    for item in items:
+async def parse_single_item(xml_text: str) -> listings.ItemModel:
+    xml_dict = xmltodict.parse(xml_text)
+    item_data = xml_dict.get("GetItemResponse", {}).get("Item")
+    flattened = listing_utils.clean_ebay_data(item_data)
+    return listings.ItemModel(**flattened)
+ 
+async def parse_multiple_items(items_data) -> List[listings.ItemModel]:
+    if items_data is None:
+        return []
+    # Normalize single item to list
+    if isinstance(items_data, dict):
+        items_data = [items_data]
+    results = []
+    for raw_item in items_data:
         try:
-            parsed = parse_single_item(item, ns)
-            parsed_items.append(parsed)
+            flattened = listing_utils.clean_ebay_data(raw_item )
+            results.append(listings.ItemModel(**flattened))
         except Exception as e:
             print(f"Error parsing item: {e}")
-    return parsed_items
+
+    return results
 
 def parse_verify_add_item_response(xml_text: str) -> dict:
     ns = {'e': 'urn:ebay:apis:eBLBaseComponents'}

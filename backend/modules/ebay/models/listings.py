@@ -13,6 +13,9 @@ class SellerInfoType(BaseModel):
     SafePaymentExempt: Optional[bool] = None
     TopRatedSeller: Optional[bool] = None
 
+class BaseCostType(BaseModel):
+    currencyID : Optional[str] = None
+    text : Optional[str|float] = None
 
 class ReturnPolicyType(BaseModel):
     Description: Optional[str] = None
@@ -24,6 +27,7 @@ class ReturnPolicyType(BaseModel):
     ReturnsAcceptedOption: Optional[str] = None
     ReturnsWithinOption: Optional[str] = None
     ShippingCostPaidByOption: Optional[str] = None
+
 class BuyerProtectionDetailsType(BaseModel): pass
 class BestOfferDetailsType(BaseModel):
     BestOfferEnabled: Optional[bool] = None
@@ -69,7 +73,7 @@ class CustomPoliciesType(BaseModel):
 class DigitalGoodInfoType(BaseModel):
     DownloadURL: Optional[str] = None
 class DiscountPriceInfoType(BaseModel):
-    OriginalRetailPrice: Optional[float] = None
+    OriginalRetailPrice: Optional[BaseCostType] = None
     PricingTreatment: Optional[str] = None
 class ExtendedProducerResponsibilityType(BaseModel):
     ProducerUserID: Optional[str] = None
@@ -117,22 +121,36 @@ class SellerProfilesType(BaseModel):
     SellerReturnProfileID: Optional[int] = None
     SellerPaymentProfileID: Optional[int] = None
 class SellingStatusType(BaseModel):
-    CurrentPrice: Optional[float] = None
+    CurrentPrice: Optional[BaseCostType] = None
     QuantitySold: Optional[int] = None
     ListingStatus: Optional[str] = None
+
 class ShipPackageDetailsType(BaseModel):
     PackageDepth: Optional[float] = None
     PackageLength: Optional[float] = None
     PackageWidth: Optional[float] = None
     ShippingIrregular: Optional[bool] = None
+
+class ShippingServiceOptionType(BaseModel):
+    ShippingService: Optional[str] = None
+    ShippingServiceCost: Optional[BaseCostType] = None
+    ShippingServicePriority: Optional[int] = None
+    ExpeditedService: Optional[bool] = None
+    ShippingTimeMin: Optional[int] = None
+    ShippingTimeMax: Optional[int] = None
+
 class ShippingDetailsType(BaseModel):
     ShippingType: Optional[str] = None
-    ShippingServiceOptions: Optional[List[dict]] = None
+    ShippingServiceOptions: Optional[List[ShippingServiceOptionType]|ShippingServiceOptionType] = None
     InternationalShippingServiceOption: Optional[List[dict]] = None
     SalesTax: Optional[dict] = None
     ShippingServiceUsed: Optional[str] = None
     PaymentInstructions: Optional[str] = None
     ShippingDiscountProfileID: Optional[str] = None
+
+class SalesTaxType(BaseModel):
+    SalesTaxPercent: Optional[float] = None
+    ShippingIncludedInTax: Optional[bool] = None
 
 class ShippingServiceCostOverrideListType(BaseModel):
     CostOverrideList: Optional[List[dict]] = None
@@ -165,10 +183,10 @@ class ListingDetailsType(BaseModel):
     StartTime: Optional[str] = None
     EndTime: Optional[str] = None
     ViewItemURL: Optional[str] = None
-    ConvertedStartPrice: Optional[float] = None
-    ConvertedReservePrice: Optional[float] = None
-    ConvertedBuyItNowPrice: Optional[float] = None
-    MinimumBestOfferPrice: Optional[float] = None
+    ConvertedStartPrice: Optional[BaseCostType] = None
+    ConvertedReservePrice: Optional[BaseCostType] = None
+    ConvertedBuyItNowPrice: Optional[BaseCostType] = None
+    MinimumBestOfferPrice: Optional[BaseCostType] = None
     ViewItemURLForNaturalSearch: Optional[str] = None
 
 class ConditionDescriptorsType(BaseModel):
@@ -202,15 +220,15 @@ class ItemModel(BaseModel):
     BestOfferDetails: Optional[BestOfferDetailsType] = None
     BiddingDetails: Optional[BiddingDetailsType] = None
     BusinessSellerDetails: Optional[BusinessSellerDetailsType] = None
-    BuyerGuaranteePrice: Optional[float] = None
+    BuyerGuaranteePrice: Optional[BaseCostType] = None
     BuyerProtection: Optional[str] = None
     BuyerRequirementDetails: Optional[BuyerRequirementDetailsType] = None
     BuyerResponsibleForShipping: Optional[bool] = None
-    BuyItNowPrice: Optional[float] = None
+    BuyItNowPrice: Optional[BaseCostType] = None
     CategoryMappingAllowed: Optional[bool] = None
-    CeilingPrice: Optional[float] = None
+    CeilingPrice: Optional[BaseCostType] = None
     Charity: Optional[CharityType] = None
-    ClassifiedAdPayPerLeadFee: Optional[float] = None
+    ClassifiedAdPayPerLeadFee: Optional[BaseCostType] = None
     ConditionDefinition: Optional[str] = None
     ConditionDescription: Optional[str] = None
     ConditionDescriptors: Optional[ConditionDescriptorsType] = None
@@ -232,9 +250,11 @@ class ItemModel(BaseModel):
     eMailDeliveryAvailable: Optional[bool] = None
     ExtendedProducerResponsibility: Optional[ExtendedProducerResponsibilityType] = None
     ExtendedSellerContactDetails: Optional[ExtendedContactDetailsType] = None
-    FloorPrice: Optional[float] = None
+    FloorPrice: Optional[BaseCostType] = None
     FreeAddedCategory: Optional[str] = None
     GetItFast: Optional[bool] = None
+    HasUnansweredQuestions : Optional[bool] = None
+    HasPublicMessages : Optional[bool] =None
     HideFromSearch: Optional[bool] = None
     HitCount: Optional[int] = None
     IgnoreQuantity: Optional[bool] = None
@@ -282,7 +302,7 @@ class ItemModel(BaseModel):
     Relisted: Optional[bool] = None
     RelistLink: Optional[bool] = None
     RelistParentID: Optional[int] = None
-    ReservePrice: Optional[float] = None
+    ReservePrice: Optional[BaseCostType] = None
     ReturnPolicy: Optional[ReturnPolicyType] = None
     ReviseStatus: Optional[ReviseStatusType] = None
     ScheduleTime: Optional[str] = None
@@ -299,7 +319,7 @@ class ItemModel(BaseModel):
     ShipToLocations: Optional[str] = None
     Site: Optional[str] = None
     SKU: Optional[str] = None
-    StartPrice: Optional[float] = None
+    StartPrice: Optional[BaseCostType] = None
     Storefront: Optional[StorefrontType] = None
     SubTitle: Optional[str] = None
     TaxCategory: Optional[str] = None
@@ -334,7 +354,7 @@ class ActiveListing(BaseModel):
     
 class ActiveListingResponse(BaseModel):
     item_number : Optional[int]=None
-    items : List[ActiveListing|None]
+    items : List[ItemModel|None]
     @model_validator(mode='after')
     def set_item_number(self) -> "ActiveListingResponse":
         self.item_number = len(self.items)
