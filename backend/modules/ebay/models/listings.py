@@ -29,12 +29,14 @@ class ReturnPolicyType(BaseModel):
     ShippingCostPaidByOption: Optional[str] = None
 
 class BuyerProtectionDetailsType(BaseModel): pass
+
 class BestOfferDetailsType(BaseModel):
     BestOfferEnabled: Optional[bool] = None
     BestOfferCount: Optional[int] = None
     BestOfferStatus: Optional[str] = None  # BestOfferStatusCodeType
     BestOfferType: Optional[str] = None    # BestOfferTypeCodeType
     NewBestOffer: Optional[bool] = None
+
 class BiddingDetailsType(BaseModel):
     ConvertedMaxBid: Optional[float] = None
     MaxBid: Optional[float] = None
@@ -338,20 +340,6 @@ class ItemModel(BaseModel):
     VRMLink: Optional[str] = None
     WatchCount: Optional[int] = None
 
-
-class ActiveListing(BaseModel):
-    item_id: str
-    title: str
-    buy_it_now_price: float
-    currency: str
-    start_time: str
-    time_left: str
-    quantity: int
-    quantity_available: int
-    current_price: float
-    view_url: HttpUrl
-    image_url: Optional[HttpUrl]
-    
 class ActiveListingResponse(BaseModel):
     item_number : Optional[int]=None
     items : List[ItemModel|None]
@@ -359,20 +347,3 @@ class ActiveListingResponse(BaseModel):
     def set_item_number(self) -> "ActiveListingResponse":
         self.item_number = len(self.items)
         return self
-
-class CardListing(BaseModel):
-    title: str
-    description: str
-    price: float
-    image_url: HttpUrl
-    postal_code: str
-    condition_id: Literal[1000, 3000, 4000] = 4000  # 1000: New, 3000: Used, 4000: Like New
-    category_id: str = "183454"
-    shipping_cost: float = 2.50
-    site: str = "AU"
-
-
-class ListingUpdate(BaseModel):
-    item_id : str
-    price: Optional[float]=None
-    pictures: Optional[List[HttpUrl]] =None

@@ -17,11 +17,11 @@ async def do_api_call(item_id : str, token = Depends(authentificate.check_validi
     return await listings.obtain_item(token.access_token, item_id)
   
 @ebay_listing_router.post("/", description="posting a new listing")
-async def do_api_call(listing : listings_model.CardListing, token = Depends(authentificate.check_validity)):
+async def do_api_call(listing : listings_model.ItemModel, token = Depends(authentificate.check_validity)):
     return await listings.add_or_verify_post_new_item(listing , token.access_token)
 
 @ebay_listing_router.put("/active/{item_id}", description="updates a item")
-async def do_api_call(updatedItem : listings_model.ListingUpdate,  token = Depends(authentificate.check_validity)):
+async def do_api_call(updatedItem : listings_model.ItemModel,  token = Depends(authentificate.check_validity)):
     return await listings.update_listing(updatedItem, token)
 
 @ebay_listing_router.get("/active/", response_model=listings_model.ActiveListingResponse, description='get a specific listing')

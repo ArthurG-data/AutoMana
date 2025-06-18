@@ -76,6 +76,7 @@ def parse_verify_add_item_response(xml_text: str) -> dict:
         "errors": [e.text for e in errors]
     }
 
+
 def to_xml_element(parent: ET.Element, name: str, value: Any):
     if value is None:
         return
@@ -93,8 +94,14 @@ def to_xml_element(parent: ET.Element, name: str, value: Any):
     else:
         ET.SubElement(parent, name).text = str(value)
 
+def item_model_to_xml(item: listings.ItemModel) -> str:
+    item_dict = item.model_dump(exclude_none=True)
+    return xmltodict.unparse({"Item": item_dict}, pretty=True)
+
+"""
 def item_to_xml(item: listings.ItemModel) -> str:
     item_elem = ET.Element("Item")
     for field_name, value in item:
         to_xml_element(item_elem, field_name, value)
     return parseString(ET.tostring(item_elem)).toprettyxml(indent="  ")
+"""

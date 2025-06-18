@@ -3,8 +3,6 @@ from backend.modules.ebay.models import auth as auth_model, listings as listings
 from backend.modules.ebay.config import EBAY_TRADING_API_URL as trading_endpoint
 from backend.modules.ebay.services import requests
 from backend.modules.ebay.utils import listings
-from typing import Optional
-import xmltodict
 
 import xml.etree.ElementTree as ET
 
@@ -42,19 +40,26 @@ async def obtain_all_active_listings(token : str)->listings_model.ActiveListingR
       all_items.extend(active_listings)
       page_number += 1
 
-async def add_or_verify_post_new_item(card: listings_model.CardListing, token: str, verify : bool=True):
+async def add_or_verify_post_new_item(card: listings_model.ItemModel, token: str, verify : bool=True):
    class_name_input = "AddItem"
    if verify:
       class_name_input = "VerifyAddItem"
    api_header = auth_model.HeaderApi(site_id = "15",class_name = class_name_input, iaf_token = token)
    headers = api_header.model_dump(by_alias=True)
-   test_xml = requests.build_card_listing_xml(card, token, verify=verify)
+   test_xml = requests.generate_add_item_request_xml(card)
    response_xml = await doPostTradingRequest(test_xml, headers, trading_endpoint)
    return listings.parse_verify_add_item_response(response_xml)
    
-async def update_listing(updatedItem : listings_model.ListingUpdate, token: str):
+async def update_listing(updatedItem : listings_model.ItemModel, token: str):
    api_header = auth_model.HeaderApi(site_id = "15",class_name = 'ReviseItem', iaf_token = token)
    headers = api_header.model_dump(by_alias=True)
-   test_xml = requests.build_update(updatedItem.item_id, updatedItem.price, updatedItem.pictures)
+   test_xml = requests.generate_revise_item_request_xml(updatedItem)
    response_xml = await doPostTradingRequest(test_xml, headers, trading_endpoint)
+   return response_xml
+
+async def delete_listing(item_id :str, token : str, reason = None):
+   api_header = auth_model.HeaderApi(site_id = "15",class_name = 'EndItemRequest', iaf_token = token)
+   headers = api_header.model_dump(by_alias=True)
+   xml = requests.generate_end_item_request_xml(item_id, reason=None)
+   response_xml = await doPostTradingRequest(xml, headers, trading_endpoint)
    return response_xml
