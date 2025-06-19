@@ -21,8 +21,10 @@ async def do_api_call(listing : listings_model.ItemModel, token = Depends(authen
     return await listings.add_or_verify_post_new_item(listing , token.access_token)
 
 @ebay_listing_router.put("/active/{item_id}", description="updates a item")
-async def do_api_call(updatedItem : listings_model.ItemModel,  token = Depends(authentificate.check_validity)):
-    return await listings.update_listing(updatedItem, token)
+async def do_api_call(updatedItem : listings_model.ItemModel,item_id : str,  token = Depends(authentificate.check_validity)):
+    if updatedItem.ItemID != item_id:
+        raise HTTPException(status_code=400, detail="Item ID in URL and body must match")
+    return await listings.update_listing(updatedItem, token.access_token)
 
 @ebay_listing_router.get("/active/", response_model=listings_model.ActiveListingResponse, description='get a specific listing')
 async def do_api_call(token = Depends(authentificate.check_validity), item_ids = Annotated[List[str], Query()]):

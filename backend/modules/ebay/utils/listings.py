@@ -96,12 +96,4 @@ def to_xml_element(parent: ET.Element, name: str, value: Any):
 
 def item_model_to_xml(item: listings.ItemModel) -> str:
     item_dict = item.model_dump(exclude_none=True)
-    return xmltodict.unparse({"Item": item_dict}, pretty=True)
-
-"""
-def item_to_xml(item: listings.ItemModel) -> str:
-    item_elem = ET.Element("Item")
-    for field_name, value in item:
-        to_xml_element(item_elem, field_name, value)
-    return parseString(ET.tostring(item_elem)).toprettyxml(indent="  ")
-"""
+    return xmltodict.unparse({"Item": item_dict}, pretty=True,full_document=False)
