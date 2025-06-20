@@ -18,4 +18,6 @@ class BaseCard(BaseModel):
     rarity_name: str = Field(alias="rarity", title="The rarity of the card")
     oracle_text: Optional[str] = Field(default="", title="The text on the card")
     digital: bool = Field(alias="digital", title="Is the card released only on digital platform")
+    class Config:
+        populate_by_name = True
 

@@ -1,6 +1,6 @@
 from backend.database.get_database import get_connection
-import ijson
 from backend.modules.internal.cards import models, services
+import ijson
 
 def process_large_cards_json(file_path: str, ):
     print(f"Processing {file_path}...")

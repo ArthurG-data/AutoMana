@@ -3,8 +3,7 @@ from backend.modules.ebay.models import auth as auth_model, listings as listings
 from backend.modules.ebay.config import EBAY_TRADING_API_URL as trading_endpoint
 from backend.modules.ebay.services import requests
 from backend.modules.ebay.utils import listings
-
-import xml.etree.ElementTree as ET
+from backend.services import redis_ebay
 
 async def doPostTradingRequest( xml_body : str, headers: auth_model.HeaderApi, enpoint_url: str) -> str:
       try:
@@ -18,11 +17,18 @@ async def doPostTradingRequest( xml_body : str, headers: auth_model.HeaderApi, e
          raise RuntimeError(f"Failed to contact eBay Trading API: {str(e)}")
 
 async def obtain_item(token : str, item_id : str)->listings_model.ItemModel:
-   api_header = auth_model.HeaderApi(site_id = "15",call_name='GetItem', iaf_token = token)
-   headers = api_header.model_dump(by_alias=True)
-   test_xml = requests.create_xml_body_get_item(item_id)
-   response_xml = await doPostTradingRequest(test_xml, headers, trading_endpoint)
-   return await listings.parse_single_item(response_xml)
+   #first check if the listing is in the cache
+   cached_xml = redis_ebay.get_cached_ebay_item(item_id)
+   if not cached_xml:
+      api_header = auth_model.HeaderApi(site_id = "15",call_name='GetItem', iaf_token = token)
+      headers = api_header.model_dump(by_alias=True)
+      response_xml = requests.create_xml_body_get_item(item_id)
+      cached_xml = await doPostTradingRequest(response_xml, headers, trading_endpoint)
+      
+      redis_ebay.cache_ebay_item(item_id, cached_xml)
+   parsed_item = await listings.parse_single_item(cached_xml)
+   #cache the item
+   return parsed_item
 
 
 async def obtain_all_active_listings(token : str)->listings_model.ActiveListingResponse:#- listings_model.ActiveListingResponse
@@ -31,7 +37,6 @@ async def obtain_all_active_listings(token : str)->listings_model.ActiveListingR
    all_items = []
    page_number = 1
    while True:
-      print(page_number)
       test_xml = requests.create_xml_body('GetMyeBaySellingRequest',limit=100,offset=page_number)
       response_xml = await doPostTradingRequest(test_xml, headers, trading_endpoint)
       active_listings  = await listings.parse_listings_response(response_xml)
