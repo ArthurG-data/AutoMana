@@ -6,7 +6,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class InternalSettings(BaseSettings):
     internal_api_key: str
-
+    staging_path: str
+    backend_path : str
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
@@ -16,6 +17,7 @@ class GeneralSettings(BaseSettings):
     encrypt_algorithm : str
     secret_key : str
     access_token_expiry : int
+    
     model_config =  SettingsConfigDict(env_file='.env',  extra="allow")
 
 class PostgreSettings(BaseSettings):
