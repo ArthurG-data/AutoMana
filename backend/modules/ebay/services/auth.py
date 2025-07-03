@@ -10,17 +10,16 @@ from backend.models.settings import EbaySettings
 from psycopg2.extensions import connection
 from backend.database.database_utilis import exception_handler
 from uuid import UUID,uuid4
+from backend.database.get_database import cursorDep
+from backend.modules.auth.dependancies import currentActiveUser
 
-
-def save_refresh_token(conn: connection, new_refresh : TokenResponse):
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute(auth.insert_token_query, (new_refresh.user_id, new_refresh.refresh_token, new_refresh.aquired_on, new_refresh.expires_on, new_refresh.token_type))          
-    except Exception as e:
-        exception_handler(e)
 
 def set_ebay_settings(conn: connection, user : UUID, app_id : str)->EbaySettings:
     #to be implemented latter once in AWS
+
+    with conn.cursor() as cursor:
+            cursor.execute(auth.get_info_login, (user,app_id,))
+            infos = cursor.fetchone()
     try:
         with conn.cursor() as cursor:
             cursor.execute(auth.get_info_login, (user,app_id,))
@@ -38,10 +37,9 @@ def set_ebay_settings(conn: connection, user : UUID, app_id : str)->EbaySettings
   
 
 def login_ebay(conn : connection, user : UUID, app_id : str, session_id :UUID):
-    #add the params state with the request_id, but better to store a encrypted value, store the query and check if it exists when received
+
     print('Logging Into the Ebay App...')
     settings : EbaySettings = set_ebay_settings(conn, user, app_id)
-    print(settings)
     request_id = uuid4()
     params = {
         "client_id":settings.app_id,
@@ -75,6 +73,7 @@ async def exange_auth(conn : connection, code : str, user_id : UUID, app_id : UU
     res : TokenResponse = await do_request_auth_ebay(headers, data)  
     try:
         await save_refresh_token(conn,res, app_id, user_id)
+        await save_access_token(conn, res, app_id, user_id)
     except Exception as e:
         exception_handler(e)
     finally:
@@ -83,15 +82,25 @@ async def exange_auth(conn : connection, code : str, user_id : UUID, app_id : UU
 
 async def exange_refresh_token(conn : connection, refresh_token : str, user_id : UUID, app_id : str):
     settings : EbaySettings = set_ebay_settings(conn, user_id, app_id)
-    headers = AuthHeader(app_id=app_id,secret=settings.secret ).to_header()
+    headers = AuthHeader(app_id=app_id,secret=settings.secret).to_header()
     data = ExangeRefreshData(token=refresh_token, scope=settings.scope).to_data()
     return await do_request_auth_ebay(headers, data)
    
+
     
 async def save_refresh_token(conn : connection, token : TokenResponse, app_id : str, user_id : UUID):
     try:
         with conn.cursor() as cursor:
-            cursor.execute(auth.insert_token_query, (app_id, token.refresh_token, token.acquired_on, token.expires_on,  token.token_type, user_id,))
+            cursor.execute(auth.assign_refresh_ebay_query, ( app_id,app_id, token.refresh_token, token.acquired_on, token.refresh_expires_on,  'refresh_token', user_id,))
+            conn.commit()
+            return {'message' : 'refresh token added'}
+    except Exception as e:
+        exception_handler(e)
+
+async def save_access_token(conn : connection, token : TokenResponse, app_id : str, user_id : UUID):
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(auth.assign_access_ebay_query, ( app_id,app_id, token.access_token, token.acquired_on, token.expires_on,  'access_token', user_id,))
             conn.commit()
             return {'message' : 'refresh token added'}
     except Exception as e:
@@ -118,3 +127,63 @@ def check_auth_request(conn : connection, request_id : UUID) :
     except Exception as e:
         raise e
 
+
+async def check_app_access(conn : connection, user_id: UUID, app_id :str)->bool:
+    #check if user is associated to the app
+    query = """
+            SELECT EXISTS (
+                SELECT 1
+                FROM ebay_app
+                WHERE user_id = %s AND app_id = %s
+            );
+            """
+    return execute_select_query(conn, query, (user_id,app_id), select_all=False)
+
+async def get_access_from_refresh(app_id : str, user_id : UUID, conn: connection):
+    # check if valide session
+    query_2 = """ SELECT token
+                FROM ebay_tokens
+                WHERE app_id = %s AND used = false AND token_type= 'refresh_token';
+            """
+    #check if access token is valid wirh session
+    try:
+        row = execute_select_query(conn, query_2, (app_id,),select_all=False)
+        refresh_token = row.get('token')
+    except Exception as e:
+        return str(e)
+    try:
+        access_token = await exange_refresh_token(conn, refresh_token,user_id , app_id)
+    except Exception as e:
+        return {'error in exange:' : str(e)}
+    return access_token
+
+async def get_valid_access_token(user_id : UUID,app_id : UUID, conn: connection)->str:
+    query_1 = """ SELECT token
+                FROM ebay_tokens
+                WHERE app_id = %s
+                AND expires_on > now()
+                AND used = false
+                AND token_type = 'access_token'
+                ORDER BY acquired_on DESC
+                LIMIT 1;
+            """
+    if await check_app_access(conn, user_id, app_id):
+        #if valid , get access token
+        row = execute_select_query(conn, query_1, (app_id,),select_all=False)
+    if not row:
+        token = await get_access_from_refresh(app_id, user_id, conn)
+    else:
+        token = row.get("token")
+    #here check if a toke has beer returned
+  
+    return token
+   
+async def check_validity(app_id : str, user : currentActiveUser, conn : cursorDep)->str:
+    try:
+        token : str = await get_valid_access_token(user.unique_id, app_id,conn)
+        return token
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Token validation failed: {str(e)}")
+
+
+   

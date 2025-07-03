@@ -8,7 +8,7 @@ from uuid import UUID
 ebay_dev_router = APIRouter(prefix='/dev', tags=['dev'])
 
 
-@ebay_dev_router .post('/dev/register', description='Add a ebay_user to the database that will be linked to the current user')
+@ebay_dev_router .post('/register', description='Add a ebay_user to the database that will be linked to the current user')
 async def regist_user(conn: cursorDep, current_user : currentActiveUser, dev_id : UUID):
     register_ebay_user(dev_id, conn, current_user.unique_id)
     return Response(status_code=200, content='Dev added')

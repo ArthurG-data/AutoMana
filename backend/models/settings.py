@@ -34,5 +34,5 @@ class EbaySettings(BaseSettings):
     scope : Optional[List[str]] = None
     secret : Optional[str] = None
     access_token_expiry : int =Field(title='The duration in minute of the access token', default=30)
-    secret_key : str
+    pgp_secret_key : str
     model_config =  SettingsConfigDict(env_file='.env',  extra="allow")
