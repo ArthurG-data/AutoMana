@@ -1,0 +1,86 @@
+--- table-------------
+CREATE TABLE market_ref (
+    market_id SERIAL PRIMARY KEY,  -- unique identifier for the market
+    name TEXT NOT NULL UNIQUE,              -- e.g., ebay, tcgplayer, etc.
+    api_url TEXT,                           -- optional: API endpoint for the market
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS product_ref(
+    product_shop_id VARCHAR(64) PRIMARY KEY,  -- unique identifier for the product in the sho
+    product_id TEXT NOT NULL,
+    market_id INT NOT NULL REFERENCES market_ref(market_id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (market_id, product_id)     -- ensure unique product per market
+);
+
+CREATE TABLE card_products_ref (
+    card_id UUID  NOT NULL REFERENCES card_version(card_version_id),
+    product_shop_id VARCHAR(64) NOT NULL REFERENCES product_ref(product_shop_id) ON DELETE CASCADE,
+    description TEXT,  
+    quantity INTEGER DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (card_id, product_shop_id) -- ensure unique product per card and market, think about how conditions might be included,maybe modify the card table
+);
+
+CREATE TABLE product_prices (--producy prices, for cards at the moment but can be extended to other products
+    time TIMESTAMPTZ NOT NULL,
+    product_shop_id VARCHAR(64) NOT NULL REFERENCES product_ref(product_shop_id) ON DELETE CASCADE,
+    price NUMERIC NOT NULL, 
+    currency VARCHAR(3) NOT NULL,
+    price_usd NUMERIC NOT NULL,      -- e.g., ebay, tcgplayer, etc.
+    source TEXT,                           -- optional: api name / seller
+    PRIMARY KEY (time, product_shop_id)
+);
+
+
+CREATE TABLE collection_handles (
+    handle_id SERIAL PRIMARY KEY,
+    market_id INT REFERENCES market_ref(market_id) NOT NULL,
+    name TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+----- indexes-------------
+CREATE INDEX IF NOT EXISTS idx_porduct_price ON product_prices (product_shop_id, time DESC);
+
+----------hyperytables 
+SELECT create_hypertable('product_prices', 'time', chunk_time_interval => interval '7 days');
+ALTER TABLE product_prices SET (timescaledb.compress, timescaledb.compress_segmentby = 'product_shop_id');
+SELECT add_compression_policy('product_prices', INTERVAL '30 days');
+
+CREATE MATERIALIZED VIEW card_price_daily_avg
+WITH (timescaledb.continuous) AS
+SELECT time_bucket('1 day', time) AS day, product_shop_id, AVG(price) AS avg_price
+FROM product_prices
+GROUP BY day, product_shop_id;
+
+--------------------views-------------------
+
+--------------------Stored Procedures-------------------
+CREATE OR REPLACE PROCEDURE add_price_batch_arrays(
+  p_times            timestamptz[],
+  p_product_shop_ids int[],
+  p_prices           numeric[],
+  p_currencies      text[],
+  p_prices_usd      numeric[],
+  p_sources          text[]
+)
+LANGUAGE plpgsql AS $$
+BEGIN
+  INSERT INTO product_prices(time, product_shop_id, price, currency, price_usd, source)
+  SELECT b.time, b.product_shop_id, b.price, b.currency, b.price_usd, b.source
+  FROM unnest(
+         p_times,
+         p_product_shop_ids,
+         p_prices,
+         p_currencies,
+         p_prices_usd,
+         p_sources
+       ) AS b(time, product_shop_id, price, currency, price_usd, source)
+    ON CONFLICT (time, product_shop_id) DO NOTHING;
+END;
+$$;

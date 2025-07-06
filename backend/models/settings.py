@@ -5,9 +5,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class InternalSettings(BaseSettings):
-    internal_api_key: str
+    internal_api_key: str | None
     staging_path: str
     backend_path : str
+    exange_app_id : str
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
