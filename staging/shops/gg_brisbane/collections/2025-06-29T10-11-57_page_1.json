@@ -1,0 +1,1755 @@
+{
+  "items": [
+    {
+      "id": 283514273971,
+      "title": "2021 Black Friday Promotion",
+      "handle": "2021-black-friday-promotion",
+      "published_at": "2021-11-25 12:35:45+11:00",
+      "updated_at": "2025-06-17 13:30:12+10:00"
+    },
+    {
+      "id": 260413554867,
+      "title": "Accessories",
+      "handle": "accessories",
+      "published_at": "2021-02-24 14:55:03+11:00",
+      "updated_at": "2025-06-29 07:11:56+10:00"
+    },
+    {
+      "id": 268602081459,
+      "title": "Adventures in the Forgotten Realms",
+      "handle": "magic-the-gathering-adventures-in-the-forgotten-realms",
+      "published_at": "2021-05-13 15:50:30+10:00",
+      "updated_at": "2025-06-29 18:55:01+10:00"
+    },
+    {
+      "id": 272566157491,
+      "title": "Adventures in the Forgotten Realms - Sealed Products",
+      "handle": "adventures-in-the-forgotten-realms-sealed-products",
+      "published_at": "2021-06-28 12:51:41+10:00",
+      "updated_at": "2025-06-17 13:28:53+10:00"
+    },
+    {
+      "id": 272565829811,
+      "title": "Adventures in the Forgotten Realms - Singles",
+      "handle": "adventures-in-the-forgotten-realms-singles",
+      "published_at": "2021-06-28 12:46:58+10:00",
+      "updated_at": "2025-06-29 18:55:01+10:00"
+    },
+    {
+      "id": 320220135603,
+      "title": "Aetherdrift - Singles",
+      "handle": "aetherdrift-singles",
+      "published_at": "2025-02-14 17:20:53+11:00",
+      "updated_at": "2025-06-29 18:48:26+10:00"
+    },
+    {
+      "id": 291696672947,
+      "title": "Akora TCG",
+      "handle": "akora-tcg",
+      "published_at": "2022-07-08 16:46:49+10:00",
+      "updated_at": "2025-06-17 13:31:53+10:00"
+    },
+    {
+      "id": 321339621555,
+      "title": "All Singles (Lionz)",
+      "handle": "all-singles-lionz",
+      "published_at": "2025-03-13 13:53:15+11:00",
+      "updated_at": "2025-06-29 20:10:04+10:00"
+    },
+    {
+      "id": 325449744563,
+      "title": "All Singles In Stock",
+      "handle": "all-singles-in-stock",
+      "published_at": "2025-06-13 18:45:14+10:00",
+      "updated_at": "2025-06-29 20:10:04+10:00"
+    },
+    {
+      "id": 282537722035,
+      "title": "All Singles Products",
+      "handle": "all-singles-products",
+      "published_at": "2021-10-22 12:24:46+11:00",
+      "updated_at": "2025-06-29 20:10:04+10:00"
+    },
+    {
+      "id": 297098576051,
+      "title": "Alpha Clash",
+      "handle": "alpha-clash",
+      "published_at": "2023-03-29 12:38:16+11:00",
+      "updated_at": "2025-06-17 13:31:22+10:00"
+    },
+    {
+      "id": 277289238707,
+      "title": "Alpha/First Edition - Singles",
+      "handle": "alpha-first-edition-singles",
+      "published_at": "2021-08-13 12:57:22+10:00",
+      "updated_at": "2025-06-29 17:08:06+10:00"
+    },
+    {
+      "id": 309761736883,
+      "title": "Altered TCG",
+      "handle": "altered-tcg",
+      "published_at": "2024-06-11 18:28:13+10:00",
+      "updated_at": "2025-06-17 13:31:40+10:00"
+    },
+    {
+      "id": 249517899955,
+      "title": "Arcane Rising 1st Edition - Singles",
+      "handle": "arcane-rising-1st-edition",
+      "published_at": "2021-02-16 15:04:25+11:00",
+      "updated_at": "2025-06-29 11:30:49+10:00"
+    },
+    {
+      "id": 249517932723,
+      "title": "Arcane Rising Unlimited - Singles",
+      "handle": "arcane-rising-unlimited",
+      "published_at": "2021-02-16 15:04:41+11:00",
+      "updated_at": "2025-06-29 17:06:20+10:00"
+    },
+    {
+      "id": 290677784755,
+      "title": "Astral Radiance - Singles",
+      "handle": "astral-radiance-singles",
+      "published_at": "2022-06-03 14:27:36+10:00",
+      "updated_at": "2025-06-29 19:05:44+10:00"
+    },
+    {
+      "id": 297080094899,
+      "title": "Battle Spirits Saga - Sealed Product",
+      "handle": "battle-spirits-saga",
+      "published_at": "2023-03-27 08:11:51+11:00",
+      "updated_at": "2025-06-17 13:31:52+10:00"
+    },
+    {
+      "id": 260979163315,
+      "title": "Battle Styles",
+      "handle": "pokemon-battle-styles-set",
+      "published_at": "2021-03-01 13:36:44+11:00",
+      "updated_at": "2025-06-17 13:28:47+10:00"
+    },
+    {
+      "id": 295361446067,
+      "title": "Black Friday 2022",
+      "handle": "black-friday-2022",
+      "published_at": "2022-11-24 16:06:20+11:00",
+      "updated_at": "2025-06-17 13:30:14+10:00"
+    },
+    {
+      "id": 295374782643,
+      "title": "Black Friday 2023 - Singles",
+      "handle": "black-friday-2023-singles",
+      "published_at": "2022-11-25 11:39:55+11:00",
+      "updated_at": "2025-01-14 05:44:46+11:00"
+    },
+    {
+      "id": 311874453683,
+      "title": "Bloomburrow - Singles",
+      "handle": "bloomburrow-singles",
+      "published_at": "2024-07-25 16:01:56+10:00",
+      "updated_at": "2025-06-29 19:30:06+10:00"
+    },
+    {
+      "id": 284516516019,
+      "title": "Boxing Day 2021",
+      "handle": "boxing-day-2021",
+      "published_at": "2021-12-25 23:57:56+11:00",
+      "updated_at": "2025-01-14 05:44:41+11:00"
+    },
+    {
+      "id": 243990003891,
+      "title": "Bundle Builder Products",
+      "handle": "bundle-builder-products",
+      "published_at": "2021-01-11 14:57:36+11:00",
+      "updated_at": "2025-01-14 05:44:30+11:00"
+    },
+    {
+      "id": 299059904691,
+      "title": "Cardboard Clearance",
+      "handle": "cardboard-clearance",
+      "published_at": "2023-08-23 10:20:57+10:00",
+      "updated_at": "2025-06-17 13:31:52+10:00"
+    },
+    {
+      "id": 298039017651,
+      "title": "Carddass Battle Premium Set (Japanese)",
+      "handle": "carddass-battle-premium-set-vol-1-japanese",
+      "published_at": "2023-06-15 12:25:36+10:00",
+      "updated_at": "2025-02-05 19:04:47+11:00"
+    },
+    {
+      "id": 283715403955,
+      "title": "Christmas Sale Bonanza!",
+      "handle": "christmas-sale-bonanza",
+      "published_at": "2021-12-01 09:55:00+11:00",
+      "updated_at": "2025-06-17 13:29:17+10:00"
+    },
+    {
+      "id": 260975394995,
+      "title": "Commander Legends",
+      "handle": "commander-legends",
+      "published_at": "2021-03-01 12:34:10+11:00",
+      "updated_at": "2025-06-29 18:09:31+10:00"
+    },
+    {
+      "id": 260974936243,
+      "title": "Commander Legends - Sealed Product",
+      "handle": "commander-legends-sealed-product",
+      "published_at": "2021-03-01 12:30:58+11:00",
+      "updated_at": "2025-06-17 13:29:40+10:00"
+    },
+    {
+      "id": 243432652979,
+      "title": "Commander Legends - Singles",
+      "handle": "commander-legends-mtg-singles",
+      "published_at": "2021-01-06 13:48:37+11:00",
+      "updated_at": "2025-06-29 18:09:31+10:00"
+    },
+    {
+      "id": 288469876915,
+      "title": "Commander Legends: Battle for Baldur's Gate - Sealed Products",
+      "handle": "magic-the-gathering-commander-legends-battle-for-baldurs-gate",
+      "published_at": "2022-04-05 14:15:15+10:00",
+      "updated_at": "2025-06-17 13:31:04+10:00"
+    },
+    {
+      "id": 290257436851,
+      "title": "Commander Legends: Battle for Baldur's Gate - Singles",
+      "handle": "commander-legends-battle-for-baldurs-gate-singles",
+      "published_at": "2022-05-20 17:34:06+10:00",
+      "updated_at": "2025-06-29 18:55:02+10:00"
+    },
+    {
+      "id": 298978410675,
+      "title": "Commander Masters - Sealed Sale",
+      "handle": "commander-masters-sealed-sale",
+      "published_at": "2023-08-11 20:22:04+10:00",
+      "updated_at": "2025-06-17 13:31:08+10:00"
+    },
+    {
+      "id": 298747592883,
+      "title": "Commander Masters - Singles",
+      "handle": "commander-masters-singles",
+      "published_at": "2023-07-19 15:14:50+10:00",
+      "updated_at": "2025-06-29 18:55:04+10:00"
+    },
+    {
+      "id": 261479334067,
+      "title": "Commander Staples",
+      "handle": "commander-staples",
+      "published_at": "2021-03-03 23:31:19+11:00",
+      "updated_at": "2025-06-29 20:10:04+10:00"
+    },
+    {
+      "id": 301062455475,
+      "title": "Commander Starter Singles",
+      "handle": "commander-starter-singles",
+      "published_at": "2023-11-28 15:29:36+11:00",
+      "updated_at": "2025-06-29 18:55:04+10:00"
+    },
+    {
+      "id": 239027126451,
+      "title": "Core Set 2019 Singles",
+      "handle": "core-set-2019-mtg-single",
+      "published_at": "2020-12-02 13:36:00+11:00",
+      "updated_at": "2025-06-29 17:52:18+10:00"
+    },
+    {
+      "id": 239025062067,
+      "title": "Core Set 2020 Singles",
+      "handle": "core-set-2020-mtg-single",
+      "published_at": "2020-12-02 13:15:09+11:00",
+      "updated_at": "2025-06-29 18:01:07+10:00"
+    },
+    {
+      "id": 249513902259,
+      "title": "Core Set 2021",
+      "handle": "core-set-2021",
+      "published_at": "2021-02-16 13:55:28+11:00",
+      "updated_at": "2025-06-29 18:06:32+10:00"
+    },
+    {
+      "id": 295641514163,
+      "title": "Crown Zenith - Sealed Product",
+      "handle": "pokemon-crown-zenith",
+      "published_at": "2022-12-16 16:11:38+11:00",
+      "updated_at": "2025-06-17 13:31:01+10:00"
+    },
+    {
+      "id": 249518194867,
+      "title": "Crucible of War 1st Edition - Singles",
+      "handle": "crucible-of-war-unlimited",
+      "published_at": "2021-02-16 15:06:46+11:00",
+      "updated_at": "2025-06-29 17:06:05+10:00"
+    },
+    {
+      "id": 277284847795,
+      "title": "Crucible of War Unlimited - Singles",
+      "handle": "crucible-of-war-unlimited-singles",
+      "published_at": "2021-08-13 10:56:42+10:00",
+      "updated_at": "2025-06-29 17:07:11+10:00"
+    },
+    {
+      "id": 276971126963,
+      "title": "Dawn of Majesty",
+      "handle": "dawn-of-majesty",
+      "published_at": "2021-08-10 16:12:09+10:00",
+      "updated_at": "2025-06-17 13:28:44+10:00"
+    },
+    {
+      "id": 281834422451,
+      "title": "DBS Other Sealed Product",
+      "handle": "dbs-other-sealed-product",
+      "published_at": "2021-10-12 14:27:17+11:00",
+      "updated_at": "2025-06-17 13:28:28+10:00"
+    },
+    {
+      "id": 260986634419,
+      "title": "Deck Boxes",
+      "handle": "deck-case",
+      "published_at": "2021-03-01 15:26:03+11:00",
+      "updated_at": "2025-06-17 13:32:30+10:00"
+    },
+    {
+      "id": 262427967667,
+      "title": "Dice & Dice Bags",
+      "handle": "dice",
+      "published_at": "2021-03-10 15:34:34+11:00",
+      "updated_at": "2025-06-17 13:32:29+10:00"
+    },
+    {
+      "id": 250165395635,
+      "title": "Digimon Card Game",
+      "handle": "digimon",
+      "published_at": "2021-02-22 12:13:40+11:00",
+      "updated_at": "2025-06-17 13:32:15+10:00"
+    },
+    {
+      "id": 298038984883,
+      "title": "Digimon Card Game Alternative Being [EX-04]",
+      "handle": "digimon-card-game-alternative-being-ex-04",
+      "published_at": "2023-06-15 12:21:04+10:00",
+      "updated_at": "2025-06-17 13:31:11+10:00"
+    },
+    {
+      "id": 298090201267,
+      "title": "Digimon Card Game Sale",
+      "handle": "digimon-card-game-sale",
+      "published_at": "2023-06-23 15:54:39+10:00",
+      "updated_at": "2025-06-17 13:31:07+10:00"
+    },
+    {
+      "id": 266409672883,
+      "title": "Digimon Card Game Series 06 Double Diamond",
+      "handle": "digimon-card-game-series-06-double-diamond",
+      "published_at": "2021-04-20 12:23:57+10:00",
+      "updated_at": "2025-06-17 13:18:06+10:00"
+    },
+    {
+      "id": 283260059827,
+      "title": "Digimon Card Game Series 07 Next Adventure",
+      "handle": "digimon-card-game-series-07-next-adventure",
+      "published_at": "2021-11-16 12:21:18+11:00",
+      "updated_at": "2025-06-17 13:29:53+10:00"
+    },
+    {
+      "id": 266408951987,
+      "title": "Digimon Card Game Series 1.0 & 1.5",
+      "handle": "digimon-card-game-series-1-0-1-5",
+      "published_at": "2021-04-20 12:10:30+10:00",
+      "updated_at": "2025-06-17 13:24:52+10:00"
+    },
+    {
+      "id": 291086106803,
+      "title": "Digimon Card Game Series 10.0 Xros Encounter",
+      "handle": "digimon-card-game-series-10-0-xros-encounter",
+      "published_at": "2022-06-17 14:07:42+10:00",
+      "updated_at": "2025-06-17 13:30:03+10:00"
+    },
+    {
+      "id": 295673135283,
+      "title": "Digimon Card Game Series 11 Dimensional Phase",
+      "handle": "digimon-card-game-series-11-dimensional-phase",
+      "published_at": "2022-12-19 14:07:01+11:00",
+      "updated_at": "2025-06-29 17:03:37+10:00"
+    },
+    {
+      "id": 296346681523,
+      "title": "Digimon Card Game Series 12 Across Time",
+      "handle": "digimon-card-game-series-12-across-time",
+      "published_at": "2023-01-23 07:52:22+11:00",
+      "updated_at": "2025-02-05 18:55:19+11:00"
+    },
+    {
+      "id": 296419066035,
+      "title": "Digimon Card Game Series 13 Versus Royal Knights",
+      "handle": "digimon-card-game-series-13-versus-royal-knights",
+      "published_at": "2023-01-30 08:16:13+11:00",
+      "updated_at": "2025-06-17 13:30:51+10:00"
+    },
+    {
+      "id": 266409410739,
+      "title": "Digimon Card Game Series 4.0 Great Legend",
+      "handle": "digimon-card-game-series-4-0-great-legend",
+      "published_at": "2021-04-20 12:19:44+10:00",
+      "updated_at": "2025-06-17 13:28:28+10:00"
+    },
+    {
+      "id": 286320394419,
+      "title": "Digimon Card Game Series 5.0 Battle of Omni",
+      "handle": "digimon-card-game-series-5-0-battle-of-omni",
+      "published_at": "2022-02-07 15:42:31+11:00",
+      "updated_at": "2025-06-17 13:28:09+10:00"
+    },
+    {
+      "id": 286320459955,
+      "title": "Digimon Card Game Series 8.0 New Hero",
+      "handle": "digimon-card-game-series-8-0-new-hero",
+      "published_at": "2022-02-07 15:45:10+11:00",
+      "updated_at": "2025-06-17 13:17:50+10:00"
+    },
+    {
+      "id": 291086074035,
+      "title": "Digimon Card Game Series 9.0 X-Record",
+      "handle": "digimon-card-game-series-9-0-x-record",
+      "published_at": "2022-06-17 14:06:54+10:00",
+      "updated_at": "2025-06-17 13:29:53+10:00"
+    },
+    {
+      "id": 283789361331,
+      "title": "Digimon Card Game Series Classic Collection [EX-01]",
+      "handle": "digimon-card-game-series-classic-collection",
+      "published_at": "2021-12-03 14:14:25+11:00",
+      "updated_at": "2025-06-17 13:12:53+10:00"
+    },
+    {
+      "id": 291901014195,
+      "title": "Digimon Card Game Series Digital Collection [EX-02]",
+      "handle": "digimon-card-game-series-digital-collection-ex-02",
+      "published_at": "2022-07-18 15:40:02+10:00",
+      "updated_at": "2025-06-17 13:28:12+10:00"
+    },
+    {
+      "id": 295148388531,
+      "title": "Digimon Card Game Series Draconic Roar [EX-03]",
+      "handle": "digimon-card-game-series-draconic-roar-ex-03",
+      "published_at": "2022-11-10 17:13:12+11:00",
+      "updated_at": "2025-06-29 17:03:35+10:00"
+    },
+    {
+      "id": 283062665395,
+      "title": "Digimon Singles",
+      "handle": "digimon-singles",
+      "published_at": "2021-11-08 10:44:39+11:00",
+      "updated_at": "2025-06-29 11:21:53+10:00"
+    },
+    {
+      "id": 321880162483,
+      "title": "Disney Lorcana - Archazia's Island Singles",
+      "handle": "disney-lorcana-archazias-island-singles",
+      "published_at": "2025-03-25 12:36:07+11:00",
+      "updated_at": "2025-06-29 17:17:06+10:00"
+    },
+    {
+      "id": 317197123763,
+      "title": "Disney Lorcana - Azurite Sea Singles",
+      "handle": "disney-lorcana-azurite-sea-singles",
+      "published_at": "2024-12-05 14:23:26+11:00",
+      "updated_at": "2025-06-29 17:16:26+10:00"
+    },
+    {
+      "id": 305960419507,
+      "title": "Disney Lorcana - Into the Inklands Singles",
+      "handle": "disney-lorcana-into-the-inklands-singles",
+      "published_at": "2024-03-18 13:33:27+11:00",
+      "updated_at": "2025-06-29 17:15:47+10:00"
+    },
+    {
+      "id": 324940628147,
+      "title": "Disney Lorcana - Reign of Jafar Singles",
+      "handle": "disney-lorcana-journey-together-singles",
+      "published_at": "2025-05-29 13:10:29+10:00",
+      "updated_at": "2025-06-29 18:10:08+10:00"
+    },
+    {
+      "id": 305960255667,
+      "title": "Disney Lorcana - Rise of the Floodborn Singles",
+      "handle": "disney-lorcana-rise-of-the-floodborn-singles",
+      "published_at": "2024-03-18 13:29:25+11:00",
+      "updated_at": "2025-06-29 17:15:48+10:00"
+    },
+    {
+      "id": 312659771571,
+      "title": "Disney Lorcana - Shimmering Skies Singles",
+      "handle": "disney-lorcana-shimmering-skies-singles",
+      "published_at": "2024-08-15 11:10:17+10:00",
+      "updated_at": "2025-06-29 17:16:26+10:00"
+    },
+    {
+      "id": 305960386739,
+      "title": "Disney Lorcana - The First Chapter Singles",
+      "handle": "disney-lorcana-the-first-chapter-singles",
+      "published_at": "2024-03-18 13:31:55+11:00",
+      "updated_at": "2025-06-29 17:15:47+10:00"
+    },
+    {
+      "id": 311069999283,
+      "title": "Disney Lorcana - Ursula's Return Singles",
+      "handle": "disney-lorcana-ursulas-return-singles",
+      "published_at": "2024-07-11 14:17:48+10:00",
+      "updated_at": "2025-06-29 17:16:28+10:00"
+    },
+    {
+      "id": 305265508531,
+      "title": "Disney Lorcana TCG Singles",
+      "handle": "disney-lorcana-tcg-singles",
+      "published_at": "2024-03-06 13:22:27+11:00",
+      "updated_at": "2025-06-29 18:10:08+10:00"
+    },
+    {
+      "id": 295513981107,
+      "title": "Dominaria Remastered",
+      "handle": "dominaria-remastered",
+      "published_at": "2022-12-07 14:07:00+11:00",
+      "updated_at": "2025-06-17 13:30:46+10:00"
+    },
+    {
+      "id": 295514013875,
+      "title": "Dominaria Remastered - Sealed Products",
+      "handle": "dominaria-remastered-sealed-products",
+      "published_at": "2022-12-07 14:07:21+11:00",
+      "updated_at": "2025-06-17 13:30:46+10:00"
+    },
+    {
+      "id": 295623753907,
+      "title": "Dominaria Remastered - Singles",
+      "handle": "dominaria-remastered-singles",
+      "published_at": "2022-12-15 14:08:11+11:00",
+      "updated_at": "2025-06-29 20:00:05+10:00"
+    },
+    {
+      "id": 293231952051,
+      "title": "Dominaria United",
+      "handle": "dominaria-united",
+      "published_at": "2022-08-26 17:26:20+10:00",
+      "updated_at": "2025-06-29 18:23:18+10:00"
+    },
+    {
+      "id": 290642788531,
+      "title": "Dominaria United  - Sealed Product",
+      "handle": "dominaria-united-sealed-product",
+      "published_at": "2022-06-02 14:43:37+10:00",
+      "updated_at": "2025-06-17 15:12:01+10:00"
+    },
+    {
+      "id": 293052481715,
+      "title": "Dominaria United - Singles",
+      "handle": "dominaria-united-singles",
+      "published_at": "2022-08-19 12:17:08+10:00",
+      "updated_at": "2025-06-29 18:23:18+10:00"
+    },
+    {
+      "id": 246238478515,
+      "title": "Double Masters - Singles",
+      "handle": "double-masters",
+      "published_at": "2021-01-25 12:27:00+11:00",
+      "updated_at": "2025-06-29 18:07:57+10:00"
+    },
+    {
+      "id": 290358395059,
+      "title": "Double Masters 2022",
+      "handle": "double-masters-2022",
+      "published_at": "2022-05-24 15:32:18+10:00",
+      "updated_at": "2025-06-29 18:22:40+10:00"
+    },
+    {
+      "id": 290257174707,
+      "title": "Double Masters 2022  - Sealed Products",
+      "handle": "double-masters-2022-sealed-products",
+      "published_at": "2022-05-20 17:21:55+10:00",
+      "updated_at": "2025-06-17 13:30:08+10:00"
+    },
+    {
+      "id": 290330640563,
+      "title": "Double Masters 2022 - Singles",
+      "handle": "double-masters-2022-singles",
+      "published_at": "2022-05-23 15:38:16+10:00",
+      "updated_at": "2025-06-29 18:22:40+10:00"
+    },
+    {
+      "id": 263201489075,
+      "title": "Dragon Ball Super Card Game",
+      "handle": "dragon-ball-super-card-game",
+      "published_at": "2021-03-17 16:00:09+11:00",
+      "updated_at": "2025-06-17 13:32:13+10:00"
+    },
+    {
+      "id": 292700389555,
+      "title": "Dragon Ball Super Card Game Zenkai Series",
+      "handle": "dragon-ball-super-card-game-zenkai-series-01",
+      "published_at": "2022-08-09 10:29:56+10:00",
+      "updated_at": "2025-06-17 13:31:01+10:00"
+    },
+    {
+      "id": 311869800627,
+      "title": "Dragon Ball Super Fusion World",
+      "handle": "dragon-ball-super-fusion-world",
+      "published_at": "2024-07-25 10:45:07+10:00",
+      "updated_at": "2025-06-17 13:31:38+10:00"
+    },
+    {
+      "id": 287518064819,
+      "title": "Dragon Shield Japanese Size Sleeves",
+      "handle": "dragon-shield-japanese-size-sleeves",
+      "published_at": "2022-03-07 16:18:32+11:00",
+      "updated_at": "2025-06-17 13:30:56+10:00"
+    },
+    {
+      "id": 286808932531,
+      "title": "Dragon Shield Standard Size Sleeves",
+      "handle": "dragon-shield",
+      "published_at": "2022-02-20 13:36:21+11:00",
+      "updated_at": "2025-06-17 13:31:29+10:00"
+    },
+    {
+      "id": 314180698291,
+      "title": "Duskmourn: House of Horror - Singles",
+      "handle": "duskmourn-house-of-horror-singles",
+      "published_at": "2024-09-16 12:44:07+10:00",
+      "updated_at": "2025-06-29 18:55:07+10:00"
+    },
+    {
+      "id": 285961879731,
+      "title": "Everfest - Singles",
+      "handle": "everfest-singles",
+      "published_at": "2022-01-28 14:29:45+11:00",
+      "updated_at": "2025-06-29 17:08:06+10:00"
+    },
+    {
+      "id": 291246178483,
+      "title": "FAB Premium Collection",
+      "handle": "fab-premium-collection",
+      "published_at": "2022-06-23 15:22:31+10:00",
+      "updated_at": "2025-06-29 17:06:20+10:00"
+    },
+    {
+      "id": 301062979763,
+      "title": "Fetchlands",
+      "handle": "fetchlands",
+      "published_at": "2023-11-28 15:59:37+11:00",
+      "updated_at": "2025-06-29 18:49:01+10:00"
+    },
+    {
+      "id": 324969201843,
+      "title": "Final Fantasy - Singles",
+      "handle": "final-fantasy-singles",
+      "published_at": "2025-05-30 10:40:06+10:00",
+      "updated_at": "2025-06-29 18:55:11+10:00"
+    },
+    {
+      "id": 249636716723,
+      "title": "Flesh and Blood",
+      "handle": "flesh-and-blood",
+      "published_at": "2021-02-17 13:41:07+11:00",
+      "updated_at": "2025-06-29 17:12:53+10:00"
+    },
+    {
+      "id": 299527864499,
+      "title": "Flesh and Blood - Bright Lights Singles",
+      "handle": "flesh-and-blood-bright-lights-singles-1",
+      "published_at": "2023-10-11 13:14:08+11:00",
+      "updated_at": "2025-06-29 17:09:40+10:00"
+    },
+    {
+      "id": 297514860723,
+      "title": "Flesh and Blood - Dusk till Dawn Sealed Product",
+      "handle": "flesh-and-blood-dusk-till-dawn-sealed-product",
+      "published_at": "2023-05-05 07:52:17+10:00",
+      "updated_at": "2025-06-17 13:31:03+10:00"
+    },
+    {
+      "id": 298747658419,
+      "title": "Flesh and Blood - Dusk till Dawn Singles",
+      "handle": "flesh-and-blood-dusk-till-dawn-singles",
+      "published_at": "2023-07-19 15:19:20+10:00",
+      "updated_at": "2025-06-29 17:09:17+10:00"
+    },
+    {
+      "id": 293879611571,
+      "title": "Flesh and Blood - Dynasty Sealed Product",
+      "handle": "flesh-and-blood-dynasty",
+      "published_at": "2022-09-07 14:59:58+10:00",
+      "updated_at": "2025-06-17 13:30:27+10:00"
+    },
+    {
+      "id": 295147929779,
+      "title": "Flesh and Blood - Dynasty Singles",
+      "handle": "flesh-and-blood-dynasty-singles",
+      "published_at": "2022-11-10 17:05:03+11:00",
+      "updated_at": "2025-06-29 17:08:30+10:00"
+    },
+    {
+      "id": 303801958579,
+      "title": "Flesh and Blood - Heavy Hitters Singles",
+      "handle": "flesh-and-blood-heavy-hitters-singles",
+      "published_at": "2024-02-02 14:09:44+11:00",
+      "updated_at": "2025-06-29 17:09:42+10:00"
+    },
+    {
+      "id": 324940431539,
+      "title": "Flesh and Blood - High Seas Singles",
+      "handle": "flesh-and-blood-high-seas-singles",
+      "published_at": "2025-05-29 13:02:21+10:00",
+      "updated_at": "2025-06-29 17:12:53+10:00"
+    },
+    {
+      "id": 267609538739,
+      "title": "Flesh and Blood - Monarch",
+      "handle": "monarch",
+      "published_at": "2021-05-05 11:00:02+10:00",
+      "updated_at": "2025-06-17 13:27:44+10:00"
+    },
+    {
+      "id": 296296579251,
+      "title": "Flesh and Blood - Outsiders Sealed Product",
+      "handle": "flesh-and-blood-outsiders-sealed-product-1",
+      "published_at": "2023-01-18 10:20:38+11:00",
+      "updated_at": "2025-06-17 13:30:50+10:00"
+    },
+    {
+      "id": 296296644787,
+      "title": "Flesh and Blood - Outsiders Singles",
+      "handle": "flesh-and-blood-outsiders-singles",
+      "published_at": "2023-01-18 10:22:45+11:00",
+      "updated_at": "2025-06-29 17:08:52+10:00"
+    },
+    {
+      "id": 309317271731,
+      "title": "Flesh and Blood - Part the Mistveil Singles",
+      "handle": "flesh-and-blood-part-the-mistveil-singles",
+      "published_at": "2024-06-03 11:12:01+10:00",
+      "updated_at": "2025-06-29 17:10:10+10:00"
+    },
+    {
+      "id": 314416267443,
+      "title": "Flesh and Blood - Rosetta Singles",
+      "handle": "flesh-and-blood-part-the-rosetta-singles",
+      "published_at": "2024-09-23 10:22:57+10:00",
+      "updated_at": "2025-06-29 17:11:10+10:00"
+    },
+    {
+      "id": 263181107379,
+      "title": "Flesh and Blood - Starter and Blitz Decks",
+      "handle": "flesh-and-blood-starter-and-blitz-decks",
+      "published_at": "2021-03-17 10:16:38+11:00",
+      "updated_at": "2025-06-17 13:29:55+10:00"
+    },
+    {
+      "id": 320188350643,
+      "title": "Flesh and Blood - The Hunted Singles",
+      "handle": "flesh-and-blood-the-hunted-singles",
+      "published_at": "2025-02-13 12:54:12+11:00",
+      "updated_at": "2025-06-29 17:11:41+10:00"
+    },
+    {
+      "id": 260660232371,
+      "title": "Flesh and Blood Booster Boxes - Alpha/First Edition",
+      "handle": "flesh-and-blood-booster-boxes-alpha-first-edition",
+      "published_at": "2021-02-26 11:19:34+11:00",
+      "updated_at": "2025-06-17 15:13:12+10:00"
+    },
+    {
+      "id": 260659740851,
+      "title": "Flesh and Blood Booster Boxes - Unlimited",
+      "handle": "flesh-and-blood-unlimited-booster-boxes",
+      "published_at": "2021-02-26 11:13:54+11:00",
+      "updated_at": "2025-06-17 13:28:43+10:00"
+    },
+    {
+      "id": 322084569267,
+      "title": "Flesh and Blood High Seas",
+      "handle": "flesh-and-blood-high-seas",
+      "published_at": "2025-03-31 13:49:02+11:00",
+      "updated_at": "2025-06-17 13:32:14+10:00"
+    },
+    {
+      "id": 289308311731,
+      "title": "Flesh and Blood History Pack 1",
+      "handle": "flesh-and-blood-history-pack-1",
+      "published_at": "2022-04-20 16:23:26+10:00",
+      "updated_at": "2025-06-17 13:30:01+10:00"
+    },
+    {
+      "id": 289924677811,
+      "title": "Flesh and Blood History Pack 1 - Singles",
+      "handle": "flesh-and-blood-history-pack-1-singles",
+      "published_at": "2022-05-09 14:29:49+10:00",
+      "updated_at": "2025-06-29 17:08:09+10:00"
+    },
+    {
+      "id": 260967235763,
+      "title": "Flesh and Blood Sealed Product",
+      "handle": "flesh-and-blood-sealed-product",
+      "published_at": "2021-03-01 10:36:04+11:00",
+      "updated_at": "2025-06-22 22:09:41+10:00"
+    },
+    {
+      "id": 260967170227,
+      "title": "Flesh and Blood Singles",
+      "handle": "flesh-and-blood-singles",
+      "published_at": "2021-03-01 10:35:15+11:00",
+      "updated_at": "2025-06-29 17:12:53+10:00"
+    },
+    {
+      "id": 299163615411,
+      "title": "Flesh and Blood Singles In Stock",
+      "handle": "flesh-and-blood-singles-in-stock",
+      "published_at": "2023-09-05 09:24:17+10:00",
+      "updated_at": "2025-06-29 19:38:41+10:00"
+    },
+    {
+      "id": 298918609075,
+      "title": "Flesh and Blood TCG - Bright Lights",
+      "handle": "flesh-and-blood-tcg-bright-lights",
+      "published_at": "2023-08-03 11:55:47+10:00",
+      "updated_at": "2025-06-17 13:31:15+10:00"
+    },
+    {
+      "id": 271733162163,
+      "title": "Flesh and Blood TCG - Crucible of War (Unlimited Edition)",
+      "handle": "flesh-and-blood-tcg-crucible-of-war-unlimited-edition",
+      "published_at": "2021-06-18 11:43:17+10:00",
+      "updated_at": "2025-06-17 13:28:41+10:00"
+    },
+    {
+      "id": 283275198643,
+      "title": "Flesh and Blood TCG - Everfest",
+      "handle": "flesh-and-blood-tcg-everfest",
+      "published_at": "2021-11-17 11:00:30+11:00",
+      "updated_at": "2025-06-17 13:28:39+10:00"
+    },
+    {
+      "id": 300864372915,
+      "title": "Flesh and Blood TCG - Heavy Hitters",
+      "handle": "flesh-and-blood-tcg-heavy-hitters",
+      "published_at": "2023-11-24 07:52:18+11:00",
+      "updated_at": "2025-06-17 13:31:24+10:00"
+    },
+    {
+      "id": 306760548531,
+      "title": "Flesh and Blood TCG - Part the Mistveil",
+      "handle": "flesh-and-blood-tcg-part-the-mistveil",
+      "published_at": "2024-04-02 13:01:30+11:00",
+      "updated_at": "2025-06-17 13:31:38+10:00"
+    },
+    {
+      "id": 275115376819,
+      "title": "Flesh and Blood TCG - Tales of Aria",
+      "handle": "flesh-and-blood-tcg-tales-of-aria",
+      "published_at": "2021-07-26 13:34:13+10:00",
+      "updated_at": "2025-06-17 13:28:40+10:00"
+    },
+    {
+      "id": 280455610547,
+      "title": "Flesh and Blood TCG - Tales of Aria Singles",
+      "handle": "flesh-and-blood-tcg-tales-of-aria-singles",
+      "published_at": "2021-09-17 14:52:31+10:00",
+      "updated_at": "2025-06-29 17:07:30+10:00"
+    },
+    {
+      "id": 281660358835,
+      "title": "Flesh and Blood TCG - Tales of Aria Unlimited",
+      "handle": "flesh-and-blood-tcg-tales-of-aria-unlimited",
+      "published_at": "2021-10-08 16:50:18+11:00",
+      "updated_at": "2025-06-17 13:28:39+10:00"
+    },
+    {
+      "id": 289543979187,
+      "title": "Flesh and Blood TCG - Uprising",
+      "handle": "flesh-and-blood-tcg-uprising",
+      "published_at": "2022-04-27 13:38:18+10:00",
+      "updated_at": "2025-06-17 13:30:03+10:00"
+    },
+    {
+      "id": 291205710003,
+      "title": "Flesh and Blood TCG - Uprising Singles",
+      "handle": "flesh-and-blood-tcg-uprising-singles",
+      "published_at": "2022-06-22 12:44:17+10:00",
+      "updated_at": "2025-06-29 17:08:08+10:00"
+    },
+    {
+      "id": 310161572019,
+      "title": "Flesh and Blood TCG Rosetta",
+      "handle": "flesh-and-blood-tcg-rosetta",
+      "published_at": "2024-06-20 08:39:47+10:00",
+      "updated_at": "2025-06-17 13:31:41+10:00"
+    },
+    {
+      "id": 316933472435,
+      "title": "Flesh and Blood The Hunted",
+      "handle": "flesh-and-blood-the-hunted",
+      "published_at": "2024-11-28 15:26:14+11:00",
+      "updated_at": "2025-06-17 13:32:04+10:00"
+    },
+    {
+      "id": 262427345075,
+      "title": "Folders and Albums",
+      "handle": "folders-and-albums",
+      "published_at": "2021-03-10 15:26:22+11:00",
+      "updated_at": "2025-06-17 13:32:27+10:00"
+    },
+    {
+      "id": 315977892019,
+      "title": "Foundations - Singles",
+      "handle": "foundations-singles",
+      "published_at": "2024-11-05 10:26:50+11:00",
+      "updated_at": "2025-06-29 18:47:22+10:00"
+    },
+    {
+      "id": 293053726899,
+      "title": "From the Vault - Sealed Products",
+      "handle": "from-the-vault-sealed-products",
+      "published_at": "2022-08-19 14:22:20+10:00",
+      "updated_at": "2025-06-17 13:29:43+10:00"
+    },
+    {
+      "id": 295019315379,
+      "title": "Gamegenic Accessories",
+      "handle": "gamegenic-accessories",
+      "published_at": "2022-11-01 15:50:05+11:00",
+      "updated_at": "2025-06-17 13:31:48+10:00"
+    },
+    {
+      "id": 295866695859,
+      "title": "Grand Archive",
+      "handle": "grand-archive-1",
+      "published_at": "2023-01-06 12:40:05+11:00",
+      "updated_at": "2025-06-17 13:32:03+10:00"
+    },
+    {
+      "id": 294048563379,
+      "title": "Grand Archive - Sealed Product",
+      "handle": "grand-archive",
+      "published_at": "2022-09-15 15:14:39+10:00",
+      "updated_at": "2025-06-17 13:32:03+10:00"
+    },
+    {
+      "id": 320211222707,
+      "title": "Gundam Card Game",
+      "handle": "gundam-card-game",
+      "published_at": "2025-02-14 07:26:06+11:00",
+      "updated_at": "2025-06-17 13:32:09+10:00"
+    },
+    {
+      "id": 238981480627,
+      "title": "Home page",
+      "handle": "frontpage",
+      "published_at": "2020-12-02 06:29:36+11:00",
+      "updated_at": "2025-01-14 05:44:29+11:00"
+    },
+    {
+      "id": 281915195571,
+      "title": "Hot Products",
+      "handle": "everything-sealed",
+      "published_at": "2021-10-14 07:05:21+11:00",
+      "updated_at": "2025-06-17 15:31:18+10:00"
+    },
+    {
+      "id": 260683333811,
+      "title": "Ikoria Lair of Behemoths",
+      "handle": "ikoria-lair-of-behemoths",
+      "published_at": "2021-02-26 16:31:45+11:00",
+      "updated_at": "2025-06-29 18:05:40+10:00"
+    },
+    {
+      "id": 260667244723,
+      "title": "Ikoria: Lair of Behemoths - Sealed Product",
+      "handle": "ikoria-lair-of-behemoths-sealed-product",
+      "published_at": "2021-02-26 12:54:52+11:00",
+      "updated_at": "2025-06-17 13:31:23+10:00"
+    },
+    {
+      "id": 260667146419,
+      "title": "Ikoria: Lair of Behemoths - Singles",
+      "handle": "ikoria-lair-of-behemoths-singles",
+      "published_at": "2021-02-26 12:53:26+11:00",
+      "updated_at": "2025-06-29 18:05:40+10:00"
+    },
+    {
+      "id": 319289819315,
+      "title": "Innistrad Remastered - Singles",
+      "handle": "innistrad-remastered-singles",
+      "published_at": "2025-01-21 10:59:43+11:00",
+      "updated_at": "2025-06-29 18:55:08+10:00"
+    },
+    {
+      "id": 280964497587,
+      "title": "Innistrad: Crimson Vow",
+      "handle": "innistrad-crimson-vow",
+      "published_at": "2021-09-24 10:06:46+10:00",
+      "updated_at": "2025-06-29 18:16:50+10:00"
+    },
+    {
+      "id": 280451940531,
+      "title": "Innistrad: Crimson Vow - Sealed Products",
+      "handle": "innistrad-crimson-vow-sealed-products",
+      "published_at": "2021-09-17 13:03:04+10:00",
+      "updated_at": "2025-06-17 13:28:52+10:00"
+    },
+    {
+      "id": 280964399283,
+      "title": "Innistrad: Crimson Vow - Singles",
+      "handle": "innistrad-crimson-vow-singles",
+      "published_at": "2021-09-24 10:06:10+10:00",
+      "updated_at": "2025-06-29 18:16:50+10:00"
+    },
+    {
+      "id": 284428468403,
+      "title": "Innistrad: Double Feature - Sealed Products",
+      "handle": "innistrad-double-feature",
+      "published_at": "2021-12-22 16:10:02+11:00",
+      "updated_at": "2025-06-17 13:28:51+10:00"
+    },
+    {
+      "id": 283406303411,
+      "title": "Innistrad: Double Feature - Singles",
+      "handle": "innistrad-double-feature-singles",
+      "published_at": "2021-11-22 15:52:34+11:00",
+      "updated_at": "2025-06-29 18:17:33+10:00"
+    },
+    {
+      "id": 277182873779,
+      "title": "Innistrad: Midnight Hunt",
+      "handle": "innistrad-midnight-hunt",
+      "published_at": "2021-08-12 14:49:39+10:00",
+      "updated_at": "2025-06-29 18:15:24+10:00"
+    },
+    {
+      "id": 276771930291,
+      "title": "Innistrad: Midnight Hunt - Sealed Products",
+      "handle": "innistrad-midnight-hunt-sealed-products",
+      "published_at": "2021-08-07 20:41:36+10:00",
+      "updated_at": "2025-06-17 13:28:52+10:00"
+    },
+    {
+      "id": 277182939315,
+      "title": "Innistrad: Midnight Hunt - Singles",
+      "handle": "innistrad-midnight-hunt-singles",
+      "published_at": "2021-08-12 14:50:16+10:00",
+      "updated_at": "2025-06-29 18:15:24+10:00"
+    },
+    {
+      "id": 260986831027,
+      "title": "Japanese Size Sleeves",
+      "handle": "japanese-size-sleeves",
+      "published_at": "2021-03-01 15:29:13+11:00",
+      "updated_at": "2025-06-17 13:30:56+10:00"
+    },
+    {
+      "id": 324940497075,
+      "title": "Journey Together - Singles",
+      "handle": "journey-together-singles",
+      "published_at": "2025-05-29 13:06:42+10:00",
+      "updated_at": "2025-06-29 19:09:19+10:00"
+    },
+    {
+      "id": 249514361011,
+      "title": "Jumpstart",
+      "handle": "jumpstart",
+      "published_at": "2021-02-16 13:56:06+11:00",
+      "updated_at": "2025-06-29 18:07:12+10:00"
+    },
+    {
+      "id": 260683563187,
+      "title": "Jumpstart - Sealed Product",
+      "handle": "jumpstart-sealed-product",
+      "published_at": "2021-02-26 16:40:35+11:00",
+      "updated_at": "2025-06-17 13:12:52+10:00"
+    },
+    {
+      "id": 260683464883,
+      "title": "Jumpstart - Singles",
+      "handle": "jumpstart-singles",
+      "published_at": "2021-02-26 16:38:04+11:00",
+      "updated_at": "2025-06-29 18:07:12+10:00"
+    },
+    {
+      "id": 295503888563,
+      "title": "Jumpstart 2022",
+      "handle": "jumpstart-2022",
+      "published_at": "2022-12-06 15:22:22+11:00",
+      "updated_at": "2025-06-29 18:26:56+10:00"
+    },
+    {
+      "id": 295465681075,
+      "title": "Jumpstart 2022 -  Singles",
+      "handle": "jumpstart-2022-singles",
+      "published_at": "2022-12-02 15:27:32+11:00",
+      "updated_at": "2025-06-29 18:26:56+10:00"
+    },
+    {
+      "id": 294023364787,
+      "title": "Jumpstart 2022 - Sealed Product",
+      "handle": "jumpstart-2022-sealed-product",
+      "published_at": "2022-09-14 16:02:59+10:00",
+      "updated_at": "2025-06-17 13:30:28+10:00"
+    },
+    {
+      "id": 249513574579,
+      "title": "Kaldheim",
+      "handle": "kaldheim",
+      "published_at": "2021-02-16 13:49:25+11:00",
+      "updated_at": "2025-06-29 18:55:01+10:00"
+    },
+    {
+      "id": 260667474099,
+      "title": "Kaldheim - Sealed Product",
+      "handle": "kaldheim-sealed-product",
+      "published_at": "2021-02-26 12:59:03+11:00",
+      "updated_at": "2025-06-17 13:29:17+10:00"
+    },
+    {
+      "id": 260661215411,
+      "title": "Kaldheim - Singles",
+      "handle": "kaldheim-singles",
+      "published_at": "2021-02-26 11:32:58+11:00",
+      "updated_at": "2025-06-29 18:55:01+10:00"
+    },
+    {
+      "id": 283941830835,
+      "title": "Kamigawa: Neon Dynasty - Sealed Products",
+      "handle": "kamigawa-neon-dynasty",
+      "published_at": "2021-12-08 14:07:54+11:00",
+      "updated_at": "2025-06-17 13:28:50+10:00"
+    },
+    {
+      "id": 285961945267,
+      "title": "Kamigawa: Neon Dynasty - Singles",
+      "handle": "kamigawa-neon-dynasty-singles",
+      "published_at": "2022-01-28 14:32:35+11:00",
+      "updated_at": "2025-06-29 18:55:02+10:00"
+    },
+    {
+      "id": 286809489587,
+      "title": "KMC Standard Size Sleeves",
+      "handle": "kmc-standard-size-sleeves",
+      "published_at": "2022-02-20 14:04:11+11:00",
+      "updated_at": "2025-06-17 13:32:01+10:00"
+    },
+    {
+      "id": 293054087347,
+      "title": "Legacy Sealed Products",
+      "handle": "legacy-sealed-products",
+      "published_at": "2022-08-19 14:42:03+10:00",
+      "updated_at": "2025-06-17 13:30:40+10:00"
+    },
+    {
+      "id": 291934044339,
+      "title": "Legendary Duelists 9 - Duels from the Deep",
+      "handle": "legendary-duelists-9-duels-from-the-deep",
+      "published_at": "2022-07-19 16:47:43+10:00",
+      "updated_at": "2025-06-17 13:29:56+10:00"
+    },
+    {
+      "id": 278385459379,
+      "title": "Level Up Dice",
+      "handle": "level-up-dice",
+      "published_at": "2021-08-23 14:56:01+10:00",
+      "updated_at": "2025-03-27 13:28:50+11:00"
+    },
+    {
+      "id": 272756375731,
+      "title": "Limited Time Only Combo Sales",
+      "handle": "limited-time-only-combo-sales",
+      "published_at": "2021-06-30 12:38:45+10:00",
+      "updated_at": "2025-06-17 13:28:38+10:00"
+    },
+    {
+      "id": 320089227443,
+      "title": "Lorcana TCG - Archazia's Island",
+      "handle": "lorcana-tcg-archazias-island",
+      "published_at": "2025-02-10 08:16:12+11:00",
+      "updated_at": "2025-06-17 13:32:08+10:00"
+    },
+    {
+      "id": 322902098099,
+      "title": "Lorcana TCG - Reign of Jafar",
+      "handle": "lorcana-tcg-reign-of-jafar",
+      "published_at": "2025-04-17 08:56:32+10:00",
+      "updated_at": "2025-06-17 13:32:16+10:00"
+    },
+    {
+      "id": 307529973939,
+      "title": "Lorcana TCG Sealed Product",
+      "handle": "lorcana-tcg-sealed-product",
+      "published_at": "2024-04-18 09:16:56+10:00",
+      "updated_at": "2025-06-17 13:32:01+10:00"
+    },
+    {
+      "id": 314950713523,
+      "title": "Lorcana TCG: Azurite Sea",
+      "handle": "lorcana-tcg-azurite-sea",
+      "published_at": "2024-10-08 11:19:30+11:00",
+      "updated_at": "2025-06-17 13:32:01+10:00"
+    },
+    {
+      "id": 311032316083,
+      "title": "Lorcana TCG: Shimmering Skies",
+      "handle": "lorcana-tcg-shimmering-skies",
+      "published_at": "2024-07-10 10:58:29+10:00",
+      "updated_at": "2025-06-17 13:31:43+10:00"
+    },
+    {
+      "id": 294381420723,
+      "title": "Lost Origin - Singles",
+      "handle": "lost-origin-singles",
+      "published_at": "2022-09-28 14:42:44+10:00",
+      "updated_at": "2025-06-29 19:08:36+10:00"
+    },
+    {
+      "id": 299969183923,
+      "title": "LOTR: Tales of Middle-earth Holiday Release - Singles",
+      "handle": "lotr-tales-of-middle-earth-holiday-release-singles",
+      "published_at": "2023-10-30 14:02:10+11:00",
+      "updated_at": "2025-06-29 18:37:30+10:00"
+    },
+    {
+      "id": 261400199347,
+      "title": "Magic the Gathering",
+      "handle": "magic-the-gathering",
+      "published_at": "2021-03-03 09:14:04+11:00",
+      "updated_at": "2025-06-29 20:10:04+10:00"
+    },
+    {
+      "id": 238982398131,
+      "title": "Magic the Gathering - All Singles",
+      "handle": "mtg-singles-all-products",
+      "published_at": "2020-12-02 13:16:35+11:00",
+      "updated_at": "2025-06-29 20:10:04+10:00"
+    },
+    {
+      "id": 260660691123,
+      "title": "Magic the Gathering - Collector Boosters",
+      "handle": "magic-the-gathering-collector-boosters",
+      "published_at": "2021-02-26 11:29:27+11:00",
+      "updated_at": "2025-06-17 13:29:52+10:00"
+    },
+    {
+      "id": 291932962995,
+      "title": "Magic the Gathering - In Stock Products",
+      "handle": "magic-the-gathering-in-stock-products",
+      "published_at": "2022-07-19 13:32:50+10:00",
+      "updated_at": "2025-06-29 20:10:04+10:00"
+    },
+    {
+      "id": 260661641395,
+      "title": "Magic the Gathering - Prerelease Packs and Bundles",
+      "handle": "magic-the-gathering-prerelease-packs",
+      "published_at": "2021-02-26 11:37:17+11:00",
+      "updated_at": "2025-06-17 15:31:45+10:00"
+    },
+    {
+      "id": 239173206195,
+      "title": "Magic the Gathering - Sealed Products",
+      "handle": "mtg-sealed-products",
+      "published_at": "2020-12-03 11:43:06+11:00",
+      "updated_at": "2025-06-17 13:32:12+10:00"
+    },
+    {
+      "id": 260660461747,
+      "title": "Magic the Gathering Draft Booster Boxes",
+      "handle": "magic-the-gathering-draft-booster-boxes",
+      "published_at": "2021-02-26 11:24:48+11:00",
+      "updated_at": "2025-06-17 13:30:17+10:00"
+    },
+    {
+      "id": 310698606771,
+      "title": "Magic The Gathering Duskmourn: House of Horror",
+      "handle": "magic-the-gathering-duskmourn-house-of-horror",
+      "published_at": "2024-07-02 16:19:33+10:00",
+      "updated_at": "2025-06-17 13:32:00+10:00"
+    },
+    {
+      "id": 320516522163,
+      "title": "Magic The Gathering Final Fantasy",
+      "handle": "magic-the-gathering-final-fantasy",
+      "published_at": "2025-02-24 10:27:33+11:00",
+      "updated_at": "2025-06-17 13:32:10+10:00"
+    },
+    {
+      "id": 315978121395,
+      "title": "Magic The Gathering Innistrad Remastered",
+      "handle": "magic-the-gathering-innistrad-remastered",
+      "published_at": "2024-11-05 10:40:05+11:00",
+      "updated_at": "2025-06-17 13:32:02+10:00"
+    },
+    {
+      "id": 260661805235,
+      "title": "Magic the Gathering Set Booster Boxes",
+      "handle": "magic-the-gathering-set-booster-boxes",
+      "published_at": "2021-02-26 11:41:27+11:00",
+      "updated_at": "2025-06-17 13:30:00+10:00"
+    },
+    {
+      "id": 238982299827,
+      "title": "Magic the Gathering Singles - In Stock",
+      "handle": "mtg-singles-instock",
+      "published_at": "2020-12-02 13:20:40+11:00",
+      "updated_at": "2025-06-29 20:10:04+10:00"
+    },
+    {
+      "id": 288047530163,
+      "title": "Magic The Gathering: Secret Lair February 2022 Drop (Preorder)",
+      "handle": "magic-the-gathering-secret-lair-february-2022-drop",
+      "published_at": "2022-03-23 12:27:36+11:00",
+      "updated_at": "2025-06-17 13:29:57+10:00"
+    },
+    {
+      "id": 317695918259,
+      "title": "Magic: The Gathering Aetherdrift",
+      "handle": "magic-the-gathering-aetherdrift",
+      "published_at": "2024-12-17 13:48:09+11:00",
+      "updated_at": "2025-06-17 13:32:05+10:00"
+    },
+    {
+      "id": 305004839091,
+      "title": "Magic: The Gathering Bloomburrow",
+      "handle": "magic-the-gathering-bloomburrow",
+      "published_at": "2024-02-28 11:11:27+11:00",
+      "updated_at": "2025-06-17 13:31:37+10:00"
+    },
+    {
+      "id": 296824275123,
+      "title": "Magic: The Gathering Commander Masters - Sealed",
+      "handle": "magic-the-gathering-commander-masters-sealed",
+      "published_at": "2023-03-02 16:00:12+11:00",
+      "updated_at": "2025-06-17 13:31:08+10:00"
+    },
+    {
+      "id": 320646250675,
+      "title": "Magic: The Gathering Edge of Eternities",
+      "handle": "magic-the-gathering-edge-of-eternities",
+      "published_at": "2025-02-25 10:01:23+11:00",
+      "updated_at": "2025-06-17 13:32:11+10:00"
+    },
+    {
+      "id": 312432885939,
+      "title": "Magic: The Gathering Foundations",
+      "handle": "magic-the-gathering-foundations",
+      "published_at": "2024-08-09 09:09:46+10:00",
+      "updated_at": "2025-06-17 13:31:47+10:00"
+    },
+    {
+      "id": 304911974579,
+      "title": "Magic: The Gathering Modern Horizons 3",
+      "handle": "magic-the-gathering-modern-horizons-3",
+      "published_at": "2024-02-26 14:29:46+11:00",
+      "updated_at": "2025-06-17 13:31:41+10:00"
+    },
+    {
+      "id": 301679050931,
+      "title": "Magic: The Gathering Murders at Karlov Manor",
+      "handle": "magic-the-gathering-murders-at-karlov-manor",
+      "published_at": "2023-12-13 13:53:13+11:00",
+      "updated_at": "2025-06-17 13:31:41+10:00"
+    },
+    {
+      "id": 304912007347,
+      "title": "Magic: The Gathering Outlaws of Thunder Junction",
+      "handle": "magic-the-gathering-outlaws-of-thunder-junction",
+      "published_at": "2024-02-26 14:30:14+11:00",
+      "updated_at": "2025-06-17 13:31:41+10:00"
+    },
+    {
+      "id": 299331682483,
+      "title": "Magic: The Gathering Ravnica Remastered - Sealed",
+      "handle": "magic-the-gathering-ravnica-remastered-sealed",
+      "published_at": "2023-09-27 08:23:20+10:00",
+      "updated_at": "2025-06-17 13:31:20+10:00"
+    },
+    {
+      "id": 299163582643,
+      "title": "Magic: The Gathering Singles In Stock",
+      "handle": "magic-the-gathering-singles-in-stock",
+      "published_at": "2023-09-05 09:23:50+10:00",
+      "updated_at": "2025-06-29 20:10:04+10:00"
+    },
+    {
+      "id": 321013088435,
+      "title": "Magic: The Gathering Spider-Man",
+      "handle": "magic-the-gathering-spider-man",
+      "published_at": "2025-03-05 16:14:14+11:00",
+      "updated_at": "2025-06-17 13:32:12+10:00"
+    },
+    {
+      "id": 320548536499,
+      "title": "Magic: The Gathering Tarkir: Dragonstorm",
+      "handle": "magic-the-gathering-tarkir-dragonstorm",
+      "published_at": "2025-02-24 16:02:18+11:00",
+      "updated_at": "2025-06-17 13:32:12+10:00"
+    },
+    {
+      "id": 298145284275,
+      "title": "Magic: The Gathering The Lord of the Rings: Tales of Middle-earth Holiday Release",
+      "handle": "magic-the-gathering-the-lord-of-the-rings-tales-of-middle-earth-holiday-release",
+      "published_at": "2023-06-30 15:41:50+10:00",
+      "updated_at": "2025-06-17 13:31:11+10:00"
+    },
+    {
+      "id": 299319034035,
+      "title": "Magic: The Gathering The Lost Caverns of Ixalan - Sealed",
+      "handle": "magic-the-gathering-the-lost-caverns-of-ixalan-sealed",
+      "published_at": "2023-09-25 11:15:03+10:00",
+      "updated_at": "2025-06-17 13:31:20+10:00"
+    },
+    {
+      "id": 297673490611,
+      "title": "Magic: The Gathering Universes Beyond Doctor Who - Sealed",
+      "handle": "magic-the-gathering-universes-beyond-doctor-who-sealed",
+      "published_at": "2023-05-10 09:52:54+10:00",
+      "updated_at": "2025-06-17 13:31:05+10:00"
+    },
+    {
+      "id": 301651886259,
+      "title": "Magic: The Gathering Universes Beyond Fallout",
+      "handle": "magic-the-gathering-universes-beyond-fallout",
+      "published_at": "2023-12-12 14:25:48+11:00",
+      "updated_at": "2025-06-17 13:31:25+10:00"
+    },
+    {
+      "id": 304912040115,
+      "title": "Magic: The Gathering Universes Beyond: Assassins Creed",
+      "handle": "magic-the-gathering-universes-beyond-assassins-creed",
+      "published_at": "2024-02-26 14:30:43+11:00",
+      "updated_at": "2025-06-17 13:31:30+10:00"
+    },
+    {
+      "id": 297673359539,
+      "title": "Magic: The Gathering Wilds of Eldraine - Sealed",
+      "handle": "magic-the-gathering-wilds-of-eldraine-sealed",
+      "published_at": "2023-05-10 08:50:07+10:00",
+      "updated_at": "2025-06-17 13:31:05+10:00"
+    },
+    {
+      "id": 296530706611,
+      "title": "March of the Machine - Sealed Product",
+      "handle": "march-of-the-machine-sealed-product",
+      "published_at": "2023-02-03 11:38:31+11:00",
+      "updated_at": "2025-06-17 13:31:04+10:00"
+    },
+    {
+      "id": 297121022131,
+      "title": "March of the Machine - Singles",
+      "handle": "march-of-the-machine-singles",
+      "published_at": "2023-03-31 10:58:38+11:00",
+      "updated_at": "2025-06-29 18:30:57+10:00"
+    },
+    {
+      "id": 296909734067,
+      "title": "March of the Machine: The Aftermath - Sealed Product",
+      "handle": "march-of-the-machine-the-aftermath-sealed-product",
+      "published_at": "2023-03-10 08:14:54+11:00",
+      "updated_at": "2025-06-17 13:30:56+10:00"
+    },
+    {
+      "id": 297517711539,
+      "title": "March of the Machine: The Aftermath - Singles",
+      "handle": "march-of-the-machine-the-aftermath-singles",
+      "published_at": "2023-05-05 15:41:20+10:00",
+      "updated_at": "2025-06-29 18:31:41+10:00"
+    },
+    {
+      "id": 260673634483,
+      "title": "Modern Horizons - Sealed Product",
+      "handle": "modern-horizons-sealed-product",
+      "published_at": "2021-02-26 14:27:51+11:00",
+      "updated_at": "2025-01-14 05:44:33+11:00"
+    },
+    {
+      "id": 260673339571,
+      "title": "Modern Horizons - Singles",
+      "handle": "modern-horizons-singles",
+      "published_at": "2021-02-26 14:26:58+11:00",
+      "updated_at": "2025-06-29 18:13:16+10:00"
+    },
+    {
+      "id": 267217698995,
+      "title": "Modern Horizons 2",
+      "handle": "modern-horizons-2",
+      "published_at": "2021-04-30 10:54:12+10:00",
+      "updated_at": "2025-06-29 19:50:02+10:00"
+    },
+    {
+      "id": 267963564211,
+      "title": "Modern Horizons 2 - Sealed Product",
+      "handle": "modern-horizons-2-sealed-product",
+      "published_at": "2021-05-07 14:22:08+10:00",
+      "updated_at": "2025-06-17 13:29:05+10:00"
+    },
+    {
+      "id": 269738213555,
+      "title": "Modern Horizons 2 - Singles",
+      "handle": "modern-horizons-2-singles",
+      "published_at": "2021-05-26 12:31:56+10:00",
+      "updated_at": "2025-06-29 19:50:02+10:00"
+    },
+    {
+      "id": 309387591859,
+      "title": "Modern Horizons 3 - Singles",
+      "handle": "modern-horizons-3-singles",
+      "published_at": "2024-06-03 15:46:09+10:00",
+      "updated_at": "2025-06-29 20:10:04+10:00"
+    },
+    {
+      "id": 239030534323,
+      "title": "Modern Legal Singles",
+      "handle": "modern-legal-mtg-singles",
+      "published_at": "2020-12-02 14:30:54+11:00",
+      "updated_at": "2025-06-29 20:10:04+10:00"
+    },
+    {
+      "id": 297292595379,
+      "title": "MOM - Multiverse Legends - Singles",
+      "handle": "mom-multiverse-legends-singles-pre-order",
+      "published_at": "2023-04-12 10:02:25+10:00",
+      "updated_at": "2025-06-29 18:30:20+10:00"
+    },
+    {
+      "id": 273078976691,
+      "title": "Monarch Unlimited - Singles",
+      "handle": "monarch-unlimited-singles",
+      "published_at": "2021-07-02 16:48:04+10:00",
+      "updated_at": "2025-06-29 17:06:58+10:00"
+    },
+    {
+      "id": 297185280179,
+      "title": "Monthly TCG Singles Promotion",
+      "handle": "monthly-tcg-singles-promotion",
+      "published_at": "2023-04-04 13:09:58+10:00",
+      "updated_at": "2025-06-29 18:45:02+10:00"
+    },
+    {
+      "id": 320217710771,
+      "title": "MTG Aetherdrift Singles",
+      "handle": "mtg-aetherdrift-singles",
+      "published_at": "2025-02-14 14:09:24+11:00",
+      "updated_at": "2025-06-29 18:48:26+10:00"
+    },
+    {
+      "id": 260667965619,
+      "title": "MTG Core Set 2019 - Sealed Product",
+      "handle": "mtg-core-set-2019-sealed-product",
+      "published_at": "2021-02-26 13:08:14+11:00",
+      "updated_at": "2025-06-17 13:29:41+10:00"
+    },
+    {
+      "id": 260667867315,
+      "title": "MTG Core Set 2019 - Singles",
+      "handle": "mtg-core-set-2019-singles",
+      "published_at": "2021-02-26 13:07:12+11:00",
+      "updated_at": "2025-06-29 17:52:18+10:00"
+    },
+    {
+      "id": 260668162227,
+      "title": "MTG Core Set 2020 - Sealed Product",
+      "handle": "mtg-core-set-2020-sealed-product",
+      "published_at": "2021-02-26 13:10:03+11:00",
+      "updated_at": "2025-06-17 13:31:38+10:00"
+    },
+    {
+      "id": 260668096691,
+      "title": "MTG Core Set 2020 - Singles",
+      "handle": "mtg-core-set-2020-singles",
+      "published_at": "2021-02-26 13:08:54+11:00",
+      "updated_at": "2025-06-29 18:01:07+10:00"
+    },
+    {
+      "id": 260668620979,
+      "title": "MTG Core Set 2021 - Sealed Product",
+      "handle": "mtg-core-set-2021-sealed-product",
+      "published_at": "2021-02-26 13:12:54+11:00",
+      "updated_at": "2025-06-17 13:28:30+10:00"
+    },
+    {
+      "id": 260668260531,
+      "title": "MTG Core Set 2021 - Singles",
+      "handle": "mtg-core-set-2021-singles",
+      "published_at": "2021-02-26 13:11:05+11:00",
+      "updated_at": "2025-06-29 18:06:32+10:00"
+    },
+    {
+      "id": 263196803251,
+      "title": "MTG Other Sealed Product",
+      "handle": "mtg-other-sealed-product",
+      "published_at": "2021-03-17 14:36:52+11:00",
+      "updated_at": "2025-06-17 13:29:41+10:00"
+    },
+    {
+      "id": 281305743539,
+      "title": "MTG Premium Collection",
+      "handle": "tcg-premium-collection",
+      "published_at": "2021-09-30 14:34:43+10:00",
+      "updated_at": "2025-06-29 17:36:28+10:00"
+    },
+    {
+      "id": 304315531443,
+      "title": "MTG Singles Recently Added",
+      "handle": "mtg-singles-recently-added",
+      "published_at": "2024-02-13 12:23:15+11:00",
+      "updated_at": "2025-06-29 20:10:04+10:00"
+    },
+    {
+      "id": 305223729331,
+      "title": "MTG Universes Beyond Fallout - Singles",
+      "handle": "mtg-universes-beyond-fallout-singles",
+      "published_at": "2024-03-05 10:58:34+11:00",
+      "updated_at": "2025-06-29 18:40:35+10:00"
+    },
+    {
+      "id": 303731867827,
+      "title": "Murders at Karlov Manor - Singles",
+      "handle": "murders-at-karlov-manor-singles",
+      "published_at": "2024-01-31 15:32:05+11:00",
+      "updated_at": "2025-06-29 18:38:47+10:00"
+    },
+    {
+      "id": 267952849075,
+      "title": "My Hero Academia",
+      "handle": "my-hero-academia",
+      "published_at": "2021-05-07 10:32:48+10:00",
+      "updated_at": "2025-06-17 13:31:51+10:00"
+    },
+    {
+      "id": 278390210739,
+      "title": "Mystery Booster Convention Edition",
+      "handle": "mystery-booster-convention-edition",
+      "published_at": "2021-08-23 17:01:12+10:00",
+      "updated_at": "2025-01-14 05:44:39+11:00"
+    },
+    {
+      "id": 272256106675,
+      "title": "Near Mint & Lightly Played",
+      "handle": "near-mint-lightly-played",
+      "published_at": "2021-06-24 13:44:42+10:00",
+      "updated_at": "2025-06-29 20:10:04+10:00"
+    },
+    {
+      "id": 295439073459,
+      "title": "Nostalgix TCG",
+      "handle": "nostalgix-tcg",
+      "published_at": "2022-11-30 09:47:07+11:00",
+      "updated_at": "2025-06-17 13:30:31+10:00"
+    },
+    {
+      "id": 298976936115,
+      "title": "Obsidian Flames - Singles",
+      "handle": "obsidian-flames-singles",
+      "published_at": "2023-08-11 13:13:16+10:00",
+      "updated_at": "2025-06-29 19:07:40+10:00"
+    },
+    {
+      "id": 290031861939,
+      "title": "One Piece Card Game",
+      "handle": "one-piece-card-game",
+      "published_at": "2022-05-12 10:49:47+10:00",
+      "updated_at": "2025-06-17 13:31:54+10:00"
+    },
+    {
+      "id": 324284088499,
+      "title": "One Piece Card Game - Anime 25th Collection",
+      "handle": "extra-booster-anime-25th-collection",
+      "published_at": "2025-05-15 12:15:48+10:00",
+      "updated_at": "2025-06-29 18:54:51+10:00"
+    },
+    {
+      "id": 298143449267,
+      "title": "One Piece Card Game - Awakening of the New Era",
+      "handle": "one-piece-card-game-awakening-of-the-new-era",
+      "published_at": "2023-06-30 12:12:58+10:00",
+      "updated_at": "2025-06-17 13:31:35+10:00"
+    },
+    {
+      "id": 301789741235,
+      "title": "One Piece Card Game - Awakening of the New Era",
+      "handle": "one-piece-card-game-awakening-of-the-new-era-1",
+      "published_at": "2023-12-15 14:59:58+11:00",
+      "updated_at": "2025-06-29 18:53:29+10:00"
+    },
+    {
+      "id": 298143350963,
+      "title": "One Piece Card Game - Kingdoms of Intrigue",
+      "handle": "one-piece-card-game-kingdoms-of-intrigue",
+      "published_at": "2023-06-30 12:12:00+10:00",
+      "updated_at": "2025-06-17 13:30:56+10:00"
+    },
+    {
+      "id": 308307001523,
+      "title": "One Piece Card Game - Memorial Collection",
+      "handle": "one-piece-card-game-memorial-collection",
+      "published_at": "2024-05-07 12:57:25+10:00",
+      "updated_at": "2025-06-29 18:53:30+10:00"
+    },
+    {
+      "id": 298143482035,
+      "title": "One Piece Card Game - Paramount War",
+      "handle": "one-piece-card-game-paramount-war",
+      "published_at": "2023-06-30 12:14:00+10:00",
+      "updated_at": "2025-06-17 13:30:47+10:00"
+    },
+    {
+      "id": 295606878387,
+      "title": "One Piece Card Game - Pillars of Strength",
+      "handle": "one-piece-card-game-pillars-of-strength",
+      "published_at": "2022-12-13 16:42:05+11:00",
+      "updated_at": "2025-06-17 13:31:11+10:00"
+    },
+    {
+      "id": 316621521075,
+      "title": "One Piece Card Game - Premium Booster",
+      "handle": "one-piece-card-game-premium-booster",
+      "published_at": "2024-11-21 10:21:52+11:00",
+      "updated_at": "2025-06-29 18:54:01+10:00"
+    },
+    {
+      "id": 320753238195,
+      "title": "One Piece Card Game - Premium Booster Box [PRB-02]",
+      "handle": "one-piece-card-game-premium-booster-box-prb-02",
+      "published_at": "2025-02-27 08:27:13+11:00",
+      "updated_at": "2025-06-17 13:32:11+10:00"
+    },
+    {
+      "id": 298143514803,
+      "title": "One Piece Card Game - Romance Dawn",
+      "handle": "one-piece-card-game-romance-dawn",
+      "published_at": "2023-06-30 12:14:37+10:00",
+      "updated_at": "2025-01-14 05:44:51+11:00"
+    },
+    {
+      "id": 299156439219,
+      "title": "One Piece Card Game - Singles In Stock",
+      "handle": "one-piece-card-game-singles-in-stock",
+      "published_at": "2023-09-04 12:51:37+10:00",
+      "updated_at": "2025-06-29 19:53:16+10:00"
+    },
+    {
+      "id": 298954326195,
+      "title": "One Piece Card Game - Wings of the Captain",
+      "handle": "one-piece-card-game-flanked-by-legends-op-06",
+      "published_at": "2023-08-09 08:57:31+10:00",
+      "updated_at": "2025-06-17 13:31:35+10:00"
+    },
+    {
+      "id": 310498754739,
+      "title": "One Piece Card Game 500 Years in the Future Singles",
+      "handle": "one-piece-card-game-500-years-in-the-future-singles",
+      "published_at": "2024-06-27 16:13:08+10:00",
+      "updated_at": "2025-06-29 18:53:30+10:00"
+    },
+    {
+      "id": 312108351667,
+      "title": "One Piece Card Game Booster Boxes Instock",
+      "handle": "one-piece-card-game-booster-boxes-instock",
+      "published_at": "2024-07-30 13:17:23+10:00",
+      "updated_at": "2025-06-17 13:32:14+10:00"
+    }
+  ],
+  "count": 250
+}

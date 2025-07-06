@@ -1,0 +1,1161 @@
+{
+  "items": [
+    {
+      "id": 7014594609331,
+      "title": "Kaito Shizuki (Showcase Ninja) [Kamigawa: Neon Dynasty]",
+      "handle": "kaito-shizuki-showcase-ninja-kamigawa-neon-dynasty",
+      "published_at": "2022-01-28T14:34:45+11:00",
+      "updated_at": "2025-07-01T21:43:41+10:00",
+      "body_html": "<table class=\"singles-description-table\" xmlns=\"http://www.w3.org/1999/html\">\n<tbody>\n      <tr>\n          <td>Set:</td>\n          <td>Kamigawa: Neon Dynasty</td>\n      </tr>\n      <tr>\n          <td>Type:</td>\n          <td>Legendary Planeswalker \u2014 Kaito</td>\n      </tr>\n      <tr>\n          <td>Rarity:</td>\n          <td>Mythic</td>\n      </tr>\n      <tr>\n          <td>Cost:</td>\n          <td>{1}{U}{B}</td>\n      </tr>\n</tbody>\n</table>\n<div class=\"single-description-div\">\n        <div class=\"oracle-text\">\n            At the beginning of your end step, if Kaito Shizuki entered the battlefield this turn, he phases out.<br>+1: Draw a card. Then discard a card unless you attacked this turn.<br>\u22122: Create a 1/1 blue Ninja creature token with \"This creature can't be blocked.\"<br>\u22127: You get an emblem with \"Whenever a creature you control deals combat damage to a player, search your library for a blue or black creature card, put it onto the battlefield, then shuffle.\"\n        </div>\n<table class=\"singles-reverse-description-table\">\n<tbody>\n</tbody>\n</table>\n<div class=\"single-description-div\">\n</div>\n<div class=\"catalogMetaData\" style=\"visibility: hidden;\" data-cardtype=\"mtg\" data-cardid=\"71247\" data-tcgid=\"257675\" data-lastupdated=\"2024-08-19T19:07:02.711Z\">\n</div>\n</div>\n",
+      "created_at": "2021-12-26T11:00:56+11:00",
+      "vendor": "Magic: The Gathering",
+      "product_type": "MTG Single",
+      "tags": [
+        "Black",
+        "Blue",
+        "Brawl",
+        "Commander",
+        "Duel",
+        "Explorer",
+        "Foil",
+        "Gladiator",
+        "Historic",
+        "Kaito",
+        "Kamigawa: Neon Dynasty",
+        "Legacy",
+        "Legendary Planeswalker",
+        "Modern",
+        "Mythic",
+        "Normal",
+        "Oathbreaker",
+        "Pioneer",
+        "Timeless",
+        "Vintage"
+      ],
+      "variants": [
+        {
+          "id": 41026110030003,
+          "title": "Near Mint",
+          "sku": "NEO-350-EN-NF-1",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 13.7,
+          "product_id": 7014594609331,
+          "created_at": "2021-12-26T11:00:56+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026110062771,
+          "title": "Lightly Played",
+          "sku": "NEO-350-EN-NF-2",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 11.0,
+          "product_id": 7014594609331,
+          "created_at": "2021-12-26T11:00:56+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026110095539,
+          "title": "Moderately Played",
+          "sku": "NEO-350-EN-NF-3",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 8.2,
+          "product_id": 7014594609331,
+          "created_at": "2021-12-26T11:00:56+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026110128307,
+          "title": "Heavily Played",
+          "sku": "NEO-350-EN-NF-5",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 5.5,
+          "product_id": 7014594609331,
+          "created_at": "2021-12-26T11:00:56+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026110161075,
+          "title": "Damaged",
+          "sku": "NEO-350-EN-NF-4",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 5.5,
+          "product_id": 7014594609331,
+          "created_at": "2021-12-26T11:00:56+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026110193843,
+          "title": "Near Mint Foil",
+          "sku": "NEO-350-EN-FO-1",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 16.4,
+          "product_id": 7014594609331,
+          "created_at": "2021-12-26T11:00:56+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026110226611,
+          "title": "Lightly Played Foil",
+          "sku": "NEO-350-EN-FO-2",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 13.1,
+          "product_id": 7014594609331,
+          "created_at": "2021-12-26T11:00:56+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026110259379,
+          "title": "Moderately Played Foil",
+          "sku": "NEO-350-EN-FO-3",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 9.8,
+          "product_id": 7014594609331,
+          "created_at": "2021-12-26T11:00:56+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026110292147,
+          "title": "Heavily Played Foil",
+          "sku": "NEO-350-EN-FO-5",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 6.6,
+          "product_id": 7014594609331,
+          "created_at": "2021-12-26T11:00:56+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026110324915,
+          "title": "Damaged Foil",
+          "sku": "NEO-350-EN-FO-4",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 6.6,
+          "product_id": 7014594609331,
+          "created_at": "2021-12-26T11:00:56+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        }
+      ],
+      "images": [
+        {
+          "id": 35884771836083,
+          "src": "https://cdn.shopify.com/s/files/1/0518/1354/8211/files/b887efc4-6c15-5715-b187-f26ec093175a.jpg?v=1724096909",
+          "alt": null,
+          "width": 672,
+          "height": 936
+        }
+      ],
+      "options": [
+        {
+          "name": "Title",
+          "values": [
+            "Near Mint",
+            "Lightly Played",
+            "Moderately Played",
+            "Heavily Played",
+            "Damaged",
+            "Near Mint Foil",
+            "Lightly Played Foil",
+            "Moderately Played Foil",
+            "Heavily Played Foil",
+            "Damaged Foil"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 7014594543795,
+      "title": "Island (296) [Kamigawa: Neon Dynasty]",
+      "handle": "island-296-kamigawa-neon-dynasty",
+      "published_at": "2022-01-28T14:34:45+11:00",
+      "updated_at": "2025-07-01T21:43:41+10:00",
+      "body_html": "<table class=\"singles-description-table\" xmlns=\"http://www.w3.org/1999/html\">\n<tbody>\n      <tr>\n          <td>Set:</td>\n          <td>Kamigawa: Neon Dynasty</td>\n      </tr>\n      <tr>\n          <td>Type:</td>\n          <td>Basic Land \u2014 Island</td>\n      </tr>\n      <tr>\n          <td>Rarity:</td>\n          <td>Common</td>\n      </tr>\n</tbody>\n</table>\n<div class=\"single-description-div\">\n        <div class=\"oracle-text\">\n            ({T}: Add {U}.)\n        </div>\n<table class=\"singles-reverse-description-table\">\n<tbody>\n</tbody>\n</table>\n<div class=\"single-description-div\">\n</div>\n<div class=\"catalogMetaData\" style=\"visibility: hidden;\" data-cardtype=\"mtg\" data-cardid=\"71244\" data-tcgid=\"257679\" data-lastupdated=\"2024-08-19T19:07:02.711Z\">\n</div>\n</div>\n",
+      "created_at": "2021-12-26T11:00:55+11:00",
+      "vendor": "Magic: The Gathering",
+      "product_type": "MTG Single",
+      "tags": [
+        "Alchemy",
+        "Basic Land",
+        "Brawl",
+        "Commander",
+        "Common",
+        "Duel",
+        "Explorer",
+        "Foil",
+        "Future",
+        "Gladiator",
+        "Historic",
+        "Island",
+        "Kamigawa: Neon Dynasty",
+        "Legacy",
+        "Modern",
+        "Normal",
+        "Oathbreaker",
+        "Pauper",
+        "Paupercommander",
+        "Penny",
+        "Pioneer",
+        "Predh",
+        "Premodern",
+        "Standard",
+        "Standardbrawl",
+        "Timeless",
+        "Vintage"
+      ],
+      "variants": [
+        {
+          "id": 41026109374643,
+          "title": "Near Mint",
+          "sku": "NEO-296-JA-NF-1",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 4.3,
+          "product_id": 7014594543795,
+          "created_at": "2021-12-26T11:00:55+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026109407411,
+          "title": "Lightly Played",
+          "sku": "NEO-296-JA-NF-2",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 3.4,
+          "product_id": 7014594543795,
+          "created_at": "2021-12-26T11:00:55+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026109440179,
+          "title": "Moderately Played",
+          "sku": "NEO-296-JA-NF-3",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 2.6,
+          "product_id": 7014594543795,
+          "created_at": "2021-12-26T11:00:55+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026109472947,
+          "title": "Heavily Played",
+          "sku": "NEO-296-JA-NF-5",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 1.7,
+          "product_id": 7014594543795,
+          "created_at": "2021-12-26T11:00:55+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026109505715,
+          "title": "Damaged",
+          "sku": "NEO-296-JA-NF-4",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 1.7,
+          "product_id": 7014594543795,
+          "created_at": "2021-12-26T11:00:55+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026109538483,
+          "title": "Near Mint Foil",
+          "sku": "NEO-296-JA-FO-1",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 6.6,
+          "product_id": 7014594543795,
+          "created_at": "2021-12-26T11:00:55+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026109571251,
+          "title": "Lightly Played Foil",
+          "sku": "NEO-296-JA-FO-2",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 5.3,
+          "product_id": 7014594543795,
+          "created_at": "2021-12-26T11:00:55+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026109604019,
+          "title": "Moderately Played Foil",
+          "sku": "NEO-296-JA-FO-3",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 4.0,
+          "product_id": 7014594543795,
+          "created_at": "2021-12-26T11:00:55+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026109636787,
+          "title": "Heavily Played Foil",
+          "sku": "NEO-296-JA-FO-5",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 2.7,
+          "product_id": 7014594543795,
+          "created_at": "2021-12-26T11:00:55+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026109669555,
+          "title": "Damaged Foil",
+          "sku": "NEO-296-JA-FO-4",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 2.7,
+          "product_id": 7014594543795,
+          "created_at": "2021-12-26T11:00:55+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        }
+      ],
+      "images": [
+        {
+          "id": 35884772884659,
+          "src": "https://cdn.shopify.com/s/files/1/0518/1354/8211/files/f394e0ae-b93f-50c8-ad6c-3b7ee3d8e207.jpg?v=1724096909",
+          "alt": null,
+          "width": 672,
+          "height": 936
+        }
+      ],
+      "options": [
+        {
+          "name": "Title",
+          "values": [
+            "Near Mint",
+            "Lightly Played",
+            "Moderately Played",
+            "Heavily Played",
+            "Damaged",
+            "Near Mint Foil",
+            "Lightly Played Foil",
+            "Moderately Played Foil",
+            "Heavily Played Foil",
+            "Damaged Foil"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 7014594445491,
+      "title": "Hidetsugu, Devouring Chaos (Neon Ink Yellow) [Kamigawa: Neon Dynasty]",
+      "handle": "hidetsugu-devouring-chaos-neon-ink-yellow-kamigawa-neon-dynasty",
+      "published_at": "2022-01-28T14:34:44+11:00",
+      "updated_at": "2025-07-01T21:43:41+10:00",
+      "body_html": "<table class=\"singles-description-table\" xmlns=\"http://www.w3.org/1999/html\">\n<tbody>\n      <tr>\n          <td>Set:</td>\n          <td>Kamigawa: Neon Dynasty</td>\n      </tr>\n      <tr>\n          <td>Type:</td>\n          <td>Legendary Creature \u2014 Ogre Demon</td>\n      </tr>\n      <tr>\n          <td>Rarity:</td>\n          <td>Rare</td>\n      </tr>\n      <tr>\n          <td>Cost:</td>\n          <td>{3}{B}</td>\n      </tr>\n</tbody>\n</table>\n<div class=\"single-description-div\">\n        <div class=\"oracle-text\">\n            {B}, Sacrifice a creature: Scry 2.<br>{2}{R}, {T}: Exile the top card of your library. You may play that card this turn. When you exile a nonland card this way, Hidetsugu, Devouring Chaos deals damage equal to the exiled card's mana value to any target.\n        </div>\n<table class=\"singles-reverse-description-table\">\n<tbody>\n</tbody>\n</table>\n<div class=\"single-description-div\">\n</div>\n<div class=\"catalogMetaData\" style=\"visibility: hidden;\" data-cardtype=\"mtg\" data-cardid=\"71241\" data-tcgid=\"262490\" data-lastupdated=\"2024-08-19T19:07:02.712Z\">\n</div>\n</div>\n",
+      "created_at": "2021-12-26T11:00:53+11:00",
+      "vendor": "Magic: The Gathering",
+      "product_type": "MTG Single",
+      "tags": [
+        "Black",
+        "Brawl",
+        "Commander",
+        "Duel",
+        "Explorer",
+        "Foil",
+        "Gladiator",
+        "Historic",
+        "Kamigawa: Neon Dynasty",
+        "Legacy",
+        "Legendary Creature",
+        "Modern",
+        "Oathbreaker",
+        "Ogre Demon",
+        "Penny",
+        "Pioneer",
+        "Rare",
+        "Timeless",
+        "Vintage"
+      ],
+      "variants": [
+        {
+          "id": 41026108719283,
+          "title": "Near Mint Foil",
+          "sku": "NEO-432-EN-FO-1",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 35.7,
+          "product_id": 7014594445491,
+          "created_at": "2021-12-26T11:00:53+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026108752051,
+          "title": "Lightly Played Foil",
+          "sku": "NEO-432-EN-FO-2",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 28.5,
+          "product_id": 7014594445491,
+          "created_at": "2021-12-26T11:00:53+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026108784819,
+          "title": "Moderately Played Foil",
+          "sku": "NEO-432-EN-FO-3",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 21.4,
+          "product_id": 7014594445491,
+          "created_at": "2021-12-26T11:00:53+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026108850355,
+          "title": "Damaged Foil",
+          "sku": "NEO-432-EN-FO-4",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 14.3,
+          "product_id": 7014594445491,
+          "created_at": "2021-12-26T11:00:53+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026108817587,
+          "title": "Heavily Played Foil",
+          "sku": "NEO-432-EN-FO-5",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 14.3,
+          "product_id": 7014594445491,
+          "created_at": "2021-12-26T11:00:53+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        }
+      ],
+      "images": [
+        {
+          "id": 35884772393139,
+          "src": "https://cdn.shopify.com/s/files/1/0518/1354/8211/files/598e8ced-770b-5caa-808e-38f8da408d82.jpg?v=1724096909",
+          "alt": null,
+          "width": 672,
+          "height": 936
+        }
+      ],
+      "options": [
+        {
+          "name": "Title",
+          "values": [
+            "Near Mint Foil",
+            "Lightly Played Foil",
+            "Moderately Played Foil",
+            "Damaged Foil",
+            "Heavily Played Foil"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 7014594412723,
+      "title": "Hidetsugu, Devouring Chaos (Extended Art) [Kamigawa: Neon Dynasty]",
+      "handle": "hidetsugu-devouring-chaos-extended-kamigawa-neon-dynasty",
+      "published_at": "2022-01-28T14:34:43+11:00",
+      "updated_at": "2025-07-01T21:43:41+10:00",
+      "body_html": "<table class=\"singles-description-table\" xmlns=\"http://www.w3.org/1999/html\">\n<tbody>\n      <tr>\n          <td>Set:</td>\n          <td>Kamigawa: Neon Dynasty</td>\n      </tr>\n      <tr>\n          <td>Type:</td>\n          <td>Legendary Creature \u2014 Ogre Demon</td>\n      </tr>\n      <tr>\n          <td>Rarity:</td>\n          <td>Rare</td>\n      </tr>\n      <tr>\n          <td>Cost:</td>\n          <td>{3}{B}</td>\n      </tr>\n</tbody>\n</table>\n<div class=\"single-description-div\">\n        <div class=\"oracle-text\">\n            {B}, Sacrifice a creature: Scry 2.<br>{2}{R}, {T}: Exile the top card of your library. You may play that card this turn. When you exile a nonland card this way, Hidetsugu, Devouring Chaos deals damage equal to the exiled card's mana value to any target.\n        </div>\n<table class=\"singles-reverse-description-table\">\n<tbody>\n</tbody>\n</table>\n<div class=\"single-description-div\">\n</div>\n<div class=\"catalogMetaData\" style=\"visibility: hidden;\" data-cardtype=\"mtg\" data-cardid=\"71237\" data-tcgid=\"257669\" data-lastupdated=\"2024-08-19T19:07:02.714Z\">\n</div>\n</div>\n",
+      "created_at": "2021-12-26T11:00:52+11:00",
+      "vendor": "Magic: The Gathering",
+      "product_type": "MTG Single",
+      "tags": [
+        "Black",
+        "Brawl",
+        "Commander",
+        "Duel",
+        "Explorer",
+        "Foil",
+        "Gladiator",
+        "Historic",
+        "Kamigawa: Neon Dynasty",
+        "Legacy",
+        "Legendary Creature",
+        "Modern",
+        "Normal",
+        "Oathbreaker",
+        "Ogre Demon",
+        "Penny",
+        "Pioneer",
+        "Rare",
+        "Timeless",
+        "Vintage"
+      ],
+      "variants": [
+        {
+          "id": 41026108391603,
+          "title": "Near Mint",
+          "sku": "NEO-454-EN-NF-1",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 1.5,
+          "product_id": 7014594412723,
+          "created_at": "2021-12-26T11:00:52+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026108424371,
+          "title": "Lightly Played",
+          "sku": "NEO-454-EN-NF-2",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 1.2,
+          "product_id": 7014594412723,
+          "created_at": "2021-12-26T11:00:52+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026108457139,
+          "title": "Moderately Played",
+          "sku": "NEO-454-EN-NF-3",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 0.9,
+          "product_id": 7014594412723,
+          "created_at": "2021-12-26T11:00:52+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026108522675,
+          "title": "Damaged",
+          "sku": "NEO-454-EN-NF-4",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 0.6,
+          "product_id": 7014594412723,
+          "created_at": "2021-12-26T11:00:52+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026108489907,
+          "title": "Heavily Played",
+          "sku": "NEO-454-EN-NF-5",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 0.6,
+          "product_id": 7014594412723,
+          "created_at": "2021-12-26T11:00:52+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026108555443,
+          "title": "Near Mint Foil",
+          "sku": "NEO-454-EN-FO-1",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 1.5,
+          "product_id": 7014594412723,
+          "created_at": "2021-12-26T11:00:52+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026108588211,
+          "title": "Lightly Played Foil",
+          "sku": "NEO-454-EN-FO-2",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 1.2,
+          "product_id": 7014594412723,
+          "created_at": "2021-12-26T11:00:52+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026108620979,
+          "title": "Moderately Played Foil",
+          "sku": "NEO-454-EN-FO-3",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 0.9,
+          "product_id": 7014594412723,
+          "created_at": "2021-12-26T11:00:52+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026108686515,
+          "title": "Damaged Foil",
+          "sku": "NEO-454-EN-FO-4",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 0.6,
+          "product_id": 7014594412723,
+          "created_at": "2021-12-26T11:00:53+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026108653747,
+          "title": "Heavily Played Foil",
+          "sku": "NEO-454-EN-FO-5",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 0.6,
+          "product_id": 7014594412723,
+          "created_at": "2021-12-26T11:00:53+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        }
+      ],
+      "images": [
+        {
+          "id": 35884773408947,
+          "src": "https://cdn.shopify.com/s/files/1/0518/1354/8211/files/29880039-dd60-5ebe-94bc-66650ee619d9.jpg?v=1724096910",
+          "alt": null,
+          "width": 672,
+          "height": 936
+        }
+      ],
+      "options": [
+        {
+          "name": "Title",
+          "values": [
+            "Near Mint",
+            "Lightly Played",
+            "Moderately Played",
+            "Damaged",
+            "Heavily Played",
+            "Near Mint Foil",
+            "Lightly Played Foil",
+            "Moderately Played Foil",
+            "Damaged Foil",
+            "Heavily Played Foil"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 7014594379955,
+      "title": "Island (295) [Kamigawa: Neon Dynasty]",
+      "handle": "island-295-kamigawa-neon-dynasty",
+      "published_at": "2022-01-28T14:34:42+11:00",
+      "updated_at": "2025-07-01T21:43:41+10:00",
+      "body_html": "<table class=\"singles-description-table\" xmlns=\"http://www.w3.org/1999/html\">\n<tbody>\n      <tr>\n          <td>Set:</td>\n          <td>Kamigawa: Neon Dynasty</td>\n      </tr>\n      <tr>\n          <td>Type:</td>\n          <td>Basic Land \u2014 Island</td>\n      </tr>\n      <tr>\n          <td>Rarity:</td>\n          <td>Common</td>\n      </tr>\n</tbody>\n</table>\n<div class=\"single-description-div\">\n        <div class=\"oracle-text\">\n            ({T}: Add {U}.)\n        </div>\n<table class=\"singles-reverse-description-table\">\n<tbody>\n</tbody>\n</table>\n<div class=\"single-description-div\">\n</div>\n<div class=\"catalogMetaData\" style=\"visibility: hidden;\" data-cardtype=\"mtg\" data-cardid=\"71243\" data-tcgid=\"257678\" data-lastupdated=\"2024-08-19T19:07:02.712Z\">\n</div>\n</div>\n",
+      "created_at": "2021-12-26T11:00:51+11:00",
+      "vendor": "Magic: The Gathering",
+      "product_type": "MTG Single",
+      "tags": [
+        "Alchemy",
+        "Basic Land",
+        "Brawl",
+        "Commander",
+        "Common",
+        "Duel",
+        "Explorer",
+        "Foil",
+        "Future",
+        "Gladiator",
+        "Historic",
+        "Island",
+        "Kamigawa: Neon Dynasty",
+        "Legacy",
+        "Modern",
+        "Normal",
+        "Oathbreaker",
+        "Pauper",
+        "Paupercommander",
+        "Penny",
+        "Pioneer",
+        "Predh",
+        "Premodern",
+        "Standard",
+        "Standardbrawl",
+        "Timeless",
+        "Vintage"
+      ],
+      "variants": [
+        {
+          "id": 41026108063923,
+          "title": "Near Mint",
+          "sku": "NEO-295-JA-NF-1",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 3.3,
+          "product_id": 7014594379955,
+          "created_at": "2021-12-26T11:00:51+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026108096691,
+          "title": "Lightly Played",
+          "sku": "NEO-295-JA-NF-2",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 2.6,
+          "product_id": 7014594379955,
+          "created_at": "2021-12-26T11:00:51+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026108129459,
+          "title": "Moderately Played",
+          "sku": "NEO-295-JA-NF-3",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 2.0,
+          "product_id": 7014594379955,
+          "created_at": "2021-12-26T11:00:51+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026108194995,
+          "title": "Damaged",
+          "sku": "NEO-295-JA-NF-4",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 1.3,
+          "product_id": 7014594379955,
+          "created_at": "2021-12-26T11:00:51+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026108162227,
+          "title": "Heavily Played",
+          "sku": "NEO-295-JA-NF-5",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 1.3,
+          "product_id": 7014594379955,
+          "created_at": "2021-12-26T11:00:51+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026108227763,
+          "title": "Near Mint Foil",
+          "sku": "NEO-295-JA-FO-1",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 4.1,
+          "product_id": 7014594379955,
+          "created_at": "2021-12-26T11:00:51+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026108260531,
+          "title": "Lightly Played Foil",
+          "sku": "NEO-295-JA-FO-2",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 3.3,
+          "product_id": 7014594379955,
+          "created_at": "2021-12-26T11:00:51+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026108293299,
+          "title": "Moderately Played Foil",
+          "sku": "NEO-295-JA-FO-3",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 2.5,
+          "product_id": 7014594379955,
+          "created_at": "2021-12-26T11:00:51+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026108358835,
+          "title": "Damaged Foil",
+          "sku": "NEO-295-JA-FO-4",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 1.7,
+          "product_id": 7014594379955,
+          "created_at": "2021-12-26T11:00:51+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026108326067,
+          "title": "Heavily Played Foil",
+          "sku": "NEO-295-JA-FO-5",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 1.7,
+          "product_id": 7014594379955,
+          "created_at": "2021-12-26T11:00:51+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        }
+      ],
+      "images": [
+        {
+          "id": 35884772917427,
+          "src": "https://cdn.shopify.com/s/files/1/0518/1354/8211/files/988b6a94-27cc-54c9-91e6-eac5c5e28d10.jpg?v=1724096909",
+          "alt": null,
+          "width": 672,
+          "height": 936
+        }
+      ],
+      "options": [
+        {
+          "name": "Title",
+          "values": [
+            "Near Mint",
+            "Lightly Played",
+            "Moderately Played",
+            "Damaged",
+            "Heavily Played",
+            "Near Mint Foil",
+            "Lightly Played Foil",
+            "Moderately Played Foil",
+            "Damaged Foil",
+            "Heavily Played Foil"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 7014594347187,
+      "title": "Hidetsugu, Devouring Chaos (Neon Ink Red) [Kamigawa: Neon Dynasty]",
+      "handle": "hidetsugu-devouring-chaos-neon-ink-red-kamigawa-neon-dynasty",
+      "published_at": "2022-01-28T14:34:42+11:00",
+      "updated_at": "2025-07-01T21:43:41+10:00",
+      "body_html": "<table class=\"singles-description-table\" xmlns=\"http://www.w3.org/1999/html\">\n<tbody>\n      <tr>\n          <td>Set:</td>\n          <td>Kamigawa: Neon Dynasty</td>\n      </tr>\n      <tr>\n          <td>Type:</td>\n          <td>Legendary Creature \u2014 Ogre Demon</td>\n      </tr>\n      <tr>\n          <td>Rarity:</td>\n          <td>Rare</td>\n      </tr>\n      <tr>\n          <td>Cost:</td>\n          <td>{3}{B}</td>\n      </tr>\n</tbody>\n</table>\n<div class=\"single-description-div\">\n        <div class=\"oracle-text\">\n            {B}, Sacrifice a creature: Scry 2.<br>{2}{R}, {T}: Exile the top card of your library. You may play that card this turn. When you exile a nonland card this way, Hidetsugu, Devouring Chaos deals damage equal to the exiled card's mana value to any target.\n        </div>\n<table class=\"singles-reverse-description-table\">\n<tbody>\n</tbody>\n</table>\n<div class=\"single-description-div\">\n</div>\n<div class=\"catalogMetaData\" style=\"visibility: hidden;\" data-cardtype=\"mtg\" data-cardid=\"71240\" data-tcgid=\"262487\" data-lastupdated=\"2024-08-19T19:07:02.713Z\">\n</div>\n</div>\n",
+      "created_at": "2021-12-26T11:00:50+11:00",
+      "vendor": "Magic: The Gathering",
+      "product_type": "MTG Single",
+      "tags": [
+        "Black",
+        "Brawl",
+        "Commander",
+        "Duel",
+        "Explorer",
+        "Foil",
+        "Gladiator",
+        "Historic",
+        "Kamigawa: Neon Dynasty",
+        "Legacy",
+        "Legendary Creature",
+        "Modern",
+        "Oathbreaker",
+        "Ogre Demon",
+        "Penny",
+        "Pioneer",
+        "Rare",
+        "Timeless",
+        "Vintage"
+      ],
+      "variants": [
+        {
+          "id": 41026107900083,
+          "title": "Near Mint Foil",
+          "sku": "NEO-429-EN-FO-1",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 1192.9,
+          "product_id": 7014594347187,
+          "created_at": "2021-12-26T11:00:50+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026107932851,
+          "title": "Lightly Played Foil",
+          "sku": "NEO-429-EN-FO-2",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 954.3,
+          "product_id": 7014594347187,
+          "created_at": "2021-12-26T11:00:50+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026107965619,
+          "title": "Moderately Played Foil",
+          "sku": "NEO-429-EN-FO-3",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 715.7,
+          "product_id": 7014594347187,
+          "created_at": "2021-12-26T11:00:50+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026108031155,
+          "title": "Damaged Foil",
+          "sku": "NEO-429-EN-FO-4",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 477.2,
+          "product_id": 7014594347187,
+          "created_at": "2021-12-26T11:00:50+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026107998387,
+          "title": "Heavily Played Foil",
+          "sku": "NEO-429-EN-FO-5",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 477.2,
+          "product_id": 7014594347187,
+          "created_at": "2021-12-26T11:00:50+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        }
+      ],
+      "images": [
+        {
+          "id": 35884773245107,
+          "src": "https://cdn.shopify.com/s/files/1/0518/1354/8211/files/8b967aba-5cd9-5a6e-a565-a1f074704acb.jpg?v=1724096910",
+          "alt": null,
+          "width": 672,
+          "height": 936
+        }
+      ],
+      "options": [
+        {
+          "name": "Title",
+          "values": [
+            "Near Mint Foil",
+            "Lightly Played Foil",
+            "Moderately Played Foil",
+            "Damaged Foil",
+            "Heavily Played Foil"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 7014594248883,
+      "title": "Forest (301) [Kamigawa: Neon Dynasty]",
+      "handle": "forest-301-kamigawa-neon-dynasty",
+      "published_at": "2022-01-28T14:34:39+11:00",
+      "updated_at": "2025-07-01T21:43:41+10:00",
+      "body_html": "<table class=\"singles-description-table\" xmlns=\"http://www.w3.org/1999/html\">\n<tbody>\n      <tr>\n          <td>Set:</td>\n          <td>Kamigawa: Neon Dynasty</td>\n      </tr>\n      <tr>\n          <td>Type:</td>\n          <td>Basic Land \u2014 Forest</td>\n      </tr>\n      <tr>\n          <td>Rarity:</td>\n          <td>Common</td>\n      </tr>\n</tbody>\n</table>\n<div class=\"single-description-div\">\n        <div class=\"oracle-text\">\n            ({T}: Add {G}.)\n        </div>\n<table class=\"singles-reverse-description-table\">\n<tbody>\n</tbody>\n</table>\n<div class=\"single-description-div\">\n</div>\n<div class=\"catalogMetaData\" style=\"visibility: hidden;\" data-cardtype=\"mtg\" data-cardid=\"71234\" data-tcgid=\"257684\" data-lastupdated=\"2024-08-19T19:07:02.714Z\">\n</div>\n</div>\n",
+      "created_at": "2021-12-26T11:00:46+11:00",
+      "vendor": "Magic: The Gathering",
+      "product_type": "MTG Single",
+      "tags": [
+        "Alchemy",
+        "Basic Land",
+        "Brawl",
+        "Commander",
+        "Common",
+        "Duel",
+        "Explorer",
+        "Foil",
+        "Forest",
+        "Future",
+        "Gladiator",
+        "Historic",
+        "Kamigawa: Neon Dynasty",
+        "Legacy",
+        "Modern",
+        "Normal",
+        "Oathbreaker",
+        "Pauper",
+        "Paupercommander",
+        "Penny",
+        "Pioneer",
+        "Predh",
+        "Premodern",
+        "Standard",
+        "Standardbrawl",
+        "Timeless",
+        "Vintage"
+      ],
+      "variants": [
+        {
+          "id": 41026106917043,
+          "title": "Near Mint",
+          "sku": "NEO-301-JA-NF-1",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 3.0,
+          "product_id": 7014594248883,
+          "created_at": "2021-12-26T11:00:46+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026106949811,
+          "title": "Lightly Played",
+          "sku": "NEO-301-JA-NF-2",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 2.5,
+          "product_id": 7014594248883,
+          "created_at": "2021-12-26T11:00:46+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026106982579,
+          "title": "Moderately Played",
+          "sku": "NEO-301-JA-NF-3",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 1.9,
+          "product_id": 7014594248883,
+          "created_at": "2021-12-26T11:00:46+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026107048115,
+          "title": "Damaged",
+          "sku": "NEO-301-JA-NF-4",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 1.2,
+          "product_id": 7014594248883,
+          "created_at": "2021-12-26T11:00:46+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026107015347,
+          "title": "Heavily Played",
+          "sku": "NEO-301-JA-NF-5",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 1.2,
+          "product_id": 7014594248883,
+          "created_at": "2021-12-26T11:00:46+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026107080883,
+          "title": "Near Mint Foil",
+          "sku": "NEO-301-JA-FO-1",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 3.1,
+          "product_id": 7014594248883,
+          "created_at": "2021-12-26T11:00:46+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026107113651,
+          "title": "Lightly Played Foil",
+          "sku": "NEO-301-JA-FO-2",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 2.5,
+          "product_id": 7014594248883,
+          "created_at": "2021-12-26T11:00:46+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026107146419,
+          "title": "Moderately Played Foil",
+          "sku": "NEO-301-JA-FO-3",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 1.9,
+          "product_id": 7014594248883,
+          "created_at": "2021-12-26T11:00:46+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026107211955,
+          "title": "Damaged Foil",
+          "sku": "NEO-301-JA-FO-4",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 1.3,
+          "product_id": 7014594248883,
+          "created_at": "2021-12-26T11:00:46+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        },
+        {
+          "id": 41026107179187,
+          "title": "Heavily Played Foil",
+          "sku": "NEO-301-JA-FO-5",
+          "requires_shipping": true,
+          "taxable": true,
+          "available": false,
+          "price": 1.3,
+          "product_id": 7014594248883,
+          "created_at": "2021-12-26T11:00:46+11:00",
+          "updated_at": "2025-07-01T21:43:41+10:00"
+        }
+      ],
+      "images": [
+        {
+          "id": 35884772753587,
+          "src": "https://cdn.shopify.com/s/files/1/0518/1354/8211/files/16fa20d3-07fa-5d8e-9513-97da70bb1b1a.jpg?v=1724096909",
+          "alt": null,
+          "width": 672,
+          "height": 936
+        }
+      ],
+      "options": [
+        {
+          "name": "Title",
+          "values": [
+            "Near Mint",
+            "Lightly Played",
+            "Moderately Played",
+            "Damaged",
+            "Heavily Played",
+            "Near Mint Foil",
+            "Lightly Played Foil",
+            "Moderately Played Foil",
+            "Damaged Foil",
+            "Heavily Played Foil"
+          ]
+        }
+      ]
+    }
+  ],
+  "count": 7
+}
