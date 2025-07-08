@@ -24,5 +24,3 @@ INSERT INTO card_product_refs (card_id, product_shop_id, description, quantity, 
 VALUES ($1, $2, $3, $4, $5, now())
 ON CONFLICT (card_id, product_shop_id) DO NOTHING
 """
-
-f

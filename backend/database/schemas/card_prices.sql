@@ -39,7 +39,7 @@ CREATE TABLE product_prices (--producy prices, for cards at the moment but can b
 
 CREATE TABLE collection_handles (
     handle_id SERIAL PRIMARY KEY,
-    market_id INT REFERENCES market_ref(market_id) NOT NULL,
+    market_id INT REFERENCES market_ref(market_id) NOT NULL ON DELETE CASCADE,
     name TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -63,7 +63,7 @@ GROUP BY day, product_shop_id;
 --------------------Stored Procedures-------------------
 CREATE OR REPLACE PROCEDURE add_price_batch_arrays(
   p_times            timestamptz[],
-  p_product_shop_ids int[],
+  p_product_shop_ids text[],
   p_prices           numeric[],
   p_currencies      text[],
   p_prices_usd      numeric[],
@@ -82,5 +82,27 @@ BEGIN
          p_sources
        ) AS b(time, product_shop_id, price, currency, price_usd, source)
     ON CONFLICT (time, product_shop_id) DO NOTHING;
+END;
+$$;
+
+CREATE OR REPLACE PROCEDURE add_product_batch_arrays(
+  p_product_shop_ids           text[],
+  p_product_ids             text[],
+  p_market_ids           int[],
+  p_created_at      timestamptz[],
+  p_updated_at      timestamptz[]
+)
+LANGUAGE plpgsql AS $$
+BEGIN
+  INSERT INTO product_ref(product_shop_id, product_id, market_id, created_at, updated_at)
+  SELECT b.product_shop_id, b.product_id, b.market_id, b.created_at, b.updated_at
+  FROM unnest(
+            p_product_shop_ids,
+            p_product_ids,
+            p_market_ids,
+            p_created_at,
+            p_updated_at
+       ) AS b(product_shop_id, product_id, market_id, created_at, updated_at)
+    ON CONFLICT ( product_shop_id) DO NOTHING;
 END;
 $$;
