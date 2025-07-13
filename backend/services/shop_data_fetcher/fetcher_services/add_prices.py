@@ -1,4 +1,4 @@
-import os, sys
+import os, sys, glob, ijson, functools, requests
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../..")))
 
 from pydantic import BaseModel, model_validator
@@ -7,10 +7,8 @@ from decimal import Decimal,  getcontext
 from typing import List, Any, Optional, Tuple
 from psycopg2.extensions import connection
 from backend.services.shop_data_fetcher.utils import get_hashed_product_shop_id
-import ijson, functools, requests
-import glob
 from tqdm import tqdm
-
+from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 
 # Adjust the path if your .env is not in the current working directory
@@ -39,20 +37,87 @@ def fetch_fx_rate(from_currency: str, to_currency: str, date_str: str, app_id : 
 class ProductPrice(BaseModel):
     shop_id : int
     product_id : int
+    tcgplayer_id : Optional[int] = None  # TCGPlayer product ID, if applicable
     product_shop_id : Optional[str] = None  # Unique identifier for the product in the shop
     price : Decimal
+    foil_price : Optional[Decimal]= None
     currency : str = 'AUD'
     price_usd : Optional[Decimal] = None  
+    foil_price_usd : Optional[Decimal] = None
     source : Optional[str]=None
+    html_body : Optional[str] = None  # HTML body of the product page, if available
     created_at : datetime
     updated_at : datetime
 
+    def batch_tuple(
+        self,
+        price_field: str,
+        usd_field: str,
+        is_foil_flag: bool = False,
+        default_source: str = "scrapping_service"
+    ) -> Tuple[datetime, str, Decimal, str, Decimal, bool, str]:
+        base_price = getattr(self, price_field)
+        usd_price  = getattr(self, usd_field) or base_price
+        source     = self.source or default_source
+        return (
+            self.updated_at,
+            self.product_shop_id,
+            base_price,
+            self.currency,
+            usd_price,
+            is_foil_flag,
+            source,
+        )
+    
     @model_validator(mode='after')
     def create_product_shop_id(self):
         if not self.product_shop_id:
             self.product_shop_id = get_hashed_product_shop_id(self.product_id, self.shop_id)
+        if self.html_body:
+            self.tcgplayer_id = extract_card_tag(self.html_body)
         return self
+
+class BatchProductProces(BaseModel):
+    items : List[ProductPrice]
+
+    def __iter__(self):
+        return iter(self.items)
     
+    def __len__(self):
+        # allow: len(batch_proc)
+        return len(self.items)
+    def __getitem__(self, index):
+        # allow: batch_proc[0], slicing, etc.
+        return self.items[index]
+
+    def prepare_price_batches(
+        self,
+        include_foil: bool = False
+    ) -> Tuple[
+        Tuple[List[datetime], List[str], List[Decimal], List[str], List[Decimal], List[bool], List[str]],
+        Optional[Tuple[List[datetime], List[str], List[Decimal], List[str], List[Decimal], List[bool],List[str]]]
+    ]:
+        """
+        Returns a tuple: (normal_batch, foil_batch or None).
+        Each batch is a 7-tuple of parallel lists.
+        """
+        # Build normal batch
+        normal = [p.batch_tuple('price', 'price_usd') for p in self.items]
+        normal_batch = tuple(map(list, zip(*normal)))
+
+        if not include_foil:
+            return normal_batch, None
+
+        # Build foil batch
+        foil = [p.batch_tuple('foil_price', 'foil_price_usd',  is_foil_flag=True) for p in self.items if p.foil_price is not None]
+        if not foil:
+            return normal_batch, None
+        foil_batch = tuple(map(list, zip(*foil)))
+        return normal_batch, foil_batch
+
+
+from backend.services.shop_data_fetcher.models.shopify_models import ProductModel
+
 def get_market_id(name : str)-> int:
     from backend.services.shop_data_fetcher.queries import queries
 
@@ -62,35 +127,7 @@ def get_market_id(name : str)-> int:
         print(f"Error fetching market_id for {name}: {e}")
         return -1
 
-def prepare_query_params()->Tuple[List[Any]]:
-    pass
-
-def prepare_product_price_query(validated_batch: List[ProductPrice])->Tuple [
-    List[datetime], 
-    List[str],
-    List[Decimal],
-    list[str],
-    list[Decimal],
-    list[str]
-]:
-    p_times:            List[datetime] = []
-    p_product_shop_ids: List[str]      = []
-    p_prices:           List[Decimal]  = []
-    p_currencies:      List[str]      = []
-    p_usd_prices:      List[Decimal]  = []
-    p_sources:          List[str]      = []
-
-    for product in validated_batch:
-
-        p_times.append(product.updated_at)
-        p_product_shop_ids.append(product.product_shop_id)
-        p_prices.append(product.price)
-        p_currencies.append(product.currency)
-        p_usd_prices.append(product.price_usd if product.price_usd else product.price)
-        p_sources.append(product.source if  product.source else 'scrapping_service')
-    return (p_times, p_product_shop_ids, p_prices, p_currencies, p_usd_prices, p_sources)
-
-def prepare_product_shop_id_query(validated_batch: List[ProductPrice]) -> Tuple[
+def prepare_product_shop_id_query(validated_batch: BatchProductProces) -> Tuple[
     list[str],
     list[str],
     list[int],
@@ -112,7 +149,7 @@ def prepare_product_shop_id_query(validated_batch: List[ProductPrice]) -> Tuple[
     return (p_product_shop_ids, p_product_ids, p_market_ids, p_created_at, p_updated_at  ) 
 
 
-def validate_batch(batch: List[Any]) -> List[ProductPrice]:
+def validate_batch(batch: List[Any]) -> BatchProductProces:
     validated_batch = []
     for idx ,item in enumerate(batch):
         try:
@@ -120,8 +157,10 @@ def validate_batch(batch: List[Any]) -> List[ProductPrice]:
             validated_batch.append(product)
         except Exception as e:
             raise ValueError(f"Validation error in item {item}: {e}")
-    return validated_batch
+    return BatchProductProces(items=validated_batch)
              
+
+
 def bulk_insert_product(batch: Tuple [
     List[datetime], 
     List[int],
@@ -138,21 +177,34 @@ def bulk_insert_product(batch: Tuple [
         print(f"Error during bulk insert: {e}")
         raise
 
+
 def bulk_insert_prices(batch: Tuple[
     List[datetime],
     List[str],
     List[Decimal],
     List[str],
     List[Decimal],
+    List[bool],
     List[str]
       ], conn: connection):
     try:
         with conn.cursor() as cursor:
-            cursor.execute('CALL add_price_batch_arrays(%s, %s, %s, %s, %s, %s)',batch)
+            cursor.execute('CALL add_price_batch_arrays(%s, %s, %s, %s, %s, %s, %s)', batch)
             conn.commit()
     except Exception as e:
+        conn.rollback()
         print(f"Error during bulk insert: {e}")
         raise
+
+def find_condition_variant(product: ProductModel, condition: str) -> Optional[float]:
+    """
+    Find the price of a variant with the specified condition in the product.
+    Returns None if no such variant exists.
+    """
+    for v in product.variants:
+        if condition.lower() in v.title.lower():
+            return v.price
+    return None
 
 
 def stream_json_file(path: str, market_id: str, app_id: str, batch_size: int = 1000, product_currency='AUD'):
@@ -163,18 +215,22 @@ def stream_json_file(path: str, market_id: str, app_id: str, batch_size: int = 1
     with open(path, 'r', encoding='utf-8') as file:
         batch = []
         items = ijson.items(file, 'items.item')
-        for obj in items:
-            date = obj['updated_at'][:10]
+        products_model = [ProductModel(**c) for c in items ]
+        for obj in products_model: 
+            date = obj.updated_at.date().isoformat() 
             exange_rate = fetch_fx_rate(product_currency, 'USD', date, app_id)
             batch.append(
                 {
-                    'product_id': obj['id'],
+                    'product_id': obj.id,
                     'shop_id': market_id,
-                    'price': obj['variants'][0]['price'],
-                    'price_usd': Decimal(obj['variants'][0]['price']) * Decimal(exange_rate),
+                    'price': find_condition_variant(obj, "Near Mint"),
+                    'price_usd': Decimal(find_condition_variant(obj, "Near Mint")) * Decimal(exange_rate),
+                    'foil_price':find_condition_variant(obj, "Near Mint Foil"),
+                    'foil_price_usd': Decimal(find_condition_variant(obj, "Near Mint Foil")) * Decimal(exange_rate) if find_condition_variant(obj, "Near Mint Foil") else None,
+                    'html_body': obj.body_html,
                     'currency': product_currency,
-                    'created_at': obj['created_at'],
-                    'updated_at': obj['updated_at'],
+                    'created_at': obj.created_at,
+                    'updated_at': obj.updated_at,
                     'source': 'test_source'
                 }
             )
@@ -190,15 +246,20 @@ def stream_json_file(path: str, market_id: str, app_id: str, batch_size: int = 1
 
 def upload_batches_from_stream(path: str, market_id: str, app_id: str, conn: connection, batch_size: int = 1000, product_currency='AUD'):
     for validated_batch in stream_json_file(path, market_id, app_id, batch_size, product_currency):
+        #
         prepared_product_input = prepare_product_shop_id_query(validated_batch)
         try:
             bulk_insert_product(prepared_product_input, conn)
         except Exception as e:
             print(f"Error during bulk insert: {e}")
             raise
-        prepared_price_output = prepare_product_price_query(validated_batch)
+        normal_batch, foil_batch = validated_batch.prepare_price_batches(include_foil=True)
+       # prepared_price_output = prepare_product_price_query((times, ids, prices, currs, usd, srcs))
         try:
-            bulk_insert_prices(prepared_price_output, conn)
+            bulk_insert_prices(normal_batch, conn)
+            if foil_batch is not None:
+                bulk_insert_prices(foil_batch, conn)
+
         except Exception as e:
             print(f"Error during bulk insert: {e}")
             raise
@@ -217,6 +278,15 @@ def upload_all_json_in_directory(directory: str, market_id: str, app_id: str, co
             except Exception as e:
                 print(f"Error processing {path}: {e}")
 
+def extract_card_tag(body_html):
+    soup =BeautifulSoup(body_html, 'html.parser')
+    meta = soup.find('div', class_='catalogMetaData')
+    if meta and meta.has_attr('data-tcgid'):
+        return meta['data-tcgid']
+    return None
+
+def insert_card_product_reference(batch: BatchProductProces, conn: connection):
+    pass
 
         
 
@@ -242,8 +312,5 @@ if __name__ == "__main__":
     try:
         conn = next(get_connection())
         upload_all_json_in_directory(path, 2, app_id='5b4c2f1fc7b14fe48ffeefd753a566db', conn=conn, batch_size=10, product_currency='AUD')
-
-     
-        # print("validate_batch result:", result)
     except Exception as e:
          print("Error:", e)

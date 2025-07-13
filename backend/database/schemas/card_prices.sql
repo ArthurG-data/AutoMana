@@ -17,13 +17,13 @@ CREATE TABLE IF NOT EXISTS product_ref(
 );
 
 CREATE TABLE card_products_ref (
-    card_id UUID  NOT NULL REFERENCES card_version(card_version_id),
+    tcgplayer_id INT NOT NULL,
     product_shop_id VARCHAR(64) NOT NULL REFERENCES product_ref(product_shop_id) ON DELETE CASCADE,
     description TEXT,  
     quantity INTEGER DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE (card_id, product_shop_id) -- ensure unique product per card and market, think about how conditions might be included,maybe modify the card table
+    UNIQUE (tcgplayer_id, product_shop_id) -- ensure unique product per card and market, think about how conditions might be included,maybe modify the card table
 );
 
 CREATE TABLE product_prices (--producy prices, for cards at the moment but can be extended to other products
@@ -32,8 +32,9 @@ CREATE TABLE product_prices (--producy prices, for cards at the moment but can b
     price NUMERIC NOT NULL, 
     currency VARCHAR(3) NOT NULL,
     price_usd NUMERIC NOT NULL,      -- e.g., ebay, tcgplayer, etc.
-    source TEXT,                           -- optional: api name / seller
-    PRIMARY KEY (time, product_shop_id)
+    source TEXT,
+    is_foil BOOLEAN DEFAULT FALSE                       , -- indicates if the price is for a foil version of the card
+    PRIMARY KEY (time, product_shop_id, is_foil) -- composite primary key to allow multiple prices for the same product at different times and foil status
 );
 
 
@@ -67,21 +68,23 @@ CREATE OR REPLACE PROCEDURE add_price_batch_arrays(
   p_prices           numeric[],
   p_currencies      text[],
   p_prices_usd      numeric[],
+  p_is_foil			boolean[],
   p_sources          text[]
 )
 LANGUAGE plpgsql AS $$
 BEGIN
-  INSERT INTO product_prices(time, product_shop_id, price, currency, price_usd, source)
-  SELECT b.time, b.product_shop_id, b.price, b.currency, b.price_usd, b.source
+  INSERT INTO product_prices(time, product_shop_id, price,currency, price_usd, is_foil, source)
+  SELECT b.time, b.product_shop_id, b.price, b.currency, b.price_usd, b.is_foil, b.source
   FROM unnest(
          p_times,
          p_product_shop_ids,
          p_prices,
          p_currencies,
          p_prices_usd,
+		     p_is_foil,
          p_sources
-       ) AS b(time, product_shop_id, price, currency, price_usd, source)
-    ON CONFLICT (time, product_shop_id) DO NOTHING;
+       ) AS b(time, product_shop_id, price, currency, price_usd, is_foil, source)
+    ON CONFLICT (time, product_shop_id, is_foil) DO NOTHING;
 END;
 $$;
 
