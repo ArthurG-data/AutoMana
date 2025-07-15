@@ -40,13 +40,43 @@ CREATE TABLE product_prices (--producy prices, for cards at the moment but can b
 
 CREATE TABLE collection_handles (
     handle_id SERIAL PRIMARY KEY,
-    market_id INT REFERENCES market_ref(market_id) NOT NULL ON DELETE CASCADE,
+    market_id INT  NOT NULL REFERENCES market_ref(market_id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE( market_id, name)
 );
+
+CREATE TABLE theme_ref (
+  theme_id   SERIAL PRIMARY KEY,
+  code       TEXT UNIQUE NOT NULL,     -- e.g. 'mtg'
+  name       TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()           -- e.g. 'Magic: The Gathering'
+);
+
+
+CREATE TABLE handles_theme(
+  handle_id INT NOT NULL, 
+  theme_id INT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY(handle_id, theme_id)
+)
 ----- indexes-------------
 CREATE INDEX IF NOT EXISTS idx_porduct_price ON product_prices (product_shop_id, time DESC);
+
+
+--------------------------Triggers
+CREATE TRIGGER collection_handles_set_updated_at
+BEFORE UPDATE ON collection_handles
+FOR EACH ROW
+EXECUTE FUNCTION trigger_set_updated_at();
+
+CREATE TRIGGER theme_set_updated_at
+BEFORE UPDATE ON theme_ref
+FOR EACH ROW
+EXECUTE FUNCTION trigger_set_updated_at();
 
 ----------hyperytables 
 SELECT create_hypertable('product_prices', 'time', chunk_time_interval => interval '7 days');
@@ -109,3 +139,47 @@ BEGIN
     ON CONFLICT ( product_shop_id) DO NOTHING;
 END;
 $$;
+
+
+CREATE OR REPLACE PROCEDURE add_card_product_ref_batch(
+  p_tcgplayer_ids    INT[],
+  p_product_shop_ids TEXT[],
+  p_created_ats      TIMESTAMPTZ[],
+  p_updated_ats      TIMESTAMPTZ[]
+)
+LANGUAGE plpgsql AS $$
+BEGIN
+  INSERT INTO card_products_ref (
+    tcgplayer_id,
+    product_shop_id,
+    created_at,
+    updated_at
+  )
+  SELECT
+    b.tcgplayer_id,
+    b.product_shop_id,
+    b.created_at,
+    b.updated_at
+  FROM unnest(
+         p_tcgplayer_ids,
+         p_product_shop_ids,
+         p_created_ats,
+         p_updated_ats
+       ) AS b(
+         tcgplayer_id,
+         product_shop_id,
+         created_at,
+         updated_at
+       )
+  ON CONFLICT (tcgplayer_id, product_shop_id) DO NOTHING;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION trigger_set_updated_at()
+RETURNS trigger AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
