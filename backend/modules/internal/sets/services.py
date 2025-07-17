@@ -1,9 +1,9 @@
-from backend.modules.internal.sets.models import  UpdatedSet
+from fastapi import UploadFile, HTTPException, File
+from backend.modules.internal.sets.models import  UpdatedSet, NewSet, NewSets
 from backend.database.database_utilis import execute_insert_query
+from backend.modules.internal.sets.utils import sets_from_json
 from psycopg2.extensions import connection
 from uuid import UUID
-from backend.modules.internal.sets.models import NewSet, NewSets
-
 
 def add_set(new_set : NewSet, conn: connection):
     query = "SELECT insert_joined_set (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
@@ -79,3 +79,11 @@ def put_set(conn: connection, set_id : UUID, update_set : UpdatedSet):
         execute_insert_query(conn, query, params)
     except Exception:
         raise
+
+
+async def get_parsed_set(file: UploadFile = File(...))-> NewSets:
+    """Dependency that parses sets from an uploaded JSON file."""
+    try:
+        return await sets_from_json(file)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid set JSON: {str(e)}")

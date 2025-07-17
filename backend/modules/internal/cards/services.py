@@ -2,10 +2,14 @@ from backend.modules.internal.cards.models import CreateCard, CreateCards
 from psycopg2.extensions import connection, cursor
 from backend.database.database_utilis import execute_insert_query
 from backend.modules.internal.cards import queries 
-from psycopg2.extras import execute_values, Json
+from psycopg2.extras import  Json
 from backend.modules.internal.cards import utils
-from backend.modules.internal.cards import services
-import uuid
+from fastapi import UploadFile, File, HTTPException, BackgroundTasks
+from backend.services.shop_data_ingestion.upload.card_batch_importer import process_large_cards_json
+from backend.database.database_utilis import execute_delete_query
+import uuid, os, shutil
+
+UPLOAD_DIR = "uploads"
 
 async def add_card(conn: connection,  card : CreateCard):
     values =  (
@@ -143,3 +147,45 @@ def insert_card_batch(conn : connection, cursor : cursor, cards : CreateCards):
         )
         cursor.execute(queries.insert_full_card_query, values)
     conn.commit()
+
+async def get_parsed_cards(file: UploadFile = File(...)) -> CreateCards:
+    """Dependency that parses cards from an uploaded JSON file."""
+    try:
+        return await utils.cards_from_json(file)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid card JSON: {str(e)}")   
+    
+async def upload_large_cards_json( file: UploadFile = File(...), background_tasks: BackgroundTasks = BackgroundTasks()):
+    # Save file first
+    file_path = os.path.join(UPLOAD_DIR, file.filename)
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    # Run background task to process it
+    background_tasks.add_task(process_large_cards_json, file_path)
+
+async def delete_card(card_id : uuid.UUID, conn : connection):
+    query = """
+                BEGIN;
+                WITH 
+                delete_card_version AS (
+                DELETE FROM card_version WHERE card_version_id = %s ON CASCADE
+                RETURNING unique_card_id AS deleted_card_id
+                ),
+                DELETE FROM unique_card_ref 
+                    WHERE unique_card_id IN (
+                        SELECT deleted_card_id FROM delete_card_version
+                    )
+                    AND NOT EXISTS (
+                        SELECT 1 FROM card_version
+                        WHERE card_id IN (
+                            SELECT deleted_card_id FROM delete_card_version
+                    )
+                );
+                COMMIT;
+"""
+    try:
+        execute_delete_query(conn, query, (card_id,))
+    except Exception:
+        raise
+
+   

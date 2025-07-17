@@ -7,8 +7,6 @@ from backend.modules.public.cards.services import get_cards_info
 
 router = APIRouter(
     prefix="/card-reference",
-    description="Card Database API",
-    summary="Retrieve card information",
     tags=['cards'],
     responses={404:{'description' : 'Not found'}}
 )

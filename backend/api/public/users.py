@@ -9,7 +9,6 @@ from backend.modules.public.users.services import create_user, update_user
 
 router = APIRouter(
     prefix='/users',
-    description='User API',
     tags=['users'],
     responses={404:{'description' : 'Not found'}}
 )

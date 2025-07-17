@@ -5,13 +5,15 @@ from backend.modules.public.collections.models import CreateCollection, UpdateCo
 from backend.modules.auth.dependancies import currentActiveUser
 from backend.database.get_database import cursorDep
 from backend.modules.public.collections.services import create_collection, delete_collection,collect_collection, update_collection, execute_delete_query, execute_select_query, execute_update_query
+from backend.request_handling.ApiHandler import ApiHandler
+
 
 router = APIRouter(
      prefix='/collection',
-    description='Collection API',
     tags=['collection'],
     responses={404:{'description':'Not found'}}
 )
+
 
 @router.post('/')
 async def add_collection(created_collection : CreateCollection, connection : cursorDep , current_user : currentActiveUser)->dict:

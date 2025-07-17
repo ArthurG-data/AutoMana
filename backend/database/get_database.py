@@ -11,6 +11,35 @@ logging.basicConfig(level=logging.ERROR)
 
 register_uuid()
 
+import asyncpg
+from typing import AsyncGenerator
+import os
+
+async_db_pool = None
+
+async def init_async_pool():
+    """Initialize the async connection pool"""
+    global async_db_pool
+    if async_db_pool is None:
+        async_db_pool = await asyncpg.create_pool(
+            host=get_db_settings().postgres_host,
+            port=os.getenv("DB_PORT", 5432),
+            user=get_db_settings().postgres_user,
+            password=get_db_settings().postgres_password,
+            database=get_db_settings().postgres_db,
+            min_size=1,
+            max_size=10,  # Adjust based on your app's load
+        )
+    return async_db_pool
+
+
+async def get_async_pool_connection() -> AsyncGenerator[asyncpg.Connection, None]:
+    """Get a connection from the async pool"""
+    pool = await init_async_pool()
+    async with pool.acquire() as connection:
+        yield connection
+
+
 db_pool = pool.SimpleConnectionPool(
     minconn=1,
     maxconn=10,  # Adjust based on your app's load
@@ -38,3 +67,4 @@ def get_cursor(connection : connection) -> cursor:
         raise
 
 cursorDep = Annotated[connection, Depends(get_connection)]
+asyncCursorDep = Annotated[asyncpg.Connection, Depends(get_async_pool_connection)]

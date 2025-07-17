@@ -1,14 +1,11 @@
-from psycopg2.extensions import connection
+from fastapi import Depends
 from uuid import UUID
 from backend.database.database_utilis import exception_handler
 from backend.modules.ebay.queries import dev
+from backend.services.shop_data_ingestion.db import QueryExecutor
+from backend.services.shop_data_ingestion.db.dependencies import get_sync_query_executor
 
 
-def register_ebay_user(dev_id : UUID , conn : connection, user_id : UUID):
-
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute(dev.register_user_query,(user_id, dev_id,))
-            conn.commit()
-    except Exception as e:
-        exception_handler(e)
+def register_ebay_user(dev_id : UUID , user_id : UUID, queryExecutor : QueryExecutor.SyncQueryExecutor):
+    queryExecutor.execute_command(dev.register_user_query,(user_id, dev_id,))
+   

@@ -1,16 +1,19 @@
-from fastapi import APIRouter
-from services.shop_data_ingestion.models import shopify_models
-from services.shop_data_ingestion.shop_metadata import shop_metadata_services
-from services.shop_data_ingestion.db import QueryExecutor
-
+from fastapi import APIRouter, Depends
+from backend.services.shop_data_ingestion.models import shopify_models
+from backend.services.shop_data_ingestion.shop_metadata import shop_metadata_services
+from backend.services.shop_data_ingestion.db.dependencies import get_sync_query_executor
+from backend.services.shop_data_ingestion.db import QueryExecutor
+from backend.request_handling.ApiHandler import ApiHandler
 theme_router = APIRouter(prefix="/theme", tags=["Theme"])
+api = ApiHandler()
 
 @theme_router.post("/")
-def post_theme(values: shopify_models.InsertTheme, queryExecutor: QueryExecutor.SyncQueryExecutor):
-    shop_metadata_services.insert_theme(values, queryExecutor)
+async def post_theme(values: shopify_models.InsertTheme):
+    #shop_metadata_services.insert_theme(values, queryExecutor)
+    await api.execute_service("shop_meta.theme.add", values=values)
 
 @theme_router.post("/collection")
-def post_collection(values: shopify_models.InsertCollectionTheme, queryExecutor: QueryExecutor.SyncQueryExecutor):
+def post_collection(values: shopify_models.InsertCollectionTheme, queryExecutor: QueryExecutor.SyncQueryExecutor=Depends(get_sync_query_executor)):
     """
     Insert a new collection theme into the database.
     If the collection theme already exists, it will not be inserted again.
