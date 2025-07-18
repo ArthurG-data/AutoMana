@@ -2,7 +2,8 @@ from backend.database.get_database import get_connection, get_async_pool_connect
 import importlib
 from contextlib import asynccontextmanager
 from backend.request_handling.utils import locate_service
-from backend.request_handling.QueryExecutor import AsyncQueryExecutor
+from backend.request_handling.QueryExecutor import AsyncQueryExecutor, QueryExecutor
+from backend.request_handling.ErrorHandler import Psycopg2ExceptionHandler
 import logging
 
 logger = logging.getLogger(__name__)
@@ -11,12 +12,18 @@ class ApiHandler:
 
     _instance = None
     _pool = None
-
-    def _new__(cls):
+    _error_handler = None
+   
+    def __new__(cls):
         if cls._instance is None:
             cls._instance = super(ApiHandler, cls).__new__(cls)
+            cls._instance._initialize()
         return cls._instance
     
+    def _initialize(self):
+        """Initialize the hanlder and other dependencies"""
+        self._error_handler = Psycopg2ExceptionHandler()
+
     async def _ensure_pool(self):
         if ApiHandler._pool is None:
             ApiHandler._pool = await init_async_pool()
@@ -28,7 +35,7 @@ class ApiHandler:
         service_method = locate_service(service_path)
         #get pool
         pool = await self._ensure_pool()
-        executor = AsyncQueryExecutor(pool)
+        executor = AsyncQueryExecutor(pool, self._error_handler)
     
         logger.info(f"Executing service: {service_path}")
         async with pool.acquire() as conn:
@@ -45,17 +52,26 @@ class ApiHandler:
                 raise 
     def _get_repository(self, service_path: str, conn):
 
-        domain = service_path.split('.')[0]
+        parts = service_path.split('.')
+        domain = parts[0]
+        entity = parts[1]
 
+        #implement factory later
         repo_map = {
-            "shop_meta": "ShopMetadataRepository",
-            "ebay": "EbayRepository",
-            "card": "CardRepository"
+            #the factory folder structure is domain/entity
+            "shop_meta.market": "MarketRepository",
+            "shop_meta.product": "ProductRepository",
+            "shop_meta.collection": "CollectionRepository",
+            "shop_meta.theme": "ThemeRepository",
+            "ebay.app": "EbayRepository",
+            "card.reference": "CardRepository"
         }
 
-        repo_name = repo_map.get(domain)
+        repo_key = f"{domain}.{entity}"
+        repo_name = repo_map.get(repo_key)
+
         if repo_name:
-            module = importlib.import_module(f"backend.repositories.{domain}_repository")
+            module = importlib.import_module(f"backend.repositories.{repo_key}_repository")
             repo_class = getattr(module, repo_name)
             return repo_class(conn)
         #return default that can execute raw queries

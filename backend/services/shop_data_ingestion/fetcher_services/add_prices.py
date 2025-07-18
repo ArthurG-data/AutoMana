@@ -5,7 +5,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 from datetime import datetime
 from decimal import Decimal,  getcontext
 from typing import List, Any, Optional, Tuple
-
+from psycopg2.extensions import connection
 
 from tqdm import tqdm
 from dotenv import load_dotenv
@@ -38,12 +38,15 @@ def fetch_fx_rate(from_currency: str, to_currency: str, date_str: str, app_id : 
     rate = to_rate / from_rate
     return rate
 
-def insert_card_product_reference(batch: shopify_theme.BatchProductProces,queryExecutor : QueryExecutor.QueryExecutor):
-    query = """
-    CALL add_card_product_ref_batch(%s,%s,%s,%s);
-    """
-    queryExecutor.execute_command(query,  batch.prepare_prodcut_card_batches())
-   
+def get_market_id(name : str)-> int:
+    from backend.services.shop_data_ingestion.queries import queries
+
+    try:
+        pass
+    except Exception as e:
+        print(f"Error fetching market_id for {name}: {e}")
+        return -1
+
 def prepare_product_shop_id_query(validated_batch: shopify_theme.BatchProductProces) -> Tuple[
     list[str],
     list[str],
@@ -191,6 +194,45 @@ def upload_all_json_in_directory(directory: str, market_id: str, app_id: str, qu
             except Exception as e:
                 print(f"Error processing {path}: {e}")
 
+def insert_card_product_reference(batch: shopify_theme.BatchProductProces,queryExecutor : QueryExecutor.QueryExecutor):
+    query = """
+    CALL add_card_product_ref_batch(%s,%s,%s,%s);
+    """
+    queryExecutor.execute_command(query,  batch.prepare_prodcut_card_batches())
+    
+def insert_theme(values : shopify_theme.InsertTheme , queryExecutor : QueryExecutor.SyncQueryExecutor):
+    query = """
+    INSERT INTO theme_ref (code, name)
+    VALUES (%s, %s)
+    ON CONFLICT (code) DO NOTHING;
+    """
+    queryExecutor.execute_command(query, (values.code, values.name))
+   
+   
+def insert_collection(values : shopify_theme.InsertCollection, queryExecutor : QueryExecutor.SyncQueryExecutor):
+    query = """
+    INSERT INTO collection_handles (market_id, name)
+    VALUES (SELECT market_id FROM market_ref WHERE name = %s), %s
+    ON CONFLICT (name) DO NOTHING;
+    """
+    queryExecutor.execute_command(query,(values.market_id, values.name) )
+   
+def insert_collection_theme(values : shopify_theme.InsertCollectionTheme, queryExecutor : QueryExecutor.SyncQueryExecutor):
+    query = """
+    INSERT INTO handles_theme (handle_id, theme_id)
+    SELECT
+      ch.handle_id,
+      tr.theme_id
+    FROM
+      collection_handles AS ch
+      JOIN theme_ref          AS tr ON TRUE
+    WHERE
+      ch.name = %s
+      AND tr.code = %s
+    ON CONFLICT (handle_id, theme_id) DO NOTHING;
+    """
+    queryExecutor.execute_command(query, (values.collection_name, values.theme_code))
+   
 if __name__ == "__main__":
     path = r'C:\Users\lorie\OneDrive\Bureau\AutoMana_fastapi\staging\shops\gg_brisbane\products'
     conn = next(get_connection())

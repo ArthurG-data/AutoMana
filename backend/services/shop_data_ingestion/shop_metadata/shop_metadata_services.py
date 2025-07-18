@@ -1,8 +1,8 @@
-from backend.services.shop_data_ingestion.models import shopify_models
+from backend.services.shop_data_ingestion.models import shopify_theme
 from backend.services.shop_data_ingestion.db import QueryExecutor
 
  
-def insert_theme(values : shopify_models.InsertTheme , queryExecutor : QueryExecutor.SyncQueryExecutor):
+def insert_theme(values : shopify_theme.InsertTheme , queryExecutor : QueryExecutor.SyncQueryExecutor):
     query = """
     INSERT INTO theme_ref (code, name)
     VALUES (%s, %s)
@@ -11,7 +11,7 @@ def insert_theme(values : shopify_models.InsertTheme , queryExecutor : QueryExec
     queryExecutor.execute_command(query, (values.code, values.name))
    
    
-def insert_collection(values : shopify_models.InsertCollection, queryExecutor : QueryExecutor.SyncQueryExecutor):
+def insert_collection(values : shopify_theme.InsertCollection, queryExecutor : QueryExecutor.SyncQueryExecutor):
     query = """
     INSERT INTO collection_handles (market_id, name)
     VALUES (SELECT market_id FROM market_ref WHERE name = %s), %s
@@ -19,7 +19,7 @@ def insert_collection(values : shopify_models.InsertCollection, queryExecutor : 
     """
     queryExecutor.execute_command(query,(values.market_id, values.name) )
    
-def insert_collection_theme(values : shopify_models.InsertCollectionTheme, queryExecutor : QueryExecutor.SyncQueryExecutor):
+def insert_collection_theme(values : shopify_theme.InsertCollectionTheme, queryExecutor : QueryExecutor.SyncQueryExecutor):
     query = """
     INSERT INTO handles_theme (handle_id, theme_id)
     SELECT

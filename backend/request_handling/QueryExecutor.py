@@ -1,9 +1,13 @@
 from contextlib import contextmanager, asynccontextmanager
-from typing import Type, TypeVar, Callable, List, Optional
+from typing import  TypeVar, Callable, List, Optional
 from abc import ABC, abstractmethod
 from typing import List, Any, Optional, Tuple
 from psycopg2.extensions import connection
 import asyncpg
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar('T')
 
@@ -73,14 +77,14 @@ class SyncQueryExecutor(QueryExecutor):
 class AsyncQueryExecutor(QueryExecutor):
     def __init__(self, pool: asyncpg.Pool, error_handler: Any = print):
         self.pool = pool
-        self.error_handler = error_handler
+        self.handle_error = error_handler
     
     async def execute_command(self, query: str, params: Tuple[Any, ...] = ()) -> None:
         async with self.pool.acquire() as conn:
             try:
                 await conn.execute(query, *params)
             except Exception as e:
-                self.error_handler(e)
+                self.handle_error.handle(e)
                 raise
     async def execute_query(
         self, 
@@ -95,25 +99,34 @@ class AsyncQueryExecutor(QueryExecutor):
                     return [mapper(*row) for row in records]
                 return [tuple(r) for r in records]
             except Exception as e:
-                self.error_handler(e)
+                self.handle_error.handle(e)
                 raise
 
     @asynccontextmanager
-    async def transaction(self):
+    async def transaction(self, connection=None):
         """
         Usage:
             async with executor.transaction() as conn:
                 await conn.execute(...)
                 await conn.execute(...)
         """
-        async with self.pool.acquire() as conn:
-            tx = conn.transaction()
+        conn = connection if connection else await self.pool.acquire()
+        tx = conn.transaction()
+
+        try:
             await tx.start()
+            yield conn
+            await tx.commit()
+        except Exception as e:
             try:
-                yield conn
-                await tx.commit()
-            except Exception as e:
                 await tx.rollback()
-                self.handle_error(e)
-                raise
+            except Exception as rb_error:
+                # Log rollback error but don't mask the original exception
+                logger.error(f"Error during transaction rollback: {rb_error}")
+            if self.handle_error:
+                self.handle_error.handle(e)
+            raise
+        finally:
+            if not connection:  # Only release if we acquired it here
+                await conn.close()
     

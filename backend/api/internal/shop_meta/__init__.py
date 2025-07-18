@@ -1,7 +1,8 @@
 from fastapi import APIRouter
-from . import collection, theme
+from . import collection, theme, market
 
 shop_metadata_router = APIRouter(prefix="/shop-meta", tags=["Shop Metadata"])
 
 shop_metadata_router.include_router(theme.theme_router)
 shop_metadata_router.include_router(collection.collection_router)
+shop_metadata_router.include_router(market.market_router)

@@ -7,6 +7,7 @@ from backend.database.get_database import get_cursor
 from uuid import UUID
 from backend.database import errors
 from typing import Tuple, Dict
+from datetime import datetime
 
 logging.basicConfig(level=logging.ERROR)
 
@@ -63,7 +64,7 @@ def create_delete_query(table: str,
     return query, values
 
 def create_update_query(table: str,
-    updates: Dict[str, Union[str, int, float]],
+    updates: Dict[str, Union[str, int, float, datetime]],
     conditions: Sequence[Tuple[str, str, Union[str, int, float]]]
 ) -> Tuple[str, List]:
     if not updates:

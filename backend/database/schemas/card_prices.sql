@@ -1,10 +1,13 @@
 --- table-------------
 CREATE TABLE market_ref (
     market_id SERIAL PRIMARY KEY,  -- unique identifier for the market
-    name TEXT NOT NULL UNIQUE,              -- e.g., ebay, tcgplayer, etc.
+    name TEXT NOT NULL UNIQUE,
+    country_code VARCHAR(3) NOT NULL DEFAULT 'AUD',
+    city VARCHAR(20) NOT NULL DEFAULT 'Unknown',                           -- e.g., ebay, tcgplayer, etc.
     api_url TEXT,                           -- optional: API endpoint for the market
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(name, city, country_code)
 );
 
 CREATE TABLE IF NOT EXISTS product_ref(
