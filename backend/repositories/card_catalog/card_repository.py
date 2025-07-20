@@ -1,13 +1,10 @@
-from typing import List, Optional, Any, Annotated, Union, Sequence
-from psycopg2.extras import  Json
+from typing import  Optional, Any, Sequence
 from uuid import UUID
 from fastapi import Query
 
 from backend.repositories.AbstractRepository import AbstractRepository
 from backend.schemas.card_catalog.card import CreateCard, CreateCards
 from backend.repositories.card_catalog import card_queries as queries 
-from backend.modules.internal.cards import utils
-from backend.modules.public.cards.models import BaseCard
 from backend.request_handling.StandardisedQueryResponse import ApiResponse
 
 class CardReferenceRepository(AbstractRepository[Any]):

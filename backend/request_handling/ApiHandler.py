@@ -35,8 +35,16 @@ class ApiHandler:
             pool = await self._ensure_pool()
             ApiHandler._query_executor = AsyncQueryExecutor(pool, self._error_handler)
         return ApiHandler._query_executor
-    
-    async def execute_service(self, service_path: str, **kwargs):
+        
+    @classmethod
+    async def execute_service(cls, service_path: str, **kwargs):
+        if cls._instance is None:
+            cls._instance = ApiHandler()
+            await cls._instance._ensure_query_executor()
+        return await cls._instance._execute_service(service_path, **kwargs)
+
+
+    async def _execute_service(self, service_path: str, **kwargs):
         #get the service method 
 
         service_method = locate_service(service_path)
@@ -78,7 +86,8 @@ class ApiHandler:
             "shop_meta.collection": "CollectionRepository",
             "shop_meta.theme": "ThemeRepository",
             "ebay.app": "EbayRepository",
-            "card_catalog.card": "CardReferenceRepository"
+            "card_catalog.card": "CardReferenceRepository",
+            "card_catalog.set": "SetReferenceRepository"
         }
 
         repo_key = f"{domain}.{entity}"

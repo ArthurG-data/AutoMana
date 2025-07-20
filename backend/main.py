@@ -3,16 +3,30 @@ import time, logging
 #from backend.modules.ebay import routers as ebay_router
 from fastapi.middleware.cors import CORSMiddleware
 from backend import api 
-from backend.modules.ebay.models.errors import EbayServiceError
-from backend.modules.ebay.handlers import ebay_error_handler
-from backend.modules.auth.errors import AuthError
-from backend.modules.auth.handlers import auth_error_handler
-from backend.database.errors import DatabaseError
-from backend.database.handlers import psycopg_exception_handler
+from contextlib import asynccontextmanager
+from backend.request_handling.ApiHandler import ApiHandler
+
 logging.basicConfig(level=logging.INFO)
 
 with open("README.md", "r", encoding="utf-8") as f:
     readme_content = f.read()
+
+api_handler = None
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Initialize ApiHandler once when the app starts
+    global api_handler
+    api_handler = ApiHandler()
+    # Initialize any connections or resources
+    await api_handler._ensure_query_executor()
+    
+    yield
+    
+    # Cleanup when the app shuts down
+    pool = getattr(ApiHandler, '_pool', None)
+    if pool:
+        await pool.close()
 
 app = FastAPI(
     title='AutoManaApp',
@@ -28,7 +42,8 @@ app = FastAPI(
     license_info={
         "name": "Apache 2.0",
         "url": "https://www.apache.org/licenses/LICENSE-2.0.html",
-    }
+    },
+    lifespan=lifespan
 
 )
 app.include_router(api.api_router)
@@ -39,9 +54,6 @@ origins =[
     'http://localhost:8080'
 ]
 
-app.add_exception_handler(EbayServiceError, ebay_error_handler)
-app.add_exception_handler(DatabaseError, psycopg_exception_handler)
-app.add_exception_handler(AuthError, auth_error_handler)
 
 app.add_middleware(
     CORSMiddleware,
