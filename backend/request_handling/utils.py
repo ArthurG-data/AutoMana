@@ -9,18 +9,20 @@ def locate_service(service_path: str):
     """
     parts = service_path.split('.')
     if len(parts) < 3:
-        raise ValueError("Invalid service path format. Expected 'module.submodule.function'. Got '{service_path}'")
+        raise ValueError(f"Invalid service path format. Expected 'module.submodule.function'. Got '{service_path}'")
     domain = parts[0]
     entity = parts[1]
     method = parts[2]
 
     domain_map = {
         "shop_meta" : "backend.new_services.shop_data_ingestion",
+        "card_catalog" : "backend.new_services.card_catalog",
         "ebay" : "backend.modules.ebay.services",
         "card" : "backend.modules.internal.cards"
     }
 
     module_path = f"{domain_map[domain]}.{entity}_service"
+    print(module_path)
     try:
         module = importlib.import_module(module_path)
         service_method = getattr(module, method)

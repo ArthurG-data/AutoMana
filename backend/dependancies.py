@@ -1,7 +1,7 @@
 from fastapi import Header, HTTPException, Depends, Request
 from typing_extensions import Annotated
 from functools import lru_cache
-from backend.models.settings import PostgreSettings, GeneralSettings, EbaySettings, InternalSettings
+from backend.schemas.settings import PostgreSettings, GeneralSettings, EbaySettings, InternalSettings
 
 
 @lru_cache

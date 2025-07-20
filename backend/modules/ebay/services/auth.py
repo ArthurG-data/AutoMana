@@ -6,7 +6,7 @@ from fastapi.responses import RedirectResponse
 from backend.database.database_utilis import execute_insert_query, execute_select_query
 from backend.modules.ebay.models.auth import  AuthHeader, AuthData, ExangeRefreshData, TokenRequestData, TokenResponse
 from backend.modules.ebay.queries import auth, app
-from backend.models.settings import EbaySettings
+from backend.schemas.settings import EbaySettings
 from psycopg2.extensions import connection
 from backend.database.database_utilis import exception_handler
 from uuid import UUID,uuid4

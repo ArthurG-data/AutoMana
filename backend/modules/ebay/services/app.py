@@ -2,7 +2,7 @@ from psycopg2.extensions import connection
 from backend.modules.ebay.models.auth import TokenResponse, InputEbaySettings
 from uuid import UUID
 from backend.database.database_utilis import exception_handler
-from backend.models.settings import EbaySettings
+from backend.schemas.settings import EbaySettings
 from backend.modules.ebay.queries import auth, app
 from backend.services.shop_data_ingestion.db.QueryExecutor import QueryExecutor
 

@@ -1,20 +1,30 @@
 from fastapi import APIRouter
 from typing import List
-from backend.modules.public.cards.models import BaseCard
-from backend.database.get_database import cursorDep
+from uuid import UUID
+from backend.request_handling.StandardisedQueryResponse import ApiResponse, PaginatedResponse
 from backend.modules.public.cards.services import get_cards_info
+from backend.request_handling.ApiHandler import ApiHandler
+from backend.schemas.card_catalog.card import BaseCard
 
+api : ApiHandler = ApiHandler()
 
-router = APIRouter(
+card_reference_router = APIRouter(
     prefix="/card-reference",
     tags=['cards'],
     responses={404:{'description' : 'Not found'}}
 )
 
-@router.get('/{card_id}', response_model=BaseCard)
-async def get_card_info( conn : cursorDep, card_id : str, limit : int=100, offset : int=0):
-    return  get_cards_info(conn, card_id, limit, offset, select_all=False )
-    
-@router.get('/', response_model=List[BaseCard])
-async def get_all_cards(conn : cursorDep, limit : int=100, offset : int=0 ):
-    return  get_cards_info(conn, limit=limit, offset=offset , select_all=True)
+@card_reference_router.get('/{card_id}', response_model=ApiResponse[BaseCard])
+async def get_card_info( card_id : UUID):
+    return await api.execute_service(
+        "card_catalog.card.get",
+        card_id=card_id
+    )
+
+@card_reference_router.get('/', response_model=PaginatedResponse[BaseCard])
+async def get_all_cards(limit : int=100, offset : int=0 ):
+    return await api.execute_service(
+        "card_catalog.card.list",
+        limit=limit,
+        offset=offset
+    )

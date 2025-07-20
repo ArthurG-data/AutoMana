@@ -12,8 +12,9 @@ class ApiHandler:
 
     _instance = None
     _pool = None
-    _error_handler = None
-   
+    _error_handler : Psycopg2ExceptionHandler = None
+    _query_executor : QueryExecutor = None
+
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super(ApiHandler, cls).__new__(cls)
@@ -28,34 +29,47 @@ class ApiHandler:
         if ApiHandler._pool is None:
             ApiHandler._pool = await init_async_pool()
         return ApiHandler._pool
+
+    async def _ensure_query_executor(self) -> QueryExecutor:
+        if not ApiHandler._query_executor:
+            pool = await self._ensure_pool()
+            ApiHandler._query_executor = AsyncQueryExecutor(pool, self._error_handler)
+        return ApiHandler._query_executor
     
     async def execute_service(self, service_path: str, **kwargs):
         #get the service method 
 
         service_method = locate_service(service_path)
-        #get pool
-        pool = await self._ensure_pool()
-        executor = AsyncQueryExecutor(pool, self._error_handler)
-    
+ 
+        #set the query executor if not set
+
+        query_executor : QueryExecutor = await self._ensure_query_executor()
+
         logger.info(f"Executing service: {service_path}")
-        async with pool.acquire() as conn:
-            try:
-                async with executor.transaction() as conn:
-                    repository = self._get_repository(service_path, conn)
-                    result = await service_method(repository=repository, **kwargs)
-
-                    return result
-
-                                                        
-            except Exception as e:
-                logger.error(f"Error executing service {service_path}: {e}")
-                raise 
-    def _get_repository(self, service_path: str, conn):
+        try:
+            async with query_executor.transaction() as conn:
+                repo_context = {
+                "connection": conn,
+                "executor": query_executor
+                }
+                repository = self._get_repository(service_path, repo_context)
+                result = await service_method(repository=repository, **kwargs)
+                return result                                    
+        except Exception as e:
+            logger.error(f"Error executing service {service_path}: {e}")
+            raise 
+    def _get_repository(self, service_path: str, repo_context: dict):
 
         parts = service_path.split('.')
         domain = parts[0]
         entity = parts[1]
-
+        
+        conn = repo_context.get("connection")
+        if not conn:
+            raise ValueError("Connection not provided in repository context")
+        executor = repo_context.get("executor")
+        if not executor:
+            raise ValueError("QueryExecutor not provided in repository context")
         #implement factory later
         repo_map = {
             #the factory folder structure is domain/entity
@@ -64,7 +78,7 @@ class ApiHandler:
             "shop_meta.collection": "CollectionRepository",
             "shop_meta.theme": "ThemeRepository",
             "ebay.app": "EbayRepository",
-            "card.reference": "CardRepository"
+            "card_catalog.card": "CardReferenceRepository"
         }
 
         repo_key = f"{domain}.{entity}"
@@ -73,7 +87,8 @@ class ApiHandler:
         if repo_name:
             module = importlib.import_module(f"backend.repositories.{repo_key}_repository")
             repo_class = getattr(module, repo_name)
-            return repo_class(conn)
+            return repo_class(conn, executor)
         #return default that can execute raw queries
-        return conn
+        return repo_context
+    
     

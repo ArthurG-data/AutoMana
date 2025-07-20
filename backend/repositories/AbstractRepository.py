@@ -1,17 +1,41 @@
 from abc import ABC, abstractmethod
 import asyncpg
 from typing import Optional,  TypeVar,  Generic
+from backend.request_handling.QueryExecutor import QueryExecutor
 
 T =TypeVar('T')
 
 class AbstractRepository(Generic[T], ABC):
+    
+    @property
     @abstractmethod
-    def __init__(self, connection: asyncpg.Connection):
+    def name(self) -> str:
+        """Name of the entity this repository manages."""
+        pass
+
+    def __init__(self, connection: asyncpg.Connection,  executor: QueryExecutor=None):
         """
         Initialize the repository with a database connection.
         """
         self.connection = connection
+        self.executor = executor
 
+    async def execute_query(self, query, *args):
+        """Execute a query that returns results"""
+        if self.executor:
+            return await self.executor.execute_query(query, self.connection, *args)
+        else:
+            # Fallback to direct connection
+            return await self.connection.fetch(query, *args)
+    
+    async def execute_command(self, query, *args):
+        """Execute a command that doesn't return results"""
+        if self.executor:
+            return await self.executor.execute_command(self.connection, query, *args)
+        else:
+            # Fallback to direct connection
+            return await self.connection.execute(query, *args)
+        
     @abstractmethod
     async def add(self, item: T) -> None:
         pass

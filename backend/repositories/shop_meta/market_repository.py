@@ -1,28 +1,22 @@
 from backend.repositories.AbstractRepository import AbstractRepository
 from typing import List, Optional, Any
 from backend.services.shop_data_ingestion.models.shopify_models import Market as Market_Model
-
+from backend.repositories.shop_meta import market_queries as queries
 class MarketRepository(AbstractRepository[Market_Model.Market]):
     def __init__(self, connection):
         super().__init__(connection)
 
-    async def add(self, market: Market_Model.InsertMarket):
+    async def add(self, values: Market_Model.InsertMarket):
         """Add a market to the database"""
         await self.connection.execute(
-            """
-            INSERT INTO markets (name, api_url, country_code, city)
-            VALUES ($1, $2, $3, $4)
-            ON CONFLICT (name, city, country_code) DO NOTHING;
-            """,
-            (market.name, market.api_url, market.country_code, market.city)
+            queries.insert_market_query,
+            values.name, values.api_url, values.country_code, values.city
         )
 
     async def get(self, id: int) -> Market_Model.Market | None:
         """Get a market by ID"""
         result = await self.connection.fetchrow(
-            """
-            SELECT * FROM markets WHERE market_id = $1;
-            """,
+            queries.select_market_id_query,
             id
         )
         return result if result else None
@@ -66,13 +60,12 @@ class MarketRepository(AbstractRepository[Market_Model.Market]):
             id
         )
     
-    def list(
+    async def list(
         self,
-    ) :
-        sql = "SELECT market_id, name, api_url, country_code FROM market_ref"
+    ) -> List[Market_Model.MarketInDb]:
        
-        rows = self.execute_query(
-            sql
+        rows = await self.connection.fetch(
+            queries.select_all_markets_query
         )
-        return rows
-    
+        items = [Market_Model.MarketInDb(**dict(row)) for row in rows]
+        return items

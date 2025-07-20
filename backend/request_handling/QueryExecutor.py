@@ -12,6 +12,13 @@ logger = logging.getLogger(__name__)
 T = TypeVar('T')
 
 class QueryExecutor(ABC):
+
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        """Name of the executor."""
+        pass
+
     @abstractmethod
     def execute_command(
         self,
@@ -41,6 +48,9 @@ class SyncQueryExecutor(QueryExecutor):
         self.conn = conn
         self.handle_error =  error_Handler 
 
+    def name(self) -> str:
+        return "SyncQueryExecutor"
+    
     def execute_command(self, query : str, values : Tuple[any])->None:
         """Side effect, but return nothing"""
         try:
@@ -79,6 +89,9 @@ class AsyncQueryExecutor(QueryExecutor):
         self.pool = pool
         self.handle_error = error_handler
     
+    def name(self) -> str:
+        return "AsyncQueryExecutor"
+    
     async def execute_command(self, query: str, params: Tuple[Any, ...] = ()) -> None:
         async with self.pool.acquire() as conn:
             try:
@@ -89,18 +102,21 @@ class AsyncQueryExecutor(QueryExecutor):
     async def execute_query(
         self, 
         query: str, 
+        connection: Optional[asyncpg.Connection] = None,
         params: Tuple[Any, ...] = (),
         mapper: Optional[Callable[..., T]] = None
     ) -> List[T]:
-        async with self.pool.acquire() as conn:
-            try:
-                records = await conn.fetch(query, *params)
-                if mapper:
-                    return [mapper(*row) for row in records]
-                return [tuple(r) for r in records]
-            except Exception as e:
-                self.handle_error.handle(e)
-                raise
+        if connection is None:
+            connection = await self.pool.acquire()
+        try:
+            records = await connection.fetch(query, *params)
+            if mapper:
+                return [mapper(*row) for row in records]
+            return [dict(row) for row in records]  
+        except Exception as e:
+            self.handle_error.handle(e)
+            raise
+    
 
     @asynccontextmanager
     async def transaction(self, connection=None):
@@ -111,6 +127,13 @@ class AsyncQueryExecutor(QueryExecutor):
                 await conn.execute(...)
         """
         conn = connection if connection else await self.pool.acquire()
+        
+        need_to_release = False
+        
+        if conn is None:
+            conn = await self.pool.acquire()
+            need_to_release = True
+        
         tx = conn.transaction()
 
         try:
@@ -127,6 +150,6 @@ class AsyncQueryExecutor(QueryExecutor):
                 self.handle_error.handle(e)
             raise
         finally:
-            if not connection:  # Only release if we acquired it here
-                await conn.close()
+                if need_to_release:
+                    await conn.close()
     
