@@ -23,8 +23,10 @@ class AbstractRepository(Generic[T], ABC):
     async def execute_query(self, query, *args):
         """Execute a query that returns results"""
         if self.executor:
+            print("Executing query with executor")
             return await self.executor.execute_query(query, self.connection, *args)
         else:
+            print("Executing query withOUT executor")
             # Fallback to direct connection
             return await self.connection.fetch(query, *args)
     

@@ -138,11 +138,14 @@ class AsyncQueryExecutor(QueryExecutor):
 
         try:
             await tx.start()
+            logger.debug("Transaction started")
             yield conn
             await tx.commit()
+            logger.debug("Transaction committed")
         except Exception as e:
             try:
                 await tx.rollback()
+                logger.debug("Transaction rolled back")
             except Exception as rb_error:
                 # Log rollback error but don't mask the original exception
                 logger.error(f"Error during transaction rollback: {rb_error}")
@@ -150,6 +153,10 @@ class AsyncQueryExecutor(QueryExecutor):
                 self.handle_error.handle(e)
             raise
         finally:
-                if need_to_release:
+            if need_to_release:
+                try:
                     await conn.close()
+                    logger.debug("Connection released")
+                except Exception as rel_error:
+                    logger.error(f"Error releasing connection: {rel_error}")
     

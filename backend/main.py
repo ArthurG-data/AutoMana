@@ -1,32 +1,125 @@
 from fastapi import FastAPI, Request
-import time, logging
+import time, logging, sys
 #from backend.modules.ebay import routers as ebay_router
 from fastapi.middleware.cors import CORSMiddleware
 from backend import api 
 from contextlib import asynccontextmanager
 from backend.request_handling.ApiHandler import ApiHandler
+from backend.request_handling.ErrorHandler import Psycopg2ExceptionHandler
+from backend.request_handling.QueryExecutor import AsyncQueryExecutor
+from backend.database.get_database import init_async_pool
 
-logging.basicConfig(level=logging.INFO)
+# Configure root logger to output to console with proper level
+for handler in logging.root.handlers:
+    logging.root.removeHandler(handler)
+    
+logging.basicConfig(
+    level=logging.DEBUG,  # Try DEBUG level for more verbose output
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)  # Explicitly add console handler
+    ]
+)
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG) 
+
+logger.debug("Logger initialized")
 
 with open("README.md", "r", encoding="utf-8") as f:
     readme_content = f.read()
 
+db_pool = None
+query_executor = None
+error_handler = None
 api_handler = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initialize ApiHandler once when the app starts
-    global api_handler
-    api_handler = ApiHandler()
-    # Initialize any connections or resources
-    await api_handler._ensure_query_executor()
+    try:
+        logger.info("Initializing application resources...")
+        #setup ressources
+
+        #create errorhandler
+        global error_handler
+        error_handler = Psycopg2ExceptionHandler()
+        logger.info("Error handler created")
+        # Create database pool
+        global db_pool
+        try:
+            db_pool = await init_async_pool()
+            logger.info("Database pool created successfully")
+        except Exception as e:
+            logger.error(f"Failed to create database pool: {e}")
+            raise
+
+        # Create query executor with pool and error handler
+        global query_executor
+        logger.info("Creating query executor...")
+        query_executor = AsyncQueryExecutor(db_pool, error_handler)
+        logger.info("Query executor created successfully")
+        # Initialize ApiHandler once when the app starts
+        logger.info("Initializing ApiHandler...")
+        try:
+            await ApiHandler.initialize(query_executor=query_executor)
+            logger.info("ApiHandler initialized successfully")
+            
+            # Verify initialization worked
+            handler = ApiHandler()
+            if handler._query_executor is None:
+                logger.error("ApiHandler query executor is None after initialization!")
+                # Fix it by setting directly
+                handler._query_executor = query_executor
+        except Exception as e:
+            logger.error(f"Failed to initialize ApiHandler: {e}")
+            raise
+
+        logger.info("Application resources initialized successfully")
     
-    yield
-    
-    # Cleanup when the app shuts down
-    pool = getattr(ApiHandler, '_pool', None)
-    if pool:
-        await pool.close()
+        yield
+
+        logger.info("Shutting down application resources...")
+
+        try:
+            await ApiHandler.close()
+            logger.info("ApiHandler closed successfully")
+        except Exception as e:
+            logger.error(f"Error closing ApiHandler: {e}")
+
+        if db_pool:
+            try:
+                logger.info("Closing database pool...")
+                import asyncio
+                try:
+            # Wait for pool to close with a timeout
+                    await asyncio.wait_for(db_pool.close(), timeout=1.0)
+                    logger.info("Database pool closed successfully")
+                except asyncio.TimeoutError:
+                    logger.warning("Database pool close operation timed out after 5 seconds")
+                # Force cleanup anyway
+                    db_pool = None
+            
+            except Exception as e:
+                logger.error(f"Error closing database pool: {e}")
+                # Force cleanup even if there's an error
+                db_pool = None
+        
+        # Clean up globals
+        global_cleanup()
+        
+        logger.info("Application resources shutdown complete")
+    except Exception as e:
+        logger.error(f"Error during application lifespan: {e}")
+        yield
+
+def global_cleanup():
+    """Reset all global instances"""
+    global db_pool, query_executor, error_handler, api_handler
+    db_pool = None
+    query_executor = None
+    error_handler = None
+    api_handler = None
+
 
 app = FastAPI(
     title='AutoManaApp',
@@ -46,6 +139,8 @@ app = FastAPI(
     lifespan=lifespan
 
 )
+
+
 app.include_router(api.api_router)
 
 app.include_router

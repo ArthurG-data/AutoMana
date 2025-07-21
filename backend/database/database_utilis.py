@@ -115,21 +115,21 @@ def create_select_query(
             else:
                 col, op, val = cond
                 if op.upper() == "IN":
-                    where_parts.append(f"{col} = ANY(%s)")
+                    where_parts.append(f"{col} = ANY(${len(params) + 1})")
                 else:
-                    where_parts.append(f"{col} {op} %s")
+                    where_parts.append(f"{col} {op} ${len(params) + 1}")
                 params.append(val)
         query += " WHERE " + " AND ".join(where_parts)
 
     if order_by:
         query += f" ORDER BY {order_by}"
     if limit is not None:
-        query += " LIMIT %s"
+        query += f" LIMIT ${len(params) + 1}"
         params.append(limit)
     if offset is not None:
-        query += " OFFSET %s"
+        query += f" OFFSET ${len(params) + 1}"
         params.append(offset)
-    return query, params
+    return query #change to add params later if needed, for now just return query string
 
   
 def exception_handler(exception: Exception):

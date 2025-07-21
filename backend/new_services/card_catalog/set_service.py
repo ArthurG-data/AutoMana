@@ -8,7 +8,7 @@ from backend.repositories.card_catalog.set_repository import SetReferenceReposit
 from backend.request_handling.StandardisedQueryResponse import ApiResponse, PaginatedResponse, PaginationInfo
 from backend.schemas.card_catalog.set import BaseSet, SetInDB, NewSet, UpdatedSet
 
-async def get_set(repository: SetReferenceRepository, set_id: UUID) -> ApiResponse:
+async def get(repository: SetReferenceRepository, set_id: UUID) -> ApiResponse:
     values= create_value(set_id, False)
     result = await repository.get(values)
     if not result:
@@ -16,10 +16,7 @@ async def get_set(repository: SetReferenceRepository, set_id: UUID) -> ApiRespon
     return ApiResponse(data=BaseSet.model_validate(result[0]))
 
 async def list(repository: SetReferenceRepository, limit : Optional[int]=None, offset : Optional[int]=None, ids : Optional[List[UUID]]=None) ->  PaginatedResponse:
-    conditions =  ["set_id = ANY($1) "]
-    query = create_select_query('joined_set_materialized',conditions_list=conditions,limit=limit, offset=offset )
-    values= create_value(ids, isinstance(ids, List), limit, offset)
-    results = await repository.list(query, values)
+    results = await repository.list(limit=limit, offset=offset, ids=ids)
     sets = [BaseSet.model_validate(result) for result in results]
     return PaginatedResponse[BaseSet](
     data=sets,  # List of sets

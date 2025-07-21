@@ -5,42 +5,63 @@ from backend.request_handling.utils import locate_service
 from backend.request_handling.QueryExecutor import AsyncQueryExecutor, QueryExecutor
 from backend.request_handling.ErrorHandler import Psycopg2ExceptionHandler
 import logging
+import threading
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
 class ApiHandler:
-
+    """Handles API requests and service execution with a shared query executor"""
     _instance = None
     _pool = None
-    _error_handler : Psycopg2ExceptionHandler = None
-    _query_executor : QueryExecutor = None
 
-    def __new__(cls):
+    def __new__(cls, *args, **kwargs):
         if cls._instance is None:
             cls._instance = super(ApiHandler, cls).__new__(cls)
-            cls._instance._initialize()
+            cls._instance._initialized = False
         return cls._instance
-    
-    def _initialize(self):
-        """Initialize the hanlder and other dependencies"""
-        self._error_handler = Psycopg2ExceptionHandler()
 
-    async def _ensure_pool(self):
-        if ApiHandler._pool is None:
-            ApiHandler._pool = await init_async_pool()
-        return ApiHandler._pool
-
-    async def _ensure_query_executor(self) -> QueryExecutor:
-        if not ApiHandler._query_executor:
-            pool = await self._ensure_pool()
-            ApiHandler._query_executor = AsyncQueryExecutor(pool, self._error_handler)
-        return ApiHandler._query_executor
+    def __init__(self, query_executor: Optional[QueryExecutor] = None, 
+               ):
         
+        if hasattr(self, '_initialized') and self._initialized:
+            return
+        
+        self._query_executor = query_executor
+        self._repositories = {}
+
+        self._initialized = True
+    
+    @classmethod
+    async def initialize(cls, query_executor: QueryExecutor = None):
+        """
+        Initialize the singleton instance with dependencies.
+        This method should be called during application startup.
+        """
+        try:
+            instance = cls(query_executor)
+
+            if query_executor is not None:
+                instance._query_executor = query_executor
+            
+            # Ensure we have a query executor
+            if instance._query_executor is None:
+                logger.warning("Query executor not provided")
+                
+            logger.info("ApiHandler successfully initialized")
+            return instance
+        except Exception as e:
+            logger.error(f"Error initializing ApiHandler: {e}")
+            raise
+
     @classmethod
     async def execute_service(cls, service_path: str, **kwargs):
-        if cls._instance is None:
-            cls._instance = ApiHandler()
-            await cls._instance._ensure_query_executor()
+        if cls._instance is None or not hasattr(cls._instance, '_initialized'):
+            logger.warning("ApiHandler not initialized, initializing now")
+            await cls.initialize()
+        logger.info(f"service_path: {service_path}")
+        if cls._instance._query_executor is None:
+            logger.warning("Query executor not initialized, initializing now")
         return await cls._instance._execute_service(service_path, **kwargs)
 
 
@@ -49,16 +70,12 @@ class ApiHandler:
 
         service_method = locate_service(service_path)
  
-        #set the query executor if not set
-
-        query_executor : QueryExecutor = await self._ensure_query_executor()
-
         logger.info(f"Executing service: {service_path}")
         try:
-            async with query_executor.transaction() as conn:
+            async with self._query_executor.transaction() as conn:
                 repo_context = {
-                "connection": conn,
-                "executor": query_executor
+                    "connection": conn,
+                    "executor": self._query_executor
                 }
                 repository = self._get_repository(service_path, repo_context)
                 result = await service_method(repository=repository, **kwargs)
@@ -94,10 +111,31 @@ class ApiHandler:
         repo_name = repo_map.get(repo_key)
 
         if repo_name:
-            module = importlib.import_module(f"backend.repositories.{repo_key}_repository")
-            repo_class = getattr(module, repo_name)
-            return repo_class(conn, executor)
+            try:
+                module = importlib.import_module(f"backend.repositories.{repo_key}_repository")
+                repo_class = getattr(module, repo_name)
+                return repo_class(conn, executor)
+            except (ImportError, AttributeError) as e:
+                logger.error(f"Error loading repository {repo_name}: {e}")
+                raise ValueError(f"Repository {repo_name} not found: {str(e)}")
         #return default that can execute raw queries
         return repo_context
+    
+    @classmethod
+    async def close(cls):
+        """Close all resources held by the handler"""
+        if cls._instance is None:
+            return
+            
+        if cls._pool is not None:
+            logger.info("Closing ApiHandler database pool")
+            try:
+                await cls._pool.close()
+                cls._pool = None
+            except Exception as e:
+                logger.error(f"Error closing database pool: {e}")
+
+        cls._instance._query_executor = None
+        logger.info("ApiHandler resources closed")
     
     

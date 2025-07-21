@@ -1,8 +1,6 @@
 from fastapi import APIRouter
-from typing import List
 from uuid import UUID
 from backend.request_handling.StandardisedQueryResponse import ApiResponse, PaginatedResponse
-from backend.modules.public.cards.services import get_cards_info
 from backend.request_handling.ApiHandler import ApiHandler
 from backend.schemas.card_catalog.card import BaseCard
 
