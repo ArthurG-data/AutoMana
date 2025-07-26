@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 import datetime
 from uuid import UUID
-from typing import Optional
+from typing import Optional, List
 
 class BaseSet(BaseModel):
   
@@ -49,3 +49,13 @@ class UpdatedSet(BaseModel):
     digital : bool=Field(default=False)
     foil_status_id : str=(Field(max_length=20))
     parent_set : Optional[str]=None
+ 
+class NewSets(BaseModel):
+    items : List[NewSet]
+ 
+    def __iter__(self):
+        return iter(self.items)
+    def __len__(self):
+        return len(self.items)
+    def __getitem__(self, index):
+        return self.items[index]

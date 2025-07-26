@@ -4,8 +4,8 @@ from backend.database.get_database import cursorDep
 from backend.modules.auth.dependancies import currentActiveUser
 from backend.modules.ebay.services.dev import register_ebay_user
 from uuid import UUID
-from backend.services.shop_data_ingestion.db import QueryExecutor
-from backend.services.shop_data_ingestion.db.dependencies import get_sync_query_executor
+from backend.services_old.shop_data_ingestion.db import QueryExecutor
+from backend.services_old.shop_data_ingestion.db.dependencies import get_sync_query_executor
 
 ebay_dev_router = APIRouter(prefix='/dev', tags=['dev'])
 

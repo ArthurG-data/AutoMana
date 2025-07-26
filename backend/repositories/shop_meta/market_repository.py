@@ -1,6 +1,6 @@
 from backend.repositories.AbstractRepository import AbstractRepository
 from typing import List, Optional, Any
-from backend.services.shop_data_ingestion.models.shopify_models import Market as Market_Model
+from backend.services_old.shop_data_ingestion.models.shopify_models import Market as Market_Model
 from backend.repositories.shop_meta import market_queries as queries
 class MarketRepository(AbstractRepository[Market_Model.Market]):
     def __init__(self, connection):

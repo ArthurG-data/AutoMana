@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends
-from backend.services.shop_data_ingestion.models import shopify_theme
-from backend.services.shop_data_ingestion.shop_metadata import shop_metadata_services
-from backend.services.shop_data_ingestion.db.dependencies import get_sync_query_executor
-from backend.services.shop_data_ingestion.db import QueryExecutor
+from backend.services_old.shop_data_ingestion.models import shopify_theme
+from backend.services_old.shop_data_ingestion.shop_metadata import shop_metadata_services
+from backend.services_old.shop_data_ingestion.db.dependencies import get_sync_query_executor
+from backend.services_old.shop_data_ingestion.db import QueryExecutor
 from backend.request_handling.ApiHandler import ApiHandler
 theme_router = APIRouter(prefix="/theme", tags=["Theme"])
 api = ApiHandler()

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 
-from backend.services.shop_data_ingestion.models import shopify_theme
+from backend.services_old.shop_data_ingestion.models import shopify_theme
 from backend.request_handling.ApiHandler import ApiHandler
 
 collection_router = APIRouter(prefix="/collection", tags=["Collection"])

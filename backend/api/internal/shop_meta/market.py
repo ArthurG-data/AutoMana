@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from backend.services.shop_data_ingestion.models.shopify_models import Market
+from backend.services_old.shop_data_ingestion.models.shopify_models import Market
 from backend.request_handling.ApiHandler import ApiHandler
 market_router = APIRouter(prefix="/market", tags=["Market"])
 

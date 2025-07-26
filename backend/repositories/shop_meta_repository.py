@@ -1,4 +1,4 @@
-from backend.services.shop_data_ingestion.models.shopify_models.themes import Theme, InsertTheme, DeleteTheme, UpdateTheme, ThemeWithId, ThemeList
+from backend.services_old.shop_data_ingestion.models.shopify_models.themes import Theme, InsertTheme, DeleteTheme, UpdateTheme, ThemeWithId, ThemeList
 from backend.repositories.AbstractRepository import AbstractRepository
 from typing import Optional, Generic, TypeVar
 

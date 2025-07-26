@@ -10,7 +10,7 @@ from backend.modules.internal.cards.models import CreateCard, CreateCards
 from psycopg2.extensions import connection
 from backend.database.database_utilis import execute_delete_query
 from backend.modules.internal.cards import services
-from backend.services.shop_data_ingestion.upload.card_batch_importer import process_large_cards_json
+from backend.services_old.shop_data_ingestion.upload.card_batch_importer import process_large_cards_json
 from uuid import UUID 
 
 UPLOAD_DIR = "uploads"

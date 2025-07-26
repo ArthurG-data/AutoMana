@@ -1,5 +1,5 @@
 from backend.request_handling.ApiHandler import ApiHandler
-from backend.services.shop_data_ingestion.models import shopify_theme
+from backend.services_old.shop_data_ingestion.models import shopify_theme
 
 async def add(repository, values: shopify_theme.InsertCollection):
     """Add a collection to the database"""

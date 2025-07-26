@@ -1,5 +1,5 @@
-from backend.services.shop_data_ingestion.models import shopify_theme
-from backend.services.shop_data_ingestion.db import QueryExecutor
+from backend.services_old.shop_data_ingestion.models import shopify_theme
+from backend.services_old.shop_data_ingestion.db import QueryExecutor
 
  
 def insert_theme(values : shopify_theme.InsertTheme , queryExecutor : QueryExecutor.SyncQueryExecutor):

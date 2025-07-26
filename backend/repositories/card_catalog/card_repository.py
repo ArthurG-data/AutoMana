@@ -11,6 +11,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
     def __init__(self, connection, executor : None):
         super().__init__(connection, executor)
 
+    @property
     def name(self) -> str:
         return "CardRepository"
     

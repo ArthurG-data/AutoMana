@@ -1,6 +1,6 @@
 from backend.repositories.AbstractRepository import AbstractRepository
 from typing import List, Optional, Any
-from backend.services.shop_data_ingestion.models import shopify_theme
+from backend.services_old.shop_data_ingestion.models import shopify_theme
 
 class CollectionRepository(AbstractRepository[shopify_theme.CollectionModel]):
     def __init__(self, connection):

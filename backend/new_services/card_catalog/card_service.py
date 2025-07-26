@@ -8,7 +8,7 @@ from backend.utils_new.card_catalog import data_transformer as utils
 from backend.repositories.card_catalog.card_repository import CardReferenceRepository
 from backend.request_handling.StandardisedQueryResponse import ApiResponse, PaginatedResponse, PaginationInfo
 from typing import Annotated, Sequence, Optional
-from backend.modules.public.cards.models import BaseCard
+from backend.schemas.card_catalog.card import BaseCard
 
 async def add(repository : CardReferenceRepository, value : card_schemas.CreateCard):
     values =  (

@@ -1,4 +1,4 @@
-from backend.services.shop_data_ingestion.db import QueryExecutor, ErrorHandler
+from backend.services_old.shop_data_ingestion.db import QueryExecutor, ErrorHandler
 from backend.database.get_database import get_connection, get_async_pool_connection
 
 def get_sync_query_executor():

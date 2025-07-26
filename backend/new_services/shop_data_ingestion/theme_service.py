@@ -1,4 +1,4 @@
-from backend.services.shop_data_ingestion.models import shopify_theme
+from backend.services_old.shop_data_ingestion.models import shopify_theme
 
 async def add(repository, values: shopify_theme.InsertTheme):
     """Add a theme to the database"""
