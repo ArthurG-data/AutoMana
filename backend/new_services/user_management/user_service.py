@@ -4,6 +4,8 @@ from backend.schemas.user_management.user import  BaseUser, UserUpdatePublic,Use
 from backend.utils_new.auth import  get_hash_password
 from backend.request_handling.StandardisedQueryResponse import ApiResponse, PaginatedResponse, PaginationInfo
 from backend.repositories.user_management.user_repository import UserRepository
+from uuid import UUID
+from backend.exceptions import user_exceptions
 
 async def add(repository: UserRepository, user : Annotated[BaseUser, Body(
     examples=[
@@ -78,3 +80,13 @@ async def get_user(repository: UserRepository, username: str) -> UserInDB:
         return UserInDB(*user)
     else:
         return None
+
+async def get_user_by_session(repository: UserRepository, user_id: UUID) -> UserInDB:
+    try:
+        user = await repository.get_user_from_session(user_id)
+        if user:
+            return UserInDB(*user)
+        else:
+            raise user_exceptions.UserNotFoundError("User not found")
+    except Exception as e:
+        raise user_exceptions.UserRepositoryError(f"Error fetching user from session: {e}")

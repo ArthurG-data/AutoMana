@@ -1,5 +1,5 @@
 from typing import Optional
-
+from uuid import UUID
 from backend.repositories.AbstractRepository import AbstractRepository
 from backend.database.database_utilis import create_select_query, create_delete_query
 
@@ -50,3 +50,15 @@ class UserRepository(AbstractRepository):
 
     async def update(self, username: str, email: Optional[str], fullname: str):
         return NotImplementedError("Method not implemented yet")
+
+    async def get_user_from_session(self, session_id: UUID)-> dict:
+        query = """
+     WITH
+     get_user_id AS (
+     SELECT user_id FROM active_sessions_view WHERE session_id = $1
+        )
+      SELECT * FROM users WHERE unique_id = (SELECT user_id FROM get_user_id);
+    """
+        user_data = await self.execute_query(query, session_id)
+        return user_data
+        

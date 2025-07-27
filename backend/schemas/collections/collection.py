@@ -56,8 +56,6 @@ class Conditions(Enum):
     NM = 'NM'
     Grd = 'Grd'
 
-
-
 class PublicCollectionEntry(BaseModel):
     unique_card_id : UUID=Field(title='The card ID')
     is_foil : bool=Field(

@@ -4,6 +4,7 @@ from backend.schemas.auth.session import CreateSession
 from backend.utils_new.auth.auth import parse_insert_add_token_result, create_access_token
 from backend.request_handling.StandardisedQueryResponse import ApiResponse
 from datetime import timedelta
+from backend.exceptions import session_exceptions
 
 async def get_session(repository :SessionRepository,
     session_id: UUID):
@@ -95,6 +96,28 @@ async def validate_session_credentials(repository: SessionRepository, session_id
     ) if result else ApiResponse(
         status="error",
         message="Invalid session credentials")
+
+from utils_new.auth.auth import decode_access_token
+
+async def validate_token_and_get_session_id(
+        repository: SessionRepository
+        ,token: str)->UUID:
+    try:
+        payload = decode_access_token(token)
+        if not payload:
+            raise session_exceptions.InvalidTokenError("Invalid token")
+        
+        session_id = payload.get('session_id')
+        if not session_id:
+            raise session_exceptions.InvalidTokenError("Session ID not found in token")
+        
+        session = await repository.get(UUID(session_id))
+        if not session:
+            raise session_exceptions.SessionNotFoundError(f"Session with ID {session_id} not found")
+        return UUID(session_id)
+    except Exception as e:
+        raise session_exceptions.InvalidTokenError("Failed to validate token")
+
 
 
 

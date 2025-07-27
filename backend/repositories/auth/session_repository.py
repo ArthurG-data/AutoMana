@@ -25,15 +25,19 @@ class SessionRepository(AbstractRepository):
     async def delete( self, ip_address : str, user_id : UUID, session_id : UUID):
         query="SELECT inactivate_session($1, $2, $3);"
         return await self.execute_query(query, (str(session_id), user_id, ip_address))
-    
-    async def get(self,session_id:UUID):
-        query ="SELECT session_id, token_id FROM active_sessions_view WHERE user_id = $1"
-        return await self.execute_query (query, session_id)
-    
+
+    async def get_token(self, session_id: UUID):
+        query = "SELECT session_id, token_id FROM active_sessions_view WHERE user_id = $1"
+        return await self.execute_query(query, session_id)
+
     async def update(self, session_id: UUID, data: dict):
         query = "UPDATE active_sessions_view SET data = $1 WHERE session_id = $2"
         return await self.execute_query(query, (data, session_id))
     
+    async def get(self, session_id: UUID):
+        query = "SELECT * FROM active_sessions_view WHERE session_id = $1"
+        return await self.execute_query(query, session_id)
+
     async def rotate_token(self, token_id: UUID, session_id: UUID, refresh_token: str, expire_time: str):
         query = 'SELECT rotate_refresh_token($1, $2, $3, $4);'
         await self.execute_command(query, (token_id, session_id, refresh_token, expire_time))
