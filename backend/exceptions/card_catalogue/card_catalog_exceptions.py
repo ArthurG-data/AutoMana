@@ -1,6 +1,5 @@
 from backend.exceptions.base_exception import ServiceError
 
-
 class CollectionError(ServiceError):
     """Base class for all collection-related exceptions"""
     pass

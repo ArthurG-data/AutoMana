@@ -1,8 +1,10 @@
 from pydantic import Field, model_validator, BaseModel, computed_field
 from uuid import UUID
+from psycopg2.extras import  Json
 from typing import Optional,  List, Union
 from backend.utils_new.card_catalog.type_parser import process_type_line
 from backend.utils_new.card_catalog.card_face_parser import parse_card_faces
+import json
 
 class BaseCard(BaseModel):
     name: str = Field(alias="card_name", title="The name of the card")
@@ -13,10 +15,22 @@ class BaseCard(BaseModel):
     oracle_text: Optional[str] = Field(default="", title="The text on the card")
     digital: bool = Field(title="Is the card released only on digital platform")
     
+    
+    def to_json_safe(data):
+        def clean(obj):
+            if isinstance(obj, dict):
+                return {k: clean(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [clean(v) for v in obj]
+            elif isinstance(obj, UUID):
+                return str(obj)
+            else:
+                return obj
+        return json.dumps(clean(data))
+    
     class Config:
         populate_by_name = True  # Important for handling aliases
         from_attributes = True
-
 
 class CardFace(BaseModel):
     name: str
@@ -81,7 +95,6 @@ class CreateCard(BaseCard):
     set : str
     set_id : UUID
     
-
     @model_validator(mode='before')
     @classmethod
     def parse_and_clean_card_faces(cls, values):
@@ -110,6 +123,45 @@ class CreateCard(BaseCard):
 
         return values
     
+    def prepare_for_db(self):
+        """
+        Prepare the card for database insertion by converting types and ensuring all fields are set.
+        """
+        
+        return (
+        self.name,
+        self.cmc,
+        self.mana_cost,
+        self.reserved,
+        self.oracle_text,
+        self.set_name,
+        str(self.collector_number),
+        self.rarity,
+        self.border_color,
+        self.frame,
+        self.layout,
+        self.is_promo,
+        self.is_digital,
+        Json(self.card_color_identity),        # p_colors
+        self.artist,
+        self.artist_ids[0] if self.artist_ids else UUID("00000000-0000-0000-0000-000000000000"),
+        Json(self.legalities),
+        self.illustration_id,
+        Json(self.types),
+        Json(self.supertypes),
+        Json(self.subtypes),
+        Json(self.games),
+        self.oversized,
+        self.booster,
+        self.full_art,
+        self.textless,
+        str(self.power) if self.power is not None else None,
+        str(self.toughness) if self.toughness is not None else None,
+        Json(self.promo_types),
+        self.variation,
+        self.to_json_safe([f.model_dump() for f in self.card_faces]) if self.card_faces else Json([])
+    )
+    
     @model_validator(mode='after')
     def process_type_line(cls, values):
     
@@ -121,14 +173,22 @@ class CreateCard(BaseCard):
     
 
 class CreateCards(BaseModel):
- 
     items :List[CreateCard] = []
 
     def __iter__(self):
         return iter(self.items)
-
-    @computed_field
-    @property
-    def count(self) -> int:
+    def __len__(self):
         return len(self.items)
+    def __getitem__(self, index):
+        return self.items[index]    
+    def __setitem__(self, index, value):
+        self.items[index] = value
+    def __delitem__(self, index):
+        del self.items[index]
+    
+    def prepare_for_db(self):
+        """
+        Prepare all cards for database insertion.
+        """
+        return [card.prepare_for_db() for card in self.items]
     

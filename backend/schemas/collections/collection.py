@@ -8,7 +8,7 @@ from uuid import UUID, uuid4
 
 class PublicCollection(BaseModel):
     username : str = Field(
-        title='The ucollection owner',
+        title='The collection owner',
     )
     
     collection_name : str=Field(
@@ -23,6 +23,9 @@ class CreateCollection(BaseModel):
     collection_name : str=Field(
         title='The name of the collection',
         max_length=20
+    )
+    user_id : UUID = Field(
+        title='The secret user id'
     )
    
 class CollectionInDB(BaseModel):
@@ -48,6 +51,7 @@ class UpdateCollection(BaseModel):
         default=None, 
         max_length=20
     )
+    user_id : UUID
     is_active : bool | None=None
 
 class Conditions(Enum):

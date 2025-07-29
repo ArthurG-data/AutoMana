@@ -3,30 +3,26 @@ from uuid import UUID
 from backend.utils_new.card_catalog import create_value_set
 from backend.utils_new.card_catalog.create_value_set import create_value
 from backend.repositories.card_catalog.set_repository import SetReferenceRepository
-from backend.request_handling.StandardisedQueryResponse import ApiResponse, PaginatedResponse, PaginationInfo
 from backend.schemas.card_catalog.set import BaseSet, SetInDB, NewSet, UpdatedSet
+from backend.exceptions.card_catalogue import set_exception
 
-async def get(repository: SetReferenceRepository, set_id: UUID) -> ApiResponse:
-    values= create_value_set(set_id, False)
-    result = await repository.get(values)
-    if not result:
-        return ApiResponse(status="error", message=f"Set with ID {set_id} not found")
-    return ApiResponse(data=BaseSet.model_validate(result[0]))
+async def get(repository: SetReferenceRepository, set_id: UUID) -> SetInDB:
+    try:
+        result = await repository.get(set_id)
+        if not result:
+            raise set_exception.SetNotFoundError(f"Set with ID {set_id} not found")
+        return SetInDB.model_validate(result[0])
+    except set_exception.SetNotFoundError:
+        raise
+    except Exception as e:
+        raise set_exception.SetRetrievalError(f"Failed to retrieve set: {str(e)}")
 
-async def list(repository: SetReferenceRepository, limit : Optional[int]=None, offset : Optional[int]=None, ids : Optional[List[UUID]]=None) ->  PaginatedResponse:
+async def list(repository: SetReferenceRepository, limit : Optional[int]=None, offset : Optional[int]=None, ids : Optional[List[UUID]]=None) ->  List[SetInDB]:
     results = await repository.list(limit=limit, offset=offset, ids=ids)
-    sets = [BaseSet.model_validate(result) for result in results]
-    return PaginatedResponse[BaseSet](
-    data=sets,  # List of sets
-    pagination=PaginationInfo(
-        count=len(results),
-        page=offset // limit + 1,
-        pages=(len(results) + limit - 1) // limit,
-        limit=limit
-    )
-)
+    sets = [SetInDB.model_validate(result) for result in results]
+    return sets
 
-def add_set(new_set : NewSet, conn: connection):
+def add_set(repository: SetReferenceRepository, new_set : NewSet):
     query = "SELECT insert_joined_set (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
     data = new_set.model_dump()
     #values = tuple(v for _, v in data.items())

@@ -6,20 +6,22 @@ from backend.repositories.card_catalog import card_queries as queries
 from backend.schemas.card_catalog import card as card_schemas
 from backend.utils_new.card_catalog import data_transformer as utils
 from backend.repositories.card_catalog.card_repository import CardReferenceRepository
-from backend.request_handling.StandardisedQueryResponse import ApiResponse, PaginatedResponse, PaginationInfo
-from typing import Annotated, Sequence, Optional
+from typing import Annotated, Sequence, Optional, List
 from backend.schemas.card_catalog.card import BaseCard
+from backend.exceptions.card_catalogue import card_exception
 
-async def add(repository : CardReferenceRepository, value : card_schemas.CreateCard):
-    values =  (
-            value.card_name,
+async def add(repository : CardReferenceRepository
+              , value : card_schemas.CreateCard)-> BaseCard:
+    values =  value.prepare_for_db()
+    """(
+            value.name,
             value.cmc,
             value.mana_cost,
             value.reserved,
             value.oracle_text,
             value.set_name,
             str(value.collector_number),
-            value.rarity_name,
+            value.rarity,
             value.border_color,
             value.frame,
             value.layout,
@@ -43,13 +45,16 @@ async def add(repository : CardReferenceRepository, value : card_schemas.CreateC
             Json(value.promo_types),
             value.variation,
             utils.to_json_safe([f.model_dump() for f in value.card_faces]) if value.card_faces else Json([])
-        )
-    
-    await repository.add(values)
-    return {"status": "success"}
+        )"""
+    try:
+        card = await repository.add(values)
+        return card_schemas.BaseCard.model_validate(card)
+    except Exception as e:
+        raise card_exception.CardInsertError(f"Failed to insert card: {str(e)}")
 
 async def add_many(repository : CardReferenceRepository, values_list : card_schemas.CreateCards):
-    output_list = []
+    cards = values_list.prepare_for_db()
+    """
     for card in values_list.items:
         values = (
             card.card_name,
@@ -85,38 +90,66 @@ async def add_many(repository : CardReferenceRepository, values_list : card_sche
             utils.to_json_safe([f.model_dump() for f in card.card_faces]) if card.card_faces else Json([])
         )
         output_list.append(values)
+    """
+    try:
+        result = await repository.add_many(cards)#return numner of rows inserted
 
-    await repository.add_many(output_list)
-    return {"status": "success", "count": len(output_list)}
+        inserted_count = result.get("inserted_count", 0)
+        return inserted_count 
+    except Exception as e:
+        raise card_exception.CardInsertError(f"Failed to insert cards: {str(e)}")
 
-async def delete(repository : CardReferenceRepository, card_id: UUID):
-    await repository.delete(card_id)
-    return {"status": "success", "card_id": str(card_id)}
+async def delete(repository : CardReferenceRepository, card_id: UUID)-> bool:
+    try:
+        result = await repository.delete(card_id)
+        if not result:
+            raise card_exception.CardDeletionError(f"Failed to delete card with ID {card_id}")
+        return result
+    except card_exception.CardDeletionError:
+        raise
+    except Exception as e:
+        raise card_exception.CardDeletionError(f"Failed to delete card: {str(e)}")
 
+async def get_many(repository: CardReferenceRepository
+                   , card_ids: Sequence[UUID]
+                   ) -> List[BaseCard]:
+    try:
+        results = await repository.list(card_id =card_ids)
+        if not results:
+            raise card_exception.CardNotFoundError(f"No cards found for IDs {card_ids}")
+        return [BaseCard.model_validate(result) for result in results]
+    except card_exception.CardNotFoundError:
+        raise
+    except Exception as e:
+        raise card_exception.CardRetrievalError(f"Failed to retrieve cards: {str(e)}")
 
-async def list(repository: CardReferenceRepository,
+async def get_all(repository: CardReferenceRepository,
                 ids: Optional[Sequence[UUID]] = None,
                 limit: Annotated[int, Query(le=100)] = 100,
-                offset: int = 0)-> ApiResponse:
-    results = await repository.list(ids, limit=limit, offset=offset)
-    cards = [BaseCard.model_validate(result) for result in results]
-    return PaginatedResponse[BaseCard](
-    data=cards,  # List of cards
-    pagination=PaginationInfo(
-        count=len(results),
-        page=offset // limit + 1,
-        pages=(len(results) + limit - 1) // limit,
-        limit=limit
-    )
-)
+                offset: int = 0) -> List[BaseCard]:
+    try:
+        results = await repository.list( limit=limit, offset=offset)
+        if not results:
+            raise card_exception.CardNotFoundError("No cards found")
+        cards = [BaseCard.model_validate(result) for result in results]
+        return cards
+    except card_exception.CardNotFoundError:
+        raise
+    except Exception as e:
+        raise card_exception.CardRetrievalError(f"Failed to retrieve cards: {str(e)}")
+
 
 async def get(repository: CardReferenceRepository,
                card_id: UUID,
-                     ) -> ApiResponse:
-    results = await repository.get(
-        card_id=card_id,
-    )
-    
-    if not results:
-        return ApiResponse(status="error", message=f"Card with ID {card_id} not found")
-    return ApiResponse(data=BaseCard.model_validate(results[0]))
+                     ) -> BaseCard:
+    try:
+        result = await repository.get(
+            card_id=card_id,
+        )
+        if not result:
+            raise card_exception.CardNotFoundError(f"Card with ID {card_id} not found")
+        return BaseCard.model_validate(result)
+    except card_exception.CardNotFoundError:
+        raise
+    except Exception as e:
+        raise card_exception.CardRetrievalError(f"Failed to retrieve card: {str(e)}")

@@ -4,7 +4,7 @@ from backend.repositories.card_catalog.collection_repository import ColletionRep
 from typing import  Optional, List
 from uuid import UUID
 from backend.request_handling.StandardisedQueryResponse import ApiResponse
-from backend.exceptions import card_catalog_exceptions
+from backend.exceptions.card_catalogue import card_catalog_exceptions
 
 async def get_collection_by_id(repository: ColletionRepository, collection_id: str):
     try:
@@ -18,9 +18,9 @@ async def get_collection_by_id(repository: ColletionRepository, collection_id: s
     except Exception as e:
         raise card_catalog_exceptions.CollectionRetrievalError(f"Failed to retrieve collection: {str(e)}")
     
-async def add(repository : ColletionRepository, created_collection : CreateCollection, user_id : UUID )->CollectionInDB:
+async def add(repository : ColletionRepository, created_collection : CreateCollection)->CollectionInDB:
     try:
-        result = await repository.add(user_id, created_collection)
+        result = await repository.add(created_collection.collection_name, created_collection.user_id)
 
         if not result:
             raise card_catalog_exceptions.CollectionCreationError("Failed to create collection")
@@ -47,35 +47,38 @@ async def get(repository: ColletionRepository, collection_id : str ,  user_id: U
     except Exception as e:
         raise card_catalog_exceptions.CollectionRetrievalError(f"Failed to retrieve collection: {str(e)}")
 
-async def get_many(repository: ColletionRepository, user_id: UUID , collection_id : Optional[str] = None) -> List[CollectionInDB]:
+async def get_all_collections(repository: ColletionRepository, user_id: UUID) -> List[CollectionInDB]:
+    """Get all collections for a user"""
+    try:
+        collections = await repository.get_all(user_id)
+        if not collections or len(collections) == 0:
+            raise card_catalog_exceptions.CollectionNotFoundError(f"No collections found for user {user_id}")
+        return [CollectionInDB.model_validate(c) for c in collections]
+    except card_catalog_exceptions.CollectionNotFoundError:
+        raise
+    except Exception as e:
+        raise card_catalog_exceptions.CollectionRetrievalError(f"Failed to retrieve collections: {str(e)}")
+    
+async def get_many(repository: ColletionRepository, user_id: UUID , collection_id : List[UUID]) -> List[CollectionInDB]:
     try:
         collections = await repository.get_many(user_id, collection_id)
-        if not collections:
-            return card_catalog_exceptions.CollectionNotFoundError(f"No collections found for user {user_id}")
+        if not collections or collections == []:
+            raise card_catalog_exceptions.CollectionNotFoundError(f"No collections found for user {user_id}")
         return [CollectionInDB.model_validate(c) for c in collections]
     except card_catalog_exceptions.CollectionNotFoundError:
         raise
     except Exception as e:
         raise card_catalog_exceptions.CollectionRetrievalError(f"Failed to retrieve collections: {str(e)}")
 
-async def update_collection(repository: ColletionRepository, collection_id : str, updated_collection : UpdateCollection , user : UserInDB):
+async def update_collection(repository: ColletionRepository, updated_collection : UpdateCollection):
+    raise NotImplementedError("This function is not implemented yet")
     update_fields = {k: v for k, v in updated_collection.model_dump(exclude_unset=True).items()}
     if not update_fields:
         raise card_catalog_exceptions.CollectionUpdateError("No fields to update")
     try:
-        existing = await repository.get(collection_id)
-        if not existing:
-            raise card_catalog_exceptions.CollectionNotFoundError(f"Collection with ID {collection_id} not found")
-            
-        if str(existing.get("user_id")) != str(user.unique_id):
-            raise card_catalog_exceptions.CollectionAccessDeniedError("You don't have permission to update this collection")
-        
-        success = await repository.update(collection_id, update_fields, user.unique_id)
-
-        if not success:
-            raise card_catalog_exceptions.CollectionUpdateError("Update operation failed")
-        
-        updated_entity = await repository.get(collection_id)
+      
+        updated = await repository.update(updated_collection.collection_id, update_fields, updated_collection.user_id)
+        updated_entity = await repository.get(updated_collection.collection_id)
         return updated_entity
     except (card_catalog_exceptions.CollectionNotFoundError, card_catalog_exceptions.CollectionAccessDeniedError, card_catalog_exceptions.EmptyUpdateError) as e:
         raise

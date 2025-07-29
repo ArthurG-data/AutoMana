@@ -1,11 +1,12 @@
 from backend.request_handling.StandardisedQueryResponse import ApiResponse
 from backend.repositories.AbstractRepository import AbstractRepository
-from backend.database.database_utilis import create_select_query
 from typing import Any, Optional, Sequence
 from uuid import UUID
 from backend.schemas.card_catalog.set import NewSet
 import logging
+
 logger = logging.getLogger(__name__)
+
 class SetReferenceRepository(AbstractRepository[Any]):
     def __init__(self, connection, executor=None):
         super().__init__(connection, executor)
