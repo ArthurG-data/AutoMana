@@ -1,69 +1,54 @@
 from uuid import UUID
-from schemas.user_management.role import AssignRoleRequest
+from backend.schemas.user_management.role import AssignRoleRequest
 from backend.repositories.user_management.role_repository import RoleRepository
-
-async def assign_role(repository: RoleRepository, user_id : UUID,  role : AssignRoleRequest):
-    return await repository.assign_role(user_id, role)
-
-from backend.modules.auth.dependancies import currentActiveUser
-from backend.database.get_database import cursorDep
-from backend.database.database_utilis import execute_select_query
+from backend.schemas.user_management import role
+from backend.schemas.user_management import user
 from fastapi import HTTPException, Header
-from backend.dependancies import get_internal_settings
+from backend.exceptions.user_management import role_exceptions
+from datetime import datetime
+#from backend.dependancies import get_internal_settings
 
-def has_role_permission(permission : str):
-    """
-    Returns a FastAPI dependency that checks if the current user has a specific permission.
+async def assign_role(repository: RoleRepository, user_id : UUID,  role : AssignRoleRequest)->dict[
+    "success": bool,
+    "user_id": str,
+    "role": str,
+    "assigned_at": str
+]:
+    """Assign a role to a user."""
+    try:
+        existing_role = await repository.get_role_by_name(role.role.value)
+        if not existing_role:
+            raise role_exceptions.RoleNotFoundError(f"Role '{role.role.value}' not found")
+        await repository.assign_role(user_id, role.role.value)
+        return {
+            "success": True,
+            "user_id": str(user_id),
+            "role": role.role.value,
+            "assigned_at": datetime.now().isoformat(),
+        }
+    except role_exceptions.RoleNotFoundError as e:
+        raise
+    except Exception as e:
+        raise role_exceptions.RoleAssignmentError(f"Error assigning role: {e}")
 
-    Args:
-        permission (str): The required permission name.
-
-    Returns:
-        Callable: A dependency function to use in routes.
-
-    Raises:
-        HTTPException: If permission is missing or query fails.
-    """
-    async def checker( user : currentActiveUser, conn : cursorDep):
-        query = """ SELECT unique_id FROM user_roles_permission_view WHERE permission = %s AND unique_id = %s """
+async def has_role_permission(repository: RoleRepository, permission : str, user : user.UserInDB)->bool:
         try:
-            ids = execute_select_query(conn, query, (permission, user.unique_id,), False)
-            if ids is None:
-                raise HTTPException(status_code=403, detail=f"User lacks '{permission}' permission.")
+            result = await repository.user_has_permission(user.unique_id, permission)
+            if result is None or result.get('exists') is False:
+                raise role_exceptions.PermissionNotFoundError(f"Permission '{permission}' not found for user {user.unique_id}")
+            return True
+        except role_exceptions.PermissionNotFoundError:
+            raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail='Error Finding the permission:{e}',)
-    return checker()
-        
+            raise role_exceptions.RoleRepositoryError(f"Error checking role permission: {str(e)}")
 
-def has_role(role : str):
-    """
-    Returns a FastAPI dependency that checks if the user has a specific role.
-
-    Args:
-        role (str): Role name to verify.
-
-    Returns:
-        Callable: A dependency function for FastAPI routes.
-
-    Raises:
-        HTTPException: If the role is not found.
-    """
-    async def checker( conn : cursorDep, user : currentActiveUser):
-        query = """ SELECT unique_id FROM user_roles_permission_view WHERE role = %s AND unique_id = %s """
+async def has_role(repository: RoleRepository, role : str,user : user.UserInDB ) -> bool:
         try:
-            ids = execute_select_query(conn, query, (role, user.unique_id,), False)
-            if ids is None:
-                raise HTTPException(status_code=403, detail=f"User lacks '{role}' permission.")
+            result = await repository.user_has_role(user.unique_id, role)
+            if result is None or result.get('exists') is False:
+                raise role_exceptions.RoleNotFoundError(f"Role '{role}' not found for user {user.unique_id}")
+            return True
+        except role_exceptions.RoleNotFoundError:
+            raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail='Error Finding the permission:{e}',)
-    return checker
-
-def require_internal_access(x_internal_api_key: str = Header(...)):
-
-    """
-    to implement for internal router
-    """
-    if x_internal_api_key != get_internal_settings():
-         raise HTTPException(status_code=403, detail="Unauthorized internal access")
-    return True
-   
+            raise role_exceptions.RoleRepositoryError(f"Error checking role: {str(e)}")

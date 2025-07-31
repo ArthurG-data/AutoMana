@@ -5,7 +5,7 @@ from backend.utils_new.auth import  get_hash_password
 from backend.request_handling.StandardisedQueryResponse import ApiResponse, PaginatedResponse, PaginationInfo
 from backend.repositories.user_management.user_repository import UserRepository
 from uuid import UUID
-from backend.exceptions import user_exceptions
+from backend.exceptions.user_management import user_exceptions
 
 async def add(repository: UserRepository, user : Annotated[BaseUser, Body(
     examples=[

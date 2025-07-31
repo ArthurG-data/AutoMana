@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, EmailStr, model_validator
 from typing import Optional
-from enum import Enum
+from enum import Enum, auto
 
 class Role(str, Enum):
     admin = "admin"

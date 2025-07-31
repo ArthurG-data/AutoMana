@@ -24,7 +24,7 @@ class UserInDB(BaseUser):
     disabled : bool | None = Field(
     default=False, title='Is the user account still active'
 )
-    created_at : Optional[datetime]
+    created_at : Optional[datetime]=None
    
 class UserUpdatePublic(BaseModel):
     username: str | None=None

@@ -1,4 +1,5 @@
 from backend.repositories.AbstractRepository import AbstractRepository
+from uuid import UUID
 
 class RoleRepository(AbstractRepository):
     def __init__(self, connection, executor: None):
@@ -20,8 +21,25 @@ class RoleRepository(AbstractRepository):
         await self.execute_command(query, (user_id, role_name))
 
     async def get_role_by_name(self, role_name: str):
-        return NotImplementedError("Method not implemented yet")
+        query = """SELECT * FROM roles WHERE role = $1"""
+        return await self.execute_query(query, role_name)
 
+    async def user_has_permission(self, user_id: UUID, role_name: str) -> dict[str, bool]:
+        query = """SELECT EXISTS (
+            SELECT unique_id 
+            FROM user_roles_permission_view 
+            WHERE permission = $1 AND unique_id = $2
+        )"""
+        return await self.execute_query(query, (user_id, role_name))
+    
+    async def user_has_role(self, user_id: UUID, role_name: str) -> dict[str, bool]:
+        query = """SELECT EXISTS (
+            SELECT unique_id 
+            FROM user_roles_permission_view 
+            WHERE role = $1 AND unique_id = $2
+        )"""
+        return await self.execute_query(query, (role_name, user_id))
+    
     async def get_many(self):
         return NotImplementedError("Method not implemented yet")
 
