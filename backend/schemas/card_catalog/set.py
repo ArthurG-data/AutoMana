@@ -40,6 +40,19 @@ class NewSet(BaseModel):
     nonfoil_only : bool=Field(default=False)
     foil_only : bool=Field(default=False)
     parent_set : Optional[str]=None
+
+    def create_values(self):
+        return (
+            self.set_id,
+            self.set_name,
+            self.set_code,
+            self.set_type,
+            self.released_at,
+            self.digital,
+            self.nonfoil_only,
+            self.foil_only,
+            self.parent_set
+        )   
  
 class UpdatedSet(BaseModel):
     set_name : str=Field(max_length=100, default=None)
@@ -49,6 +62,16 @@ class UpdatedSet(BaseModel):
     digital : bool=Field(default=False)
     foil_status_id : str=(Field(max_length=20))
     parent_set : Optional[str]=None
+    def create_values(self):
+        return (
+            self.set_name,
+            self.set_code,
+            self.set_type,
+            self.released_at,
+            self.digital,
+            self.foil_status_id,
+            self.parent_set
+        )
  
 class NewSets(BaseModel):
     items : List[NewSet]

@@ -26,3 +26,7 @@ class SetDeleteError(SetError):
 class SetRetrievalError(SetError):
     """Raised when set retrieval fails"""
     pass    
+
+class SetParsingError(SetError):
+    """Raised when set parsing from JSON fails"""
+    pass

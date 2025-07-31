@@ -8,6 +8,3 @@ async def cards_from_json(file: UploadFile):
     raw_cards = await decode_json_input(file)
     return CreateCards(items=raw_cards)
 
-async def sets_from_json(file: UploadFile)->NewSets:
-    raw_sets = await decode_json_input(file)
-    return NewSets(items=raw_sets)
