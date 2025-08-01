@@ -4,7 +4,7 @@ from backend.services.shop_data_ingestion.models.error_models import InternalSer
 from datetime import datetime
 import os, csv, json, httpx, time
 from tqdm import tqdm
-from backend.services.shop_data_ingestion.models.shopify_theme import CollectionModel, ProductModel, ResponseModel
+from backend.schemas.external_marketplace.shopify.shopify_theme import CollectionModel, ProductModel, ResponseModel
 from backend.services.shop_data_ingestion.models.utils import LogStatus, Status
 from backend.dependancies import get_internal_settings
 

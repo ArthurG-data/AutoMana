@@ -83,7 +83,12 @@ class InsertCollectionTheme(BaseModel):
     theme_code : str
     collection_name : str
 
-
+class CollectionModelInDB(BaseModel):
+    id: int
+    name: str
+    market_id: int
+    created_at: datetime
+    updated_at: datetime
 
 class ProductPrice(BaseModel):
     shop_id : int

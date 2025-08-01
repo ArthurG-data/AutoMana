@@ -10,7 +10,7 @@ from psycopg2.extensions import connection
 from tqdm import tqdm
 from dotenv import load_dotenv
 from backend.services.shop_data_ingestion.db import QueryExecutor, ErrorHandler
-from backend.services.shop_data_ingestion.models import shopify_theme
+from backend.schemas.external_marketplace.shopify import shopify_theme
 
 # Adjust the path if your .env is not in the current working directory
 

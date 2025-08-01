@@ -1,10 +1,13 @@
 from backend.repositories.AbstractRepository import AbstractRepository
 from typing import List, Optional, Any
-from backend.services_old.shop_data_ingestion.models import shopify_theme
+from backend.schemas.external_marketplace.shopify import shopify_theme
 
-class CollectionRepository(AbstractRepository[shopify_theme.CollectionModel]):
-    def __init__(self, connection):
-        super().__init__(connection)
+class ShopifyCollectionRepository(AbstractRepository[shopify_theme.CollectionModel]):
+    def __init__(self,queryExecutor, connection):
+        super().__init__(connection, queryExecutor)
+    
+    def name(self) -> str:
+        return "ShopifyCollectionRepository"
 
     async def add(self, values: shopify_theme.InsertCollection):
         """Add a collection to the database"""
@@ -30,13 +33,29 @@ class CollectionRepository(AbstractRepository[shopify_theme.CollectionModel]):
         """
         await self.connection.executemany(query, [(v.name, v.market_id) for v in values])
 
-    async def get(self, id: int) -> Any | None:
+    async def get(self, id: int, market_id: int) -> Any | None:
         """Get a collection by ID"""
-        result = await self.connection.fetchrow(
+        result = await self.execute_query(
             """
-            SELECT * FROM collections WHERE id = $1;
+            SELECT * FROM collections WHERE id = $1 AND market_id = $2;
             """,
-            id
+            id, market_id
+        )
+        return result if result else None
+    
+    async def link_collection_theme(self, collection_name: str, theme_code: str) -> Any:
+        """Link a collection to a theme"""
+        result = await self.execute_command(
+            """
+            INSERT INTO handles_theme (handle_id, theme_id)
+            SELECT ch.handle_id, tr.theme_id
+            FROM collection_handles AS ch
+            JOIN theme_ref AS tr ON TRUE
+            WHERE ch.name = $1 AND tr.code = $2
+            ON CONFLICT (handle_id, theme_id) DO NOTHING
+            RETURNING *;
+            """,
+            collection_name, theme_code
         )
         return result if result else None
 
