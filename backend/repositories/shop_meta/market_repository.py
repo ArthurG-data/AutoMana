@@ -1,6 +1,6 @@
 from backend.repositories.AbstractRepository import AbstractRepository
 from typing import List, Optional, Any
-from backend.services_old.shop_data_ingestion.models.shopify_models import Market as Market_Model
+from backend.schemas.external_marketplace.shopify.shopify_theme import Market as Market_Model
 from backend.repositories.shop_meta import market_queries as queries
 class MarketRepository(AbstractRepository[Market_Model.Market]):
     def __init__(self, connection):
@@ -8,7 +8,7 @@ class MarketRepository(AbstractRepository[Market_Model.Market]):
 
     async def add(self, values: Market_Model.InsertMarket):
         """Add a market to the database"""
-        await self.connection.execute(
+        await self.execute_command(
             queries.insert_market_query,
             values.name, values.api_url, values.country_code, values.city
         )
