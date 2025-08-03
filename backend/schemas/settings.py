@@ -2,6 +2,7 @@
 from typing_extensions import  Optional, List
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from functools import lru_cache
 
 
 class InternalSettings(BaseSettings):
@@ -38,4 +39,12 @@ class EbaySettings(BaseSettings):
     secret : Optional[str] = None
     access_token_expiry : int =Field(title='The duration in minute of the access token', default=30)
     pgp_secret_key : str
-    model_config =  SettingsConfigDict(env_file='.env',  extra="allow")
+    model_config =  SettingsConfigDict(env_file='.env',
+                                         extra="ignore",
+                                         env_file_encoding="utf-8",
+                                         case_sensitive=False)
+    
+@lru_cache()
+def get_settings():
+    """Get cached settings"""
+    return EbaySettings()

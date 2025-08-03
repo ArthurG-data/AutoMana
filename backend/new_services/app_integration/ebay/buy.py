@@ -1,45 +1,97 @@
-from httpx import AsyncClient, HTTPStatusError
-from backend.modules.ebay.models import auth as auth_model,  errors as errors_model, buy as buy_model
-
-from fastapi import Depends, Query
 from typing import List, Optional
-from backend.modules.ebay.services import auth as authentificate
+from backend.repositories.app_integration.ebay.buy_repository import EbayBuyRepository
+from pydantic import BaseModel, Field
+from backend.schemas.app_integration.ebay.buy import EbayBrowseSearchParams
+from backend.exceptions.service_layer_exceptions.app_integration.ebay import ebayBuy_exception
+from backend.exceptions.repository_layer_exceptions import base_repository_exception
+from backend.schemas.app_integration.ebay.listings import ItemModel
 
+async def make_active_listing_search(
+        repository: EbayBuyRepository,
+        token: str,
+        search_params: EbayBrowseSearchParams):
 
-async def doBuyRequest( params : dict, headers: dict, enpoint_url: str) -> str:
-      try:
-         async with AsyncClient() as client:
-            response = await client.get(url=enpoint_url, params=params, headers=headers)
-            response.raise_for_status()
-            return response.text
-      except HTTPStatusError as e:
-        raise RuntimeError(f"eBay API HTTP error {e.response.status_code}: {e.response.text}")
-      except Exception as e:
-         raise RuntimeError(f"Failed to contact eBay Trading API: {str(e)}")
+    search_params = search_params.to_query_params()
 
-async def make_active_listing_search(token : str, 
-                                      q: Optional[str] = None,
-    category_ids: Optional[List[str]] = Query(default=None),
-    charity_ids: Optional[List[str]] = Query(default=None),
-    fieldgroups: Optional[List[str]] = Query(default=None),
-    filter: Optional[List[str]] = Query(default=None),
-    limit: Optional[int] = 50,
-    offset: Optional[int] = 0):
-
-    search_params = buy_model.EbayBrowseSearchParams(
-        q=q,
-        category_ids=category_ids,
-        charity_ids=charity_ids,
-        fieldgroups=fieldgroups,
-        filter=filter,
-        limit=limit,
-        offset=offset
-    )
-    api_header = {"Authorization" : f"Bearer {token}",
-                  "X-EBAY-C-MARKETPLACE-ID" : "EBAY_AU"}
-    query_dict = search_params.to_query_params()
     try:
-        response = await doBuyRequest(query_dict, api_header, "https://api.ebay.com/buy/browse/v1/item_summary/search?")
+        response = await repository.make_request(
+            endpoint="item_summary/search",
+            params=search_params,
+        )
         return response
     except Exception as e:
         return {'Error:' : str(e)}
+    
+async def get_item_by_id(
+        repository: EbayBuyRepository,
+        token: str,
+        item_id: str) -> ItemModel:
+    """Get item details by ID"""
+    try:
+        response = await repository.get_item(item_id, token)
+        if not response:
+            raise ebayBuy_exception.EbayGetItemException(
+                item_id=item_id,
+                message="Item not found or retrieval failed"
+            )
+        return ItemModel.model_validate(response)
+    except ebayBuy_exception.EbayGetItemException:
+        raise
+    except base_repository_exception:
+        raise
+
+async def add_item(
+        repository: EbayBuyRepository,
+        token: str,
+        item: ItemModel) -> dict:
+    """Add an item to eBay"""
+    try:
+        response = await repository.add_item(item, token)
+        if not response:
+            raise ebayBuy_exception.EbayAddItemException(
+                item_id=item.ItemID,
+                message="Failed to add item"
+            )
+        return ItemModel.model_validate(response)
+    except ebayBuy_exception.EbayAddItemException:
+        raise
+    except base_repository_exception:
+        raise
+
+async def revise_item(
+        repository: EbayBuyRepository,
+        token: str,
+        item: ItemModel) -> dict:
+    """Update an existing item on eBay"""
+    try:
+        response = await repository.revise_item(item, token)
+        if not response:
+            raise ebayBuy_exception.EbayReviseItemException(
+                item_id=item.ItemID,
+                message="Failed to revise item"
+            )
+        return response
+    except ebayBuy_exception.EbayReviseItemException:
+        raise
+    except base_repository_exception:
+        raise
+
+async def end_item( 
+        repository: EbayBuyRepository,
+        token: str,
+        item_id: str,
+        reason: str) -> bool:
+    """End an item listing on eBay"""
+    try:
+        response = await repository.end_item(item_id, reason, token)
+        if not response:
+            raise ebayBuy_exception.EbayEndItemException(
+                item_id=item_id,
+                reason=reason,
+                message="Failed to end item"
+            )
+        return True
+    except ebayBuy_exception.EbayEndItemException:
+        raise
+    except base_repository_exception:
+        raise

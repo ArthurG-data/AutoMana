@@ -2,7 +2,7 @@ from typing import Optional, List, Dict
 from pydantic import BaseModel, Field, model_validator
 from datetime import datetime, timedelta
 from uuid import UUID
-from backend.modules.auth.utils import get_hash_password
+from backend.utils_new.auth import get_hash_password
 import base64
 
 class HeaderApi(BaseModel):
