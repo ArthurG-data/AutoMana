@@ -29,7 +29,7 @@ class ExceptionHandler(Protocol):
         """
         ...
 
-class Psycopg2ExceptionHandler:
+class Psycopg2ExceptionHandler(ExceptionHandler):
     def handle(self, exc: Exception) -> None:
         if isinstance(exc, UniqueViolation):
             raise HTTPException(409, "Conflict: Duplicate entry.")
@@ -51,7 +51,7 @@ class Psycopg2ExceptionHandler:
         # by default, delegate to sync handler
         return self.handle(exc)
     
-class AsyncpgExceptionHandler:
+class AsyncpgExceptionHandler(ExceptionHandler):
     def handle(self, exc: Exception) -> None:
         # you could reuse same logic or raise an error
         logger.error("Sync handle called on async handler", exc_info=True)
@@ -61,6 +61,10 @@ class AsyncpgExceptionHandler:
         # map asyncpg exceptions similarly
         if isinstance(exc, asyncpg.UniqueViolationError):
             raise HTTPException(409, "Conflict: Duplicate entry.")
+        if isinstance(exc, asyncpg.ForeignKeyViolationError):
+            raise HTTPException(409, "Conflict: Related record missing.")
+        if isinstance(exc, asyncpg.DataError):
+            raise HTTPException(400, f"Invalid data: {str(exc).splitlines()[0]}")   
         # … other mappings …
         logger.error("Asyncpg error", exc_info=True)
         raise HTTPException(500, "Internal database error.")

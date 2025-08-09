@@ -1,13 +1,8 @@
-from backend.database.get_database import get_connection, get_async_pool_connection, init_async_pool
-import importlib
-from contextlib import asynccontextmanager
-from backend.request_handling.utils import locate_service
-from backend.request_handling.QueryExecutor import AsyncQueryExecutor, QueryExecutor
-from backend.request_handling.ErrorHandler import Psycopg2ExceptionHandler
-import logging
-import threading
-from typing import Optional
+import importlib, logging
+from backend.request_handling.QueryExecutor import QueryExecutor
+from typing import Dict, Any, List, Optional
 
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class ApiHandler:
@@ -21,16 +16,47 @@ class ApiHandler:
             cls._instance._initialized = False
         return cls._instance
 
-    def __init__(self, query_executor: Optional[QueryExecutor] = None, 
-               ):
-        
+    def __init__(self, query_executor: Optional[QueryExecutor] = None):
         if hasattr(self, '_initialized') and self._initialized:
             return
         
         self._query_executor = query_executor
-        self._repositories = {}
-
         self._initialized = True
+        
+        # Service registry - maps service paths to module paths and methods
+        self._service_registry = {
+            # Auth services
+            "auth.auth.login": {
+                "module": "backend.new_services.auth.auth_service",
+                "function": "login",
+                "repositories": ["auth", "session"]
+            },
+            "auth.session.login": {  # Added for compatibility with existing code
+                "module": "backend.new_services.auth.auth_service",
+                "function": "login",
+                "repositories": ["auth", "session"]
+            },
+            "auth.session.validate": {
+                "module": "backend.new_services.auth.session_service",
+                "function": "validate_session",
+                "repositories": ["session"]
+            },
+            # Add more services as needed
+        }
+        
+        # Repository registry - maps repo types to module paths and class names
+        self._repository_registry = {
+            "auth": ("backend.repositories.auth.auth_repository", "AuthRepository"),
+            "session": ("backend.repositories.auth.session_repository", "SessionRepository"),
+            # Add other repositories
+            "market": ("backend.repositories.shop_meta.market_repository", "MarketRepository"),
+            "product": ("backend.repositories.shop_meta.product_repository", "ProductRepository"),
+            "collection": ("backend.repositories.shop_meta.collection_repository", "CollectionRepository"),
+            "theme": ("backend.repositories.shop_meta.theme_repository", "ThemeRepository"),
+            "app": ("backend.repositories.ebay.app_repository", "EbayRepository"),
+            "card": ("backend.repositories.card_catalog.card_repository", "CardReferenceRepository"),
+            "set": ("backend.repositories.card_catalog.set_repository", "SetReferenceRepository"),
+        }
     
     @classmethod
     async def initialize(cls, query_executor: QueryExecutor = None):
@@ -66,35 +92,61 @@ class ApiHandler:
 
 
     async def _execute_service(self, service_path: str, **kwargs):
-        #get the service method 
-
-        service_method = locate_service(service_path)
- 
+        """Execute a service by path with required repositories"""
         logger.info(f"Executing service: {service_path}")
+        
+        # Get service configuration
+        service_config = self._service_registry.get(service_path)
+        if not service_config:
+            raise ValueError(f"Service configuration not found for {service_path}")
+        
+        # Import service module and method
+        try:
+            module = importlib.import_module(service_config["module"])
+            service_method = getattr(module, service_config["function"])
+        except (ImportError, AttributeError) as e:
+            logger.error(f"Error loading service {service_path}: {e}")
+            raise ValueError(f"Service {service_path} not found: {str(e)}")
+        
+        # Execute within transaction
         try:
             async with self._query_executor.transaction() as conn:
-                repo_context = {
-                    "connection": conn,
-                    "executor": self._query_executor
-                }
-                repository = self._get_repository(service_path, repo_context)
-                result = await service_method(repository=repository, **kwargs)
-                return result                                    
+                # Create required repositories
+                repositories = {}
+                
+                # Get repository types needed for this service
+                repo_types = service_config.get("repositories", [])
+                
+                # For backward compatibility, if no repositories specified, 
+                # use domain.entity to determine repository
+                if not repo_types:
+                    parts = service_path.split('.')
+                    if len(parts) >= 2:
+                        domain, entity = parts[0], parts[1]
+                        # Use old repository mapping logic
+                        repository = self._get_legacy_repository(domain, entity, conn)
+                        result = await service_method(repository=repository, **kwargs)
+                        return result
+                
+                # Create each required repository
+                for repo_type in repo_types:
+                    if repo_type not in self._repository_registry:
+                        raise ValueError(f"Unknown repository type: {repo_type}")
+                    
+                    module_path, class_name = self._repository_registry[repo_type]
+                    module = importlib.import_module(module_path)
+                    repo_class = getattr(module, class_name)
+                    repositories[f"{repo_type}_repository"] = repo_class(conn, self._query_executor)
+                
+                # Execute service with repositories and parameters
+                result = await service_method(**repositories, **kwargs)
+                return result
+                
         except Exception as e:
             logger.error(f"Error executing service {service_path}: {e}")
             raise 
-    def _get_repository(self, service_path: str, repo_context: dict):
-
-        parts = service_path.split('.')
-        domain = parts[0]
-        entity = parts[1]
-        
-        conn = repo_context.get("connection")
-        if not conn:
-            raise ValueError("Connection not provided in repository context")
-        executor = repo_context.get("executor")
-        if not executor:
-            raise ValueError("QueryExecutor not provided in repository context")
+    def _get_legacy_repository(self, domain: str, entity: str, conn):
+        """Legacy method to get repository by domain and entity"""
         #implement factory later
         repo_map = {
             #the factory folder structure is domain/entity
@@ -104,22 +156,24 @@ class ApiHandler:
             "shop_meta.theme": "ThemeRepository",
             "ebay.app": "EbayRepository",
             "card_catalog.card": "CardReferenceRepository",
-            "card_catalog.set": "SetReferenceRepository"
+            "card_catalog.set": "SetReferenceRepository",
+            "auth.auth": "AuthRepository",
+            "auth.session": "SessionRepository",
         }
 
         repo_key = f"{domain}.{entity}"
         repo_name = repo_map.get(repo_key)
 
-        if repo_name:
-            try:
-                module = importlib.import_module(f"backend.repositories.{repo_key}_repository")
-                repo_class = getattr(module, repo_name)
-                return repo_class(conn, executor)
-            except (ImportError, AttributeError) as e:
-                logger.error(f"Error loading repository {repo_name}: {e}")
-                raise ValueError(f"Repository {repo_name} not found: {str(e)}")
-        #return default that can execute raw queries
-        return repo_context
+        if not repo_name:
+            raise ValueError(f"Repository for {repo_key} not found in repository map")
+            
+        try:
+            module = importlib.import_module(f"backend.repositories.{repo_key}_repository")
+            repo_class = getattr(module, repo_name)
+            return repo_class(conn, self._query_executor)
+        except (ImportError, AttributeError) as e:
+            logger.error(f"Error loading repository {repo_name}: {e}")
+            raise ValueError(f"Repository {repo_name} not found: {str(e)}")
     
     @classmethod
     async def close(cls):

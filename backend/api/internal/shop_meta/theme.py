@@ -1,26 +1,29 @@
 from fastapi import APIRouter, Depends
-from backend.services_old.shop_data_ingestion.models import shopify_theme
-from backend.services_old.shop_data_ingestion.shop_metadata import shop_metadata_services
-from backend.services_old.shop_data_ingestion.db.dependencies import get_sync_query_executor
-from backend.services_old.shop_data_ingestion.db import QueryExecutor
-from backend.request_handling.ApiHandler import ApiHandler
+from backend.schemas.external_marketplace.shopify import shopify_theme
+from backend.new_services.service_manager import ServiceManager
+from backend.dependancies.service_deps import get_service_manager
+
+
 theme_router = APIRouter(prefix="/theme", tags=["Theme"])
-api = ApiHandler()
 
 @theme_router.post("/")
-async def post_theme(values: shopify_theme.InsertTheme):
+async def post_theme(
+    values: shopify_theme.InsertTheme,
+    service_manager: ServiceManager = Depends(get_service_manager)
+):
     #shop_metadata_services.insert_theme(values, queryExecutor)
-    await api.execute_service("shop_meta.theme.add", values=values)
+    await service_manager.execute_service("shop_meta.theme.add", values=values)
 
 @theme_router.post("/collection")
-def post_collection(values: shopify_theme.InsertCollectionTheme, queryExecutor: QueryExecutor.SyncQueryExecutor=Depends(get_sync_query_executor)):
+async def post_collection(
+    values: shopify_theme.InsertCollectionTheme,
+    service_manager: ServiceManager = Depends(get_service_manager)
+):
     """
     Insert a new collection theme into the database.
     If the collection theme already exists, it will not be inserted again.
     """
-    shop_metadata_services.insert_collection_theme(values, queryExecutor)
-
-
+    await service_manager.execute_service("shop_meta.theme.add_collection_theme", values=values)
 
 
 

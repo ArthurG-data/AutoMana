@@ -2,12 +2,12 @@ from fastapi import FastAPI, Request
 import time, logging, sys
 #from backend.modules.ebay import routers as ebay_router
 from fastapi.middleware.cors import CORSMiddleware
-from backend import api 
+#from backend import api 
 from contextlib import asynccontextmanager
-from backend.request_handling.ApiHandler import ApiHandler
 from backend.request_handling.ErrorHandler import Psycopg2ExceptionHandler
 from backend.request_handling.QueryExecutor import AsyncQueryExecutor
 from backend.database.get_database import init_async_pool
+from backend.new_services.service_manager import ServiceManager
 
 # Configure root logger to output to console with proper level
 for handler in logging.root.handlers:
@@ -32,7 +32,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 db_pool = None
 query_executor = None
 error_handler = None
-api_handler = None
+service_manager = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -56,22 +56,26 @@ async def lifespan(app: FastAPI):
         # Create query executor with pool and error handler
         global query_executor
         logger.info("Creating query executor...")
-        query_executor = AsyncQueryExecutor(db_pool, error_handler)
+        query_executor = AsyncQueryExecutor(error_handler)
         logger.info("Query executor created successfully")
-        # Initialize ApiHandler once when the app starts
-        logger.info("Initializing ApiHandler...")
+        # Initialize ServiceManager once when the app starts
+        logger.info("Initializing ServiceManager...")
+        global service_manager
         try:
-            await ApiHandler.initialize(query_executor=query_executor)
-            logger.info("ApiHandler initialized successfully")
+            service_manager = await ServiceManager.initialize(connection_pool=db_pool, query_executor=query_executor)
+            logger.info("ServiceManager initialized successfully")
             
             # Verify initialization worked
-            handler = ApiHandler()
-            if handler._query_executor is None:
-                logger.error("ApiHandler query executor is None after initialization!")
+            if service_manager.query_executor is None:
+                logger.error("ServiceManager query executor is None after initialization!")
                 # Fix it by setting directly
-                handler._query_executor = query_executor
+                service_manager.query_executor = query_executor
+            if service_manager.connection_pool is None:
+                logger.error("ServiceManager connection pool is None after initialization!")
+                # Fix it by setting directly
+                service_manager.connection_pool = db_pool
         except Exception as e:
-            logger.error(f"Failed to initialize ApiHandler: {e}")
+            logger.error(f"Failed to initialize ServiceManager: {e}")
             raise
 
         logger.info("Application resources initialized successfully")
@@ -81,10 +85,10 @@ async def lifespan(app: FastAPI):
         logger.info("Shutting down application resources...")
 
         try:
-            await ApiHandler.close()
-            logger.info("ApiHandler closed successfully")
+            await ServiceManager.close()
+            logger.info("ServiceManager closed successfully")
         except Exception as e:
-            logger.error(f"Error closing ApiHandler: {e}")
+            logger.error(f"Error closing ServiceManager: {e}")
 
         if db_pool:
             try:
@@ -114,11 +118,11 @@ async def lifespan(app: FastAPI):
 
 def global_cleanup():
     """Reset all global instances"""
-    global db_pool, query_executor, error_handler, api_handler
+    global db_pool, query_executor, error_handler, service_manager
     db_pool = None
     query_executor = None
     error_handler = None
-    api_handler = None
+    service_manager = None
 
 
 app = FastAPI(
@@ -140,8 +144,8 @@ app = FastAPI(
 
 )
 
-
-app.include_router(api.api_router)
+from backend.api.auth import authentification_router
+app.include_router(authentification_router)
 
 app.include_router
 origins =[
@@ -166,8 +170,23 @@ async def add_process_time_header(request: Request, call_next):
     response.headers['X-Process-Time'] = str(process_time)
     return response
 
+app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """Log all requests and responses"""
+    logger.debug(f"Request: {request.method} {request.url}")
+    logger.debug(f"Headers: {request.headers}")
+    
+    # Process the request
+    try:
+        response = await call_next(request)
+        logger.debug(f"Response status: {response.status_code}")
+        return response
+    except Exception as e:
+        logger.error(f"Request failed: {str(e)}")
+        raise
+
 @app.get('/')
 async def root():
-    return {'message' : 'Hello World'}
+    return {'message' : 'Welcome to the AutoMana API!'}
 
 

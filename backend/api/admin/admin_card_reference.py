@@ -1,9 +1,8 @@
-from fastapi import APIRouter, Depends
-from backend.database.get_database import cursorDep
-from backend.modules.public.cards.models import CreateCard
-from psycopg2.extensions import connection
+from fastapi import APIRouter, Depends, status
+from backend.schemas.card_catalog.card import CreateCard
+from backend.new_services.service_manager import ServiceManager
+from backend.dependancies.general import get_service_manager
 from uuid import UUID
-from backend.modules.internal.cards.services import add_card as add_card_service,add_cards as add_cards_service
 
 router = APIRouter(
     prefix='/card-reference',
@@ -12,14 +11,16 @@ router = APIRouter(
     responses={404:{'description' : 'Not found'}}
 )
 
-from psycopg2.extras import execute_values
-
-@router.post('/', response_model=None)
-async def insert_card(card: CreateCard, conn: cursorDep):
-    return await add_card_service(conn, card)
-
-    
-@router.delete('/{card_id}')
-async def delete_card(card_id : UUID, conn : connection=Depends(cursorDep)):
-    return await delete_card_service(card_id, conn)
-    
+@router.post('/', response_model=None, status_code=status.HTTP_201_CREATED)
+async def insert_card(card: CreateCard, service_manager: ServiceManager = Depends(get_service_manager)):
+    return await service_manager.execute_service(
+        "card_catalog.card.create",
+        card=card
+    )
+ 
+@router.delete('/{card_id}', status_code=status.HTTP_204_NO_CONTENT)
+async def delete_card(card_id: UUID, service_manager: ServiceManager = Depends(get_service_manager)):
+    return await service_manager.execute_service(
+        "card_catalog.card.delete",
+        card_id=card_id
+    )

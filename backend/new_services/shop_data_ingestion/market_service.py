@@ -1,5 +1,5 @@
 from backend.repositories.shop_meta.market_repository import MarketRepository
-from backend.services_old.shop_data_ingestion.models.shopify_models.Market import InsertMarket, MarketInDb
+from backend.schemas.external_marketplace.shopify.Market import InsertMarket, MarketInDb
 from typing import List, Optional
 
 async def add(repository : MarketRepository, values: InsertMarket):

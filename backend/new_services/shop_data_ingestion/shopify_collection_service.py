@@ -1,5 +1,5 @@
 from backend.schemas.external_marketplace.shopify import shopify_theme
-from backend.exceptions.shop_data_ingestion.shopify import shopify_collection_exception
+from backend.exceptions.service_layer_exceptions.shop_data_ingestion.shopify import shopify_collection_exception
 from backend.repositories.shop_meta.shopify_collection_repository import ShopifyCollectionRepository
 
 async def add(repository: ShopifyCollectionRepository  , values: shopify_theme.InsertCollection):

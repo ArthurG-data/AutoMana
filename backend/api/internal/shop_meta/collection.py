@@ -1,24 +1,29 @@
 from fastapi import APIRouter, Depends
-
-from backend.services_old.shop_data_ingestion.models import shopify_theme
-from backend.request_handling.ApiHandler import ApiHandler
+from backend.schemas.external_marketplace.shopify import shopify_theme
+from backend.new_services.service_manager import ServiceManager
+from backend.dependancies.service_deps import get_service_manager
 
 collection_router = APIRouter(prefix="/collection", tags=["Collection"])
-api = ApiHandler()
 
 
 @collection_router.post("/")
-async def post_collection(values: shopify_theme.InsertCollection):
+async def post_collection(
+    values: shopify_theme.InsertCollection,
+    service_manager: ServiceManager = Depends(get_service_manager)
+):
     """
     Insert a new collection into the database.
     If the collection already exists, it will not be inserted again.
     """
-    return await api.execute_service("shop_meta.collection.add", values=values)
+    return await service_manager.execute_service("shop_meta.collection.add", values=values)
 
 @collection_router.post("/bulk")
-async def post_bulk_collections(values: list[shopify_theme.InsertCollection]):
+async def post_bulk_collections(
+    values: list[shopify_theme.InsertCollection],
+    service_manager: ServiceManager = Depends(get_service_manager)
+):
     """
     Insert multiple collections into the database.
     If a collection already exists, it will not be inserted again.
     """
-    return await api.execute_service("shop_meta.collection.add_many", values=values)
+    return await service_manager.execute_service("shop_meta.collection.add_many", values=values)

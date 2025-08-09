@@ -19,6 +19,9 @@ class GeneralSettings(BaseSettings):
     encrypt_algorithm : str
     secret_key : str
     access_token_expiry : int
+    pgp_secret_key : str
+    jwt_secret_key : str = Field(default="your-secret-key-here")
+    jwt_algorithm : str = Field(default="HS256")
     
     model_config =  SettingsConfigDict(env_file='.env',  extra="allow")
 

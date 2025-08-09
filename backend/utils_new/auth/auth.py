@@ -19,7 +19,9 @@ def create_access_token(data: dict, secret_key: str, algorithm: str, expires_del
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=15))
     to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, secret_key, algorithm)
+    return jwt.encode(to_encode
+                      , secret_key
+                      , algorithm)
 
 def decode_access_token(token: str, secret_key: str, algorithm: str) -> dict:
     """Decodes a JWT token and validates its signature."""
@@ -29,10 +31,3 @@ def decode_access_token(token: str, secret_key: str, algorithm: str) -> dict:
         raise ValueError("Token expired")
     except jwt.InvalidTokenError:
         raise ValueError("Invalid token")
-
-# Simple data parsing
-def parse_insert_add_token_result(raw_result: str):
-    """Parse database result for token insertion."""
-    raw_result = raw_result.strip('()')
-    session_id, token_id = raw_result.split(',')
-    return session_id, token_id

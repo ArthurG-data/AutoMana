@@ -3,7 +3,7 @@ from psycopg2.extras import RealDictCursor, register_uuid, register_uuid
 from typing import  Any, Generator
 from psycopg2.extensions import connection, cursor
 from psycopg2 import pool
-from backend.dependancies import get_db_settings
+from backend.dependancies.settings import get_db_settings
 from fastapi import Depends
 from typing_extensions import Annotated
 

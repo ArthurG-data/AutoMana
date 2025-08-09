@@ -1,10 +1,14 @@
 from backend.repositories.auth.session_repository import SessionRepository
 from uuid import UUID, uuid4
 from backend.schemas.auth.session import CreateSession
-from backend.utils_new.auth.auth import parse_insert_add_token_result, create_access_token
+from backend.utils_new.auth.auth import create_access_token, decode_access_token
 from backend.request_handling.StandardisedQueryResponse import ApiResponse
-from datetime import timedelta
+from datetime import timedelta, datetime
 from backend.exceptions import session_exceptions
+from backend.schemas.user_management.user import UserInDB
+from backend.dependancies.settings import get_general_settings
+import logging 
+logger = logging.getLogger(__name__)
 
 async def get_session(repository :SessionRepository,
     session_id: UUID):
@@ -52,10 +56,16 @@ async def update_session(repository: SessionRepository, session_id: UUID, data: 
 async def insert_session(repository: SessionRepository, new_session : CreateSession):
     """"Inserts a new session into the database."""
     values = (new_session.session_id, str(new_session.user_id), new_session.created_at, new_session.expires_at, new_session.ip_address, new_session.user_agent, new_session.refresh_token, new_session.refresh_token_expires_at, new_session.device_id,)
-    result =  await repository.add(values)
-    raw_result = result['insert_add_token']
-    return parse_insert_add_token_result(raw_result)
-    
+    await repository.add(values)
+    result = await repository.get(new_session.session_id)
+    if result:
+        print(f"Session inserted successfully: {result}")
+        raw_result = result[0]
+        return raw_result['session_id'], raw_result['refresh_token']
+    else:
+        logger.error(f"Failed to insert session: {new_session.session_id}")
+        return None
+
 async def get_active_session(repository: SessionRepository, user_id: UUID):
     result = await repository.get(user_id)
     if result:
@@ -69,16 +79,30 @@ async def get_active_session(repository: SessionRepository, user_id: UUID):
             message="No active session found for the user."
         )
 
-
-async def rotate_session_token(repository: SessionRepository, session_id: UUID, refresh_token: str, expire_time: str, token_id: UUID):
-        refresh_token = create_access_token(data={"session_id": str(session_id)}, expires_delta=timedelta(days=7))
-        await repository.rotate_token(token_id, session_id, refresh_token, expire_time)
+async def rotate_session_token(repository: SessionRepository
+                               , session_id: UUID
+                               , refresh_token: str
+                               , expire_time: datetime
+                               , token_id: UUID):
+        settings = get_general_settings()
+        refresh_token = create_access_token(data={"session_id": str(session_id)}
+                                            , expires_delta=timedelta(days=7)
+                                            , secret_key=settings.secret_key
+                                            , algorithm=settings.encrypt_algorithm
+                                            )
+        await repository.rotate_token(token_id
+                                      ,session_id
+                                      ,refresh_token
+                                      ,expire_time)
         return {'session_id': session_id, 'refresh_token': refresh_token}
 
-async def create_new_session(repository: SessionRepository, user, ip_address: str, user_agent: str, expire_time: str):
+async def create_new_session(repository: SessionRepository, user: UserInDB, ip_address: str, user_agent: str, expire_time: str):
     session_id = uuid4()
-    refresh_token = create_access_token(data={"session_id": str(session_id)}, expires_delta=timedelta(days=7))
+    settings = get_general_settings()
+    logger.info(f"Creating new session for user {user.username} with ID {session_id} at IP {ip_address} and user agent {user_agent}")
+    refresh_token = create_access_token(data={"session_id": str(session_id)}, secret_key=settings.secret_key, algorithm=settings.encrypt_algorithm, expires_delta=timedelta(days=7))
     new_session = CreateSession(
+        session_id=session_id,
         user_id=user.unique_id,
         ip_address=ip_address,
         refresh_token=refresh_token,
@@ -96,8 +120,6 @@ async def validate_session_credentials(repository: SessionRepository, session_id
     ) if result else ApiResponse(
         status="error",
         message="Invalid session credentials")
-
-from utils_new.auth.auth import decode_access_token
 
 async def validate_token_and_get_session_id(
         repository: SessionRepository

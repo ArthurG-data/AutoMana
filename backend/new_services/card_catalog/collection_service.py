@@ -4,7 +4,7 @@ from backend.repositories.card_catalog.collection_repository import ColletionRep
 from typing import  Optional, List
 from uuid import UUID
 from backend.request_handling.StandardisedQueryResponse import ApiResponse
-from backend.exceptions.card_catalogue import card_catalog_exceptions
+from backend.exceptions.service_layer_exceptions.card_catalogue import card_catalog_exceptions
 
 async def get_collection_by_id(repository: ColletionRepository, collection_id: str):
     try:

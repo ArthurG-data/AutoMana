@@ -1,10 +1,9 @@
-from backend.modules.internal.sets.models import   NewSet, UpdatedSet, NewSets
+from backend.schemas.card_catalog.set import   NewSet, UpdatedSet, NewSets
 from fastapi import APIRouter, Response, status, File, UploadFile, Depends
 from backend.database.get_database import cursorDep
 from backend.database.database_utilis import execute_delete_query, create_delete_query
 from uuid import UUID
-from backend.modules.internal.sets.utils import sets_from_json
-from backend.modules.internal.sets.services import put_set, add_set,add_sets_bulk
+from backend.new_services.card_catalog.collection_service import get,get_all_collections, add
 
 sets_router = APIRouter(
         prefix='/sets',
