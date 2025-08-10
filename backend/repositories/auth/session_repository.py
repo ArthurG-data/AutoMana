@@ -49,11 +49,11 @@ class SessionRepository(AbstractRepository):
 
     async def validate_session_credentials(self, session_id: UUID, ip_address: str, user_agent: str) -> dict:
         query = """
-        SELECT refresh_token
+        SELECT *
         FROM active_sessions_view
         WHERE session_id = $1 AND user_agent = $2 AND ip_address = $3;
         """
-        return await self.execute_query(query, (session_id, user_agent, ip_address), select_all=False)
+        return await self.execute_query(query, (session_id, user_agent, ip_address))
     
     async def list(self):
         query = "SELECT * FROM active_sessions_view;"

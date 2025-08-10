@@ -12,6 +12,6 @@ class UserAlreadyExistsError(UserError):
     """Exception raised when a user already exists"""
     pass
 
-class UserRepositoryError(UserError):
-    """Exception raised for errors in the user repository"""
+class UserCreationError(UserError):
+    """Exception raised when user creation fails"""
     pass

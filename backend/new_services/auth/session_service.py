@@ -3,15 +3,20 @@ from uuid import UUID, uuid4
 from backend.schemas.auth.session import CreateSession
 from backend.utils_new.auth.auth import create_access_token, decode_access_token
 from backend.request_handling.StandardisedQueryResponse import ApiResponse
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, timezone
 from backend.exceptions import session_exceptions
 from backend.schemas.user_management.user import UserInDB
 from backend.dependancies.settings import get_general_settings
 import logging 
+from typing import Dict, Any
+
 logger = logging.getLogger(__name__)
 
-async def get_session(repository :SessionRepository,
-    session_id: UUID):
+async def validate_session_credentials(
+        repository: SessionRepository,
+        session_id: UUID
+        , ip_address: str
+        , user_agent: str) -> dict:
     """
     Fetches a session by its ID.
     
@@ -22,8 +27,51 @@ async def get_session(repository :SessionRepository,
     Returns:
         dict: The session data if found, otherwise None.
     """
-    return await repository.get(session_id)
+    # Get session from repository
+    try:
+        session = await repository.validate_session_credentials(session_id, ip_address, user_agent)
+        session = session[0] if session else None
+    
+    except Exception as e:
+        logger.error(f"Error fetching session: {str(e)}")
+        raise session_exceptions.SessionError("Failed to fetch session")
+    # Check if session is expired
+    session_expires_at = session.get("session_expires_at")
+    if session_expires_at < datetime.now(timezone.utc):
+        raise session_exceptions.SessionExpiredError(f"Session {session_id} is expired")
+    return session
 
+async def get_user_from_session(
+    session_repository,
+    user_repository,
+    session_id: str,
+    ip_address: str,
+    user_agent: str
+) -> Dict[str, Any]:
+    """Get user information from a session ID"""
+    try:
+        # First validate the session
+        session = await validate_session_credentials(session_repository, session_id, ip_address, user_agent)
+        # Get the user ID from the session
+        user_id = session.get("user_id")
+        
+        if not user_id:
+            logger.warning(f"Session {session_id} has no user_id")
+            raise session_exceptions.SessionUserNotFoundError( "Session has no user_id")
+
+        # Get the user from the repository
+        user = await user_repository.get_by_id(user_id)
+        
+        if not user:
+            logger.warning(f"User not found for session {session_id}")
+            raise session_exceptions.UserSessionNotFoundError("Session has no user_id")
+        return user
+    except session_exceptions.SessionError:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting user from session: {str(e)}")
+        raise session_exceptions.SessionNotFoundError("Failed to get user from session")
+    
 async def delete_session(repository: SessionRepository, ip_address: str, user_id: UUID, session_id: UUID):
     """
     Deletes a session by its ID.
@@ -66,18 +114,6 @@ async def insert_session(repository: SessionRepository, new_session : CreateSess
         logger.error(f"Failed to insert session: {new_session.session_id}")
         return None
 
-async def get_active_session(repository: SessionRepository, user_id: UUID):
-    result = await repository.get(user_id)
-    if result:
-        return ApiResponse(
-            status="success",
-            data=result
-        )
-    else:
-        return ApiResponse(
-            status="error",
-            message="No active session found for the user."
-        )
 
 async def rotate_session_token(repository: SessionRepository
                                , session_id: UUID
@@ -112,14 +148,6 @@ async def create_new_session(repository: SessionRepository, user: UserInDB, ip_a
     session_id, _ = await insert_session(repository, new_session)
     return {'session_id': session_id, 'refresh_token': refresh_token}
 
-async def validate_session_credentials(repository: SessionRepository, session_id: UUID, ip_address: str, user_agent: str) -> ApiResponse:
-    result = await repository.validate_session_credentials(session_id, ip_address, user_agent)
-    return ApiResponse(
-        status="success",
-        data=result
-    ) if result else ApiResponse(
-        status="error",
-        message="Invalid session credentials")
 
 async def validate_token_and_get_session_id(
         repository: SessionRepository

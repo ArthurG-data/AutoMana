@@ -21,8 +21,12 @@ logging.basicConfig(
     ]
 )
 
+logging.getLogger("uvicorn").setLevel(logging.WARNING)
+logging.getLogger("fastapi").setLevel(logging.WARNING)
+
+# For your own loggers
+logging.getLogger("backend").setLevel(logging.INFO)  # Or even logging.WARNING
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG) 
 
 logger.debug("Logger initialized")
 
@@ -145,9 +149,9 @@ app = FastAPI(
 )
 
 from backend.api.auth import authentification_router
+from backend.api.public.users import router as user_router
 app.include_router(authentification_router)
-
-app.include_router
+app.include_router(user_router)
 origins =[
     'http://localhost',
     'http://localhost:8080'

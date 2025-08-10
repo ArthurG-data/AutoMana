@@ -30,9 +30,7 @@ class UserUpdatePublic(BaseModel):
     username: str | None=None
     email: str | None=None
     fullname:str | None=None
-    hashed_password: str | None=None
  
-
 class UserUpdateAdmin(BaseModel):
     disabled : bool | None=None
 

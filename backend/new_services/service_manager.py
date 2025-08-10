@@ -10,10 +10,7 @@ from backend.request_handling.QueryExecutor import QueryExecutor
 logger = logging.getLogger(__name__)
 
 class ServiceManager:
-    """
-    Simplified service manager that handles service discovery, repository creation, and execution.
-    Consolidates functionality from ApiHandler and ServiceFactory into a single, simpler class.
-    """
+    """Singleton class to manage services and their dependencies"""
     _instance = None
     
     def __new__(cls, *args, **kwargs):
@@ -43,6 +40,16 @@ class ServiceManager:
                 "function": "logout",
                 "repositories": ["session"]
             },
+            "auth.auth.register": {
+                "module": "backend.new_services.user_management.user_service",
+                "function": "register",
+                "repositories": ["user"]
+            },
+            "user_management.user.update": {
+                "module": "backend.new_services.user_management.user_service",
+                "function": "update",
+                "repositories": ["user"]
+            },
             "auth.session.login": {  # Added for compatibility with existing code
                 "module": "backend.new_services.auth.auth_service",
                 "function": "login",
@@ -52,6 +59,11 @@ class ServiceManager:
                 "module": "backend.new_services.auth.session_service",
                 "function": "validate_session",
                 "repositories": ["session"]
+            },
+            "auth.session.get_user_from_session": {
+                "module": "backend.new_services.auth.session_service",
+                "function": "get_user_from_session",
+                "repositories": [ "session", "user"]
             },
             # Shop Meta services
             "shop_meta.market.get_all": {
@@ -166,6 +178,7 @@ class ServiceManager:
                 "function": "authenticate",
                 "repositories": ["app"]
             },
+            
             # Add more services as needed
         }
         
