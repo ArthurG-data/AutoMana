@@ -134,38 +134,38 @@ class ServiceManager:
             },
             "card_catalog.set.get_all": {
                 "module": "backend.new_services.card_catalog.set_service",
-                "function": "get_all_sets",
+                "function": "get_all",
                 "repositories": ["set"]
             },
             "card_catalog.collection.add": {
                 "module": "backend.new_services.card_catalog.collection_service",
                 "function": "add_collection",
-                "repositories": ["collection", "card"]
+                "repositories": ["user_collection"]
             },
             "card_catalog.collection.get": {
                 "module": "backend.new_services.card_catalog.collection_service",
                 "function": "get_collection",
-                "repositories": ["collection", "card"]
+                "repositories": ["user_collection"]
             },
             "card_catalog.collection.get_many": {
                 "module": "backend.new_services.card_catalog.collection_service",
                 "function": "get_many_collections",
-                "repositories": ["collection", "card"]
+                "repositories": ["user_collection", "card"]
             },
             "card_catalog.collection.update": {
                 "module": "backend.new_services.card_catalog.collection_service",
                 "function": "update_collection",
-                "repositories": ["collection", "card"]
+                "repositories": ["user_collection"]
             },
             "card_catalog.collection.delete": {
                 "module": "backend.new_services.card_catalog.collection_service",
                 "function": "delete_collection",
-                "repositories": ["collection"]
+                "repositories": ["user_collection"]
             },
             "card_catalog.collection.delete_entry": {
                 "module": "backend.new_services.card_catalog.collection_service",
                 "function": "delete_entry",
-                "repositories": ["collection"]
+                "repositories": ["user_collection"]
             },
             "card_catalog.collection.get_entry": {
                 "module": "backend.new_services.card_catalog.collection_service",

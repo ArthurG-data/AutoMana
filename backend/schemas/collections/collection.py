@@ -10,7 +10,9 @@ class PublicCollection(BaseModel):
     username : str = Field(
         title='The collection owner',
     )
-    
+    description : str=Field(
+        title='The description of the collection'
+    )
     collection_name : str=Field(
         title='The name of the collection'
     )
@@ -24,17 +26,20 @@ class CreateCollection(BaseModel):
         title='The name of the collection',
         max_length=20
     )
-    user_id : UUID = Field(
-        title='The secret user id'
+    description : str=Field(
+        title='The description of the collection',
+        max_length=100
     )
-   
+
 class CollectionInDB(BaseModel):
-    collection_id : str=Field(
-        title='The unique secret collection id',
-        default_factory=uuid4
+    collection_id : UUID=Field(
+        title='The unique secret collection id'
     )
     collection_name : str=Field(
         title='The name of the collection'
+    )
+    description : str=Field(
+        title='The description of the collection'
     )
     user_id : str=Field(
         title='The secret user id'
@@ -51,7 +56,10 @@ class UpdateCollection(BaseModel):
         default=None, 
         max_length=20
     )
-    user_id : UUID
+    description : str | None=Field(
+        default=None, 
+        max_length=100
+    )
     is_active : bool | None=None
 
 class Conditions(Enum):

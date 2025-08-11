@@ -85,7 +85,8 @@ class AsyncQueryExecutor(QueryExecutor):
     
     async def execute_command(self, connection: asyncpg.Connection, query: str, params: Tuple[Any, ...] = ()) -> None:
         try:
-            await connection.execute(query, *params)
+            record = await connection.execute(query, *params)
+            return record
         except Exception as e:
             self.handle_error.handle(e)
             raise

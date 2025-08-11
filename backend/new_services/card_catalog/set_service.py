@@ -2,12 +2,13 @@ from typing import List,  Optional
 from uuid import UUID
 from backend.repositories.card_catalog.set_repository import SetReferenceRepository
 from backend.schemas.card_catalog.set import  SetInDB, NewSet, UpdatedSet, NewSets
-from backend.exceptions.card_catalogue import set_exception
+from backend.exceptions.service_layer_exceptions.card_catalogue import set_exception
 from backend.shared.utils import decode_json_input
 
-async def get(repository: SetReferenceRepository, set_id: UUID) -> SetInDB:
+async def get(set_repository: SetReferenceRepository
+              , set_id: UUID) -> SetInDB:
     try:
-        result = await repository.get(set_id)
+        result = await set_repository.get(set_id)
         if not result:
             raise set_exception.SetNotFoundError(f"Set with ID {set_id} not found")
         return SetInDB.model_validate(result)
@@ -16,9 +17,13 @@ async def get(repository: SetReferenceRepository, set_id: UUID) -> SetInDB:
     except Exception as e:
         raise set_exception.SetRetrievalError(f"Failed to retrieve set: {str(e)}")
 
-async def get_all(repository: SetReferenceRepository, limit : Optional[int]=None, offset : Optional[int]=None) ->  List[SetInDB]:
+async def get_all(set_repository: SetReferenceRepository
+                  ,limit: Optional[int] = None
+                  ,offset: Optional[int] = None
+                  ,ids: Optional[List[UUID]] = None
+                  ) -> List[SetInDB]:
     try:
-        results = await repository.list(limit=limit, offset=offset)
+        results = await set_repository.list(limit=limit, offset=offset, ids=ids)
         if not results:
             raise set_exception.SetNotFoundError("No sets found")
         return [SetInDB.model_validate(result) for result in results]
@@ -27,22 +32,11 @@ async def get_all(repository: SetReferenceRepository, limit : Optional[int]=None
     except Exception as e:
         raise set_exception.SetRetrievalError(f"Failed to retrieve sets: {str(e)}")
 
-async def get_many(repository: SetReferenceRepository, ids: List[UUID],limit : Optional[int]=None, offset : Optional[int]=None) -> List[SetInDB]:
-    try:
-        results = await repository.list(limit=limit, offset=offset, ids=ids)
-        if not results:
-            raise set_exception.SetNotFoundError("No sets found for the provided IDs")
-        return [SetInDB.model_validate(result) for result in results]
-    except set_exception.SetNotFoundError:
-        raise
-    except Exception as e:
-        raise set_exception.SetRetrievalError(f"Failed to retrieve sets: {str(e)}")
-
-async def add_set(repository: SetReferenceRepository, new_set : NewSet)-> SetInDB:
+async def add_set(set_repository: SetReferenceRepository, new_set: NewSet) -> SetInDB:
     data = new_set.create_values()
     #values = tuple(v for _, v in data.items())
     try:
-        result = await repository.add(data)
+        result = await set_repository.add(data)
         if not result:
             raise set_exception.SetCreationError("Failed to create set")
         return SetInDB .model_validate(result)
@@ -50,11 +44,11 @@ async def add_set(repository: SetReferenceRepository, new_set : NewSet)-> SetInD
         raise
     
 
-async def add_sets_bulk(repository: SetReferenceRepository, new_sets : NewSets) -> List[SetInDB]:
+async def add_sets_bulk(set_repository: SetReferenceRepository, new_sets: NewSets) -> List[SetInDB]:
     """ Adds multiple sets to the database in a single transaction."""
     data = [set.create_values() for set in new_sets]
     try:
-        results = await repository.add_many(data)
+        results = await set_repository.add_many(data)
         if not results or len(results) == 0:
             raise set_exception.SetCreationError("Failed to create sets")
         return [SetInDB.model_validate(result) for result in results]
@@ -63,13 +57,13 @@ async def add_sets_bulk(repository: SetReferenceRepository, new_sets : NewSets) 
     except Exception as e:
         raise set_exception.SetCreationError(f"Failed to create sets: {str(e)}")
 
-async def put_set(repository: SetReferenceRepository, set_id : UUID, update_set : UpdatedSet):
+async def put_set(set_repository: SetReferenceRepository, set_id: UUID, update_set: UpdatedSet):
     try:
-        not_nul = {k : v for k,v in update_set.model_dump().items() if v != None}
+        not_nul = {k: v for k, v in update_set.model_dump().items() if v is not None}
         if not_nul == {}:
             raise set_exception.SetUpdateError("No fields to update")
 
-        result = await repository.update(set_id, not_nul)
+        result = await set_repository.update(set_id, not_nul)
         if not result:
             raise set_exception.SetNotFoundError(f"Failed to update set with ID {set_id}")
         return SetInDB.model_validate(result)

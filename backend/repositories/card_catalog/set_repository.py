@@ -140,12 +140,12 @@ class SetReferenceRepository(AbstractRepository[Any]):
     async def list(self, limit: int = 100, offset: int = 0, ids: Optional[Sequence[UUID]] = None):
         query = "SELECT * FROM joined_set_materialized"
         counter = 1
-        values = (limit, offset)
+        values = []
         if ids:
             query += f" WHERE set_id = ANY(${counter})"
             counter +=1
-            values = ((ids, ), limit, offset)
+            values.append(list(ids))
         query += f" LIMIT ${counter} OFFSET ${counter + 1}"
-        values = (limit, offset)
+        values.extend([limit, offset])
         logger.debug(f"Executing query: {query} with values: {values}")
-        return await self.execute_query(query, values)
+        return await self.execute_query(query, tuple(values))
