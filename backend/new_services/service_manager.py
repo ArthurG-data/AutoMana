@@ -109,12 +109,22 @@ class ServiceManager:
             # Card Catalog services
             "card_catalog.card.search": {
                 "module": "backend.new_services.card_catalog.card_service",
-                "function": "search_cards",
+                "function": "get",
                 "repositories": ["card"]
             },
-            "card_catalog.card.create": {
+            "card_catalog.card.search_many": {
                 "module": "backend.new_services.card_catalog.card_service",
-                "function": "create_card",
+                "function": "get_all",
+                "repositories": ["card"]
+            },
+            "card_catalog.card.add": {
+                "module": "backend.new_services.card_catalog.card_service",
+                "function": "add",
+                "repositories": ["card"]
+            },
+            "card_catalog.card.add_many": {
+                "module": "backend.new_services.card_catalog.card_service",
+                "function": "add_many",
                 "repositories": ["card"]
             },
             "card_catalog.card.delete": {

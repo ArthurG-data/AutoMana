@@ -16,7 +16,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
         return "CardRepository"
     
     async def add(self, value : CreateCard):
-       await self.execute_command(queries.insert_full_card_query, (value,))
+       await self.execute_command(queries.insert_full_card_query, value)
 
     async def add_many(self, values : CreateCards ):
         await self.execute_command(queries.insert_full_card_query, values)
@@ -40,7 +40,8 @@ class CardReferenceRepository(AbstractRepository[Any]):
                 JOIN sets s ON cv.set_id = s.set_id 
                 WHERE cv.card_version_id = $1;"""
 
-        return await self.execute_query(query, (card_id,))
+        result = await self.execute_query(query, (card_id,))
+        return result[0] if result else None
 
     async def list(self, card_ids: Optional[Sequence[UUID]] = None, limit: int = 100, offset: int = 0) -> ApiResponse:
         """List all card references"""

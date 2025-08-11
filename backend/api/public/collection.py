@@ -125,6 +125,7 @@ async def change_collection(
     return await service_manager.execute_service(
         "card_catalog.collection.update",  collection_id=collection_id, updated_collection=updated_collection, user=current_user)
 
+#########################to complete#######################
 @router.delete('{collection_id}/{entry_id}')
 async def delete_entry(
     collection_id: str, 
