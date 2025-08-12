@@ -32,14 +32,16 @@ async def get_all(set_repository: SetReferenceRepository
     except Exception as e:
         raise set_exception.SetRetrievalError(f"Failed to retrieve sets: {str(e)}")
 
-async def add_set(set_repository: SetReferenceRepository, new_set: NewSet) -> SetInDB:
+async def add_set(set_repository: SetReferenceRepository
+                  , new_set: NewSet
+                  ) -> bool:
     data = new_set.create_values()
     #values = tuple(v for _, v in data.items())
     try:
-        result = await set_repository.add(data)
+        result = await set_repository.add(*data)
         if not result:
             raise set_exception.SetCreationError("Failed to create set")
-        return SetInDB .model_validate(result)
+        return True if result == 1 else False
     except set_exception.SetCreationError:
         raise
     
@@ -72,6 +74,17 @@ async def put_set(set_repository: SetReferenceRepository, set_id: UUID, update_s
     except Exception as e:
         raise set_exception.SetUpdateError(f"Failed to update set: {str(e)}")
 
+async def delete_set(set_repository: SetReferenceRepository
+                     , set_id: UUID) -> bool:
+    try:
+        result = await set_repository.delete(set_id)
+        if not result:
+            raise set_exception.SetNotFoundError(f"Failed to delete set with ID {set_id}")
+        return True
+    except set_exception.SetNotFoundError:
+        raise
+    except Exception as e:
+        raise set_exception.SetDeletionError(f"Failed to delete set: {str(e)}")
 
 async def get_parsed_set(file_content : bytes)-> NewSets:
     """Dependency that parses sets from an uploaded JSON file."""

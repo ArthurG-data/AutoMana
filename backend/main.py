@@ -150,9 +150,11 @@ app = FastAPI(
 
 from backend.api.auth import authentification_router
 from backend.api.public import api_router
+from backend.api.internal import internal_router
 
 app.include_router(authentification_router)
 app.include_router(api_router)
+app.include_router(internal_router)
 origins =[
     'http://localhost',
     'http://localhost:8080'

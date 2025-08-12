@@ -15,20 +15,38 @@ class SetReferenceRepository(AbstractRepository[Any]):
     def name(self) -> str:
         return "SetReferenceRepository"
 
-    async def add(self, id: UUID, set_name: str, set_code: str, set_type: str, released_at: str, digital: bool, nonfoil_only: bool = False, foil_only: bool = False, parent_set: Optional[str] = None) -> dict:
-        query = "SELECT insert_joined_set (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+    async def add(self
+                  , id: UUID
+                  , set_name: str
+                  , set_code: str
+                  , set_type: str
+                  , released_at: str
+                  , digital: bool
+                  , nonfoil_only: bool = False
+                  , foil_only: bool = False
+                  , parent_set: Optional[str] = None) -> dict:
+        query = "SELECT insert_joined_set ($1, $2, $3, $4, $5, $6, $7, $8, $9)"
         values = (id, set_name, set_code, set_type, released_at, digital, nonfoil_only, foil_only, parent_set)
         return await self.execute_command(query, values)
         
 
-    async def add_many(self, values: Sequence[tuple[UUID, str, str, str, str, bool, bool, bool, Optional[str]]]) -> list[dict]:
-        query = "SELECT insert_joined_set (%s, %s, %s, %s, %s, %s, %s, %s, %s)"
+    async def add_many(self
+                       , values: Sequence[tuple[UUID, str, str, str, str, bool, bool, bool, Optional[str]]]
+                       ) -> list[dict]:
+        query = "SELECT insert_joined_set ($1, $2, $3, $4, $5, $6, $7, $8, $9)"
         return await self.execute_command(query, values)
        
 
     async def delete(self, set_id: UUID):
-        
-        raise NotImplementedError("Bulk insert not implemented for SetReferenceRepository")
+        query = """
+        UPDATE sets 
+        SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP 
+        WHERE set_id = $1 AND is_active = TRUE
+        RETURNING set_id
+    """
+        values = (set_id,)
+        result = await self.execute_command(query, values)
+        return bool(result)
 
     async def update(self, set_id: UUID, **kwargs):
         updates = {k: v for k, v in kwargs.items() if v is not None}
@@ -134,8 +152,11 @@ class SetReferenceRepository(AbstractRepository[Any]):
             raise
 
     async def get(self, set_id: UUID) -> ApiResponse:
-        query = create_select_query('joined_set_materialized', conditions=["set_id = $1"])
-        return await self.execute_query(query, set_id)
+        query = """ 
+                SELECT * FROM joined_set_materialized WHERE set_id = $1
+        """
+        result =  await self.execute_query(query, set_id)
+        return result[0] if result else None
     
     async def list(self, limit: int = 100, offset: int = 0, ids: Optional[Sequence[UUID]] = None):
         query = "SELECT * FROM joined_set_materialized"

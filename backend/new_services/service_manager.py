@@ -109,12 +109,12 @@ class ServiceManager:
             # Card Catalog services
             "card_catalog.card.search": {
                 "module": "backend.new_services.card_catalog.card_service",
-                "function": "get",
+                "function": "search_card",
                 "repositories": ["card"]
             },
             "card_catalog.card.search_many": {
                 "module": "backend.new_services.card_catalog.card_service",
-                "function": "get_all",
+                "function": "search_cards",
                 "repositories": ["card"]
             },
             "card_catalog.card.add": {
@@ -132,6 +132,16 @@ class ServiceManager:
                 "function": "delete_card",
                 "repositories": ["card"]
             },
+            "card_catalog.set.add" : {
+                "module": "backend.new_services.card_catalog.set_service",
+                "function": "add_set",
+                "repositories": ["set"]
+            },
+            "card_catalog.set.create_bulk": {
+                "module": "backend.new_services.card_catalog.set_service",
+                "function": "add_sets_bulk",
+                "repositories": ["set"]
+            },
             "card_catalog.set.get": {
                 "module": "backend.new_services.card_catalog.set_service",
                 "function": "get_set",
@@ -142,9 +152,9 @@ class ServiceManager:
                 "function": "list_sets",
                 "repositories": ["set"]
             },
-            "card_catalog.set.get_all": {
+            "card_catalog.set.delete":{
                 "module": "backend.new_services.card_catalog.set_service",
-                "function": "get_all",
+                "function": "delete_set",
                 "repositories": ["set"]
             },
             "card_catalog.collection.add": {
