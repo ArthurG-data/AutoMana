@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS users (
 	email VARCHAR(50) NOT NULL UNIQUE,
     fullname VARCHAR(50),
     created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now(),
     hashed_password TEXT,
     disabled BOOLEAN DEFAULT FALSE,
     changed_by UUID REFERENCES users(unique_id) ON DELETE CASCADE --for keeping track of who made the change, should be null exept durinf update
@@ -24,6 +25,8 @@ CREATE TABLE IF NOT EXISTS user_roles (
     user_id UUID REFERENCES users(unique_id) ON DELETE CASCADE NOT NULL,
     role_id UUID REFERENCES roles(unique_id) ON DELETE CASCADE NOT NULL, 
     assigned_at TIMESTAMPTZ DEFAULT now(),
+    expires_at TIMESTAMPTZ,
+    effective_from TIMESTAMPTZ DEFAULT now(),
     UNIQUE (user_id, role_id)
 );
 
@@ -158,7 +161,6 @@ $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION inactivate_session(
 	p_session_id UUID,
-    p_user_id UUID,
     p_ip_address TEXT
 )
 RETURNS VOID AS $$
@@ -174,7 +176,7 @@ BEGIN --check if the session exists
 
 	UPDATE sessions SET active = FALSE WHERE id = p_session_id;
 	UPDATE refresh_tokens SET revoked = TRUE WHERE session_id = p_session_id;
-    INSERT INTO session_audit_logs (session_id, action, reason, performed_by, source_ip) VALUES (p_session_id, 'desactivated', 'Session inactivated manually.',p_user_id, p_ip_address);
+    --INSERT INTO session_audit_logs (session_id, action, reason, performed_by, source_ip) VALUES (p_session_id, 'desactivated', 'Session inactivated manually.',p_user_id, p_ip_address);
 END;
 $$ LANGUAGE plpgsql;
 
@@ -262,7 +264,7 @@ BEGIN
             reason
             )
         VALUES(
-            NEW.user_id,
+            OLD.user_id,
             'role removed',
              (SELECT role FROM roles WHERE unique_id = OLD.role_id),
             OLD.role_id,
