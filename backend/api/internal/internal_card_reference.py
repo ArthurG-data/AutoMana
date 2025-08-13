@@ -1,15 +1,12 @@
 import os, shutil
 from fastapi import APIRouter
-from backend.modules.internal.cards import services as cards_services
-
 from fastapi import APIRouter, Depends, UploadFile, File, BackgroundTasks
 from backend.database.get_database import cursorDep
 from typing import List
-from backend.modules.internal.cards.utils import cards_from_json
-from backend.modules.internal.cards.models import CreateCard, CreateCards
+from backend.utils_new.card_catalog.data_transformer import cards_from_json
+from backend.schemas.card_catalog.card import CreateCard, CreateCards
 from psycopg2.extensions import connection
 from backend.database.database_utilis import execute_delete_query
-from backend.modules.internal.cards import services
 from backend.services_old.shop_data_ingestion.upload.card_batch_importer import process_large_cards_json
 from uuid import UUID 
 

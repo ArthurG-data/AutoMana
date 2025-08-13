@@ -15,3 +15,6 @@ class UserAlreadyExistsError(UserError):
 class UserCreationError(UserError):
     """Exception raised when user creation fails"""
     pass
+class UserSearchError(UserError):
+    """Exception raised when user search fails"""
+    pass

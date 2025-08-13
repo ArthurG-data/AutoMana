@@ -50,6 +50,26 @@ class ServiceManager:
                 "function": "update",
                 "repositories": ["user"]
             },
+            "user_management.user.search_users": {
+                "module": "backend.new_services.user_management.user_service",
+                "function": "search_users",
+                "repositories": ["user"]
+            },
+            "user_management.user.delete_user": {
+                "module": "backend.new_services.user_management.user_service",
+                "function": "delete_user",
+                "repositories": ["user"]
+            },
+            "user_management.user.assign_role" : {
+                "module": "backend.new_services.user_management.role_service",
+                "function": "assign_role",
+                "repositories": ["role"]
+            },
+            "user_management.user.revoke_role": {
+                "module": "backend.new_services.user_management.role_service",
+                "function": "revoke_role",
+                "repositories": ["role"]
+            },
             "auth.session.login": {  # Added for compatibility with existing code
                 "module": "backend.new_services.auth.auth_service",
                 "function": "login",
@@ -210,7 +230,7 @@ class ServiceManager:
             
             # User Management repositories
             "user": ("backend.repositories.user_management.user_repository", "UserRepository"),
-            "role": ("backend.repositories.user.role_repository", "RoleRepository"),
+            "role": ("backend.repositories.user_management.role_repository", "RoleRepository"),
 
             # Shop Meta repositories
             "market": ("backend.repositories.shop_meta.market_repository", "MarketRepository"),

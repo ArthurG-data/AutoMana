@@ -25,6 +25,7 @@ class UserInDB(BaseUser):
     default=False, title='Is the user account still active'
 )
     created_at : Optional[datetime]=None
+    updated_at : Optional[datetime]=None
    
 class UserUpdatePublic(BaseModel):
     username: str | None=None

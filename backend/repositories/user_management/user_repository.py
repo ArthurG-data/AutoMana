@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Dict, Any
 from uuid import UUID
 from backend.repositories.AbstractRepository import AbstractRepository
 from backend.database.database_utilis import create_select_query, create_delete_query
@@ -37,7 +37,7 @@ class UserRepository(AbstractRepository):
     
     async def get_by_id(self, user_id: UUID) -> dict:
         query = """
-        SELECT * FROM users WHERE unique_id = $1;
+        SELECT * FROM users WHERE unique_id = $1 AND disabled = FALSE;
         """
         result = await self.execute_query(query, (user_id,))
         return result[0] if result else None
@@ -59,16 +59,106 @@ class UserRepository(AbstractRepository):
 
         return await self.execute_query(query, values)
 
+    async def search_users(
+            self,
+            username: Optional[str] = None,
+            email: Optional[str] = None,
+            full_name: Optional[str] = None,
+            search_query: Optional[str] = None,
+            disabled: Optional[bool] = None,
+            #role: Optional[str] = None,
+            created_after: Optional[str] = None,
+            created_before: Optional[str] = None,
+            limit: int = 20,
+            offset: int = 0,
+            sort_by: str = "username",
+            sort_order: str = "asc"
+    )-> Dict[str, Any]:
+        # Build WHERE conditions
+        conditions = []
+        values = []
+        counter = 1
+        
+        if username:
+            conditions.append(f"username ILIKE ${counter}")
+            values.append(f"%{username}%")
+            counter += 1
+        
+        if email:
+            conditions.append(f"email ILIKE ${counter}")
+            values.append(f"%{email}%")
+            counter += 1
+        
+        if full_name:
+            conditions.append(f"fullname ILIKE ${counter}")
+            values.append(f"%{full_name}%")
+            counter += 1
+        
+        if search_query:
+            conditions.append(f"(username ILIKE ${counter} OR fullname ILIKE ${counter})")
+            values.append(f"%{search_query}%")
+            counter += 1
+        
+        if disabled is not None:
+            conditions.append(f"disabled = ${counter}")
+            values.append(disabled)
+            counter += 1
+        
+        # Add date filters if provided
+        if created_after:
+            conditions.append(f"created_at >= ${counter}")
+            values.append(created_after)
+            counter += 1
+        
+        if created_before:
+            conditions.append(f"created_at <= ${counter}")
+            values.append(created_before)
+            counter += 1
+        
+        # Build WHERE clause
+        where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
+        
+        # Build ORDER BY clause
+        order_clause = f"ORDER BY {sort_by} {sort_order.upper()}"
+        
+        # Get users
+        query = f"""
+            SELECT unique_id, username, email, hashed_password, fullname, disabled, created_at, updated_at
+            FROM users 
+            {where_clause}
+            {order_clause}
+            LIMIT ${counter} OFFSET ${counter + 1}
+        """
+        values.extend([limit, offset])
+        
+        users = await self.execute_query(query, tuple(values))
+        
+        # Get total count
+        count_query = f"""
+            SELECT COUNT(*) as total_count 
+            FROM users 
+            {where_clause}
+        """
+        count_values = values[:-2]  # Remove limit and offset
+        count_result = await self.execute_query(count_query, tuple(count_values))
+        total_count = count_result[0]["total_count"] if count_result else 0
+        
+        return {
+            "users": users,
+            "total_count": total_count
+        }
+
     async def delete(self, user_id: UUID):
         query = """
-        DELETE FROM users WHERE unique_id = $1;
+        UPDATE users SET deleted_at = NOW(), disabled = TRUE WHERE unique_id = $1;
         """
-        await self.execute_command(query, user_id)
+        result = self.execute_command(query, (user_id,))
+        return result
 
-    async def delete_many(self, usernames: list[str]):
+    async def delete_many(self, user_ids: list[UUID]):
         # Implementation of delete_users method
-        query = create_delete_query('users', ['username = ANY($1)'])
-        await self.execute_command(query, usernames)
+        query = create_delete_query('users', ['unique_id = ANY($1)'])
+        await self.execute_command(query, user_ids)
 
     async def update(self, user_id: UUID, username: Optional[str], email: Optional[str], fullname: Optional[str]):
         query = "UPDATE users SET"

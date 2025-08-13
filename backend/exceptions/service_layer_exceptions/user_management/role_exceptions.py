@@ -18,3 +18,8 @@ class PermissionNotFoundError(ServiceError):
     """Exception raised when a permission is not found."""
     def __init__(self, message: str):
         super().__init__(message)
+
+class RoleRevocationError(ServiceError):
+    """Exception raised when role revocation fails."""
+    def __init__(self, message: str):
+        super().__init__(message)
