@@ -104,6 +104,12 @@ CREATE OR REPLACE VIEW active_sessions_view AS
     JOIN users u ON u.unique_id = s.user_id
     WHERE s.active = TRUE AND revoked = FALSE AND s.expires_at > now() AND used = FALSE;
 
+CREATE OR REPLACE VIEW sessions_view AS
+    SELECT u.unique_id AS user_id, u.username, s.created_at, s.expires_at AS session_expires_at, s.ip_address, s.user_agent, rt.refresh_token, rt.refresh_token_expires_at, rt.token_id, s.id AS session_id
+    FROM sessions s
+    JOIN refresh_tokens rt ON rt.session_id = s.id
+    JOIN users u ON u.unique_id = s.user_id;
+
 CREATE OR REPLACE VIEW user_roles_permission_view AS
 SELECT 
     s.unique_id,

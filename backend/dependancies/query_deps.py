@@ -46,7 +46,23 @@ async def date_range_params(
     """Date range filtering parameters"""
     return DateRangeParams(created_after=created_after, created_before=created_before)
 
-# User-specific search parameters
+async def session_search_params(
+       username: Optional[str] = Query(None, description="Search by username"),
+       user_id: Optional[UUID] = Query(None, description="Filter by user ID"),
+       session_id : Optional[UUID] = Query(None, description="Filter by session ID"),
+       ip_address: Optional[str] = Query(None, description="Filter by IP address"),
+       user_agent: Optional[str] = Query(None, description="Filter by user agent"),
+       token_id: Optional[UUID] = Query(None, description="Filter by token ID")
+   ):
+       return {
+           "username": username,
+           "user_id": user_id,
+           "session_id": session_id,
+           "ip_address": ip_address,
+           "user_agent": user_agent,
+           "token_id": token_id
+       }
+
 async def user_search_params(
     username: Optional[str] = Query(None, description="Search by username"),
     email: Optional[str] = Query(None, description="Search by email (admin only)"),

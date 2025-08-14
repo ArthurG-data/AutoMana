@@ -67,7 +67,6 @@ async def do_login(ip_address : ipDep
         expires_in=3600
     )
    
-
 @authentification_router.post('/token/refresh', description='exanges the refresh token in a cookie for a auth token')
 async def do_read_cookie(ip_address: ipDep, 
                         response: Response, 
