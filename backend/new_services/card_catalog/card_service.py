@@ -1,6 +1,7 @@
 
 from psycopg2.extras import  Json
 from uuid import UUID
+from datetime import datetime
 from fastapi import Query
 from backend.repositories.card_catalog import card_queries as queries 
 from backend.schemas.card_catalog import card as card_schemas
@@ -9,6 +10,10 @@ from backend.repositories.card_catalog.card_repository import CardReferenceRepos
 from typing import Annotated, Sequence, Optional, List
 from backend.schemas.card_catalog.card import BaseCard
 from backend.exceptions.service_layer_exceptions.card_catalogue import card_exception
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 async def add(card_repository : CardReferenceRepository
               , value : card_schemas.CreateCard)-> BaseCard:
@@ -110,29 +115,54 @@ async def delete(card_repository : CardReferenceRepository, card_id: UUID)-> boo
     except Exception as e:
         raise card_exception.CardDeletionError(f"Failed to delete card: {str(e)}")
 
-async def get_many(card_repository: CardReferenceRepository
-                   , card_ids: Sequence[UUID]
+async def search_cards(card_repository: CardReferenceRepository
+                   , name: Optional[str] = None
+                   , color: Optional[str] = None
+                   , rarity: Optional[str] = None
+                   , card_id: Optional[UUID] = None
+                   , released_at: Optional[datetime] = None
+                   , set_name: Optional[str] = None
+                   , mana_cost: Optional[int] = None
+                   , digital: Optional[bool] = None
+                   , card_type: Optional[str] = None
+                   # Pagination
+                   , limit: int = 100
+                   , offset: int = 0
+                   , sort_by: str = "name"
+                   , sort_order: str = "asc"
                    ) -> List[BaseCard]:
+    logger.info(f"Searching for cards with: name={name}, color={color}, rarity={rarity}, card_id={card_id}, set_name={set_name}, mana_cost={mana_cost}, digital={digital}")
     try:
-        results = await card_repository.list(card_id =card_ids)
-        if not results:
-            raise card_exception.CardNotFoundError(f"No cards found for IDs {card_ids}")
-        return [BaseCard.model_validate(result) for result in results]
-    except card_exception.CardNotFoundError:
-        raise
-    except Exception as e:
-        raise card_exception.CardRetrievalError(f"Failed to retrieve cards: {str(e)}")
+        if card_id:
+            logger.info(f"Fetching card by ID: {card_id}")
+            card = card_repository.get(card_id)
+            if not card:
+                return {"users": [], "total": 0}
+            return {"users": [BaseCard.model_validate(card)]
+                    , "total": 1
+                    }
 
-async def get_all(card_repository: CardReferenceRepository,
-                ids: Optional[Sequence[UUID]] = None,
-                limit: Annotated[int, Query(le=100)] = 100,
-                offset: int = 0) -> List[BaseCard]:
-    try:
-        results = await card_repository.list( limit=limit, offset=offset)
-        if not results:
-            raise card_exception.CardNotFoundError("No cards found")
-        cards = [BaseCard.model_validate(result) for result in results]
-        return cards
+        result = await card_repository.search(name=name,
+                                               color=color,
+                                               rarity=rarity,
+                                               released_at=released_at,
+                                               set_name=set_name,
+                                               mana_cost=mana_cost,
+                                               digital=digital,
+                                               limit=limit,
+                                               offset=offset,
+                                               sort_by=sort_by,
+                                               card_type=card_type,
+                                               sort_order=sort_order)
+        if not result:
+            raise card_exception.CardNotFoundError(f"No cards found for IDs {card_id}")
+        cards = result.get("cards", [])
+        total_count = result.get("total_count", 0)
+        return  {
+            "cards": cards,
+            "total_count": total_count
+        }
+
     except card_exception.CardNotFoundError:
         raise
     except Exception as e:

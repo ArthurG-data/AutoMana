@@ -139,11 +139,6 @@ class ServiceManager:
             # Card Catalog services
             "card_catalog.card.search": {
                 "module": "backend.new_services.card_catalog.card_service",
-                "function": "search_card",
-                "repositories": ["card"]
-            },
-            "card_catalog.card.search_many": {
-                "module": "backend.new_services.card_catalog.card_service",
                 "function": "search_cards",
                 "repositories": ["card"]
             },

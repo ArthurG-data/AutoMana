@@ -1,6 +1,6 @@
 # backend/dependancies/query_deps.py
 from fastapi import Query, Depends
-from typing import Optional
+from typing import List, Optional
 from pydantic import BaseModel
 from datetime import datetime
 from uuid import UUID
@@ -85,18 +85,39 @@ async def user_search_params(
 # Card-specific search parameters
 async def card_search_params(
     name: Optional[str] = Query(None, description="Filter by card name"),
-    set_id: Optional[str] = Query(None, description="Filter by set ID"),
     set_name: Optional[str] = Query(None, description="Filter by set name"),
     card_type: Optional[str] = Query(None, description="Filter by card type"),
     rarity: Optional[str] = Query(None, description="Filter by rarity"),
-    mana_cost: Optional[int] = Query(None, ge=0, description="Filter by mana cost")
+    released_at: Optional[datetime] = Query(None, description="Filter by release date"),
+    color: Optional[str] = Query(None, description="Filter by card color"),
+    mana_cost: Optional[int] = Query(None, ge=0, description="Filter by mana cost"),
+    card_id: Optional[UUID] = Query(None, description="Filter by card ID"),
+    artist: Optional[str] = Query(None, description="Filter by artist"),
+    artist_id: Optional[UUID] = Query(None, description="Filter by artist ID"),
+    illustration_id: Optional[UUID] = Query(None, description="Filter by illustration ID"),
+    power: Optional[int] = Query(None, ge=0, description="Filter by power"),
+    toughness: Optional[int] = Query(None, ge=0, description="Filter by toughness"),
+    flavor_text: Optional[str] = Query(None, description="Filter by flavor text"),
+    card_faces: Optional[List[UUID]] = Query(None, description="Filter by card faces"),
+    digital: Optional[bool] = Query(None, description="Filter by digital status")
 ):
     """Card search parameters"""
     return {
         "name": name,
-        "set_id": set_id,
         "set_name": set_name,
         "card_type": card_type,
         "rarity": rarity,
-        "mana_cost": mana_cost
+        "released_at": released_at,
+        "mana_cost": mana_cost,
+        "color": color,
+        "card_id": card_id,
+        #"artist": artist,
+        #"artist_id": artist_id,
+        #"illustration_id": illustration_id,
+        #"power": power,
+        #"toughness": toughness,
+        #"flavor_text": flavor_text,
+        #"card_faces": card_faces,
+        "digital": digital,
+        "card_type": card_type
     }
