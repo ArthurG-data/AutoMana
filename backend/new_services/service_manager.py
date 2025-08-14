@@ -85,6 +85,16 @@ class ServiceManager:
                 "function": "get_user_from_session",
                 "repositories": [ "session", "user"]
             },
+            "auth.session.read": {
+                "module": "backend.new_services.auth.session_service",
+                "function": "read_session",
+                "repositories": ["session"]
+            },
+            "auth.session.delete": {
+                "module": "backend.new_services.auth.session_service",
+                "function": "delete_session",
+                "repositories": ["session"]
+            },
             # Shop Meta services
             "shop_meta.market.get_all": {
                 "module": "backend.new_services.shop_data_ingestion.market_service",

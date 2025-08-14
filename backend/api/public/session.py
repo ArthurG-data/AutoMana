@@ -1,11 +1,10 @@
-from fastapi import APIRouter, Request, Depends, Response, HTTPException
-from typing import List
-from backend.dependancies import ipDep
-from backend.schemas.user_management.user import AdminReturnSession
+from fastapi import APIRouter, Depends,  HTTPException, status
 from uuid import UUID
 #from backend.utilis import extract_ip
 from backend.dependancies.service_deps import get_service_manager, get_current_active_user
+from backend.dependancies.general import ipDep
 from backend.new_services.service_manager import ServiceManager
+from backend.request_handling.StandardisedQueryResponse import ApiResponse, PaginatedResponse,PaginationInfo
 
 from backend.dependancies.query_deps import (
     session_search_params,
@@ -22,7 +21,7 @@ session_router = APIRouter(
     tags=['sessions']
 )
 
-@session_router.get('/', response_model=List[AdminReturnSession])
+@session_router.get('/', response_model=PaginatedResponse,status_code=status.HTTP_200_OK)
 async def get_sessions(
                        search_params: dict = Depends(session_search_params),
                        pagination: PaginationParams = Depends(pagination_params),
@@ -31,22 +30,60 @@ async def get_sessions(
                        service_manager: ServiceManager = Depends(get_service_manager)
                        ):
     try:
-        return await service_manager.execute_service(
+        results = await service_manager.execute_service(
             "auth.session.search_sessions",
             search_params=search_params,
             pagination=pagination,
             sorting=sorting,
             date_range=date_range
         )
+        if results:
+            return PaginatedResponse(data=results
+                                     , message="Sessions retrieved successfully"
+                                     , pagination_info=PaginationInfo(
+                                         limit=pagination.limit,
+                                         offset=pagination.offset,
+                                         total_count=len(results),
+                                         has_next=len(results) == pagination.limit,
+                                         has_previous=pagination.offset > 0
+                                     ))
+        else:
+            raise HTTPException(status_code=404, detail="No sessions found")
     except HTTPException:
         raise
     except Exception: 
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
-@session_router.get('/{session_id}/', response_model= AdminReturnSession)
-async def get_sessions(conn: cursorDep, session_id : UUID):
-    return await admin_sessions_services.get_sessions(conn, session_id)
+@session_router.get('/{session_id}/', response_model= ApiResponse)
+async def get_sessions(session_id : UUID
+                       , service_manager: ServiceManager = Depends(get_service_manager)):
+    try:
+        result =  await service_manager.execute_service(
+            "auth.session.read",
+            session_id=session_id
+        )
+        if not result:
+            return ApiResponse(data=result, message="Session not found")
+        return ApiResponse(data=result, message="Session retrieved successfully")
+    except HTTPException:
+        raise 
+    except Exception:
+        raise
 
-@session_router.delete('/{session_id}/desactivate')
-async def delete_session(conn : cursorDep, ip_address : ipDep, current_user : currentActiveUser, request : Request, session_id : UUID):
-    await admin_sessions_services.delete_session(conn, ip_address, current_user, request, session_id)
+
+@session_router.delete('/{session_id}/desactivate', status_code=status.HTTP_204_NO_CONTENT)
+async def delete_session( ip_address : ipDep
+                         , session_id : UUID
+                         , current_user = Depends(get_current_active_user)
+                         ,service_manager: ServiceManager = Depends(get_service_manager)):
+    try:
+        await service_manager.execute_service(
+            "auth.session.delete",
+            session_id=session_id,
+            ip_address=ip_address,
+            user=current_user
+        )
+    except HTTPException:
+        raise
+    except Exception:
+        raise

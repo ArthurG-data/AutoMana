@@ -71,8 +71,11 @@ async def get_user_from_session(
     except Exception as e:
         logger.error(f"Error getting user from session: {str(e)}")
         raise session_exceptions.SessionNotFoundError("Failed to get user from session")
-    
-async def delete_session(repository: SessionRepository, ip_address: str, user_id: UUID, session_id: UUID):
+
+async def delete_session(session_repository: SessionRepository
+                         , ip_address: str
+                         , user_id: UUID,
+                           session_id: UUID):
     """
     Deletes a session by its ID.
     
@@ -85,9 +88,9 @@ async def delete_session(repository: SessionRepository, ip_address: str, user_id
     Returns:
         bool: True if the session was deleted successfully, otherwise False.
     """
-    return await repository.delete(ip_address, user_id, session_id)
+    await session_repository.delete(ip_address, user_id, session_id)
 
-async def update_session(repository: SessionRepository, session_id: UUID, data: dict):
+async def update_session(session_repository: SessionRepository, session_id: UUID, data: dict):
     """
     Updates a session with the provided data.
     
@@ -99,13 +102,13 @@ async def update_session(repository: SessionRepository, session_id: UUID, data: 
     Returns:
         bool: True if the session was updated successfully, otherwise False.
     """
-    return await repository.update(session_id, data)
+    return await session_repository.update(session_id, data)
 
-async def insert_session(repository: SessionRepository, new_session : CreateSession):
+async def insert_session(session_repository: SessionRepository, new_session : CreateSession):
     """"Inserts a new session into the database."""
     values = (new_session.session_id, str(new_session.user_id), new_session.created_at, new_session.expires_at, new_session.ip_address, new_session.user_agent, new_session.refresh_token, new_session.refresh_token_expires_at, new_session.device_id,)
-    await repository.add(values)
-    result = await repository.get(new_session.session_id)
+    await session_repository.add(values)
+    result = await session_repository.get(new_session.session_id)
     if result:
         print(f"Session inserted successfully: {result}")
         raw_result = result[0]
@@ -115,7 +118,7 @@ async def insert_session(repository: SessionRepository, new_session : CreateSess
         return None
 
 
-async def rotate_session_token(repository: SessionRepository
+async def rotate_session_token(session_repository: SessionRepository
                                , session_id: UUID
                                , refresh_token: str
                                , expire_time: datetime
@@ -126,13 +129,13 @@ async def rotate_session_token(repository: SessionRepository
                                             , secret_key=settings.secret_key
                                             , algorithm=settings.encrypt_algorithm
                                             )
-        await repository.rotate_token(token_id
+        await session_repository.rotate_token(token_id
                                       ,session_id
                                       ,refresh_token
                                       ,expire_time)
         return {'session_id': session_id, 'refresh_token': refresh_token}
 
-async def create_new_session(repository: SessionRepository, user: UserInDB, ip_address: str, user_agent: str, expire_time: str):
+async def create_new_session(session_repository: SessionRepository, user: UserInDB, ip_address: str, user_agent: str, expire_time: str):
     session_id = uuid4()
     settings = get_general_settings()
     logger.info(f"Creating new session for user {user.username} with ID {session_id} at IP {ip_address} and user agent {user_agent}")
@@ -145,12 +148,12 @@ async def create_new_session(repository: SessionRepository, user: UserInDB, ip_a
         refresh_token_expires_at=expire_time,
         user_agent=user_agent
     )
-    session_id, _ = await insert_session(repository, new_session)
+    session_id, _ = await insert_session(session_repository, new_session)
     return {'session_id': session_id, 'refresh_token': refresh_token}
 
 
 async def validate_token_and_get_session_id(
-        repository: SessionRepository
+        session_repository: SessionRepository
         ,token: str)->UUID:
     try:
         payload = decode_access_token(token)
@@ -160,8 +163,8 @@ async def validate_token_and_get_session_id(
         session_id = payload.get('session_id')
         if not session_id:
             raise session_exceptions.InvalidTokenError("Session ID not found in token")
-        
-        session = await repository.get(UUID(session_id))
+
+        session = await session_repository.get(UUID(session_id))
         if not session:
             raise session_exceptions.SessionNotFoundError(f"Session with ID {session_id} not found")
         return UUID(session_id)
@@ -169,7 +172,10 @@ async def validate_token_and_get_session_id(
         raise session_exceptions.InvalidTokenError("Failed to validate token")
 
 
-
-
-
-
+async def read_session(session_repository: SessionRepository, session_id: UUID):
+    """Reads a session from the database."""
+    session = await session_repository.get(session_id)
+    if not session:
+        logger.error(f"Session not found: {session_id}")
+        return None
+    return session
