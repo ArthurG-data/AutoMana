@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import  Optional, Any, Sequence
 from uuid import UUID
+from dataclasses import dataclass, field
 from fastapi import Query
 
 from backend.repositories.AbstractRepository import AbstractRepository
@@ -16,11 +17,37 @@ class CardReferenceRepository(AbstractRepository[Any]):
     def name(self) -> str:
         return "CardRepository"
     
-    async def add(self, value : CreateCard):
-       await self.execute_command(queries.insert_full_card_query, value)
+    async def add(self, value : tuple) -> UUID|None:
+       row = await self.execute_command(queries.insert_full_card_query, value)
+       return row
 
-    async def add_many(self, values : CreateCards ):
-        await self.execute_command(queries.insert_full_card_query, values)
+    @dataclass(slots=True)
+    class BatchInsertResponse:
+        total_processed: int
+        successful_inserts: int
+        failed_inserts: int
+        success_rate: float = field(init=False)
+        inserted_card_ids: list[UUID]
+        errors: list[str]
+
+        def __post_init__(self)->None:
+            self.success_rate = (
+                self.successful_inserts / self.total_processed * 100
+                if self.total_processed > 0
+                else 0
+            )
+
+    async def add_many(self, values):
+        result = await self.execute_query(queries.insert_batch_card_query, (values,))
+        batch_result = result[0] if result else {}
+        response = CardReferenceRepository.BatchInsertResponse(
+            total_processed=batch_result.get('total_processed', 0),
+            successful_inserts=batch_result.get('successful_inserts', 0),
+            failed_inserts=batch_result.get('failed_inserts', 0),
+            inserted_card_ids=batch_result.get('inserted_card_ids', []),
+            errors=batch_result.get('error_details', [])
+        )
+        return response
 
     async def delete(self, card_id: UUID):
         result = await self.execute_command(queries.delete_card_query, card_id)
@@ -53,9 +80,8 @@ class CardReferenceRepository(AbstractRepository[Any]):
             mana_cost: Optional[int] = None,
             digital: Optional[bool] = None,
             card_type : Optional[str] = None,
-            released_at: Optional[datetime] = None,
-            created_after: Optional[str] = None,
-            created_before: Optional[str] = None,
+            released_after: Optional[str] = None,
+            released_before: Optional[str] = None,
             limit: int = 100,
             offset: int = 0,
             sort_by: Optional[str] = "card_name",
@@ -90,22 +116,17 @@ class CardReferenceRepository(AbstractRepository[Any]):
             values.append(digital)
             counter += 1
 
-        if released_at:
-            conditions.append(f"s.released_at = ${counter}")
-            values.append(released_at)
+        # Add date filters if provided
+        if released_after:
+            conditions.append(f"s.released_at > ${counter}")
+            values.append(released_after)
             counter += 1
 
-        # Add date filters if provided
-        if created_after:
-            conditions.append(f"created_at >= ${counter}")
-            values.append(created_after)
+        if released_before:
+            conditions.append(f"s.released_at < ${counter}")
+            values.append(released_before)
             counter += 1
-        
-        if created_before:
-            conditions.append(f"created_at <= ${counter}")
-            values.append(created_before)
-            counter += 1
-        
+
         where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
 
         order_clause = f"ORDER BY {sort_by} {sort_order.upper()}"

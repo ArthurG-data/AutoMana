@@ -1,7 +1,7 @@
-from pydantic import Field, model_validator, BaseModel, computed_field
+from operator import attrgetter
+from pydantic import Field, model_validator, BaseModel, computed_field, model_serializer
 from uuid import UUID
-from psycopg2.extras import  Json
-from typing import Optional,  List, Union
+from typing import Any, Dict, Optional,  List, Union
 from backend.utils_new.card_catalog.type_parser import process_type_line
 from backend.utils_new.card_catalog.card_face_parser import parse_card_faces
 import json
@@ -86,14 +86,104 @@ class CreateCard(BaseCard):
     textless : Optional[bool]=False
     power : Optional[int|str] = None
     lang : Optional[str]='en'
+    loyalty : Optional[int|str]=None
     promo_types : Optional[List[str]]=[]
     toughness : Optional[int|str]=[]
+    defense : Optional[int|str]=None
     variation : Optional[bool]=False
     reserved : bool=Field(default=False)
     card_faces : List[CardFace]=[],
     set_name : str=Field('MISSING_SET')
     set : str
     set_id : UUID
+
+    def prepare_for_db(self):
+        """
+        Prepare the card for database insertion by converting types and ensuring all fields are set.
+        """
+        
+        return (
+        self.name,
+        self.cmc,
+        self.mana_cost,
+        self.reserved,
+        self.oracle_text,
+        self.set_name,
+        str(self.collector_number),
+        self.rarity,
+        self.border_color,
+        self.frame,
+        self.layout,
+        self.is_promo,
+        self.is_digital,
+        json.dumps(self.card_color_identity),        # p_colors
+        self.artist,
+        self.artist_ids[0] if self.artist_ids else UUID("00000000-0000-0000-0000-000000000000"),
+        json.dumps(self.legalities),
+        self.illustration_id,
+        json.dumps(self.types),
+        json.dumps(self.supertypes),
+        json.dumps(self.subtypes),
+        json.dumps(self.games),
+        self.oversized,
+        self.booster,
+        self.full_art,
+        self.textless,
+        str(self.power) if self.power is not None else None,
+        str(self.toughness) if self.toughness is not None else None,
+        str(self.loyalty) if self.loyalty is not None else None,
+        str(self.defense) if self.defense is not None else None,
+        json.dumps(self.promo_types),
+        self.variation,
+        self.to_json_safe([f.model_dump() for f in self.card_faces]) if self.card_faces else json.dumps([])
+    )
+    def model_dump_for_sql(self) -> Dict[str, Any]:
+        """
+        Use Pydantic's built-in serialization with custom transformations
+        """
+        # Get the standard model dump
+        data = self.model_dump(
+            by_alias=True,  # Use field aliases
+            exclude_none=False,  # Keep None values for proper handling
+            mode='json'  # JSON-serializable format
+        )
+
+        return {
+            "card_name": data["card_name"],
+            "cmc": data["cmc"],
+            "mana_cost": data["mana_cost"],
+            "reserved": data["reserved"],
+            "oracle_text": data["oracle_text"] or "",
+            "set_name": data["set_name"],
+            "collector_number": str(data["collector_number"]),
+            "rarity_name": data["rarity_name"],
+            "border_color": data["border_color"],
+            "frame_year": data["frame"],
+            "layout_name": data["layout"],
+            "is_promo": data["promo"],
+            "is_digital": data["digital"],
+            "colors": data["color_identity"],
+            "artist": data["artist"],
+            "artist_id": str(data["artist_ids"][0]) if data["artist_ids"] else  "00000000-0000-0000-0000-000000000000",
+            "legalities": data["legalities"],
+            "illustration_id": str(data["illustration_id"]) if data["illustration_id"] else "00000000-0000-0000-0000-000000000001",
+            "types": data["types"],
+            "supertypes": data["supertypes"],
+            "subtypes": data["subtypes"],
+            "games": data["games"],
+            "oversized": data["oversized"] or False,
+            "booster": data["booster"] if data["booster"] is not None else True,
+            "full_art": data["full_art"] or False,
+            "textless": data["textless"] or False,
+            "power": str(data["power"]) if data["power"] is not None else None,
+            "toughness": str(data["toughness"]) if data["toughness"] is not None else None,
+            "loyalty": str(data["loyalty"]) if data["loyalty"] is not None else None,
+            "defense": str(data["defense"]) if data["defense"] is not None else None,
+            "promo_types": data["promo_types"] or [],
+            "variation": data["variation"] or False,
+            "card_faces": data["card_faces"] or []
+        }
+    
     
     @model_validator(mode='before')
     @classmethod
@@ -123,45 +213,6 @@ class CreateCard(BaseCard):
 
         return values
     
-    def prepare_for_db(self):
-        """
-        Prepare the card for database insertion by converting types and ensuring all fields are set.
-        """
-        
-        return (
-        self.name,
-        self.cmc,
-        self.mana_cost,
-        self.reserved,
-        self.oracle_text,
-        self.set_name,
-        str(self.collector_number),
-        self.rarity,
-        self.border_color,
-        self.frame,
-        self.layout,
-        self.is_promo,
-        self.is_digital,
-        Json(self.card_color_identity),        # p_colors
-        self.artist,
-        self.artist_ids[0] if self.artist_ids else UUID("00000000-0000-0000-0000-000000000000"),
-        Json(self.legalities),
-        self.illustration_id,
-        Json(self.types),
-        Json(self.supertypes),
-        Json(self.subtypes),
-        Json(self.games),
-        self.oversized,
-        self.booster,
-        self.full_art,
-        self.textless,
-        str(self.power) if self.power is not None else None,
-        str(self.toughness) if self.toughness is not None else None,
-        Json(self.promo_types),
-        self.variation,
-        self.to_json_safe([f.model_dump() for f in self.card_faces]) if self.card_faces else Json([])
-    )
-    
     @model_validator(mode='after')
     def process_type_line(cls, values):
     
@@ -186,9 +237,29 @@ class CreateCards(BaseModel):
     def __delitem__(self, index):
         del self.items[index]
     
-    def prepare_for_db(self):
+    def model_dump_for_db(self) -> List[Dict[str, Any]]:
         """
-        Prepare all cards for database insertion.
+        Alternative: Use model_dump with custom serialization
         """
-        return [card.prepare_for_db() for card in self.items]
-    
+        return [card.model_dump_for_sql() for card in self.items]
+
+    def prepare_for_db(self) -> str:
+        card_data = self.model_dump_for_db()
+        return json.dumps(card_data)
+
+    def get_batch_summary(self) -> Dict[str, Any]:
+        """
+        Get a summary of the batch for logging/debugging
+        """
+        if not self.items:
+            return {"total_cards": 0, "sets": [], "rarities": []}
+        
+        sets = list(set(card.set_name for card in self.items))
+        rarities = list(set(card.rarity for card in self.items))
+        
+        return {
+            "total_cards": len(self.items),
+            "sets": sets,
+            "rarities": rarities,
+            "sample_cards": [card.name for card in self.items[:3]]
+        }

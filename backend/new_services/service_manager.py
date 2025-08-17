@@ -142,14 +142,19 @@ class ServiceManager:
                 "function": "search_cards",
                 "repositories": ["card"]
             },
-            "card_catalog.card.add": {
+            "card_catalog.card.create": {
                 "module": "backend.new_services.card_catalog.card_service",
                 "function": "add",
                 "repositories": ["card"]
             },
-            "card_catalog.card.add_many": {
+            "card_catalog.card.create_many": {
                 "module": "backend.new_services.card_catalog.card_service",
                 "function": "add_many",
+                "repositories": ["card"]
+            },
+            "card_catalog.card.process_large_json": {
+                "module": "backend.new_services.card_catalog.card_service",
+                "function": "process_large_cards_json",
                 "repositories": ["card"]
             },
             "card_catalog.card.delete": {
