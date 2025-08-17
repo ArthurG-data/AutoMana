@@ -1,0 +1,22 @@
+from backend.exceptions.base_exception import ServiceError
+
+class EbayAuthException(ServiceError):
+    """Exception raised for errors in the eBay authentication process."""
+    pass
+
+class EbayTokenExchangeException(ServiceError):
+    """Exception raised for errors during the token exchange process with eBay."""
+    pass
+
+class EbayAppRegistrationException(ServiceError):
+    """Exception raised for errors during the eBay app registration process."""
+    pass
+class EbayAppAssignmentException(ServiceError):
+    """Exception raised for errors when assigning an eBay app to a user."""
+    pass    
+class EbayScopeAssignmentException(ServiceError):
+    """Exception raised for errors when assigning a scope to an eBay app."""
+    pass
+class EbayAppNotFoundException(ServiceError):
+    """Exception raised when an eBay app is not found."""
+    pass

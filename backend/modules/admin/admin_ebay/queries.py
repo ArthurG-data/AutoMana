@@ -1,1 +1,0 @@
-register_scope_query = "INSERT INTO scopes (scope_url, scope_description) VALUES (%s, %s) RETURNING scope_id; "
