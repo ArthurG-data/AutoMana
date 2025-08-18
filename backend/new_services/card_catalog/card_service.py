@@ -4,11 +4,9 @@ from uuid import UUID
 from datetime import datetime
 from fastapi import Query
 import ijson, asyncio
-from backend.repositories.card_catalog import card_queries as queries 
 from backend.schemas.card_catalog import card as card_schemas
-from backend.utils_new.card_catalog import data_transformer as utils
 from backend.repositories.card_catalog.card_repository import CardReferenceRepository
-from typing import Annotated, Sequence, Optional, List, Dict, Any
+from typing import  Optional, List, Dict, Any
 from backend.schemas.card_catalog.card import BaseCard
 from backend.exceptions.service_layer_exceptions.card_catalogue import card_exception
 import logging
@@ -258,6 +256,7 @@ class EnhancedCardImportService:
                 cards_iter = ijson.items(f, "item")
                 
                 async for card_json in self._async_json_iter(cards_iter):
+                    
                     try:
                         # Skip batches if resuming
                         if batch_count < resume_from_batch:

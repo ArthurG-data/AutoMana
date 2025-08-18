@@ -167,9 +167,14 @@ class ServiceManager:
                 "function": "add_set",
                 "repositories": ["set"]
             },
-            "card_catalog.set.create_bulk": {
+            "card_catalog.set.create_many": {
                 "module": "backend.new_services.card_catalog.set_service",
-                "function": "add_sets_bulk",
+                "function": "add_many",
+                "repositories": ["set"]
+            },
+            "card_catalog.set.process_large_json": {
+                "module": "backend.new_services.card_catalog.set_service",
+                "function": "process_large_sets_json",
                 "repositories": ["set"]
             },
             "card_catalog.set.get": {

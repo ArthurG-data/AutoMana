@@ -1,3 +1,4 @@
+from dataclasses import dataclass, field
 from backend.request_handling.StandardisedQueryResponse import ApiResponse
 from backend.repositories.AbstractRepository import AbstractRepository
 from typing import Any, Optional, Sequence
@@ -29,14 +30,36 @@ class SetReferenceRepository(AbstractRepository[Any]):
         values = (id, set_name, set_code, set_type, released_at, digital, nonfoil_only, foil_only, parent_set)
         return await self.execute_command(query, values)
         
+    @dataclass(slots=True)
+    class BatchInsertResponse:
+        total_processed: int
+        successful_inserts: int
+        failed_inserts: int
+        success_rate: float = field(init=False)
+        inserted_set_ids: list[UUID]
+        errors: list[str]
 
-    async def add_many(self
-                       , values: Sequence[tuple[UUID, str, str, str, str, bool, bool, bool, Optional[str]]]
-                       ) -> list[dict]:
-        query = "SELECT insert_joined_set ($1, $2, $3, $4, $5, $6, $7, $8, $9)"
-        return await self.execute_command(query, values)
+        def __post_init__(self)->None:
+            self.success_rate = (
+                self.successful_inserts / self.total_processed * 100
+                if self.total_processed > 0
+                else 0
+            )
+
+    async def add_many(self, values):
+        query =  "SELECT * FROM insert_batch_sets($1::JSONB);"
+        result = await self.execute_query(query, (values,))
+        batch_result = result[0] if result else {}
+        response = SetReferenceRepository.BatchInsertResponse(
+            total_processed=batch_result.get('total_processed', 0),
+            successful_inserts=batch_result.get('successful_inserts', 0),
+            failed_inserts=batch_result.get('failed_inserts', 0),
+            inserted_set_ids=batch_result.get('inserted_set_ids', []),
+            errors=batch_result.get('error_details', [])
+        )
+        return response
+
        
-
     async def delete(self, set_id: UUID):
         query = """
         UPDATE sets 
