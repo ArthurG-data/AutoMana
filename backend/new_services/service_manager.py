@@ -233,7 +233,11 @@ class ServiceManager:
                 "function": "authenticate",
                 "repositories": ["app"]
             },
-            
+            "integration.ebay.register_dev": {
+                "module": "backend.new_services.app_integration.ebay.app",
+                "function": "register_dev",
+                "repositories": ["app"]
+            }
             # Add more services as needed
         }
         

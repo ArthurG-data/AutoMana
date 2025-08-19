@@ -10,13 +10,15 @@ CREATE TABLE IF NOT EXISTS user_ebay (
 );
 
 CREATE TABLE IF NOT EXISTS app_info(
-    --needs to be updated
+    --needs to be updated, maybe add cient id??
     app_id TEXT PRIMARY KEY,
+    app_name VARCHAR(100) NOT NULL,
     redirect_uri VARCHAR(50) NOT NULL,
     response_type VARCHAR(20) NOT NULL,
     hashed_secret TEXT NOT NULL,
-    client_secret_encrypted BYTEA NOT NULL;
+    client_secret_encrypted BYTEA NOT NULL,
     created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now(),
     is_active BOOLEAN DEFAULT TRUE
 );
 
@@ -25,7 +27,6 @@ CREATE TABLE IF NOT EXISTS app_user (
     app_id TEXT REFERENCES app_info(app_id )  ON DELETE CASCADE NOT NULL,
     PRIMARY KEY (dev_id, app_id)
 );
-
 
 CREATE TABLE IF NOT EXISTS ebay_tokens(
     token_id SERIAL PRIMARY KEY,

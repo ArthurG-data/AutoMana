@@ -2,6 +2,7 @@ from typing import Optional, List, Dict
 from pydantic import BaseModel, Field, model_validator
 from datetime import datetime, timedelta
 from uuid import UUID
+from enum import Enum, auto
 from backend.utils_new.auth import get_hash_password
 import base64
 
@@ -100,3 +101,24 @@ class InputEbaySettings(BaseModel):
     def compute_hashed_secret(self) -> "InputEbaySettings":
         self.secret = get_hash_password(self.secret)
         return self
+    
+class AppRegistrationRequest(BaseModel):
+    app_code: str          # Public identifier like "automana-trading"
+    scopes: List[str]      # Requested permissions
+    agreement: bool 
+
+class EnvironmentSettings(Enum):
+    SANDBOX = auto()
+    PRODUCTION = auto()
+
+class CreateAppRequest(BaseModel):
+    app_name: str
+    description: str
+    environment: EnvironmentSettings = EnvironmentSettings.SANDBOX
+    ebay_app_id: str
+    client_id: str
+    client_secret: str
+    redirect_uri: str
+    allowed_scopes: List[str]
+    user_requirements: List[str] = ["premium"]
+    
