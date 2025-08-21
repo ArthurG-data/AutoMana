@@ -30,6 +30,7 @@ ebay_auth_router = APIRouter(prefix='/auth', tags=['auth'])
 
 
 #do not add, just link
+"""
 @ebay_auth_router.post('/app/register'
                        , description='Add a ebay_user to the database that will be linked to the current user'
                        , status_code=status.HTTP_201_CREATED)
@@ -50,7 +51,7 @@ async def regist_user(app_registration : AppRegistrationRequest
         raise
     #register_ebay_user(dev_id, current_user.unique_id, service_manager)
 
-    
+"""    
 from backend.request_handling.StandardisedQueryResponse import ApiResponse
 @ebay_auth_router.post('/admin/apps'
                        , description='add an app to the database'
@@ -70,10 +71,7 @@ async def regist_app(
             message="App registered successfully",
             data={
                 "message": "eBay app registered successfully",
-                "app_code": result["app_code"],
-                "app_id": result["app_id"],
-                "validation_results": result["validation_results"],
-                "available_to": result["available_to"]
+                "app_id": result,
             }
         )
     except HTTPException as e:

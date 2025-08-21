@@ -1,3 +1,5 @@
 from fastapi import APIRouter
-
+from backend.api.integrations.ebay.ebay_auth import ebay_auth_router
 ebay_router = APIRouter(prefix="/ebay", tags=["eBay"])
+
+ebay_router.include_router(ebay_auth_router)

@@ -4,8 +4,8 @@ from backend.repositories.app_integration.ebay.auth_repository import EbayAuthRe
 from backend.repositories.app_integration.ebay.app_repository import EbayAppRepository
 from backend.schemas.app_integration.ebay.auth import TokenResponse
 from backend.exceptions.service_layer_exceptions.app_integration.ebay import app_exception
-from backend.schemas.external_marketplace.ebay.app import NewEbayApp, AssignScope
-
+#to removefrom backend.schemas.external_marketplace.ebay.app import NewEbayApp, AssignScope
+"""
 class EbayAuthService:
     def __init__(
         self, 
@@ -16,11 +16,11 @@ class EbayAuthService:
         self.auth_repo = auth_repo
         self.app_repo = app_repo
         self.http_repo = http_repo
-    
-    async def request_auth_code(self, settings: dict) -> str:
-        """Request eBay OAuth authorization code"""
-        return await self.http_repo.request_auth_code(settings)
-    
+"""
+async def request_auth_code(http_repo: EbayAuthAPIRepository, settings: dict) -> str:
+    """Request eBay OAuth authorization code"""
+    return await http_repo.request_auth_code(settings)
+
     async def handle_callback(self, code: str, state: UUID) -> TokenResponse:
         """Handle callback from eBay with auth code"""
         # Verify this was a request we initiated
@@ -62,19 +62,32 @@ class EbayAuthService:
             scope=settings["scope"]
         )
 
-    async def register_app(self, NewApp: NewEbayApp) -> bool:
+from backend.schemas.app_integration.ebay.auth import CreateAppRequest
+async def register_app(app_repository: EbayAppRepository
+                       , app_data : CreateAppRequest
+                       , created_by:UUID) -> bool:
         """Register an eBay app with the provided settings."""
         try:
-            input = (NewApp.app_id, NewApp.redirect_uri, NewApp.response_type, NewApp.secret)
-            value = await self.app_repo.add(input)
-            if not value:
+            input = ( app_data.ebay_app_id
+                    ,app_data.app_name
+                     , app_data.redirect_uri
+                     , app_data.response_type
+                     , app_data.client_secret
+                     , app_data.environment.value
+                     , app_data.description
+                    )
+            #register the app
+            app_id = await app_repository.add(input)
+            if not app_id:
                 raise app_exception.EbayAppRegistrationException("Failed to register eBay app")
-            return True
+            #register the app scopes
+            await app_repository.register_app_scopes(app_id, app_data.allowed_scopes)
+            return app_id
         except app_exception.EbayAppRegistrationException as e:
             raise app_exception.EbayAppRegistrationException(f"Failed to register eBay app: {str(e)}")
-
+"""
     async def assign_scope(self, newScope: AssignScope) -> bool | None:
-        """assign a scope to a user for an eBay app."""
+     
         try:
             value = await self.app_repo.assign_scope(newScope.scope, newScope.app_id, newScope.user_id)
             if not value:
@@ -84,3 +97,4 @@ class EbayAuthService:
             raise
         except app_exception.EbayScopeAssignmentException as e:
             raise app_exception.EbayScopeAssignmentException(f"Failed to assign scope to eBay app: {str(e)}")
+"""

@@ -1,13 +1,6 @@
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 --TABLES---------------------------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS user_ebay (
-    unique_id UUID REFERENCES users(unique_id),
-    dev_id UUID PRIMARY KEY,
-    created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
-	updated_at TIMESTAMPTZ,
-    is_active BOOLEAN DEFAULT TRUE NOT NULL
-);
 
 CREATE TABLE IF NOT EXISTS app_info(
     --needs to be updated, maybe add cient id??
@@ -15,22 +8,27 @@ CREATE TABLE IF NOT EXISTS app_info(
     app_name VARCHAR(100) NOT NULL,
     redirect_uri VARCHAR(50) NOT NULL,
     response_type VARCHAR(20) NOT NULL,
-    hashed_secret TEXT NOT NULL,
-    client_secret_encrypted BYTEA NOT NULL,
+    client_secret_encrypted TEXT NOT NULL,
+    environment TEXT NOT NULL DEFAULT 'SANDBOX',
+    description TEXT,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now(),
-    is_active BOOLEAN DEFAULT TRUE
+    is_active BOOLEAN DEFAULT TRUE,
+    UNIQUE (app_id, environment)
 );
 
+
 CREATE TABLE IF NOT EXISTS app_user (
-    dev_id UUID REFERENCES user_ebay(dev_id) ON DELETE CASCADE NOT NULL,
+    user_id UUID REFERENCES users(unique_id) ON DELETE CASCADE NOT NULL,
     app_id TEXT REFERENCES app_info(app_id )  ON DELETE CASCADE NOT NULL,
-    PRIMARY KEY (dev_id, app_id)
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    is_active BOOLEAN DEFAULT TRUE,
+    PRIMARY KEY (user_id, app_id)
 );
 
 CREATE TABLE IF NOT EXISTS ebay_tokens(
     token_id SERIAL PRIMARY KEY,
-    dev_id UUID REFERENCES user_ebay(dev_id) ON DELETE CASCADE NOT NULL,
     app_id TEXT REFERENCES app_info(app_id) ON DELETE CASCADE NOT NULL,
     token TEXT NOT NULL,
     acquired_on TIMESTAMPTZ DEFAULT now(),
@@ -44,14 +42,23 @@ CREATE TABLE IF NOT EXISTS scopes (
     scope_url TEXT UNIQUE NOT NULL, 
     scope_description TEXT 
 );
-
+--new implementation -> allowed to an app, and then user with a subset of that
 CREATE TABLE IF NOT EXISTS scope_app (
     scope_id INT REFERENCES scopes(scope_id) ON DELETE CASCADE, 
     app_id TEXT REFERENCES app_info(app_id), 
     granted_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now(),
     PRIMARY KEY (scope_id, app_id)
 );
 
+CREATE TABLE IF NOT EXISTS scopes_user(
+    scope_id INT REFERENCES scopes(scope_id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(unique_id) ON DELETE CASCADE,
+    app_id TEXT REFERENCES app_info(app_id) ON DELETE CASCADE,
+    granted_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    PRIMARY KEY (scope_id, user_id)
+);
 
 CREATE TABLE IF NOT EXISTS log_oauth_request (
     unique_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

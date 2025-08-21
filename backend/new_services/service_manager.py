@@ -233,9 +233,14 @@ class ServiceManager:
                 "function": "authenticate",
                 "repositories": ["app"]
             },
-            "integration.ebay.register_dev": {
+            "integrations.ebay.register_dev": {
                 "module": "backend.new_services.app_integration.ebay.app",
-                "function": "register_dev",
+                "function": "EbayAuthService.register_app",
+                "repositories": ["app"]
+            },
+            "integrations.ebay.register_app":{
+                "module": "backend.new_services.app_integration.ebay.auth_services",
+                "function": "register_app",
                 "repositories": ["app"]
             }
             # Add more services as needed
@@ -258,7 +263,7 @@ class ServiceManager:
             "theme": ("backend.repositories.shop_meta.theme_repository", "ThemeRepository"),
             
             # Integration repositories
-            "app": ("backend.repositories.app_integration.app_repository", "EbayRepository"),
+            "app": ("backend.repositories.app_integration.ebay.app_repository", "EbayAppRepository"),
             
             # Card Catalog repositories
             "card": ("backend.repositories.card_catalog.card_repository", "CardReferenceRepository"),

@@ -108,8 +108,8 @@ class AppRegistrationRequest(BaseModel):
     agreement: bool 
 
 class EnvironmentSettings(Enum):
-    SANDBOX = auto()
-    PRODUCTION = auto()
+    SANDBOX = "SANDBOX"
+    PRODUCTION = "PRODUCTION"
 
 class CreateAppRequest(BaseModel):
     app_name: str
@@ -119,6 +119,7 @@ class CreateAppRequest(BaseModel):
     client_id: str
     client_secret: str
     redirect_uri: str
+    response_type: str = "code"
     allowed_scopes: List[str]
     user_requirements: List[str] = ["premium"]
     
