@@ -7,8 +7,8 @@ from backend.schemas.app_integration.ebay.trading_api import HeaderApi
 
 class ApiRepository(ABC):
     """Base class for repositories that interact with external APIs"""
-    
-    def __init__(self, base_url: str, timeout: int = 30):
+
+    def __init__(self, base_url: str = None, timeout: int = 30):
         self.base_url = base_url
         self.timeout = timeout
     

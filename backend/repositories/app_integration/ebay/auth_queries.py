@@ -1,17 +1,40 @@
-from backend.schemas.settings import EbaySettings, get_settings
+import logging
+from backend.schemas.settings import GeneralSettings
+from backend.dependancies.settings import get_general_settings
 from dotenv import load_dotenv
 import os 
+logger = logging.getLogger(__name__)
 # Load environment variables explicitly
 load_dotenv()
 
-settings = EbaySettings(
-    encrypt_algorithm=os.getenv("ENCRYPT_ALGORITHM", "HS256"),  # Use env var with default
-    pgp_secret_key=os.getenv("PGP_SECRET_KEY")                  # Use env var
-)
+def get_encryption_key() -> str:
+    """Get encryption key dynamically"""
+    logger.info("Fetching encryption key from settings")
+    try:
+        settings = get_general_settings()
+        key = settings.pgp_secret_key
+        
+        if not key or key == 'fallback-key-change-in-production':
+            logger.warning("Using default encryption key! Set PGP_SECRET_KEY environment variable!")
+        
+        return key
+    except Exception as e:
+        logger.error(f"Failed to get encryption key: {e}")
+        return 'fallback-key-change-in-production'
 
-encryption_key = settings.pgp_secret_key
+def get_info_login_query() -> str:
+    """Build info query with current encryption key"""
+    return f"""SELECT 
+                ai.app_id, 
+                ai.redirect_uri, 
+                ai.response_type,
+                pgp_sym_decrypt(ai.client_secret_encrypted::bytea, $3) AS decrypted_secret
+            FROM app_info ai
+            JOIN app_user au ON au.app_id = ai.app_id
+            WHERE au.user_id = $1 AND ai.app_id = $2
+            """
 
-#eeds to be changed next to work with a user instread of app and dev
+#needs to be changed next to work with a user instread of app and dev
 assign_access_ebay_query ="""
                         WITH update_existing AS (
                                                       UPDATE ebay_tokens
@@ -89,14 +112,42 @@ get_refresh_token_query = """ SELECT et.refresh_token
                               WHERE ue.unique_id = $1 AND et.app_id = $2;
                         """
 
-get_info = f"""SELECT app_id, redirect_uri, response_type, pgp_sym_decrypt(client_secret_encrypted, '{encryption_key}') AS decrypted_secret """
-get_info_login =    get_info + """FROM ebay_app
-                     WHERE user_id = $1 AND app_id = $2 """
+get_info = f"""SELECT ai.app_id, ai.redirect_uri, ai.response_type, pgp_sym_decrypt(client_secret_encrypted, '{get_general_settings().pgp_secret_key}') AS decrypted_secret """
+get_info_login =    get_info + """FROM app_info ai
+                              JOIN app_user au ON au.app_id = ai.app_id
+                     WHERE au.user_id = $1 AND ai.app_id = $2 """
 
 register_oauth_request = """
-                              INSERT INTO log_oauth_request (unique_id, session_id,  request,app_id ) VALUES ($1,$2, $3, $4) RETURNING session_id;
+                              INSERT INTO log_oauth_request 
+                                    (
+                                     user_id
+                                    ,app_id
+                                    ,status) 
+                              VALUES ($1,$2, $3) 
+                              RETURNING unique_id;
 """
 get_valid_oauth_request = """
-                  SELECT session_id, app_id FROM  log_oauth_request
+                  SELECT app_id , user_id
+                  FROM  log_oauth_request
                   WHERE unique_id = $1 AND expires_on > now();
                   """
+complete_oauth_request_query = """
+UPDATE log_oauth_request 
+SET 
+    status = $2,
+    completed_at = now(),
+    updated_at = now()
+WHERE state_token = $1 AND status = 'pending'
+RETURNING unique_id;
+"""
+
+detect_suspicious_oauth_activity_query = """
+SELECT 
+    user_id, COUNT(*) as attempt_count,
+    COUNT(CASE WHEN status = 'failed' THEN 1 END) as failed_count
+FROM log_oauth_request
+WHERE timestamp > now() - INTERVAL '1 hour'
+    AND user_id = $1
+GROUP BY user_id
+HAVING COUNT(*) > 10 OR COUNT(CASE WHEN status = 'failed' THEN 1 END) > 5;
+"""

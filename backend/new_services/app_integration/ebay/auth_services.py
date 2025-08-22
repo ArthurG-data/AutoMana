@@ -1,4 +1,5 @@
 from uuid import UUID
+import httpx
 from backend.repositories.app_integration.ebay.ApiAuth_repository import EbayAuthAPIRepository
 from backend.repositories.app_integration.ebay.auth_repository import EbayAuthRepository
 from backend.repositories.app_integration.ebay.app_repository import EbayAppRepository
@@ -17,36 +18,50 @@ class EbayAuthService:
         self.app_repo = app_repo
         self.http_repo = http_repo
 """
-async def request_auth_code(http_repo: EbayAuthAPIRepository, settings: dict) -> str:
+async def request_auth_code(
+        auth_repository: EbayAuthRepository,
+        auth_oauth_repository: EbayAuthAPIRepository,
+        app_id: str,
+        user_id: UUID
+        ) -> str:
     """Request eBay OAuth authorization code"""
-    return await http_repo.request_auth_code(settings)
+    try:
+            #get app settings
+        settings = await auth_repository.get_app_settings( user_id=user_id, app_id=app_id)
+        if not settings:
+             raise app_exception.EbayAppNotFoundException(f"eBay app with ID {app_id} not found for user {user_id}")
+            #log the request
+        request_id = await auth_repository.log_auth_request(user_id=user_id, app_id=app_id)
+        settings["state"] = request_id
+        await auth_oauth_repository.request_auth_code(settings)
+    except httpx.HTTPError as e:
+            raise app_exception.EbayAuthRequestException(f"Failed to request eBay auth code: {str(e)}")
 
-    async def handle_callback(self, code: str, state: UUID) -> TokenResponse:
-        """Handle callback from eBay with auth code"""
-        # Verify this was a request we initiated
-        session_id, app_id = await self.auth_repo.check_auth_request(state)
-        if not session_id or not app_id:
-            raise ValueError("Invalid authorization request")
-        
-        # Get user_id from session_id (depends on your session management)
-        user_id = await self._get_user_from_session(session_id)
-        
-        # Get app settings
-        settings = await self.app_repo.get_app_settings(user_id, app_id)
-        
-        # Exchange code for tokens using HTTP repository
-        token_response = await self.http_repo.exchange_code_for_token(
-            code=code,
-            client_id=settings["app_id"],
-            client_secret=settings["secret"],
-            redirect_uri=settings["redirect_uri"]
-        )
-        
-        # Save tokens using auth repository
-        await self.auth_repo.save_refresh_tokens(token_response, app_id, user_id)
-        await self.auth_repo.save_access_token(token_response, app_id, user_id)
-        
-        return token_response
+async def handle_callback(auth_repository: EbayAuthRepository
+                          , auth_oauth_repository: EbayAuthAPIRepository
+                          , code: str
+                          , state: UUID) -> TokenResponse:
+    """Handle callback from eBay with auth code"""
+    # Verify this was a request we initiated
+    app_id, user_id = await auth_repository.check_auth_request(state)
+    if not app_id or not user_id:
+        raise ValueError("Invalid authorization request")
+    # Get app settings
+    settings = await auth_repository.get_app_settings(user_id=user_id, app_id=app_id)
+
+    # Exchange code for tokens using HTTP repository
+    token_response = await auth_oauth_repository.exchange_code_for_token(
+        code=code,
+        client_id=settings["app_id"],
+        client_secret=settings["secret"],
+        redirect_uri=settings["redirect_uri"]
+    )
+    
+    # Save tokens using auth repository
+    await self.auth_repo.save_refresh_tokens(token_response, app_id, user_id)
+    await self.auth_repo.save_access_token(token_response, app_id, user_id)
+    
+    return token_response
     
     async def exange_refresh_token(self, app_id: str, user_id: UUID) -> str:
         """Exchange refresh token for new access token"""

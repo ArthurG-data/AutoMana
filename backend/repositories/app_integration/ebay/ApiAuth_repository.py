@@ -10,26 +10,24 @@ logger = logging.getLogger(__name__)
 class EbayAuthAPIRepository(ApiRepository):
     AUTH_URL = "https://auth.ebay.com/oauth2/authorize"
     TOKEN_URL = "https://api.ebay.com/identity/v1/oauth2/token"  # Base URL for eBay Buy API, use a factory later to create the repos, and have the url in a db
-    def __init__(self, base_url: str = AUTH_URL, token_url: str = TOKEN_URL, timeout: int = 30):
-        super().__init__(base_url, token_url, timeout) 
-        self.API_URL = base_url
-        self.TOKEN_URL = token_url
-    
+    def __init__(self, base_url: str = None, timeout: int = 30):
+        self.API_URL = base_url or self.AUTH_URL
+        self.TOKEN_URL = self.TOKEN_URL
+        super().__init__(self.API_URL, timeout)
+
     @property
     def name(self):
         return "EbayAuthAPIRepository"
 
-
     async def request_auth_code(self, settings : Dict) -> str:
         """Request eBay OAuth authorization code"""
-        request_id = uuid4()
         params = {
             "client_id": settings["app_id"],
             "response_type": settings["response_type"],
             "redirect_uri": settings["redirect_uri"],
             "scope": " ".join(settings["scope"]),
             "secret": settings["secret"],
-            "state": request_id
+            "state": settings["state"]
         }
         auth_url = f"https://auth.ebay.com/oauth2/authorize?{urllib.parse.urlencode(params)}"
         logger.info(f"Redirecting to eBay auth URL: {auth_url}")

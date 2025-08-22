@@ -1,4 +1,6 @@
+from asyncio.log import logger
 from multiprocessing import connection
+from backend.dependancies.settings import get_general_settings
 from backend.repositories.AbstractRepository import AbstractRepository
 from backend.repositories.app_integration.ebay import auth_queries
 from backend.schemas.settings import EbaySettings
@@ -9,9 +11,8 @@ from typing import Optional
 from backend.schemas.app_integration.ebay.auth import   ExangeRefreshData, TokenRequestData, TokenResponse
 
 class EbayAuthRepository(AbstractRepository):
-    def __init__(self, connection, queryExecutor):
-        super().__init__(queryExecutor)
-        self.connection = connection
+    def __init__(self, connection, executor: None):
+        super().__init__(connection, executor)
 
     """Repository for eBay authentication state and token management"""
 
@@ -19,20 +20,28 @@ class EbayAuthRepository(AbstractRepository):
     def name(self):
         return "EbayAuthRepository"
 
-    async def log_auth_request(self, request_id: UUID, session_id: UUID, request: HttpUrl, app_id: str) -> UUID:
+    def _get_encryption_key(self) ->str:
+        key = get_general_settings().pgp_secret_key
+        if not key or key == 'fallback-key-change-in-production':
+            import warnings
+            warnings.warn("Using default encryption key! Set EBAY_ENCRYPTION_KEY environment variable!")
+        return key
+    
+    async def log_auth_request(self
+                               , user_id: UUID
+                               , app_id : str
+                               ) -> UUID:
         """Log an eBay OAuth request"""
-        request_id = await self.execute_query(auth_queries.register_oauth_request, (request_id, session_id, request, app_id))
-        return request_id if request_id else None
+        request_id = await self.execute_query(auth_queries.register_oauth_request
+                                              , (user_id, app_id, 'pending'))
+        return request_id[0].get('unique_id') if request_id else None
 
     async def check_auth_request(self, request_id: UUID) -> Optional[tuple]:
         """Check if an eBay OAuth request is valid and return session_id and app_id"""
         row = await self.execute_query(auth_queries.get_valid_oauth_request, request_id)
-        session_id = row.get('session_id')
-        app_id = row.get('app_id')
-        if session_id and app_id:
-            return session_id, app_id
-        else:
-            return None, None
+        app_id = row[0].get('app_id')
+        user_id = row[0].get('user_id')
+        return app_id if app_id else None, user_id if user_id else None
 
 
     async def save_refresh_tokens(self, token: TokenResponse, app_id: str, user_id: UUID):
@@ -75,7 +84,22 @@ class EbayAuthRepository(AbstractRepository):
     async def check_validity(self, app_id : str, user_id : UUID)->bool:
         token : str = await self.get_valid_access_token(user_id, app_id)
         return token is not None
+    
+    async def get_app_settings(self, app_id: str, user_id: UUID):   
+        query  = auth_queries.get_info_login_query()
+        encryption_key = self._get_encryption_key()
+        settings = await self.execute_query(query, ( user_id,app_id, encryption_key))
+        return settings[0] if settings else None
 
+
+    async def get(self):
+        raise NotImplementedError("This method is not implemented in EbayAuthRepository")
+    async def add(self, item):
+        return await super().add(item)
+    async def get(self):
+        raise NotImplementedError("This method is not implemented in EbayAuthRepository")
+    async def list(self):
+        raise NotImplementedError("This method is not implemented in EbayAuthRepository")
     async def get_many(self):
         raise NotImplementedError("This method is not implemented in EbayAuthRepository")
     async def create(self, data):

@@ -61,7 +61,7 @@ class EbayAppRepository(AbstractRepository):
         raise NotImplementedError("Method 'update' is not implemented in EbayAccountRepository")    
     def delete(self, values):
         raise NotImplementedError("Method 'delete' is not implemented in EbayAccountRepository")
-    
+
     async def register_app_scopes(
             self, app_id: str, scopes: list[str]
     ):

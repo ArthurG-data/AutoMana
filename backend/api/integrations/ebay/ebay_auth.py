@@ -79,6 +79,29 @@ async def regist_app(
     except Exception as e:
         raise
 
+#add an app_code later
+@ebay_auth_router.post('/app/login')
+async def login( 
+                 app_id : str
+                 ,user = Depends(get_current_active_user)
+                 ,service_manager: ServiceManager = Depends(get_service_manager)
+                ):
+    try:
+        result = await service_manager.execute_service(
+            "integrations.ebay.start_oauth_flow",
+            user_id=user.unique_id,
+            app_id=app_id
+        )
+        return ApiResponse(
+            message="eBay OAuth flow started successfully",
+            data={
+                "test": app_id
+                #"authorization_url": result.get("authorization_url"),
+            }
+        )
+    except:
+        pass
+
 """
 #change to add a scope to a user
 @ebay_auth_router.post('/scopes', description='add a scope to a user')
@@ -122,8 +145,4 @@ async def exange_auth_token(conn : cursorDep,  request : Request):
     if code and request_id:
         return await auth.exange_auth(conn, user_id=user, code=code, app_id=app_id)
     return {'error' : 'authorization not found'}
-
-@ebay_auth_router.post('/app/login')
-async def login(conn : cursorDep, user : currentActiveUser,session_id: currentActiveSession, app_id : str):
-     return auth.login_ebay(conn, user.unique_id, app_id, session_id)
 """
