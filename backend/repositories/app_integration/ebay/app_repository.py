@@ -31,7 +31,7 @@ class EbayAppRepository(AbstractRepository):
         result = await self.execute_query(app_queries.register_app_query
                                             , input)
         logger.info(f"App registration result: {result}")
-        return result[0]['app_id'] if result else None
+        return result[0]['app_code'] if result else None
 
     async def assign_scope(self, scope : str, app_id : str, user_id : UUID) -> bool | None:
         result = await self.execute_command(app_queries.assign_scope_query, (app_id, scope, user_id))#query needs to be modifies

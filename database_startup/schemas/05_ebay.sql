@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS app_info(
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now(),
     is_active BOOLEAN DEFAULT TRUE,
+    app_code VARCHAR(50) UNIQUE NOT NULL,
     UNIQUE (app_id, environment)
 );
 
@@ -62,11 +63,12 @@ CREATE TABLE IF NOT EXISTS scopes_user(
 
 CREATE TABLE IF NOT EXISTS log_oauth_request (
     unique_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    session_id UUID NOT NULL REFERENCES sessions(id),
+    user_id UUID REFERENCES users(unique_id) ON DELETE CASCADE,
+    app_id TEXT REFERENCES app_info(app_id) ON DELETE CASCADE,
+    request TEXT,
     timestamp TIMESTAMPTZ DEFAULT now(),
     expires_on TIMESTAMPTZ DEFAULT now() + INTERVAL '1 minute',
-    request TEXT NOT NULL,
-    app_id TEXT REFERENCES app_info(app_id) ON DELETE CASCADE
+    status TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_oauth_session ON log_oauth_request(session_id);
 

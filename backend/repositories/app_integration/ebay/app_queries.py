@@ -11,14 +11,15 @@ INSERT INTO app_info (
     response_type,
     client_secret_encrypted,
     environment,
-    description
+    description,
+    app_code
 )
 VALUES (
-    $1, $2, $3, $4, pgp_sym_encrypt($5, $8), $6, $7
+    $1, $2, $3, $4, pgp_sym_encrypt($5, $9), $6, $7, $8
 ) 
 ON CONFLICT (app_id) 
 DO NOTHING
-RETURNING app_id; """
+RETURNING app_code; """
 
 
 register_app_scopes_query = """

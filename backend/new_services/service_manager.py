@@ -234,15 +234,22 @@ class ServiceManager:
                 "db_repositories": ["auth"],
                 "api_repositories": ["auth_oauth"]
             },
-            "integrations.ebay.register_dev": {
-                "module": "backend.new_services.app_integration.ebay.app",
-                "function": "EbayAuthService.register_app",
-                "db_repositories": ["app"]
+            "integrations.ebay.process_callback": {
+                "module": "backend.new_services.app_integration.ebay.auth_services",
+                "function": "handle_callback",
+                "db_repositories": ["auth"],
+                "api_repositories": ["auth_oauth"]
+            },
+            "integrations.ebay.exchange_refresh_token": {
+                "module": "backend.new_services.app_integration.ebay.auth_services",
+                "function": "exchange_refresh_token",
+                "db_repositories": ["auth"],
+                "api_repositories": ["auth_oauth"]
             },
             "integrations.ebay.register_app":{
                 "module": "backend.new_services.app_integration.ebay.auth_services",
                 "function": "register_app",
-                "repositories": ["app"]
+                "db_repositories": ["app"]
             }
             # Add more services as needed
         }
@@ -266,7 +273,6 @@ class ServiceManager:
             "collection": ("backend.repositories.shop_meta.collection_repository", "CollectionRepository"),
             "theme": ("backend.repositories.shop_meta.theme_repository", "ThemeRepository"),
             
-            # Integration repositories
             "app": ("backend.repositories.app_integration.ebay.app_repository", "EbayAppRepository"),
             "auth": ("backend.repositories.app_integration.ebay.auth_repository", "EbayAuthRepository"),
 

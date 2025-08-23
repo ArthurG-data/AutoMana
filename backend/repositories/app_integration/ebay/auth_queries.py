@@ -31,7 +31,7 @@ def get_info_login_query() -> str:
                 pgp_sym_decrypt(ai.client_secret_encrypted::bytea, $3) AS decrypted_secret
             FROM app_info ai
             JOIN app_user au ON au.app_id = ai.app_id
-            WHERE au.user_id = $1 AND ai.app_id = $2
+            WHERE au.user_id = $1 AND ai.app_code = $2
             """
 
 #needs to be changed next to work with a user instread of app and dev
@@ -55,55 +55,54 @@ assign_access_ebay_query ="""
                                                       RETURNING token_id;
                                                 """
 assign_refresh_ebay_query ="""
-                        WITH update_existing AS (
-                                                      UPDATE ebay_tokens
-                                                      SET used = true
-                                                      WHERE app_id = $1
-                                                      )
-                                                      INSERT INTO ebay_tokens (dev_id, app_id, token, acquired_on, expires_on, token_type, used)
-                                                      SELECT 
-                                                      ue.dev_id, 
-                                                      $1,               -- app_id
-                                                      $2,               -- refresh_token
-                                                      $3,               -- acquired_on
-                                                      $4,               -- expires_on
-                                                      $5,  -- token_type
-                                                      false             -- used
-                                                      FROM user_ebay ue
-                                                      WHERE ue.unique_id = $6
-                                                      RETURNING token_id;
+                                                WITH update_existing AS (
+                            UPDATE ebay_tokens
+                            SET used = true
+                            WHERE app_id = $1 AND token_type = 'refresh_token' AND used = false
+                        )
+                        INSERT INTO ebay_tokens (app_id, token, acquired_on, expires_on, token_type, used)
+                        VALUES ()
+                            $1,               -- app_id
+                            $2,               -- refresh_token
+                            $3,               -- acquired_on
+                            $4,               -- expires_on
+                            $5,               -- token_type ('refresh_token')
+                            false             -- used
+                            )
+                        RETURNING token_id;
                                                 """
                       
 assign_ebay_token_query  =  """
-                              WITH update_existing AS (
-                                    -- Case 1: inserting a refresh_token → mark all refresh_token as used
-                                    -- Case 2: inserting an access_token → mark only the most recent access_token as used
-                                    UPDATE ebay_tokens
-                                    SET used = true
-                                    WHERE token_id IN (
-                                          SELECT token_id
-                                          FROM ebay_tokens
-                                          WHERE app_id = $1 AND token_type = $2 AND used = false
-                                          ORDER BY 
-                                                CASE 
-                                                WHEN $2 = 'refresh_token' THEN acquired_on -- for refresh_token → all match
-                                                ELSE acquired_on DESC                     -- for access_token → top 1
-                                                END
-                                          LIMIT CASE WHEN $2 = 'refresh_token' THEN NULL ELSE 1 END
-                                    )
-                                    )
-                                    INSERT INTO ebay_tokens (dev_id, app_id, token, acquired_on, expires_on, token_type, used)
-                                    SELECT 
-                                    ue.dev_id, 
-                                    $1,                -- app_id
-                                    $2,                -- token (refresh or access token)
-                                    $3,                -- acquired_on
-                                    $4,                -- expires_on
-                                    $5,                -- token_type
-                                    false              -- used = false (new token is active)
-                                    FROM user_ebay ue
-                                    WHERE ue.unique_id = $6
-                                    RETURNING token_id;
+                            WITH update_existing AS (
+                                UPDATE ebay_tokens
+                                SET used = true
+                                WHERE app_id = $1 
+                                AND token_type = $5 
+                                AND used = false
+                                AND (
+                                    -- For refresh tokens: mark all as used
+                                    ($5 = 'refresh_token') 
+                                    OR 
+                                    -- For access tokens: mark only the most recent as used
+                                    ($5 = 'access_token' AND token_id = (
+                                        SELECT token_id 
+                                        FROM ebay_tokens 
+                                        WHERE app_id = $1 AND token_type = 'access_token' AND used = false
+                                        ORDER BY acquired_on DESC 
+                                        LIMIT 1
+                                    ))
+                                )
+                            )
+                            INSERT INTO ebay_tokens (app_id, token, acquired_on, expires_on, token_type, used)
+                            VALUES (
+                                $1,     -- app_id
+                                $2,     -- token (refresh or access token)
+                                $3,     -- acquired_on
+                                $4,     -- expires_on
+                                $5,     -- token_type
+                                false   -- used = false (new token is active)
+                            )
+                            RETURNING token_id;
                         """
 
 get_refresh_token_query = """ SELECT et.refresh_token
@@ -127,9 +126,10 @@ register_oauth_request = """
                               RETURNING unique_id;
 """
 get_valid_oauth_request = """
-                  SELECT app_id , user_id
-                  FROM  log_oauth_request
-                  WHERE unique_id = $1 AND expires_on > now();
+                  SELECT ai.app_id , lor.user_id, ai.app_code
+                  FROM  log_oauth_request lor
+                  JOIN app_info ai ON ai.app_id = lor.app_id
+                  WHERE lor.unique_id = $1 AND  expires_on > now();
                   """
 complete_oauth_request_query = """
 UPDATE log_oauth_request 
@@ -139,6 +139,13 @@ SET
     updated_at = now()
 WHERE state_token = $1 AND status = 'pending'
 RETURNING unique_id;
+"""
+
+get_app_scopes_query = """
+SELECT s.scope_url
+FROM scope_app sa
+JOIN scopes s ON sa.scope_id = s.scope_id
+WHERE sa.app_id = $1;
 """
 
 detect_suspicious_oauth_activity_query = """
