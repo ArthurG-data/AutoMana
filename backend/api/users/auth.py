@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Response, Depends, HTTPException, Request
 from typing import Annotated
+
+from fastapi.responses import JSONResponse
 from backend.dependancies.general import ipDep
 from fastapi.security import OAuth2PasswordRequestForm
 from backend.schemas.auth.token import Token, TokenResponse
@@ -28,7 +30,6 @@ async def logout(ip_address : ipDep
                                                          , ip_address=ip_address)
         if returned.get("status") == "error":
             logger.warning(f"Logout failed for session {session_id}: {returned.get('message')}")
-    response.delete_cookie('csrftoken')
     response.delete_cookie('session_id')
     return None
 
@@ -36,7 +37,6 @@ async def logout(ip_address : ipDep
                               , description='Using an authorization form, authentificate a user against the database and return a bearer token and a cookie with a refresh token'
                               , response_model=TokenResponse)
 async def do_login(ip_address : ipDep
-                   , response : Response
                    , request: Request
                    , form_data: Annotated[OAuth2PasswordRequestForm, Depends()]
                    , service_manager: ServiceManager = Depends(get_service_manager)
@@ -49,23 +49,37 @@ async def do_login(ip_address : ipDep
                                              , user_agent=request.headers.get("User-Agent"))
     if result is None:
         raise HTTPException(status_code=401, detail='Invalid credentials')
-    if "session_id" in result:
-        response.set_cookie(
-            key="session_id",
-            value=result["session_id"],
-            httponly=True,
-            secure=True,
-            samesite="strict",
-            max_age=60*60*24*7,
-        )
-  
+    
     # Return the token
-    return TokenResponse(
+    token_response = TokenResponse(
         access_token=result["access_token"],
         refresh_token=result["refresh_token"],
         token_type="bearer",
         expires_in=3600
     )
+    json_response = JSONResponse(
+            content=token_response.model_dump(),
+            status_code=200
+        )
+    
+    if "session_id" in result:
+        json_response.set_cookie(
+            key="session_id",
+            value=result["session_id"],
+            httponly=False,
+            secure=False,
+            samesite="strict",
+            max_age=60*60*24*7,
+        )
+    json_response.set_cookie(
+            key="access_token",
+            value=result["access_token"],
+            httponly=False,
+            secure=False,
+            samesite="strict",
+            max_age=3600,  # 1 hour
+        )
+    return json_response
    
 @authentification_router.post('/token/refresh', description='exanges the refresh token in a cookie for a auth token')
 async def do_read_cookie(ip_address: ipDep, 
