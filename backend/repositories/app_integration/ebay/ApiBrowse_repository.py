@@ -8,16 +8,23 @@ import logging
 logger = logging.getLogger(__name__)
 
 class EbayBrowseAPIRepository(ApiRepository):
-    PRODUCTION_URL = "https://api.ebay.com/buy/browse/v1/item_summary"  # Base URL for eBay Buy API, use a factory later to create the repos, and have the url in a db
-    SANDBOX_URL = "https://api.sandbox.ebay.com/buy/browse/v1/item_summary"
-    def __init__(self, base_url: str = None, timeout: int = 30):
-        self.API_URL = base_url or self.PRODUCTION_URL
-
-        super().__init__(self.API_URL, timeout)
+    URL_MAPPING = {
+        "sandbox": "https://api.sandbox.ebay.com/buy/browse/v1",
+        "production": "https://api.ebay.com/buy/browse/v1"
+    }
+    def __init__(self, environment: str = "sandbox", timeout: int = 30):
+        super().__init__(environment=environment, timeout=timeout)
 
     @property
     def name(self):
         return "EbayBrowseAPIRepository"
+    
+    def _get_base_url(self, environment: str) -> str:
+        """Get the base URL for the given environment"""
+        url = self.URL_MAPPING.get(environment)
+        if not url:
+            raise ValueError(f"No URL configured for environment: {environment}")
+        return url
     
     async def search_items(
         self,
@@ -26,7 +33,12 @@ class EbayBrowseAPIRepository(ApiRepository):
         xml: Optional[str] = None
     ) -> str:
         try:
-            response = await self._make_get_request(f"{self.SANDBOX_URL}/search",params=data, headers=headers if headers else None, xml=xml)
+
+            logger.info(f"Searching items in {self.environment} with params: {data}")
+            response = await self._make_get_request(
+                "/item_summary/search"
+                ,params=data, headers=headers if headers else None
+                , xml=xml)
             return response
         except Exception as e:
             logger.error(f"Error searching items: {str(e)}")

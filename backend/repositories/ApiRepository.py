@@ -2,22 +2,52 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
 import httpx
+import logging
 from backend.exceptions.repository_layer_exceptions.ebay_integration import ebay_api_exception
 from backend.schemas.app_integration.ebay.trading_api import HeaderApi
+
+logger = logging.getLogger(__name__)
 
 class ApiRepository(ABC):
     """Base class for repositories that interact with external APIs"""
 
-    def __init__(self, base_url: str = None, timeout: int = 30):
-        self.base_url = base_url
+    def __init__(self, environment: str = "sandbox", timeout: int = 30):
+        self.environment = environment.lower()
         self.timeout = timeout
+        self.base_url = self._get_base_url(self.environment)
+        if self.environment not in ["sandbox", "production"]:
+            raise ValueError(f"Invalid environment: {self.environment}. Must be 'sandbox' or 'production'.")
+        logger.info(f"API Repository initialized for {self.environment} environment.")
+    #maybe a dict mapping tith env and url as well instead of hardcoding
     
+    @abstractmethod
+    def _get_base_url(self, environment: str) -> str:
+        """Return the base URL for the given environment"""
+        pass
+
     @property
     @abstractmethod
     def name(self) -> str:
         """Return the name of the repository"""
         pass
+
+    @property
+    def is_production(self) -> bool:
+        """Return True if the environment is production"""
+        return self.environment == "production"
     
+    @property
+    def is_sandbox(self) -> bool:
+        """Return True if the environment is sandbox"""
+        return self.environment == "sandbox"
+
+    def get_full_url(self, endpoint: str) -> str:
+        if endpoint.startswith("http"):
+            return endpoint
+        endpoint = endpoint.lstrip("/")
+        base = self.base_url.rstrip("/")
+        return f"{base}/{endpoint}"
+
     async def _make_get_request(
         self, 
         url: str,
@@ -28,10 +58,21 @@ class ApiRepository(ABC):
         """Make a GET request to the API"""
         #robably will need to be fixed, request type should be in it
         try:
+
+            full_url = self.get_full_url(url)
             async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.get(url=url, params=params, headers=headers if headers else None)
+                response = await client.get(url=full_url
+                                            , params=params
+                                            , headers=headers if headers else None)
                 response.raise_for_status()
-                return response.json()
+                content_type = response.headers.get("content-type", "").lower()
+                if "application/json" in content_type:
+                    return response.json()
+                elif "xml" in content_type:
+                    return self._parse_xml_response(response.text)
+                else:
+                    return response.text
+
         except httpx.HTTPStatusError as e:
             raise self._handle_http_error(e)
         except httpx.RequestError as e:
@@ -42,34 +83,49 @@ class ApiRepository(ABC):
     async def _make_post_request(
         self, 
         url: str, 
-        headers: Optional[HeaderApi]=None,
+        headers: Optional[dict]=None,
         data: Optional[Dict[str, Any]]=None,
         xml : Optional[str]=None,
-        trading_headers: Optional[HeaderApi]=None
+        trading_headers: Optional[dict]=None
     ) -> Dict[str, Any]:
         """Make a POST request to the API"""
-        print("test:", url, headers, data, xml)
+
         try:
+            full_url = self.get_full_url(url)
+
+            logger.debug(f"Making POST request to {full_url}.")
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 if data is not None:
+
+                    headers["Content-Type"] = "application/json"
                     response = await client.post(
-                        url=url,
+                        url=full_url,
                         data=data,
                         headers=headers if headers else {}
                     )
                 elif xml is not None:
+                    request_headers = trading_headers.model_dump(by_alias=True) if trading_headers else {}
+                    request_headers["Content-Type"] = "text/xml"
+
                     response = await client.post(
-                        url=url,
+                        url=full_url,
                         data=xml,
-                        headers=trading_headers.model_dump(by_alias=True) if trading_headers else {}
+                        headers=request_headers
                     )
                 else:
                     response = await client.post(
-                        url=url,
+                        url=full_url,
+                        content=xml,
                         headers=headers or {}
                     )
                 response.raise_for_status()
-                return response.json()
+                content_type = response.headers.get("content-type", "").lower()
+                if "application/json" in content_type:
+                    return response.json()
+                elif "xml" in content_type:
+                    return self._parse_xml_response(response.text)
+                else:
+                    return response.text
         except httpx.HTTPStatusError as e:
             raise self._handle_http_error(e)
         except httpx.RequestError as e:

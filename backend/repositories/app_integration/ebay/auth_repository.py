@@ -100,6 +100,15 @@ class EbayAuthRepository(AbstractRepository):
         scopes = await self.execute_query(query, (app_id,))
         return [scope['scope_url'] for scope in scopes] if scopes else []
 
+    async def get_environment(self, app_code : str, user_id: Optional[UUID]=None) -> str | None:
+        query = """
+        SELECT environment
+        FROM app_info
+        WHERE app_code = $1
+        """
+        environment = await self.execute_query(query, (app_code,))
+        return environment[0]['environment'] if environment else None
+
     async def get(self):
         raise NotImplementedError("This method is not implemented in EbayAuthRepository")
     async def add(self, item):

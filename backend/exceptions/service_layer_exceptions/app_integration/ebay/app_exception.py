@@ -28,3 +28,7 @@ class EbayAccessTokenException(ServiceError):
 class EbaySearchError(ServiceError):
     """Exception raised for errors during eBay item searches."""
     pass
+
+class EbayEnvironmentException(ServiceError):
+    """Exception raised for errors related to eBay environments."""
+    pass

@@ -12,6 +12,7 @@ import logging
 logger = logging.getLogger(__name__)
 #to removefrom backend.schemas.external_marketplace.ebay.app import NewEbayApp, AssignScope
 
+
 async def request_auth_code(
         auth_repository: EbayAuthRepository,
         auth_oauth_repository: EbayAuthAPIRepository,
@@ -141,6 +142,18 @@ async def get_access_token(auth_repository: EbayAuthRepository
         return token
     except app_exception.EbayAccessTokenException as e:
         raise app_exception.EbayAccessTokenException(f"Failed to get access token: {str(e)}")
+
+async def get_environment(auth_repository: EbayAuthRepository
+                          , app_code: str
+                          , user_id: Optional[UUID]=None) -> str | None:
+    """Get the environment for a user and app code."""
+    try:
+        env = await auth_repository.get_environment(user_id=user_id, app_code=app_code)
+        if not env:
+            raise app_exception.EbayEnvironmentException("No valid environment found")
+        return env
+    except app_exception.EbayEnvironmentException as e:
+        raise app_exception.EbayEnvironmentException(f"Failed to get environment: {str(e)}")
 
 """
     async def assign_scope(self, newScope: AssignScope) -> bool | None:

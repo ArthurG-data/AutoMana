@@ -260,6 +260,11 @@ class ServiceManager:
                 "module": "backend.new_services.app_integration.ebay.auth_services",
                 "function": "get_access_token",
                 "db_repositories": ["auth"],
+            },
+            "integrations.ebay.get_environment": {
+                "module": "backend.new_services.app_integration.ebay.auth_services",
+                "function": "get_environment",
+                "db_repositories": ["auth"],
             }
             # Add more services as needed
         }
@@ -410,8 +415,10 @@ class ServiceManager:
                         repo_module = importlib.import_module(repo_module_path)
                         repo_class = getattr(repo_module, repo_class_name)
                         repo_param_name = f"{repo_name}_repository"
+                        env = kwargs.get("environment", "sandbox")
+                        logger.info(f"Using environment: {env}")
                         # Create API repository without connection
-                        repositories[repo_param_name] = repo_class()
+                        repositories[repo_param_name] = repo_class(environment=env)
 
 
                 # Log the repositories being used
