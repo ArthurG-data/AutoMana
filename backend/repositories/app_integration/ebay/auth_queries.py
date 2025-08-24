@@ -28,7 +28,8 @@ def get_info_login_query() -> str:
                 ai.app_id, 
                 ai.redirect_uri, 
                 ai.response_type,
-                pgp_sym_decrypt(ai.client_secret_encrypted::bytea, $3) AS decrypted_secret
+                pgp_sym_decrypt(ai.client_secret_encrypted::bytea, $3) AS decrypted_secret,
+                ai.environment
             FROM app_info ai
             JOIN app_user au ON au.app_id = ai.app_id
             WHERE au.user_id = $1 AND ai.app_code = $2

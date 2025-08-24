@@ -124,7 +124,6 @@ class CreateAppRequest(BaseModel):
     description: str
     environment: EnvironmentSettings = EnvironmentSettings.SANDBOX
     ebay_app_id: str
-    client_id: str
     client_secret: str
     redirect_uri: str
     response_type: str = "code"

@@ -40,10 +40,25 @@ async def request_auth_code(
     except httpx.HTTPError as e:
             raise app_exception.EbayAuthRequestException(f"Failed to request eBay auth code: {str(e)}")
 
+async def get_environment_callback(auth_repository: EbayAuthRepository
+                          , state: str
+                          , user_id: Optional[UUID]=None) -> str:
+    
+    """Get eBay environment callback"""
+    try:
+        env = await auth_repository.get_env_from_callback(user_id=user_id, state=state)
+        if not env:
+            raise app_exception.EbayAppNotFoundException(f"eBay app with state {state} not found for user {user_id}")
+        return env
+    except httpx.HTTPError as e:
+        raise app_exception.EbayAuthRequestException(f"Failed to get eBay environment: {str(e)}")
+
+
 async def handle_callback(auth_repository: EbayAuthRepository
                           , auth_oauth_repository: EbayAuthAPIRepository
                           , code: str
-                          , state: UUID) -> TokenResponse:
+                          , state: UUID
+                          ) -> TokenResponse:
     """Handle callback from eBay with auth code"""
     # Verify this was a request we initiated
     app_id, user_id, app_code = await auth_repository.check_auth_request(state)

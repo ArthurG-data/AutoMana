@@ -66,10 +66,17 @@ async def login(
                  ,service_manager: ServiceManager = Depends(get_service_manager)
                 ):
     try:
+
+        env = await service_manager.execute_service(
+            "integrations.ebay.get_environment",
+            user_id=user.unique_id,
+            app_code=app_code
+        )
         result = await service_manager.execute_service(
             "integrations.ebay.start_oauth_flow",
             user_id=user.unique_id,
-            app_code=app_code
+            app_code=app_code,
+            environment=env
         )
         return ApiResponse(
             message="eBay OAuth flow started successfully",
@@ -97,10 +104,18 @@ async def handle_ebay_callback(request: Request,
             logger.error(f"eBay callback missing parameters: code={code}, state={state}")
             raise HTTPException(status_code=400, detail="Missing code or state in eBay callback")#create exception
     ## try:
+        #get the environment
+        env = await service_manager.execute_service(
+            "integrations.ebay.get_environment_callback",
+            state=state,
+            user_id=None
+        )
+        print("env:",env)
         auth = await service_manager.execute_service(
             "integrations.ebay.process_callback"
-            ,code=code,
-            state=state
+            ,code=code
+            ,state=state
+            ,environment=env
         )
         #session_id, app_id = auth.check_auth_request(conn, request_id)
         #user = await get_info_session(conn, session_id)
@@ -132,10 +147,17 @@ async def do_exange_refresh_token( response: Response
                                 ):
     #check if the has a non expired token for the app
     try:
+        env = await service_manager.execute_service(
+            "integrations.ebay.get_environment",
+            user_id=user.unique_id,
+            app_code=app_code
+        )
+
         result = await service_manager.execute_service(
             "integrations.ebay.exchange_refresh_token",
             user_id=user.unique_id,
-            app_code=app_code
+            app_code=app_code,
+            environment=env
         )
 
         cookie_data = AccessTokenCookie(

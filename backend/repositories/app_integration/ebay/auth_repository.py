@@ -109,6 +109,16 @@ class EbayAuthRepository(AbstractRepository):
         environment = await self.execute_query(query, (app_code,))
         return environment[0]['environment'] if environment else None
 
+    async def get_env_from_callback(self, state: str, user_id: Optional[UUID]=None) -> str | None:
+        query = """
+        SELECT ai.environment
+        FROM log_oauth_request lor
+        JOIN app_info ai ON lor.app_id = ai.app_id
+        WHERE lor.unique_id = $1
+        """
+        environment = await self.execute_query(query, (state,))
+        return environment[0]['environment'] if environment else None
+
     async def get(self):
         raise NotImplementedError("This method is not implemented in EbayAuthRepository")
     async def add(self, item):

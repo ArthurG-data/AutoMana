@@ -265,6 +265,11 @@ class ServiceManager:
                 "module": "backend.new_services.app_integration.ebay.auth_services",
                 "function": "get_environment",
                 "db_repositories": ["auth"],
+            },
+            "integrations.ebay.get_environment_callback": {
+                "module": "backend.new_services.app_integration.ebay.auth_services",
+                "function": "get_environment_callback",
+                "db_repositories": ["auth"],
             }
             # Add more services as needed
         }
@@ -420,7 +425,9 @@ class ServiceManager:
                         # Create API repository without connection
                         repositories[repo_param_name] = repo_class(environment=env)
 
-
+                if "environment" in kwargs:
+                    logger.info("Removing 'environment' parameter before calling the service method")
+                    kwargs.pop("environment")
                 # Log the repositories being used
                 repo_names = ", ".join(repositories.keys())
                 logger.info(f"Executing service {service_path} with repositories: {repo_names}")
