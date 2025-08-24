@@ -18,7 +18,7 @@ class CookiesData(BaseModel):
 class AccessTokenCookie(BaseModel):
     """Schema for access token cookie data"""
     token: str
-    app_id: str
+    app_code: str
     user_id: str
     expires_at: datetime
     scopes: List[str]
@@ -28,7 +28,7 @@ class AccessTokenCookie(BaseModel):
         import json
         data = {
             "token": self.token[:10] + "..." + self.token[-10:],  # Truncated for security
-            "app_id": self.app_id,
+            "app_code": self.app_code,
             "user_id": self.user_id,
             "expires_at": self.expires_at.isoformat(),
             "scopes": self.scopes
@@ -45,5 +45,5 @@ class RefreshTokenResponse(BaseModel):
     token_type: str = "Bearer"
     scopes: List[str]
     cookie_set: bool = False
-    app_id: str
+    app_code: str
     

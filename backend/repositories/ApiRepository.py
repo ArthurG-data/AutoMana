@@ -22,23 +22,23 @@ class ApiRepository(ABC):
         self, 
         url: str,
         params: Optional[Dict[str, Any]] = None,
-        headers: Optional[HeaderApi]=None,
+        headers: Optional[dict]=None,
         xml : Optional[str]=None
     ) -> Dict[str, Any]:
         """Make a GET request to the API"""
         #robably will need to be fixed, request type should be in it
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.get(url=url, **params,data=xml if xml else None, headers=headers.model_dump(by_alias=True) if headers else None)
+                response = await client.get(url=url, params=params, headers=headers if headers else None)
                 response.raise_for_status()
                 return response.json()
         except httpx.HTTPStatusError as e:
             raise self._handle_http_error(e)
         except httpx.RequestError as e:
-            raise ebay_api_exception.EbayBuyApiConnectionError(f"Failed to connect to API: {str(e)}")
+            raise ebay_api_exception.EbayBuyApiConnectionError(message=f"Failed to connect to API: {str(e)}")
         except Exception as e:
-            raise ebay_api_exception.EbayBaseRepositoryError(f"Unexpected error in API call: {str(e)}")
-    
+            raise ebay_api_exception.EbayBaseRepositoryError(message=f"Unexpected error in API call: {str(e)}")
+
     async def _make_post_request(
         self, 
         url: str, 
@@ -84,37 +84,37 @@ class ApiRepository(ABC):
         
         if status_code == 401:
             return ebay_api_exception.EbayBuyApiUnauthorizedError(
-                f"Authentication failed: {error.response.text}",
+                message=f"Authentication failed: {error.response.text}",
                 status_code=status_code,
                 error_data=error_data
             )
         elif status_code == 403:
             return ebay_api_exception.EbayBuyApiForbiddenError(
-                f"Permission denied: {error.response.text}",
+                message=f"Permission denied: {error.response.text}",
                 status_code=status_code,
                 error_data=error_data
             )
         elif status_code == 404:
             return ebay_api_exception.EbayBuyApiNotFoundError(
-                f"Resource not found: {error.response.text}",
+                message=f"Resource not found: {error.response.text}",
                 status_code=status_code,
                 error_data=error_data
             )
         elif status_code == 405:  # ✅ Add 405 handler
             return ebay_api_exception.EbayBaseRepositoryError(
-                f"Method not allowed (405): {error.response.text}. Check if you're making requests to authorization URLs.",
+                message=f"Method not allowed (405): {error.response.text}. Check if you're making requests to authorization URLs.",
                 status_code=status_code,
                 error_data=error_data
         )
         elif status_code == 429:
             return ebay_api_exception.EbayBuyApiRateLimitError(
-                f"Rate limit exceeded: {error.response.text}",
+                message=f"Rate limit exceeded: {error.response.text}",
                 status_code=status_code,
                 error_data=error_data
             )
         else:
             return ebay_api_exception.EbayBaseRepositoryError(
-                f"HTTP error {status_code}: {error.response.text}",
+                message=f"HTTP error {status_code}: {error.response.text}",
                 status_code=status_code,
                 error_data=error_data
         )

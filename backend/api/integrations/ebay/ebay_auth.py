@@ -25,37 +25,13 @@ from fastapi import Cookie, HTTPException, APIRouter, Query, Request, Depends, R
 from backend.new_services.service_manager import ServiceManager
 from backend.dependancies.service_deps import get_service_manager, get_current_active_user
 from backend.schemas.app_integration.ebay.auth import AppRegistrationRequest, CreateAppRequest
+from backend.request_handling.StandardisedQueryResponse import ApiResponse
 import logging
 
 logger = logging.getLogger(__name__)
 
 ebay_auth_router = APIRouter(prefix='/auth', tags=['auth'])
 
-
-#do not add, just link
-"""
-@ebay_auth_router.post('/app/register'
-                       , description='Add a ebay_user to the database that will be linked to the current user'
-                       , status_code=status.HTTP_201_CREATED)
-async def regist_user(app_registration : AppRegistrationRequest
-                      , current_user = Depends(get_current_active_user)
-                      ,service_manager: ServiceManager = Depends(get_service_manager)):
-    try:
-        dev_id = await service_manager.execute_service(
-            "integrations.ebay.register_dev",
-            app_code=app_registration.app_code,
-            scopes=app_registration.scopes,
-            agreement=app_registration.agreement,
-            user_id=current_user.unique_id
-        )
-    except HTTPException as e:
-        raise HTTPException(status_code=400, detail=f"App registration failed: {str(e)}")
-    except Exception:
-        raise
-    #register_ebay_user(dev_id, current_user.unique_id, service_manager)
-
-"""    
-from backend.request_handling.StandardisedQueryResponse import ApiResponse
 @ebay_auth_router.post('/admin/apps'
                        , description='add an app to the database'
                        , status_code=status.HTTP_201_CREATED)
@@ -150,7 +126,7 @@ async def add_user_scope(scope : str, user_id : UUID = Path(...), queryExecutor:
 from backend.schemas.auth.cookie import AccessTokenCookie, RefreshTokenResponse
 @ebay_auth_router.post('/exange_token')
 async def do_exange_refresh_token( response: Response
-                                  , app_id  :str
+                                  , app_code  :str
                                   , user = Depends(get_current_active_user)
                                   , service_manager: ServiceManager = Depends(get_service_manager)
                                 ):
@@ -159,12 +135,12 @@ async def do_exange_refresh_token( response: Response
         result = await service_manager.execute_service(
             "integrations.ebay.exchange_refresh_token",
             user_id=user.unique_id,
-            app_id=app_id
+            app_code=app_code
         )
 
         cookie_data = AccessTokenCookie(
         token=result.access_token,
-        app_id=result.app_id,
+        app_code=result.app_code,
         user_id=str(user.unique_id),
         expires_at=result.expires_on,
         scopes=result.scopes
@@ -172,15 +148,15 @@ async def do_exange_refresh_token( response: Response
 
         # Set secure cookie
         response.set_cookie(
-            key=f"ebay_access_{app_id}",
+            key=f"ebay_access_{app_code}",
             value=cookie_data.to_cookie_value(),
             max_age=result.expires_in,
-            httponly=True,  # ✅ Prevent XSS
+            #httponly=True,  # ✅ Prevent XSS
            # secure=True,    # ✅ HTTPS only
             samesite="strict",  # ✅ CSRF protection
-            path="/api/integrations/ebay"  # ✅ Scope to eBay endpoints
+            #path="/api/integrations/ebay"  # ✅ Scope to eBay endpoints
         )
-        logger.info(f"Access token refreshed for user {user.unique_id}, app {app_id}")
+        logger.info(f"Access token refreshed for user {user.unique_id}, app {app_code}")
 
         return ApiResponse(
             message="Access token refreshed successfully",
@@ -189,11 +165,9 @@ async def do_exange_refresh_token( response: Response
                 "expires_on": result.expires_on.isoformat(),
                 "scopes": result.scopes,
                 "cookie_set": True,
-                "cookie_name": f"ebay_access_{app_id}"
+                "cookie_name": f"ebay_access_{app_code}"
             }
         )
-
-
     except Exception as e:
         raise
 

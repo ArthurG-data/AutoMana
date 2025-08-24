@@ -20,3 +20,11 @@ class EbayScopeAssignmentException(ServiceError):
 class EbayAppNotFoundException(ServiceError):
     """Exception raised when an eBay app is not found."""
     pass
+
+class EbayAccessTokenException(ServiceError):
+    """Exception raised for errors related to eBay access tokens."""
+    pass
+
+class EbaySearchError(ServiceError):
+    """Exception raised for errors during eBay item searches."""
+    pass

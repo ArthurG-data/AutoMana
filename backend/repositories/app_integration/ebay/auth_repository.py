@@ -62,7 +62,7 @@ class EbayAuthRepository(AbstractRepository):
         # check if valide session
         query_2 = """ SELECT et.token
                     FROM ebay_tokens et
-                    JOIN app_info ai ON et.app_id = ai.id
+                    JOIN app_info ai ON et.app_id = ai.app_id
                     WHERE ai.app_code = $1 AND et.used = false AND et.token_type= 'refresh_token';
                 """
         #check if access token is valid wirh session
@@ -72,24 +72,22 @@ class EbayAuthRepository(AbstractRepository):
         return refresh_token if refresh_token else None
    
 
-    async def get_valid_access_token(self, user_id : UUID,app_id : UUID)->str:
+
+    async def get_valid_access_token(self, app_code : str, user_id : Optional[UUID])->str:
         """Get the most recent valid access token for a user and app"""
 
         query_1 = """ SELECT token
                     FROM ebay_tokens
-                    WHERE app_id = $1
+                    JOIN app_info ai ON ebay_tokens.app_id = ai.app_id
+                    WHERE ai.app_code = $1
                     AND expires_on > now()
                     AND used = false
                     AND token_type = 'access_token'
                     ORDER BY acquired_on DESC
                     LIMIT 1;
-                """
-        row = await self.execute_query(query_1, app_id)
-        return row.get('token') if row else None
-
-    async def check_validity(self, app_id : str, user_id : UUID)->bool:
-        token : str = await self.get_valid_access_token(user_id, app_id)
-        return token is not None
+               """
+        row = await self.execute_query(query_1, (app_code,))
+        return row[0].get('token') if row else None
 
     async def get_app_settings(self, app_code: str, user_id: UUID):
         query = auth_queries.get_info_login_query()

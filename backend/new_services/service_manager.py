@@ -250,6 +250,16 @@ class ServiceManager:
                 "module": "backend.new_services.app_integration.ebay.auth_services",
                 "function": "register_app",
                 "db_repositories": ["app"]
+            },
+            "integrations.ebay.search": {
+                "module": "backend.new_services.app_integration.ebay.browsing_services",
+                "function": "search_items",
+                "api_repositories": ["search"]
+            },
+            "integrations.ebay.get_token": {##change later
+                "module": "backend.new_services.app_integration.ebay.auth_services",
+                "function": "get_access_token",
+                "db_repositories": ["auth"],
             }
             # Add more services as needed
         }
@@ -257,6 +267,7 @@ class ServiceManager:
 
         self._api_repository_registry = {
              "auth_oauth": ("backend.repositories.app_integration.ebay.ApiAuth_repository", "EbayAuthAPIRepository"),
+             "search": ("backend.repositories.app_integration.ebay.ApiBrowse_repository", "EbayBrowseAPIRepository")
         }
         self._db_repository_registry = {
             # Auth repositories
@@ -376,16 +387,6 @@ class ServiceManager:
                 # Get repository types needed for this service
                 db_repository_types = service_config.get("db_repositories", [])
 
-                # For backward compatibility, if no repositories specified,
-                # use domain.entity to determine repository
-                if not db_repository_types:
-                    parts = service_path.split('.')
-                    if len(parts) >= 2:
-                        domain, entity = parts[0], parts[1]
-                        # Use legacy repository mapping logic
-                        repository = self._get_legacy_repository(domain, entity, conn)
-                        result = await service_method(repository=repository, **kwargs)
-                        return result
                 
                 # Create each required repository
                 for repo_type in db_repository_types:

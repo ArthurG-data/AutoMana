@@ -1,35 +1,3 @@
-from httpx import AsyncClient, HTTPStatusError
-from backend.modules.ebay.models import auth as auth_model, listings as listings_model, errors as errors_model
-from backend.config import EBAY_TRADING_API_URL as trading_endpoint
-from backend.modules.ebay.services import requests
-from backend.modules.ebay.utils import listings
-from backend.services_old import redis_ebay
-
-async def doPostTradingRequest( xml_body : str, headers: auth_model.HeaderApi, enpoint_url: str) -> str:
-      try:
-         async with AsyncClient() as client:
-            response = await client.post(enpoint_url, data=xml_body, headers=headers)
-            response.raise_for_status()
-            return response.text
-      except HTTPStatusError as e:
-        raise RuntimeError(f"eBay API HTTP error {e.response.status_code}: {e.response.text}")
-      except Exception as e:
-         raise RuntimeError(f"Failed to contact eBay Trading API: {str(e)}")
-
-async def obtain_item(token : str, item_id : str)->listings_model.ItemModel:
-   #first check if the listing is in the cache
-   cached_xml = redis_ebay.get_cached_ebay_item(item_id)
-   if not cached_xml:
-      api_header = auth_model.HeaderApi(site_id = "15",call_name='GetItem', iaf_token = token)
-      headers = api_header.model_dump(by_alias=True)
-      response_xml = requests.create_xml_body_get_item(item_id)
-      cached_xml = await doPostTradingRequest(response_xml, headers, trading_endpoint)
-      
-      redis_ebay.cache_ebay_item(item_id, cached_xml)
-   parsed_item = await listings.parse_single_item(cached_xml)
-   #cache the item
-   return parsed_item
-
 
 async def obtain_all_active_listings(token : str)->listings_model.ActiveListingResponse:#- listings_model.ActiveListingResponse
    api_header = auth_model.HeaderApi(site_id = "15", iaf_token = token)

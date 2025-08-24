@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from typing import Optional
 from uuid import UUID
 import httpx
 from backend.repositories.app_integration.ebay.ApiAuth_repository import EbayAuthAPIRepository
@@ -6,6 +7,7 @@ from backend.repositories.app_integration.ebay.auth_repository import EbayAuthRe
 from backend.repositories.app_integration.ebay.app_repository import EbayAppRepository
 from backend.schemas.app_integration.ebay.auth import TokenResponse
 from backend.exceptions.service_layer_exceptions.app_integration.ebay import app_exception
+from backend.schemas.auth.cookie import RefreshTokenResponse
 import logging
 logger = logging.getLogger(__name__)
 #to removefrom backend.schemas.external_marketplace.ebay.app import NewEbayApp, AssignScope
@@ -62,7 +64,6 @@ async def handle_callback(auth_repository: EbayAuthRepository
     await auth_repository.save_access_token(token_response, app_id, user_id)
     logger.info(f"Tokens saved for app {app_id} and user {user_id}")
 
-from backend.schemas.auth.cookie import RefreshTokenResponse
 async def exchange_refresh_token(auth_repository: EbayAuthRepository
                           , auth_oauth_repository: EbayAuthAPIRepository
                           , app_code: str
@@ -72,7 +73,7 @@ async def exchange_refresh_token(auth_repository: EbayAuthRepository
     if not refresh_token:
         raise ValueError("No valid refresh token found")
 
-    settings = await auth_repository.get_app_settings(user_id=user_id, app_id=app_code)
+    settings = await auth_repository.get_app_settings(user_id=user_id, app_code=app_code)
     scopes = await auth_repository.get_app_scopes(app_id=settings["app_id"])
     result = await auth_oauth_repository.exchange_refresh_token(
         refresh_token=refresh_token,
@@ -80,6 +81,17 @@ async def exchange_refresh_token(auth_repository: EbayAuthRepository
         secret=settings["decrypted_secret"],
         scope=scopes if scopes else []
     )
+    if not result.get("access_token"):
+        raise ValueError("No valid access token found")
+    #store the new access token
+    token = TokenResponse(
+        access_token=result.get("access_token"),
+        expires_in=result.get("expires_in"),
+        expires_on=datetime.now() + timedelta(seconds=result.get("expires_in")),
+        token_type=result.get("token_type")
+    )
+
+    await auth_repository.save_access_token(token, app_id=settings["app_id"], user_id=user_id)
     return RefreshTokenResponse(
         success=True,
         message="Refresh token exchanged successfully",
@@ -117,6 +129,19 @@ async def register_app(app_repository: EbayAppRepository
             return app_code
         except app_exception.EbayAppRegistrationException as e:
             raise app_exception.EbayAppRegistrationException(f"Failed to register eBay app: {str(e)}")
+
+async def get_access_token(auth_repository: EbayAuthRepository
+                           , app_code: str
+                           , user_id: Optional[UUID]=None) -> str | None:
+    """Get the access token for a user and app code."""
+    try:
+        token = await auth_repository.get_valid_access_token(user_id=user_id, app_code=app_code)
+        if not token:
+            raise app_exception.EbayAccessTokenException("No valid access token found")
+        return token
+    except app_exception.EbayAccessTokenException as e:
+        raise app_exception.EbayAccessTokenException(f"Failed to get access token: {str(e)}")
+
 """
     async def assign_scope(self, newScope: AssignScope) -> bool | None:
      
