@@ -270,6 +270,12 @@ class ServiceManager:
                 "module": "backend.new_services.app_integration.ebay.auth_services",
                 "function": "get_environment_callback",
                 "db_repositories": ["auth"],
+            },
+            "integrations.ebay.selling": {
+                "module": "backend.new_services.app_integration.ebay.selling_services",
+                "function": "handle_selling_request",
+                "db_repositories": ["auth"],
+                "api_repositories": ["selling"]
             }
             # Add more services as needed
         }
@@ -277,7 +283,8 @@ class ServiceManager:
 
         self._api_repository_registry = {
              "auth_oauth": ("backend.repositories.app_integration.ebay.ApiAuth_repository", "EbayAuthAPIRepository"),
-             "search": ("backend.repositories.app_integration.ebay.ApiBrowse_repository", "EbayBrowseAPIRepository")
+             "search": ("backend.repositories.app_integration.ebay.ApiBrowse_repository", "EbayBrowseAPIRepository"),
+             "selling": ("backend.repositories.app_integration.ebay.ApiSelling_repository", "EbaySellingAPIRepository")
         }
         self._db_repository_registry = {
             # Auth repositories

@@ -1,4 +1,29 @@
+from typing import Any
+import logging
 
+logger = logging.getLogger(__name__)
+
+async def handle_selling_request(selling_repository,
+                                  action :str,
+                                  payload: dict[str, Any],
+                                  **kwargs):
+   try:
+       logger.info(f"Handling selling request with action: {action}.")
+
+       if action == "create":
+          return await selling_repository.create_listing(payload)
+       if action == "update":
+          return await selling_repository.update_listing(payload)
+       if action == "delete":
+          return await selling_repository.delete_listing(payload)
+       else:
+          raise ValueError(f"Unknown action: {action}")
+   except Exception as e:
+        logger.error(f"Error handling selling request: {str(e)}")
+        raise
+
+    
+"""
 async def obtain_all_active_listings(token : str)->listings_model.ActiveListingResponse:#- listings_model.ActiveListingResponse
    api_header = auth_model.HeaderApi(site_id = "15", iaf_token = token)
    headers = api_header.model_dump(by_alias=True)
@@ -36,3 +61,5 @@ async def delete_listing(item_id :str, token : str, reason = None):
    xml = requests.generate_end_item_request_xml(item_id, reason=None)
    response_xml = await doPostTradingRequest(xml, headers, trading_endpoint)
    return response_xml
+
+"""

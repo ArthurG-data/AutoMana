@@ -63,24 +63,3 @@ def generate_end_item_request_xml(item_id: str, reason: str = "NotAvailable") ->
   <ItemID>{item_id}</ItemID>
   <EndingReason>{reason}</EndingReason>
 </EndItemRequest>"""
-
-def item_model_to_xml(item: ItemModel) -> str:
-    item_dict = item.model_dump(exclude_none=True)
-    return xmltodict.unparse({"Item": item_dict}, pretty=True,full_document=False)
-
-def to_xml_element(parent: ET.Element, name: str, value: Any):
-    if value is None:
-        return
-    if isinstance(value, BaseModel):
-        child = ET.SubElement(parent, name)
-        for sub_name, sub_value in value:
-            to_xml_element(child, sub_name, sub_value)
-    elif isinstance(value, list):
-        for item in value:
-            to_xml_element(parent, name, item)
-    elif isinstance(value, dict):
-        child = ET.SubElement(parent, name)
-        for k, v in value.items():
-            to_xml_element(child, k, v)
-    else:
-        ET.SubElement(parent, name).text = str(value)

@@ -3,8 +3,11 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
 import httpx
 import logging
+from pydantic import BaseModel
 from backend.exceptions.repository_layer_exceptions.ebay_integration import ebay_api_exception
 from backend.schemas.app_integration.ebay.trading_api import HeaderApi
+import xmltodict
+import xml.etree.ElementTree as ET 
 
 logger = logging.getLogger(__name__)
 
@@ -181,10 +184,33 @@ class ApiRepository(ABC):
         import xmltodict
         return xmltodict.parse(xml_response)
 
-    def _create_ebay_headers(self, token: str, marketplace_id: str) -> Dict[str, str]:
+    def _create_ebay_headers(self
+                             , token: str
+                             , marketplace_id: str
+                             , call_name : Optional[str]=None) -> Dict[str, str]:
         """Create standard eBay API headers"""
-        return {
+        headers = {
             "Authorization": f"Bearer {token}",
             "X-EBAY-C-MARKETPLACE-ID": marketplace_id,
             "Content-Type": "application/json"
         }
+        if call_name:
+            headers["X-EBAY-C-API-CALL-NAME"] = call_name
+        return headers
+    
+    def _to_xml_element(self, parent: ET.Element, name: str, value: Any):
+        if value is None:
+            return
+        if isinstance(value, BaseModel):
+            child = ET.SubElement(parent, name)
+            for sub_name, sub_value in value.model_dump(exclude_none=True).items():
+                self._to_xml_element(child, sub_name, sub_value)
+        elif isinstance(value, list):
+            for item in value:
+                self._to_xml_element(parent, name, item)
+        elif isinstance(value, dict):
+            child = ET.SubElement(parent, name)
+            for k, v in value.items():
+                self._to_xml_element(child, k, v)
+        else:
+            ET.SubElement(parent, name).text = str(value)
