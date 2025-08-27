@@ -186,31 +186,24 @@ class ApiRepository(ABC):
 
     def _create_ebay_headers(self
                              , token: str
-                             , marketplace_id: str
-                             , call_name : Optional[str]=None) -> Dict[str, str]:
+                             , marketplace_id: Optional[str] = "15"
+                             , call_name : Optional[str]=None
+                             , compatibility_level: Optional[str] = "1421"
+                             , type: Optional[str] = 'xml') -> Dict[str, str]:
         """Create standard eBay API headers"""
         headers = {
-            "Authorization": f"Bearer {token}",
+            "X-EBAY-API-IAF-TOKEN": token,#"Authorization": f"Bearer {token}",
             "X-EBAY-C-MARKETPLACE-ID": marketplace_id,
-            "Content-Type": "application/json"
+            "Content-Type": f"{'application/json' if type == 'json' else 'text/xml'}"
         }
         if call_name:
             headers["X-EBAY-C-API-CALL-NAME"] = call_name
+        if compatibility_level:
+            headers["X-EBAY-API-COMPATIBILITY-LEVEL"] = compatibility_level
         return headers
-    
-    def _to_xml_element(self, parent: ET.Element, name: str, value: Any):
-        if value is None:
-            return
-        if isinstance(value, BaseModel):
-            child = ET.SubElement(parent, name)
-            for sub_name, sub_value in value.model_dump(exclude_none=True).items():
-                self._to_xml_element(child, sub_name, sub_value)
-        elif isinstance(value, list):
-            for item in value:
-                self._to_xml_element(parent, name, item)
-        elif isinstance(value, dict):
-            child = ET.SubElement(parent, name)
-            for k, v in value.items():
-                self._to_xml_element(child, k, v)
-        else:
-            ET.SubElement(parent, name).text = str(value)
+
+    def _create_auth_header(self, token: str) -> Dict[str, str]:
+        """Create authorization header for eBay API requests"""
+        return {
+            "Authorization": f"Bearer {token}"
+        }

@@ -276,7 +276,7 @@ class ServiceManager:
                 "function": "handle_selling_request",
                 "db_repositories": ["auth"],
                 "api_repositories": ["selling"]
-            }
+            },
             # Add more services as needed
         }
         # Repository registry - maps repo types to module paths and class names
@@ -284,7 +284,7 @@ class ServiceManager:
         self._api_repository_registry = {
              "auth_oauth": ("backend.repositories.app_integration.ebay.ApiAuth_repository", "EbayAuthAPIRepository"),
              "search": ("backend.repositories.app_integration.ebay.ApiBrowse_repository", "EbayBrowseAPIRepository"),
-             "selling": ("backend.repositories.app_integration.ebay.ApiSelling_repository", "EbaySellingAPIRepository")
+             "selling": ("backend.repositories.app_integration.ebay.ApiSelling_repository", "EbaySellingRepository")
         }
         self._db_repository_registry = {
             # Auth repositories

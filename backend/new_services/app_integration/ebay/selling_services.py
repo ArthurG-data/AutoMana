@@ -3,19 +3,36 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-async def handle_selling_request(selling_repository,
+async def handle_selling_request(
+                                  auth_repository,
+                                  selling_repository,
                                   action :str,
                                   payload: dict[str, Any],
                                   **kwargs):
    try:
+       logger.info("fetching app_code...")
+       app_code = payload.get("app_code")
+       if not app_code:
+          logger.error("App code is missing in the payload")
+          raise ValueError("App code is required in the payload")
+       token = await auth_repository.get_valid_access_token(user_id = payload['user_id'], app_code=app_code)
+       if not token:
+           logger.error("Token not found")
+           raise ValueError("Token not found")
        logger.info(f"Handling selling request with action: {action}.")
-
+       payload["token"] = token
        if action == "create":
           return await selling_repository.create_listing(payload)
        if action == "update":
           return await selling_repository.update_listing(payload)
        if action == "delete":
           return await selling_repository.delete_listing(payload)
+       if action == "get":
+          return await selling_repository.get_listing(payload)
+       if action == "get_history":
+          return await selling_repository.get_history(payload)
+       if action == "get_active":
+          return await selling_repository.get_active(payload)
        else:
           raise ValueError(f"Unknown action: {action}")
    except Exception as e:

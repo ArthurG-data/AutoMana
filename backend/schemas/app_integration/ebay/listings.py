@@ -144,9 +144,23 @@ class ReviseStatusType(BaseModel):
     BuyItNowAdded: Optional[bool] = Field(None, alias="buyItNowAdded")
 
 
+class BuyerAddressType(BaseModel):
+    addressLine1: Optional[str]=None
+    addressLine2: Optional[str]=None
+    city: Optional[str]=None
+    location : Optional[str]=None
+    stateOrProvince: Optional[str]=None
+    postalCode: Optional[str]=None
+    countryCode: Optional[str]=None
+
 class AddressType(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
-    
+    addressLine1: Optional[str]
+    addressLine2: Optional[str]
+    city: Optional[str]
+    stateOrProvince: Optional[str]
+    postalCode: Optional[str]
+    countryCode: Optional[str]
+
 class SellerProfilesType(BaseModel):
     SellerShippingProfileID: Optional[int] = Field(None, alias="sellerShippingProfileId")
     SellerReturnProfileID: Optional[int] = Field(None, alias="sellerReturnProfileId")
@@ -410,3 +424,95 @@ class ActiveListingResponse(BaseModel):
     def set_item_number(self) -> "ActiveListingResponse":
         self.item_number = len(self.items)
         return self
+
+
+
+class BuyerRegistrationAddressType(BaseModel):
+    fullName: Optional[str]=None
+    contactAddress: Optional[BuyerAddressType]=None
+    primaryPhone: Optional[dict]=None
+    email: Optional[str]=None
+
+class BuyerType(BaseModel):
+    username: Optional[str]
+    taxAddress: Optional[BuyerAddressType]
+    buyerRegistrationAddress: Optional[BuyerRegistrationAddressType]
+
+class PricingSummaryType(BaseModel):
+    priceSubtotal: Optional[BaseCostType]
+    deliveryCost: Optional[BaseCostType]
+    total: Optional[BaseCostType]
+
+class CancelStatusType(BaseModel):
+    cancelState: Optional[str]
+    cancelRequests: Optional[List[dict]]
+
+class PaymentSummaryType(BaseModel):
+    totalDueSeller: Optional[BaseCostType]
+    refunds: Optional[List[dict]]
+    payments: Optional[List[dict]]
+
+class FulfillmentStartInstructionsType(BaseModel):
+    fulfillmentInstructionsType: Optional[str]
+    minEstimatedDeliveryDate: Optional[str]
+    maxEstimatedDeliveryDate: Optional[str]
+    ebaySupportedFulfillment: Optional[bool]
+    shippingStep: Optional[dict]
+
+class LineItemType(BaseModel):
+    lineItemId: Optional[str]
+    legacyItemId: Optional[str]
+    title: Optional[str]
+    lineItemCost: Optional[BaseCostType]
+    quantity: Optional[int]
+    soldFormat: Optional[str]
+    listingMarketplaceId: Optional[str]
+    purchaseMarketplaceId: Optional[str]
+    lineItemFulfillmentStatus: Optional[str]
+    total: Optional[BaseCostType]
+    deliveryCost: Optional[dict]
+    appliedPromotions: Optional[List[dict]]
+    taxes: Optional[List[dict]]
+    properties: Optional[dict]
+    lineItemFulfillmentInstructions: Optional[dict]
+    itemLocation: Optional[BuyerAddressType]
+
+class FulfillmentResponse(BaseModel):
+    orderId: Optional[str]
+    legacyOrderId: Optional[str]
+    creationDate: Optional[str]
+    lastModifiedDate: Optional[str]
+    orderFulfillmentStatus: Optional[str]
+    orderPaymentStatus: Optional[str]
+    sellerId: Optional[str]
+    buyer: Optional[BuyerType]
+
+    pricingSummary: Optional[PricingSummaryType]
+    cancelStatus: Optional[CancelStatusType]
+    paymentSummary: Optional[PaymentSummaryType]
+    fulfillmentStartInstructions: Optional[List[FulfillmentStartInstructionsType]]
+    fulfillmentHrefs: Optional[List[str]]
+    lineItems: Optional[List[LineItemType]]
+    salesRecordReference: Optional[str]
+    totalFeeBasisAmount: Optional[BaseCostType]
+    totalMarketplaceFee: Optional[BaseCostType]
+
+class ListingHistoryResponse(BaseModel):
+    href : str|None
+    total : int|None
+    next : str|None
+    limit : int|None
+    offset: int|None
+    orders: List[FulfillmentResponse|None]
+    
+    def __iter__(self):
+        return iter(self.orders)
+    def __len__(self):
+        return len(self.orders)
+    def __next__(self):
+        return next(iter(self.orders))
+    
+    def __getitem__(self, index: int) -> Optional[FulfillmentResponse]:
+        if self.orders:
+            return self.orders[index]
+        return None
