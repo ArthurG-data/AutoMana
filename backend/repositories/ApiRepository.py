@@ -107,13 +107,12 @@ class ApiRepository(ABC):
                         headers=headers if headers else {}
                     )
                 elif xml is not None:
-                    request_headers = trading_headers.model_dump(by_alias=True) if trading_headers else {}
-                    request_headers["Content-Type"] = "text/xml"
+                    headers["Content-Type"] = "text/xml"
 
                     response = await client.post(
                         url=full_url,
                         data=xml,
-                        headers=request_headers
+                        headers=headers
                     )
                 else:
                     response = await client.post(
@@ -179,27 +178,40 @@ class ApiRepository(ABC):
         )
     def _parse_xml_response(self, xml_response: str) -> Dict[str, Any]:
         """Parse XML response to dictionary"""
+        def clean_dict(d):
+            """Recursively clean the dictionary by removing '@' and '#' keys."""
+            if isinstance(d, dict):
+                cleaned = {}
+                for key, value in d.items():
+                    # Remove '@' and '#' from keys
+                    new_key = key.lstrip('@').lstrip('#')
+                    cleaned[new_key] = clean_dict(value)
+                return cleaned
+            elif isinstance(d, list):
+                # Recursively clean each item in the list
+                return [clean_dict(item) for item in d]
+            else:
+                # Return the value as is for non-dict, non-list items
+                return d
+
         # Implementation needed - you could use xmltodict or ElementTree
         # This is a placeholder
-        import xmltodict
-        return xmltodict.parse(xml_response)
+        parsed_dict = xmltodict.parse(xml_response)
+        return clean_dict(parsed_dict)
 
     def _create_ebay_headers(self
                              , token: str
                              , marketplace_id: Optional[str] = "15"
                              , call_name : Optional[str]=None
-                             , compatibility_level: Optional[str] = "1421"
-                             , type: Optional[str] = 'xml') -> Dict[str, str]:
+                             , compatibility_level: Optional[str] = "1421"                             , type: Optional[str] = 'xml') -> Dict[str, str]:
         """Create standard eBay API headers"""
         headers = {
+            "X-EBAY-API-SITEID": marketplace_id,
+            "X-EBAY-API-COMPATIBILITY-LEVEL": compatibility_level,
+            "X-EBAY-API-CALL-NAME": call_name,
             "X-EBAY-API-IAF-TOKEN": token,#"Authorization": f"Bearer {token}",
-            "X-EBAY-C-MARKETPLACE-ID": marketplace_id,
-            "Content-Type": f"{'application/json' if type == 'json' else 'text/xml'}"
         }
-        if call_name:
-            headers["X-EBAY-C-API-CALL-NAME"] = call_name
-        if compatibility_level:
-            headers["X-EBAY-API-COMPATIBILITY-LEVEL"] = compatibility_level
+    
         return headers
 
     def _create_auth_header(self, token: str) -> Dict[str, str]:

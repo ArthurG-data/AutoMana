@@ -12,10 +12,12 @@ class SellerInfoType(BaseModel):
     StoreOwner: Optional[bool] = Field(None, alias="storeOwner")
     SafePaymentExempt: Optional[bool] = Field(None, alias="safePaymentExempt")
     TopRatedSeller: Optional[bool] = Field(None, alias="topRatedSeller")
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 class BaseCostType(BaseModel):
     currencyID: Optional[str] = Field(None, alias="currency")
     text: Optional[str | float] = Field(None, alias="value")
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 class ReturnPolicyType(BaseModel):
     Description: Optional[str] = Field(None, alias="description")
@@ -27,6 +29,7 @@ class ReturnPolicyType(BaseModel):
     ReturnsAcceptedOption: Optional[str] = Field(None, alias="returnsAcceptedOption")
     ReturnsWithinOption: Optional[str] = Field(None, alias="returnsWithinOption")
     ShippingCostPaidByOption: Optional[str] = Field(None, alias="shippingCostPaidByOption")
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 
 class BuyerProtectionDetailsType(BaseModel): pass
@@ -37,6 +40,7 @@ class BestOfferDetailsType(BaseModel):
     BestOfferStatus: Optional[str] = Field(None, alias="bestOfferStatus")
     BestOfferType: Optional[str] = Field(None, alias="bestOfferType")
     NewBestOffer: Optional[bool] = Field(None, alias="newBestOffer")
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 class BiddingDetailsType(BaseModel):
     ConvertedMaxBid: Optional[float] = Field(None, alias="convertedMaxBid")
@@ -44,6 +48,7 @@ class BiddingDetailsType(BaseModel):
     QuantityBid: Optional[int] = Field(None, alias="quantityBid")
     QuantityWon: Optional[int] = Field(None, alias="quantityWon")
     Winning: Optional[bool] = Field(None, alias="winning")
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
     
 class BusinessSellerDetailsType(BaseModel):
     Email: Optional[str] = Field(None, alias="email")
@@ -52,6 +57,7 @@ class BusinessSellerDetailsType(BaseModel):
     TermsAndConditions: Optional[str] = Field(None, alias="termsAndConditions")
     TradeRegistrationNumber: Optional[str] = Field(None, alias="tradeRegistrationNumber")
     VATPercentage: Optional[float] = Field(None, alias="vatPercentage")
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 class BuyerRequirementDetailsType(BaseModel):
     ShipToRegistrationCountry: Optional[bool] = Field(None, alias="shipToRegistrationCountry")
@@ -61,35 +67,45 @@ class BuyerRequirementDetailsType(BaseModel):
     LinkedPayPalAccount: Optional[bool] = Field(None, alias="linkedPayPalAccount")
     VerifiedUserRequirements: Optional[dict] = Field(None, alias="verifiedUserRequirements")
     MaximumItemRequirements: Optional[dict] = Field(None, alias="maximumItemRequirements")
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 
 class CategoryType(BaseModel):
     CategoryID: str = Field(alias="categoryId")
     CategoryName: Optional[str] = Field(None, alias="categoryName")
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 
 class CharityType(BaseModel):
     CharityID: Optional[str] = Field(None, alias="charityId")
     CharityName: Optional[str] = Field(None, alias="charityName")
     DonationPercent: Optional[float] = Field(None, alias="donationPercent")
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 class ConditionDescriptorsType(BaseModel):
     ConditionDescriptors: Optional[List[str]] = Field(None, alias="conditionDescriptors")
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 
 class CustomPoliciesType(BaseModel):
     PolicyID: Optional[str] = Field(None, alias="policyId")
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 class DigitalGoodInfoType(BaseModel):
     DownloadURL: Optional[str] = Field(None, alias="downloadUrl")
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 class DiscountPriceInfoType(BaseModel):
     OriginalRetailPrice: Optional[BaseCostType] = Field(None, alias="originalRetailPrice")
     PricingTreatment: Optional[str] = Field(None, alias="pricingTreatment")
 
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+
 class ExtendedProducerResponsibilityType(BaseModel):
     ProducerUserID: Optional[str] = Field(None, alias="producerUserId")
     ProductPackageID: Optional[str] = Field(None, alias="productPackageId")
+
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 class ExtendedContactDetailsType(BaseModel):
     Name: Optional[str] = Field(None, alias="name")
@@ -98,12 +114,18 @@ class ExtendedContactDetailsType(BaseModel):
     Country: Optional[str] = Field(None, alias="country")
     Phone: Optional[str] = Field(None, alias="phone")
 
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+
 class ItemCompatibilityListType(BaseModel):
     CompatibilityDetails: Optional[List[dict]] = Field(None, alias="compatibilityDetails")
+
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 class ItemPolicyViolationType(BaseModel):
     PolicyID: Optional[str] = Field(None, alias="policyId")
     PolicyText: Optional[str] = Field(None, alias="policyText")
+
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
     
 class ListingDetailsType(BaseModel):
     StartTime: Optional[str] = Field(None, alias="startTime")
@@ -114,6 +136,8 @@ class ListingDetailsType(BaseModel):
     ConvertedBuyItNowPrice: Optional[BaseCostType] = Field(None, alias="convertedBuyItNowPrice")
     MinimumBestOfferPrice: Optional[BaseCostType] = Field(None, alias="minimumBestOfferPrice")
     ViewItemURLForNaturalSearch: Optional[str] = Field(None, alias="viewItemUrlForNaturalSearch")
+
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 
 class PaymentDetailsType(BaseModel):
@@ -124,24 +148,36 @@ class PaymentDetailsType(BaseModel):
     FullPaymentDueIn: Optional[str] = Field(None, alias="fullPaymentDueIn")
     PaymentMethod: Optional[str] = Field(None, alias="paymentMethod")
 
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+
 class PickupInStoreDetailsType(BaseModel):
     EligibleForPickupInStore: Optional[bool] = Field(None, alias="eligibleForPickupInStore")
+
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 class ProductListingDetailsType(BaseModel):
     UPC: Optional[str] = Field(None, alias="upc")
     ISBN: Optional[str] = Field(None, alias="isbn")
     EAN: Optional[str] = Field(None, alias="ean")
 
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+
 class QuantityRestrictionPerBuyerInfoType(BaseModel):
     MaximumQuantity: Optional[int] = Field(None, alias="maximumQuantity")
+
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 class RegulatoryType(BaseModel):
     Pictograms: Optional[List[str]] = Field(None, alias="pictograms")
     SafetyDataSheetURL: Optional[str] = Field(None, alias="safetyDataSheetUrl")
 
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+
 class ReviseStatusType(BaseModel):
     ItemRevised: Optional[bool] = Field(None, alias="itemRevised")
     BuyItNowAdded: Optional[bool] = Field(None, alias="buyItNowAdded")
+
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 
 class BuyerAddressType(BaseModel):
@@ -152,6 +188,7 @@ class BuyerAddressType(BaseModel):
     stateOrProvince: Optional[str]=None
     postalCode: Optional[str]=None
     countryCode: Optional[str]=None
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 class AddressType(BaseModel):
     addressLine1: Optional[str]
@@ -160,16 +197,19 @@ class AddressType(BaseModel):
     stateOrProvince: Optional[str]
     postalCode: Optional[str]
     countryCode: Optional[str]
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 class SellerProfilesType(BaseModel):
     SellerShippingProfileID: Optional[int] = Field(None, alias="sellerShippingProfileId")
     SellerReturnProfileID: Optional[int] = Field(None, alias="sellerReturnProfileId")
     SellerPaymentProfileID: Optional[int] = Field(None, alias="sellerPaymentProfileId")
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 class SellingStatusType(BaseModel):
     CurrentPrice: Optional[BaseCostType] = Field(None, alias="currentPrice")
     QuantitySold: Optional[int] = Field(None, alias="quantitySold")
     ListingStatus: Optional[str] = Field(None, alias="listingStatus")
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 class ShipPackageDetailsType(BaseModel):
     PackageDepth: Optional[float] = Field(None, alias="packageDepth")
@@ -179,6 +219,7 @@ class ShipPackageDetailsType(BaseModel):
     ShippingPackage: Optional[str] = Field(None, alias="shippingPackage")
     WeightMajor: Optional[float] = Field(None, alias="weightMajor")
     WeightMinor: Optional[float] = Field(None, alias="weightMinor")
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 
 class ShippingServiceOptionType(BaseModel):
@@ -188,7 +229,7 @@ class ShippingServiceOptionType(BaseModel):
     ExpeditedService: Optional[bool] = Field(None, alias="expeditedService")
     ShippingTimeMin: Optional[int] = Field(None, alias="shippingTimeMin")
     ShippingTimeMax: Optional[int] = Field(None, alias="shippingTimeMax")
-
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 class ShippingDetailsType(BaseModel):
     ShippingType: Optional[str] = Field(None, alias="shippingType")
@@ -198,33 +239,41 @@ class ShippingDetailsType(BaseModel):
     ShippingServiceUsed: Optional[str] = Field(None, alias="shippingServiceUsed")
     PaymentInstructions: Optional[str] = Field(None, alias="paymentInstructions")
     ShippingDiscountProfileID: Optional[str] = Field(None, alias="shippingDiscountProfileId")
-
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 class SalesTaxType(BaseModel):
     SalesTaxPercent: Optional[float] = Field(None, alias="salesTaxPercent")
     ShippingIncludedInTax: Optional[bool] = Field(None, alias="shippingIncludedInTax")
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 class ShippingServiceCostOverrideListType(BaseModel):
     CostOverrideList: Optional[List[dict]] = Field(None, alias="costOverrideList")
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 class StorefrontType(BaseModel):
     StoreCategoryID: Optional[int] = Field(None, alias="storeCategoryId")
     StoreURL: Optional[str] = Field(None, alias="storeUrl")
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 class UnitInfoType(BaseModel):
     UnitType: Optional[str] = Field(None, alias="unitType")
     UnitQuantity: Optional[float] = Field(None, alias="unitQuantity")
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+
 class VariationsType(BaseModel):
     VariationList: Optional[List[dict]] = Field(None, alias="variationList")
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 class VATDetailsType(BaseModel):
     VATPercent: Optional[float] = Field(None, alias="vatPercent")
     VATSite: Optional[str] = Field(None, alias="vatSite")
     VATID: Optional[str] = Field(None, alias="vatId")
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 class VideoDetailsType(BaseModel):
     VideoURL: Optional[str] = Field(None, alias="videoUrl")
     VideoID: Optional[str] = Field(None, alias="videoId")
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 class ShipPackageDetailsType(BaseModel):
     PackageDepth: Optional[float] = Field(None, alias="packageDepth")
@@ -234,6 +283,7 @@ class ShipPackageDetailsType(BaseModel):
     ShippingPackage: Optional[str] = Field(None, alias="shippingPackage")
     WeightMajor: Optional[float] = Field(None, alias="weightMajor")
     WeightMinor: Optional[float] = Field(None, alias="weightMinor")
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 class ListingDetailsType(BaseModel):
     StartTime: Optional[str] = Field(None, alias="startTime")
@@ -244,9 +294,11 @@ class ListingDetailsType(BaseModel):
     ConvertedBuyItNowPrice: Optional[BaseCostType] = Field(None, alias="convertedBuyItNowPrice")
     MinimumBestOfferPrice: Optional[BaseCostType] = Field(None, alias="minimumBestOfferPrice")
     ViewItemURLForNaturalSearch: Optional[str] = Field(None, alias="viewItemUrlForNaturalSearch")
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 class ConditionDescriptorsType(BaseModel):
     ConditionDescriptors: Optional[List[str]] = Field(None, alias="conditionDescriptors")
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 class UserType(BaseModel):
     AboutMePage: Optional[bool] = Field(None, alias="aboutMePage")
@@ -265,6 +317,7 @@ class UserType(BaseModel):
     VATStatus: Optional[str] = Field(None, alias="vatStatus")
     SellerInfo: Optional[SellerInfoType] = Field(None, alias="sellerInfo")
     MotorsDealer: Optional[bool] = Field(None, alias="motorsDealer")
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 class ItemModel(BaseModel):
     Title: Optional[str] = Field(None, alias="title")
@@ -416,15 +469,19 @@ class SearchResult(BaseModel):
         return None
 
 class ActiveListingResponse(BaseModel):
-    item_number : Optional[int]=None
+
     items : List[ItemModel|None]
 
-    
-    @model_validator(mode='after')
-    def set_item_number(self) -> "ActiveListingResponse":
-        self.item_number = len(self.items)
-        return self
-
+    def __iter__(self):
+        return iter(self.items)
+    def __next__(self):
+        return next(iter(self.items))
+    def __len__(self):
+        return len(self.items)
+    def __getitem__(self, index: int) -> Optional[ItemModel]:
+        if self.items:
+            return self.items[index]
+        return None
 
 
 class BuyerRegistrationAddressType(BaseModel):

@@ -97,8 +97,16 @@ def generate_get_item_request_xml(item_id: str) -> str:
     return ET.tostring(root, encoding="utf-8", method="xml").decode("utf-8")
 
 @register_request_generator("GetMyeBaySellingRequest")
-def generate_get_my_ebay_selling_request_xml() -> str:
+def generate_get_my_ebay_selling_request_xml(entries_per_page: int = 3, page_number: int = 1) -> str:
     root = ET.Element("GetMyeBaySellingRequest", xmlns="urn:ebay:apis:eBLBaseComponents")
     ET.SubElement(root, "ErrorLanguage").text = "en_US"
     ET.SubElement(root, "WarningLevel").text = "High"
-    return ET.tostring(root, encoding="utf-8", method="xml").decode("utf-8")
+    active_list = ET.SubElement(root, "ActiveList")
+    ET.SubElement(active_list, "Sort").text = "TimeLeft"
+
+    # Add Pagination block
+    pagination = ET.SubElement(active_list, "Pagination")
+    ET.SubElement(pagination, "EntriesPerPage").text = str(entries_per_page)
+    ET.SubElement(pagination, "PageNumber").text = str(max(page_number, 1))
+
+    return '<?xml version="1.0" encoding="utf-8"?>' + ET.tostring(root, encoding="utf-8", method="xml").decode("utf-8")

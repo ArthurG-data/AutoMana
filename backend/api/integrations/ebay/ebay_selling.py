@@ -51,7 +51,7 @@ async def do_api_call(listing : listings_model.ItemModel,
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@ebay_listing_router.get('/active', description='get the active listings of a user', response_model=listings_model.ActiveListingResponse)
+@ebay_listing_router.get('/active', description='get the active listings of a user'""", response_model=PaginatedResponse""")
 async def do_api_call( limit: Annotated[int, Query(gt=0, le=100)] = 10,
                         offset: Annotated[int, Query(ge=0)] = 0,
                         app_code = str,
@@ -59,9 +59,17 @@ async def do_api_call( limit: Annotated[int, Query(gt=0, le=100)] = 10,
                         service_manager = Depends(get_service_manager)
                         ):
     try:
+        env = await service_manager.execute_service(
+            "integrations.ebay.get_environment",
+            app_code=app_code,
+            user_id=user.unique_id
+        )
+        if not env:
+            raise HTTPException(status_code=404, detail="Environment not found")
         result = await service_manager.execute_service(
             "integrations.ebay.selling",
             action="get_active",
+            environment=env,
             payload={
                 "app_code": app_code,
                 "user_id": user.unique_id,
@@ -69,7 +77,19 @@ async def do_api_call( limit: Annotated[int, Query(gt=0, le=100)] = 10,
                 "offset": offset
             }
         )
-        return result
+   
+        result = listings_model.ActiveListingResponse(items=result['GetMyeBaySellingResponse']['ActiveList']['ItemArray']['Item'])
+        return PaginatedResponse(
+            message="Active listings retrieved successfully",
+            data=result.items,
+            pagination=PaginationInfo(
+                limit=limit,
+                offset=offset,
+                total_count=len(result.items),
+                has_next=offset + limit < len(result.items),
+                has_previous=offset > 0
+            )
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

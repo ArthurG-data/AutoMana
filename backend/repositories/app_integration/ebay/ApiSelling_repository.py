@@ -44,7 +44,7 @@ class EbaySellingRepository(ApiRepository):
         xml_request = generate_add_fixed_price_item_request_xml(item)
         logger.debug(f"Generated XML Request: {xml_request}")
         headers = self._create_ebay_headers(token=token,
-                                             marketplace_id=payload.get("marketplace_id", 15),
+                                             marketplace_id=payload.get("marketplace_id", '15'),
                                              call_name="AddFixedPriceItemRequest")
 
         return await self._make_post_request("", xml=xml_request, headers=headers)
@@ -88,15 +88,17 @@ class EbaySellingRepository(ApiRepository):
         """Get the active listings of an eBay user"""
         logger.info("Getting the active listings of an eBay user")
         token = payload.get("token")
+        limit = payload.get("limit", 10)
+        offset = payload.get("offset", 0)
         if not token:
             raise ValueError("Token is required")
-        item_id = payload.get("item_id")
-        if not item_id:
-            raise ValueError("Item ID is required")
-        xml_request = generate_get_my_ebay_selling_request_xml()
+        xml_request = generate_get_my_ebay_selling_request_xml(entries_per_page=limit
+                                                               , page_number=offset)
+    
         headers = self._create_ebay_headers(token=token,
-                                             marketplace_id=payload["marketplace_id"],
-                                             call_name="GetMyeBaySellingRequest")
+                                             marketplace_id=payload.get("marketplace_id", "15"),
+                                             call_name="GetMyeBaySelling")
+        logger.debug(f"Generated XML Request: {xml_request}")
         return await self._make_post_request("", xml=xml_request, headers=headers)
     
 
@@ -125,5 +127,4 @@ class EbaySellingRepository(ApiRepository):
         if not token:
             raise ValueError("Token is required")
         headers = self._create_auth_header(token)
-        print(url)
         return await self._make_get_request(url, headers=headers, params=params)
