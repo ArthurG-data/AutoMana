@@ -77,7 +77,6 @@ async def do_api_call( limit: Annotated[int, Query(gt=0, le=100)] = 10,
                 "offset": offset
             }
         )
-   
         result = listings_model.ActiveListingResponse(items=result['GetMyeBaySellingResponse']['ActiveList']['ItemArray']['Item'])
         return PaginatedResponse(
             message="Active listings retrieved successfully",

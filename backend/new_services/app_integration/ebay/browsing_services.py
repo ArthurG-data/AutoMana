@@ -6,7 +6,6 @@ from typing import Optional, List
 from backend.schemas.app_integration.ebay import listings as listings_model
 from backend.schemas.app_integration.ebay import auth as auth_model
 from backend.repositories.app_integration.ebay.ApiBrowse_repository  import EbayBrowseAPIRepository
-from backend.utils_new.app_integration.ebay.xml_utils import create_xml_body, create_xml_body_get_item
 from backend.exceptions.service_layer_exceptions.app_integration.ebay import app_exception
 
 logger = logging.getLogger(__name__)
