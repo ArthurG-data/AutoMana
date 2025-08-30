@@ -96,7 +96,7 @@ class ServiceManager:
                 "db_repositories": ["session"]
             },
             # Shop Meta services
-            "shop_meta.market.get_all": {
+            "integration.shop_meta.market.get_all": {
                 "module": "backend.new_services.shop_data_ingestion.market_service",
                 "function": "get_all_markets",
                 "db_repositories": ["market"]
@@ -277,14 +277,22 @@ class ServiceManager:
                 "db_repositories": ["auth"],
                 "api_repositories": ["selling"]
             },
+            # mtg_stock
+            "integration.mtg_stock.load": {
+                "module": "backend.new_services.app_integration.mtg_stock.data_loader",
+                "function": "run_batch",
+                "api_repositories": ["mtg_stock"]
+                }
+            }
             # Add more services as needed
-        }
+    
         # Repository registry - maps repo types to module paths and class names
 
         self._api_repository_registry = {
              "auth_oauth": ("backend.repositories.app_integration.ebay.ApiAuth_repository", "EbayAuthAPIRepository"),
              "search": ("backend.repositories.app_integration.ebay.ApiBrowse_repository", "EbayBrowseAPIRepository"),
-             "selling": ("backend.repositories.app_integration.ebay.ApiSelling_repository", "EbaySellingRepository")
+             "selling": ("backend.repositories.app_integration.ebay.ApiSelling_repository", "EbaySellingRepository"),
+             "mtg_stock": ("backend.repositories.app_integration.mtg_stock.ApiMtgStock_repository", "ApiMtgStockRepository")
         }
         self._db_repository_registry = {
             # Auth repositories
@@ -308,6 +316,7 @@ class ServiceManager:
             "card": ("backend.repositories.card_catalog.card_repository", "CardReferenceRepository"),
             "set": ("backend.repositories.card_catalog.set_repository", "SetReferenceRepository"),
             "user_collection": ("backend.repositories.card_catalog.collection_repository", "CollectionRepository"),
+            
         }
 
     @asynccontextmanager
