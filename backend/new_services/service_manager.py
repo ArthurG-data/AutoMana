@@ -282,8 +282,13 @@ class ServiceManager:
                 "module": "backend.new_services.app_integration.mtg_stock.data_loader",
                 "function": "run_batch",
                 "api_repositories": ["mtg_stock"]
-                }
+                },
+            "integration.mtg_stock.stage": {
+                "module": "backend.new_services.app_integration.mtg_stock.data_staging",
+                "function": "bulk_load",
+                "db_repositories": ["price"]
             }
+        }
             # Add more services as needed
     
         # Repository registry - maps repo types to module paths and class names
@@ -316,7 +321,8 @@ class ServiceManager:
             "card": ("backend.repositories.card_catalog.card_repository", "CardReferenceRepository"),
             "set": ("backend.repositories.card_catalog.set_repository", "SetReferenceRepository"),
             "user_collection": ("backend.repositories.card_catalog.collection_repository", "CollectionRepository"),
-            
+            # Price repository
+            "price": ("backend.repositories.app_integration.mtg_stock.price_repository", "PriceRepository")
         }
 
     @asynccontextmanager

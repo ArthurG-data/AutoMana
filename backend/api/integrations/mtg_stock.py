@@ -8,6 +8,16 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/mtg_stock", tags=["mtg_stock"])
 
+
+@router.post("/stage")
+async def stage_data(service_manager: ServiceManager = Depends(get_service_manager)):
+    try:
+        await service_manager.execute_service("integration.mtg_stock.stage")
+
+    except Exception as e:
+        logger.error(f"Error staging data: {e}")
+        raise HTTPException(status_code=500, detail="Error staging data")
+
 @router.get("/load")
 async def get_print_data(print_ids: Optional[List[int]] = Query(None, description="A list of print IDs to fetch"),
                 range_start: Optional[int] = Query(None, description="Start of the range of print IDs"),

@@ -10,7 +10,7 @@ from backend.repositories.card_catalog import card_queries as queries
 from backend.request_handling.StandardisedQueryResponse import ApiResponse
 
 class CardReferenceRepository(AbstractRepository[Any]):
-    def __init__(self, connection, executor : None):
+    def __init__(self, connection, executor = None):
         super().__init__(connection, executor)
 
     @property
