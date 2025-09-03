@@ -12,7 +12,10 @@ CREATE TABLE IF NOT EXISTS sets(
     digital BOOL DEFAULT FALSE,
     nonfoil_only BOOL DEFAULT FALSE,
     foil_only BOOL DEFAULT FALSE,
-    parent_set UUID DEFAULT NULL
+    parent_set UUID DEFAULT NULL,
+    is_active BOOL DEFAULT TRUE,
+    created_date DATE DEFAULT NOW(),
+    updated_date DATE DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS icon_query_ref(
@@ -34,6 +37,7 @@ CREATE VIEW joined_set (set_id, set_name, set_code, set_type, nonfoil_only, foil
     LEFT JOIN sets ss ON s.parent_set = ss.set_id
     JOIN set_type_list_ref stl ON s.set_type_id = stl.set_type_id
     JOIN card_version cv ON cv.set_id = s.set_id
+    WHERE s.is_active = TRUE
     GROUP BY s.set_id,  stl.set_type, s.released_at,  ss.set_id;
 
 CREATE  MATERIALIZED VIEW IF NOT EXISTS joined_set_materialized (set_id, set_name, set_code, set_type, card_count, released_at, digital)

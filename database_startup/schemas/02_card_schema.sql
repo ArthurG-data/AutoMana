@@ -5,7 +5,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE IF NOT EXISTS unique_cards_ref (
     unique_card_id UUID PRIMARY KEY DEFAULT uuid_generate_v4() ON DELETE CASCADE,
     card_name TEXT NOT NULL UNIQUE,
-    cmc int,
+    cmc INT,
     mana_cost VARCHAR(50),
     reserved BOOL DEFAULT(false),
     is_multifaced BOOL DEFAULT(false),

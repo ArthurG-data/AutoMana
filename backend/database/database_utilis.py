@@ -7,6 +7,7 @@ from backend.database.get_database import get_cursor
 from uuid import UUID
 from backend.database import errors
 from typing import Tuple, Dict
+from datetime import datetime
 
 logging.basicConfig(level=logging.ERROR)
 
@@ -63,7 +64,7 @@ def create_delete_query(table: str,
     return query, values
 
 def create_update_query(table: str,
-    updates: Dict[str, Union[str, int, float]],
+    updates: Dict[str, Union[str, int, float, datetime]],
     conditions: Sequence[Tuple[str, str, Union[str, int, float]]]
 ) -> Tuple[str, List]:
     if not updates:
@@ -114,21 +115,21 @@ def create_select_query(
             else:
                 col, op, val = cond
                 if op.upper() == "IN":
-                    where_parts.append(f"{col} = ANY(%s)")
+                    where_parts.append(f"{col} = ANY(${len(params) + 1})")
                 else:
-                    where_parts.append(f"{col} {op} %s")
+                    where_parts.append(f"{col} {op} ${len(params) + 1}")
                 params.append(val)
         query += " WHERE " + " AND ".join(where_parts)
 
     if order_by:
         query += f" ORDER BY {order_by}"
     if limit is not None:
-        query += " LIMIT %s"
+        query += f" LIMIT ${len(params) + 1}"
         params.append(limit)
     if offset is not None:
-        query += " OFFSET %s"
+        query += f" OFFSET ${len(params) + 1}"
         params.append(offset)
-    return query, params
+    return query #change to add params later if needed, for now just return query string
 
   
 def exception_handler(exception: Exception):

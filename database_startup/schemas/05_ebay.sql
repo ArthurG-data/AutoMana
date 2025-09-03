@@ -28,14 +28,14 @@ CREATE TABLE IF NOT EXISTS app_user (
 
 
 CREATE TABLE IF NOT EXISTS ebay_tokens(
+    token_id SERIAL PRIMARY KEY,
     dev_id UUID REFERENCES user_ebay(dev_id) ON DELETE CASCADE NOT NULL,
     app_id TEXT REFERENCES app_info(app_id) ON DELETE CASCADE NOT NULL,
-    refresh_token TEXT NOT NULL,
+    token TEXT NOT NULL,
     acquired_on TIMESTAMPTZ DEFAULT now(),
     expires_on TIMESTAMPTZ NOT NULL,
     token_type TEXT,
-    used BOOLEAN DEFAULT FALSE,
-    PRIMARY KEY (dev_id, app_id)
+    used BOOLEAN DEFAULT FALSE
 );
 
 CREATE TABLE IF NOT EXISTS scopes (
