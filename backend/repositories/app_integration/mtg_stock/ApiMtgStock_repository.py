@@ -11,7 +11,7 @@ class ApiMtgStockRepository:
             "Accept-Encoding": "gzip, deflate, br",
             "Connection": "keep-alive",
         }
-        self.DELAY_BASE = 0.5
+        self.DELAY_BASE = 180
         self.SEM = asyncio.Semaphore(8)
         self.environment = environment
 
@@ -23,7 +23,7 @@ class ApiMtgStockRepository:
 
     async def __aenter__(self):
         """Initialize the persistent HTTP client when entering the context."""
-        self.client = httpx.AsyncClient()
+        self.client = httpx.AsyncClient(http2=True)
         return self
 
     async def __aexit__(self, exc_type, exc_value, traceback):
@@ -43,9 +43,9 @@ class ApiMtgStockRepository:
                     continue
                 elif r.status_code == 404:
                     logger.warning(f"Resource not found: {url}")
-                pass
+                    return None
                 r.raise_for_status()
-                return r.content, r.headers
+                return r.content
             except httpx.HTTPError:
                 if attempt == 5:
                     raise
@@ -65,8 +65,11 @@ class ApiMtgStockRepository:
         async def fetch_data(card_id: int):
             async with self.SEM:
                 try:
-                    details, headers = await self.fetch_card_details(card_id)
-                    prices, price_headers = await self.fetch_card_prices(card_id)
+                    details_task = self.fetch_card_details(card_id)
+                    prices_task = self.fetch_card_prices(card_id)
+                    details, prices = await asyncio.gather(details_task, prices_task)
+                    if details is None or prices is None:
+                        return {"card_id": card_id, "error": "Data not found"}
                     return {"card_id": card_id, "details": details, "prices": prices}
                 except httpx.HTTPStatusError as e:
                     return {"card_id": card_id, "error": str(e)}

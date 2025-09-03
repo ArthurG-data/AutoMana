@@ -16,7 +16,7 @@ async def stage_data(service_manager: ServiceManager = Depends(get_service_manag
 
     except Exception as e:
         logger.error(f"Error staging data: {e}")
-        raise HTTPException(status_code=500, detail="Error staging data")
+        raise HTTPException(status_code=500, detail=f"Error staging data, {e}")
 
 @router.get("/load")
 async def get_print_data(print_ids: Optional[List[int]] = Query(None, description="A list of print IDs to fetch"),

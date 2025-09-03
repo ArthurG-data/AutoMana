@@ -48,7 +48,7 @@ async def run_batch(mtg_stock_repository : ApiMtgStockRepository
                     , print_ids : Optional[List[int]]
                     , range_start: Optional[int]
                     , range_end: Optional[int]
-                    , batch_size: Optional[int]=10):
+                    , batch_size: Optional[int]=100):
     #try:
     async with mtg_stock_repository as repo:
         inputs = print_ids if print_ids is not None else list(range(range_start, range_end + 1))

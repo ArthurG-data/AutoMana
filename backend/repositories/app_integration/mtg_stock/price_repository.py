@@ -31,54 +31,57 @@ class PriceRepository(AbstractRepository):
             source=buf,
             format='csv',
             header=True)
-        
 
-    async def fetch_all_prices(self):
+    async def call_load_stage_from_raw(self):
+        """
+        Call the load_staging_prices procedure.
+        """
+        await self.connection.execute("CALL load_staging_prices();")
+
+    async def call_load_dim_from_staging(self):
+        """
+        Call the load_dim_from_staging procedure.
+        """
+        await self.connection.execute("CALL load_dim_from_staging();")
+
+    async def call_load_prices_from_dim(self):
+        """
+        Call the load_prices_from_dim procedure.
+        """
+        def _on_notify(conn, pid, channel, payload):
+            logger.info("DB notify %s: %s", channel, payload)
+
+        try:
+            # register listener
+            await self.connection.add_listener('staging_log', _on_notify)
+            # call the procedure (must be a PROCEDURE)
+            await self.connection.execute("CALL load_prices_from_dim();")
+            logger.info("Called load_prices_from_dim()")
+        finally:
+            # remove listener
+            try:
+                await self.connection.remove_listener('staging_log', _on_notify)
+            except Exception:
+                pass
+
+    async def fetch_all_prices(self, table_name):
         """
         Fetch all rows from the staging table for verification.
         """
-        fetch_query = "SELECT * FROM str_mtg_stock_price;"
+        fetch_query = f"SELECT COUNT(*) FROM {table_name};"
         try:
-            rows = await self.execute_query(fetch_query)
-            logger.info(f"Fetched {len(rows)} rows from str_mtg_stock_price.")
-            return rows
+            count = await self.execute_query(fetch_query)
+            logger.info(f"Fetched {count} rows from {table_name}.")
+            return count
         except Exception as e:
-            logger.error(f"Error fetching data from str_mtg_stock_price: {e}")
-            return []
+            logger.error(f"Error fetching data from {table_name}: {e}")
+            return 0
 
     async def copy_prices(self, df):
-        await self._copy_to_table(df, "str_mtg_stock_price")
+        await self._copy_to_table(df, "raw_mtg_stock_price")
         await self.connection.execute('COMMIT;')
 
-    async def create_staging_table(self):
-        """
-        Create the staging table if it does not exist.
-        """
-        create_table_query = """
-        CREATE TABLE IF NOT EXISTS str_mtg_stock_price (
-            ts_date DATE NOT NULL,
-            game_code TEXT NOT NULL,
-            card_version_id UUID NOT NULL,
-            price_low NUMERIC(12,4),
-            price_avg NUMERIC(12,4),
-            price_foil NUMERIC(12,4),
-            price_market NUMERIC(12,4),
-            price_market_foil NUMERIC(12,4),
-            source_code TEXT NOT NULL
-           --,scraped_at TIMESTAMPTZ DEFAULT now()
-        );
-        """
-        await self.execute_command(create_table_query)
-
-    async def drop_staging_table(self):
-        """
-        Drop the staging table if it exists.
-        """
-        drop_table_query = """
-        DROP TABLE IF EXISTS str_mtg_stock_price;
-        """
-        await self.execute_command(drop_table_query)
-
+    
     def add(self):
         raise NotImplementedError("Method not implemented")
 

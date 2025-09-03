@@ -20,17 +20,17 @@ async def process_prices_file(path, card_version_id):
     # normalize to match stg_price_obs schema
     df["card_version_id"] = card_version_id
     df['game_code'] =  "mtg"
-    df['source_code'] = 'mtg_stock'
+    df['source_code'] = 'mtgstocks'
+    df['scraped_at'] = pd.Timestamp.now()
     # you may already have ts_date / metric_code / etc in columns
-    return df[["date","game_code", "card_version_id" ,"price_low", "price_avg",  "price_foil", "price_market", "price_market_foil", "source_code"]]
+    return df[["date","game_code", "card_version_id" ,"price_low", "price_avg",  "price_foil", "price_market", "price_market_foil", "source_code", "scraped_at"]]
 
 BASE = os.path.join(Path(__file__).resolve().parents[4], 'data/mtgstocks/raw/prints')
 
 async def bulk_load(price_repository: PriceRepository, root_folder=BASE, batch_size=10):
     price_rows = []
     #initialisation process
-    await price_repository.rollback_transaction()
-    await price_repository.create_staging_table()
+    #await price_repository.rollback_transaction()
     try:
         for i, folder in enumerate(os.listdir(BASE), 1):
             try:
@@ -42,18 +42,31 @@ async def bulk_load(price_repository: PriceRepository, root_folder=BASE, batch_s
                 price_df = await process_prices_file(price_path, card_id.get("card_version_id"))
                 price_rows.append(price_df)
             except Exception as e:
-                logger.warning("Error processing folder: %s Error: %s", folder, e)
+                logger.warning(f"Error processing folder: {folder} Error: {e}")
             if i % batch_size == 0:
                 big_price_df = pd.concat(price_rows, ignore_index=True)
                 await price_repository.copy_prices(big_price_df)
-                """
-                # merge staging into final tables
-                with conn.cursor() as cur:
-                    cur.execute("CALL load_prints_from_staging();")
-                    cur.execute("CALL load_prices_from_staging();")
-                conn.commit()
-                """
-                #info_rows.clear()
+                count = await price_repository.fetch_all_prices("raw_mtg_stock_price")
+                logger.info(f"Total rows in staging after batch: {count}")
+                if count ==0:
+                    raise ValueError("No rows found in staging table")
+                logger.info(f"Inserted batch of {batch_size} folders")
+                await price_repository.call_load_stage_from_raw()
+                count = await price_repository.fetch_all_prices("stg_price_observation")
+                logger.info(f"Total rows in staging after load_stage_from_raw: {count}")
+                if count ==0:
+                    raise ValueError("No rows found in stg_price_observation table after load_stage_from_raw")
+                
+                await price_repository.call_load_dim_from_staging()
+                count = await price_repository.fetch_all_prices("dim_price_observation")
+                logger.info(f"Total rows in staging after load_dim_from_staging: {count}")
+                if count ==0:
+                    raise ValueError("No rows found in dim_price_observation table after load_dim_from_staging")
+                await price_repository.call_load_prices_from_dim()
+                count = await price_repository.fetch_all_prices("price_observation")
+                logger.info(f"Total rows in price_observation after load_prices_from_dim: {count}")
+                if count ==0:
+                    raise ValueError("No rows found in price_observation table after load_prices_from_dim")
                 price_rows.clear()
             # flush leftovers
             if price_rows:
