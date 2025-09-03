@@ -24,12 +24,10 @@ CREATE TABLE IF NOT EXISTS card_types (
     PRIMARY KEY (unique_card_id, type_name)
 );
 
-
 CREATE TABLE IF NOT EXISTS rarities_ref (
     rarity_id SERIAL PRIMARY KEY,
     rarity_name VARCHAR(20) UNIQUE NOT NULL
 );
-
 
 CREATE TABLE IF NOT EXISTS artists_ref (
     artist_id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -74,7 +72,6 @@ CREATE TABLE IF NOT EXISTS card_color_identity (
     PRIMARY KEY (unique_card_id, color_id)
 );
 
-
 CREATE TABLE IF NOT EXISTS formats_ref (
     format_id SERIAL PRIMARY KEY,
     format_name VARCHAR(20) UNIQUE NOT NULL
@@ -105,8 +102,12 @@ CREATE TABLE IF NOT EXISTS card_version (
     is_promo BOOL DEFAULT false, 
     is_digital BOOL DEFAULT false,
     is_oversized BOOL DEFAULT false,
+    full_art BOOLEAN DEFAULT false,
+    textless BOOLEAN DEFAULT false,
+    booster BOOLEAN DEFAULT true,
+    variation BOOLEAN DEFAULT false,    
+    UNIQUE (unique_card_id, set_id, collector_number)
 );
-
 
 CREATE TABLE IF NOT EXISTS illustrations (
     illustration_id UUID PRIMARY KEY, 
@@ -125,10 +126,29 @@ CREATE TABLE IF NOT EXISTS card_version_illustration (
 );
 
 --need to be added
-
 CREATE TABLE IF NOT EXISTS games_ref (
     game_id SERIAL PRIMARY KEY,
     game_description  VARCHAR(20) NOT NULL UNIQUE 
+);
+--new stats table
+CREATE TABLE IF NOT EXISTS card_stats_ref (
+    stat_id SERIAL PRIMARY KEY,
+    stat_name VARCHAR(20) NOT NULL UNIQUE,
+    stat_description TEXT
+);
+--reference  newly added
+INSERT INTO card_stats_ref (stat_name, stat_description) VALUES
+('power', 'Creature power value'),
+('toughness', 'Creature toughness value'),
+('loyalty', 'Planeswalker loyalty value'),
+('defense', 'Battle defense value');
+
+-- versioned stats table
+CREATE TABLE IF NOT EXISTS card_version_stats (
+    card_version_id UUID NOT NULL REFERENCES card_version(card_version_id) ON DELETE CASCADE,
+    stat_id INT NOT NULL REFERENCES card_stats_ref(stat_id) ON DELETE CASCADE,
+    stat_value TEXT NOT NULL,
+    PRIMARY KEY (card_version_id, stat_id)
 );
 
 CREATE TABLE IF NOT EXISTS games_card_version (
@@ -172,6 +192,241 @@ FROM unique_card uc
 LEFT JOIN card_version cv ON uc.card_id = cv.card_id
 GROUP BY uc.card_id, uc.name;
 
+CREATE MATERIALIZED VIEW mv_card_versions_complete AS
+WITH 
+-- Card types aggregated
+card_types_agg AS (
+    SELECT 
+        ct.unique_card_id,
+        array_agg(ct.type_name ORDER BY ct.type_name) FILTER (WHERE ct.type_category = 'type') AS types,
+        array_agg(ct.type_name ORDER BY ct.type_name) FILTER (WHERE ct.type_category = 'subtype') AS subtypes,
+        array_agg(ct.type_name ORDER BY ct.type_name) FILTER (WHERE ct.type_category = 'supertype') AS supertypes
+    FROM card_types ct
+    GROUP BY ct.unique_card_id
+),
+-- Colors aggregated
+colors_agg AS (
+    SELECT 
+        cci.unique_card_id,
+        array_agg(cr.color_name ORDER BY cr.color_name) AS color_identity
+    FROM card_color_identity cci
+    JOIN colors_ref cr ON cci.color_id = cr.color_id
+    GROUP BY cci.unique_card_id
+),
+-- Keywords aggregated
+keywords_agg AS (
+    SELECT 
+        ck.unique_card_id,
+        array_agg(kr.keyword_name ORDER BY kr.keyword_name) AS keywords
+    FROM card_keyword ck
+    JOIN keywords_ref kr ON ck.keyword_id = kr.keyword_id
+    GROUP BY ck.unique_card_id
+),
+-- Legalities aggregated
+legalities_agg AS (
+    SELECT 
+        l.unique_card_id,
+        jsonb_object_agg(
+            fr.format_name, 
+            lsr.legal_status
+        ) AS legalities
+    FROM legalities l
+    JOIN formats_ref fr ON l.format_id = fr.format_id
+    JOIN legal_status_ref lsr ON l.legality_id = lsr.legality_id
+    GROUP BY l.unique_card_id
+),
+-- Games aggregated
+games_agg AS (
+    SELECT 
+        gcv.card_version_id,
+        array_agg(gr.game_description ORDER BY gr.game_description) AS games
+    FROM games_card_version gcv
+    JOIN games_ref gr ON gcv.game_id = gr.game_id
+    GROUP BY gcv.card_version_id
+),
+-- Promo types aggregated
+promo_types_agg AS (
+    SELECT 
+        pc.card_version_id,
+        array_agg(ptr.promo_type_desc ORDER BY ptr.promo_type_desc) AS promo_types
+    FROM promo_card pc
+    JOIN promo_types_ref ptr ON pc.promo_id = ptr.promo_id
+    GROUP BY pc.card_version_id
+),
+-- Card stats pivoted
+card_stats_agg AS (
+    SELECT 
+        cvs.card_version_id,
+        MAX(CASE WHEN csr.stat_name = 'power' THEN cvs.stat_value END) AS power,
+        MAX(CASE WHEN csr.stat_name = 'toughness' THEN cvs.stat_value END) AS toughness,
+        MAX(CASE WHEN csr.stat_name = 'loyalty' THEN cvs.stat_value END) AS loyalty,
+        MAX(CASE WHEN csr.stat_name = 'defense' THEN cvs.stat_value END) AS defense
+    FROM card_version_stats cvs
+    JOIN card_stats_ref csr ON cvs.stat_id = csr.stat_id
+    GROUP BY cvs.card_version_id
+),
+-- Illustrations with artists
+illustrations_agg AS (
+    SELECT 
+        cvi.card_version_id,
+        cvi.illustration_id,
+        ar.artist_name,
+        ar.artist_id,
+        i.file_uri,
+        i.added_on AS illustration_added_on
+    FROM card_version_illustration cvi
+    JOIN illustrations i ON cvi.illustration_id = i.illustration_id
+    LEFT JOIN illustration_artist ia ON i.illustration_id = ia.illustration_id
+    LEFT JOIN artists_ref ar ON ia.artist_id = ar.artist_id
+),
+-- Card faces aggregated
+card_faces_agg AS (
+    SELECT 
+        cf.card_version_id,
+        jsonb_agg(
+            jsonb_build_object(
+                'face_index', cf.face_index,
+                'name', cf.name,
+                'mana_cost', cf.mana_cost,
+                'type_line', cf.type_line,
+                'oracle_text', cf.oracle_text,
+                'power', cf.power,
+                'toughness', cf.toughness,
+                'flavor_text', cf.flavor_text
+            ) ORDER BY cf.face_index
+        ) AS card_faces
+    FROM card_faces cf
+    GROUP BY cf.card_version_id
+)
+
+-- ✅ MAIN SELECT: Join everything together
+SELECT 
+    -- Primary IDs
+    cv.card_version_id,
+    cv.unique_card_id,
+    ucr.card_name,
+    
+    -- Set information
+    s.set_id,
+    s.set_name,
+    s.set_code,
+    cv.collector_number,
+    
+    -- Card basics
+    ucr.cmc,
+    ucr.mana_cost,
+    cv.oracle_text,
+    ucr.reserved,
+    
+    -- Type information
+    COALESCE(cta.types, ARRAY[]::text[]) AS types,
+    COALESCE(cta.subtypes, ARRAY[]::text[]) AS subtypes,
+    COALESCE(cta.supertypes, ARRAY[]::text[]) AS supertypes,
+    
+    -- Type line (constructed)
+    CASE 
+        WHEN array_length(COALESCE(cta.supertypes, ARRAY[]::text[]), 1) > 0 
+        THEN array_to_string(cta.supertypes, ' ') || ' '
+        ELSE ''
+    END ||
+    CASE 
+        WHEN array_length(COALESCE(cta.types, ARRAY[]::text[]), 1) > 0 
+        THEN array_to_string(cta.types, ' ')
+        ELSE ''
+    END ||
+    CASE 
+        WHEN array_length(COALESCE(cta.subtypes, ARRAY[]::text[]), 1) > 0 
+        THEN ' — ' || array_to_string(cta.subtypes, ' ')
+        ELSE ''
+    END AS type_line,
+    
+    -- Colors and identity
+    COALESCE(ca.color_identity, ARRAY[]::text[]) AS color_identity,
+    COALESCE(ka.keywords, ARRAY[]::text[]) AS keywords,
+    
+    -- Stats
+    csa.power,
+    csa.toughness,
+    csa.loyalty,
+    csa.defense,
+    
+    -- Rarity and visual
+    rr.rarity_name,
+    bcr.border_color_name,
+    fr.frame_year,
+    lr.layout_name,
+    
+    -- Flags
+    cv.is_promo,
+    cv.is_digital,
+    cv.is_oversized,
+    cv.full_art,
+    cv.textless,
+    cv.booster,
+    cv.variation,
+    ucr.is_multifaced,
+    
+    -- Artist and illustration
+    ia.artist_name,
+    ia.artist_id,
+    ia.illustration_id,
+    ia.file_uri AS illustration_uri,
+    ia.illustration_added_on,
+    
+    -- Aggregated data
+    COALESCE(la.legalities, '{}'::jsonb) AS legalities,
+    COALESCE(ga.games, ARRAY[]::text[]) AS games,
+    COALESCE(pta.promo_types, ARRAY[]::text[]) AS promo_types,
+    COALESCE(cfa.card_faces, '[]'::jsonb) AS card_faces,
+    
+    -- Face count for quick reference
+    CASE 
+        WHEN ucr.is_multifaced THEN jsonb_array_length(COALESCE(cfa.card_faces, '[]'::jsonb))
+        ELSE 1
+    END AS face_count,
+    
+    -- Search helpers
+    to_tsvector('english', 
+        ucr.card_name || ' ' || 
+        COALESCE(cv.oracle_text, '') || ' ' ||
+        COALESCE(array_to_string(cta.types, ' '), '') || ' ' ||
+        COALESCE(array_to_string(cta.subtypes, ' '), '') || ' ' ||
+        COALESCE(array_to_string(ka.keywords, ' '), '')
+    ) AS search_vector,
+    
+    -- Timestamps
+    CURRENT_TIMESTAMP AS materialized_at
+
+FROM card_version cv
+JOIN unique_cards_ref ucr ON cv.unique_card_id = ucr.unique_card_id
+JOIN sets s ON cv.set_id = s.set_id
+JOIN rarities_ref rr ON cv.rarity_id = rr.rarity_id
+JOIN border_color_ref bcr ON cv.border_color_id = bcr.border_color_id
+JOIN frames_ref fr ON cv.frame_id = fr.frame_id
+JOIN layouts_ref lr ON cv.layout_id = lr.layout_id
+
+-- Join aggregated data
+LEFT JOIN card_types_agg cta ON ucr.unique_card_id = cta.unique_card_id
+LEFT JOIN colors_agg ca ON ucr.unique_card_id = ca.unique_card_id
+LEFT JOIN keywords_agg ka ON ucr.unique_card_id = ka.unique_card_id
+LEFT JOIN legalities_agg la ON ucr.unique_card_id = la.unique_card_id
+LEFT JOIN games_agg ga ON cv.card_version_id = ga.card_version_id
+LEFT JOIN promo_types_agg pta ON cv.card_version_id = pta.card_version_id
+LEFT JOIN card_stats_agg csa ON cv.card_version_id = csa.card_version_id
+LEFT JOIN illustrations_agg ia ON cv.card_version_id = ia.card_version_id
+LEFT JOIN card_faces_agg cfa ON cv.card_version_id = cfa.card_version_id;
+
+CREATE UNIQUE INDEX idx_mv_card_versions_complete_pk ON mv_card_versions_complete (card_version_id);
+CREATE INDEX idx_mv_card_versions_complete_name ON mv_card_versions_complete (card_name);
+CREATE INDEX idx_mv_card_versions_complete_set ON mv_card_versions_complete (set_name, collector_number);
+CREATE INDEX idx_mv_card_versions_complete_cmc ON mv_card_versions_complete (cmc);
+CREATE INDEX idx_mv_card_versions_complete_colors ON mv_card_versions_complete USING GIN (color_identity);
+CREATE INDEX idx_mv_card_versions_complete_types ON mv_card_versions_complete USING GIN (types);
+CREATE INDEX idx_mv_card_versions_complete_rarity ON mv_card_versions_complete (rarity_name);
+CREATE INDEX idx_mv_card_versions_complete_search ON mv_card_versions_complete USING GIN (search_vector);
+CREATE INDEX idx_mv_card_versions_complete_legalities ON mv_card_versions_complete USING GIN (legalities);
+
+
 --STORED PROCEDURE---------------------------
 CREATE OR REPLACE FUNCTION insert_full_card_version(
     p_card_name TEXT,
@@ -186,10 +441,11 @@ CREATE OR REPLACE FUNCTION insert_full_card_version(
     p_frame_year TEXT,
     p_layout_name TEXT,
     p_is_promo BOOLEAN,
+
     p_is_digital BOOLEAN,
     p_colors JSONB,
     p_artist TEXT,
-    p_artist_id TEXT,
+    p_artist_id UUID,
     p_legalities JSONB,
     p_illustration_id UUID,
     p_types JSONB,
@@ -202,6 +458,8 @@ CREATE OR REPLACE FUNCTION insert_full_card_version(
     p_textless BOOLEAN,
     p_power TEXT,
     p_toughness TEXT,
+    p_loyalty TEXT,--new
+    p_defense TEXT,--new
     p_promo_types JSONB,
     p_variation BOOLEAN,
     p_card_faces JSONB
@@ -286,17 +544,31 @@ BEGIN
         unique_card_id, oracle_text, set_id,
         collector_number, rarity_id, border_color_id,
         frame_id, layout_id, is_promo, is_digital,
-        oversized, full_art, textless, booster,
-        variation, power, toughness
+        is_oversized, full_art, textless, booster,
+        variation
     ) VALUES (
         v_unique_card_id, p_oracle_text, v_set_id,
         p_collector_number, v_rarity_id, v_border_color_id,
         v_frame_id, v_layout_id, p_is_promo, p_is_digital,
         p_oversized, p_full_art, p_textless, p_booster,
-        p_variation, p_power, p_toughness
+        p_variation
     )
     RETURNING card_version_id INTO v_card_version_id;
 
+    --card stat
+    INSERT INTO card_version_stats (card_version_id, stat_id, stat_value)
+    SELECT v_card_version_id, stat_id, stat_value
+    FROM (
+        VALUES 
+            ((SELECT stat_id FROM card_stats_ref WHERE stat_name = 'power'), p_power),
+            ((SELECT stat_id FROM card_stats_ref WHERE stat_name = 'toughness'), p_toughness),
+            ((SELECT stat_id FROM card_stats_ref WHERE stat_name = 'loyalty'), p_loyalty),
+            ((SELECT stat_id FROM card_stats_ref WHERE stat_name = 'defense'), p_defense)
+    ) AS stats(stat_id, stat_value)
+    WHERE stat_value IS NOT NULL
+    ON CONFLICT DO NOTHING;
+
+    --card illustrations
     INSERT INTO card_version_illustration (card_version_id, illustration_id)
     VALUES (v_card_version_id, p_illustration_id)
     ON CONFLICT DO NOTHING;
@@ -441,8 +713,175 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION insert_batch_card_versions(
+    p_cards JSONB  -- Array of card objects
+)
+RETURNS TABLE (
+    total_processed INT,
+    successful_inserts INT,
+    failed_inserts INT,
+    inserted_card_ids UUID[],
+    error_details JSONB
+) AS $$
+DECLARE
+    v_card JSONB;
+    v_result UUID;
+    v_total_processed INT := 0;
+    v_successful_inserts INT := 0;
+    v_failed_inserts INT := 0;
+    v_inserted_ids UUID[] := ARRAY[]::UUID[];
+    v_error_details JSONB := '[]'::JSONB;
+    v_error_info JSONB;
+BEGIN
+    -- Process each card in the batch
+    FOR v_card IN SELECT * FROM jsonb_array_elements(p_cards)
+    LOOP
+        v_total_processed := v_total_processed + 1;
+        
+        BEGIN
+            -- Call your existing function
+            SELECT insert_full_card_version(
+                v_card ->> 'card_name',
+                (v_card ->> 'cmc')::INT,
+                v_card ->> 'mana_cost',
+                (v_card ->> 'reserved')::BOOLEAN,
+                v_card ->> 'oracle_text',
+                v_card ->> 'set_name',
+                v_card ->> 'collector_number',
+                v_card ->> 'rarity_name',
+                v_card ->> 'border_color',
+                v_card ->> 'frame_year',
+                v_card ->> 'layout_name',
+                (v_card ->> 'is_promo')::BOOLEAN,
+                (v_card ->> 'is_digital')::BOOLEAN,
+                v_card -> 'colors',
+                v_card ->> 'artist',
+                (v_card ->> 'artist_id')::UUID,
+                v_card -> 'legalities',
+                (v_card ->> 'illustration_id')::UUID,
+                v_card -> 'types',
+                v_card -> 'supertypes',
+                v_card -> 'subtypes',
+                v_card -> 'games',
+                (v_card ->> 'oversized')::BOOLEAN,
+                (v_card ->> 'booster')::BOOLEAN,
+                (v_card ->> 'full_art')::BOOLEAN,
+                (v_card ->> 'textless')::BOOLEAN,
+                v_card ->> 'power',
+                v_card ->> 'toughness',
+                v_card ->> 'loyalty',
+                v_card ->> 'defense',
+                v_card -> 'promo_types',
+                (v_card ->> 'variation')::BOOLEAN,
+                v_card -> 'card_faces'
+            ) INTO v_result;
+            
+            -- Success
+            v_successful_inserts := v_successful_inserts + 1;
+            v_inserted_ids := array_append(v_inserted_ids, v_result);
+            
+        EXCEPTION
+            WHEN OTHERS THEN
+                -- Failure
+                v_failed_inserts := v_failed_inserts + 1;
+                v_error_info := jsonb_build_object(
+                    'card_name', v_card ->> 'card_name',
+                    'error_code', SQLSTATE,
+                    'error_message', SQLERRM,
+                    'card_index', v_total_processed
+                );
+                v_error_details := v_error_details || jsonb_build_array(v_error_info);
+        END;
+    END LOOP;
+    
+    -- Return summary
+    RETURN QUERY SELECT 
+        v_total_processed::INT,
+        v_successful_inserts::INT, 
+        v_failed_inserts::INT,
+        v_inserted_ids::UUID[],
+        v_error_details::JSONB;
+END;
+$$ LANGUAGE plpgsql;
 
 /*
 CREATE INDEX idx_card_types_category ON card_types (type_category);
 CREATE INDEX idx_card_types_name ON card_types (type_name);
 */
+
+CREATE OR REPLACE FUNCTION refresh_card_versions_complete()
+RETURNS void AS $$
+BEGIN
+    REFRESH MATERIALIZED VIEW CONCURRENTLY mv_card_versions_complete;
+    
+    -- Log refresh
+    RAISE NOTICE 'Materialized view mv_card_versions_complete refreshed at %', now();
+END;
+$$ LANGUAGE plpgsql;
+
+-- ✅ AUTO REFRESH: Trigger function to auto-refresh on data changes
+CREATE OR REPLACE FUNCTION trigger_refresh_card_versions()
+RETURNS trigger AS $$
+BEGIN
+    -- Schedule refresh (you might want to implement a queue system for production)
+    PERFORM pg_notify('refresh_card_view', 'card_data_changed');
+    RETURN COALESCE(NEW, OLD);
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER tr_card_version_refresh 
+    AFTER INSERT OR UPDATE OR DELETE ON card_version
+    FOR EACH ROW EXECUTE FUNCTION trigger_refresh_card_versions();
+
+CREATE TRIGGER tr_unique_cards_refresh 
+    AFTER INSERT OR UPDATE OR DELETE ON unique_cards_ref
+    FOR EACH ROW EXECUTE FUNCTION trigger_refresh_card_versions();
+
+    -- ✅ HELPER VIEWS: Additional views for common queries
+
+-- Quick card lookup by name
+CREATE OR REPLACE VIEW v_cards_by_name AS
+SELECT 
+    card_name,
+    COUNT(*) AS version_count,
+    array_agg(DISTINCT set_name ORDER BY set_name) AS available_sets,
+    MIN(cmc) AS min_cmc,
+    MAX(cmc) AS max_cmc,
+    array_agg(DISTINCT rarity_name ORDER BY rarity_name) AS rarities
+FROM mv_card_versions_complete
+GROUP BY card_name;
+
+-- Latest version of each card
+CREATE OR REPLACE VIEW v_cards_latest_version AS
+SELECT DISTINCT ON (card_name)
+    card_version_id,
+    card_name,
+    set_name,
+    collector_number,
+    cmc,
+    mana_cost,
+    oracle_text,
+    type_line,
+    rarity_name,
+    power,
+    toughness,
+    loyalty
+FROM mv_card_versions_complete
+ORDER BY card_name, materialized_at DESC;
+
+-- Cards by set statistics
+CREATE OR REPLACE VIEW v_set_statistics AS
+SELECT 
+    set_name,
+    set_code,
+    COUNT(*) AS total_cards,
+    COUNT(*) FILTER (WHERE rarity_name = 'common') AS common_count,
+    COUNT(*) FILTER (WHERE rarity_name = 'uncommon') AS uncommon_count,
+    COUNT(*) FILTER (WHERE rarity_name = 'rare') AS rare_count,
+    COUNT(*) FILTER (WHERE rarity_name = 'mythic') AS mythic_count,
+    array_agg(DISTINCT color_identity) FILTER (WHERE array_length(color_identity, 1) > 0) AS color_combinations,
+    AVG(cmc) AS avg_cmc,
+    MIN(cmc) AS min_cmc,
+    MAX(cmc) AS max_cmc
+FROM mv_card_versions_complete
+GROUP BY set_name, set_code;

@@ -27,6 +27,7 @@ class RepositoryError(Exception):
             error_data: Additional error data for debugging
             source_exception: Original exception that caused this error
         """
+        self.message = message
         self.error_code = error_code
         self.status_code = status_code
         self.error_data = error_data or {}

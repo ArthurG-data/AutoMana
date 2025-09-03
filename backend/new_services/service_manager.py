@@ -33,207 +33,273 @@ class ServiceManager:
             "auth.auth.login": {
                 "module": "backend.new_services.auth.auth_service",
                 "function": "login",
-                "repositories": ["user", "session"]
+                "db_repositories": ["user", "session"]
             },
             "auth.auth.logout": {
                 "module": "backend.new_services.auth.auth_service",
                 "function": "logout",
-                "repositories": ["session"]
+                "db_repositories": ["session"]
             },
             "auth.auth.register": {
                 "module": "backend.new_services.user_management.user_service",
                 "function": "register",
-                "repositories": ["user"]
+                "db_repositories": ["user"]
             },
             "user_management.user.update": {
                 "module": "backend.new_services.user_management.user_service",
                 "function": "update",
-                "repositories": ["user"]
+                "db_repositories": ["user"]
             },
             "user_management.user.search_users": {
                 "module": "backend.new_services.user_management.user_service",
                 "function": "search_users",
-                "repositories": ["user"]
+                "db_repositories": ["user"]
             },
             "user_management.user.delete_user": {
                 "module": "backend.new_services.user_management.user_service",
                 "function": "delete_user",
-                "repositories": ["user"]
+                "db_repositories": ["user"]
             },
             "user_management.user.assign_role" : {
                 "module": "backend.new_services.user_management.role_service",
                 "function": "assign_role",
-                "repositories": ["role"]
+                "db_repositories": ["role"]
             },
             "user_management.user.revoke_role": {
                 "module": "backend.new_services.user_management.role_service",
                 "function": "revoke_role",
-                "repositories": ["role"]
+                "db_repositories": ["role"]
             },
             "auth.session.login": {  # Added for compatibility with existing code
                 "module": "backend.new_services.auth.auth_service",
                 "function": "login",
-                "repositories": ["auth", "session"]
+                "db_repositories": ["auth", "session"]
             },
             "auth.session.validate": {
                 "module": "backend.new_services.auth.session_service",
                 "function": "validate_session",
-                "repositories": ["session"]
+                "db_repositories": ["session"]
             },
             "auth.session.get_user_from_session": {
                 "module": "backend.new_services.auth.session_service",
                 "function": "get_user_from_session",
-                "repositories": [ "session", "user"]
+                "db_repositories": [ "session", "user"]
             },
             "auth.session.read": {
                 "module": "backend.new_services.auth.session_service",
                 "function": "read_session",
-                "repositories": ["session"]
+                "db_repositories": ["session"]
             },
             "auth.session.delete": {
                 "module": "backend.new_services.auth.session_service",
                 "function": "delete_session",
-                "repositories": ["session"]
+                "db_repositories": ["session"]
             },
             # Shop Meta services
-            "shop_meta.market.get_all": {
+            "integration.shop_meta.market.get_all": {
                 "module": "backend.new_services.shop_data_ingestion.market_service",
                 "function": "get_all_markets",
-                "repositories": ["market"]
+                "db_repositories": ["market"]
             },
             "shop_meta.market.get": {
                 "module": "backend.new_services.shop_data_ingestion.market_service",
                 "function": "get_market",
-                "repositories": ["market"]
+                "db_repositories": ["market"]
             },
             "shop_meta.market.add": {
                 "module": "backend.new_services.shop_data_ingestion.market_service",
                 "function": "add_market",
-                "repositories": ["market"]
+                "db_repositories": ["market"]
             },
             "shop_meta.collection.add": {
                 "module": "backend.new_services.shop_data_ingestion.collection_service",
                 "function": "add_collection",
-                "repositories": ["collection"]
+                "db_repositories": ["collection"]
             },
             "shop_meta.collection.add_many": {
                 "module": "backend.new_services.shop_data_ingestion.collection_service",
                 "function": "add_many_collections",
-                "repositories": ["collection"]
+                "db_repositories": ["collection"]
             },
             "shop_meta.theme.add": {
                 "module": "backend.new_services.shop_data_ingestion.theme_service",
                 "function": "add_theme",
-                "repositories": ["theme"]
+                "db_repositories": ["theme"]
             },
             "shop_meta.theme.add_collection_theme": {
                 "module": "backend.new_services.shop_data_ingestion.theme_service",
                 "function": "add_collection_theme",
-                "repositories": ["theme", "collection"]
+                "db_repositories": ["theme", "collection"]
             },
             "shop_meta.product.search": {
                 "module": "backend.new_services.shop_data_ingestion.product_service",
                 "function": "search_products",
-                "repositories": ["product"]
+                "db_repositories": ["product"]
             },
             # Card Catalog services
             "card_catalog.card.search": {
                 "module": "backend.new_services.card_catalog.card_service",
-                "function": "search_card",
-                "repositories": ["card"]
-            },
-            "card_catalog.card.search_many": {
-                "module": "backend.new_services.card_catalog.card_service",
                 "function": "search_cards",
-                "repositories": ["card"]
+                "db_repositories": ["card"]
             },
-            "card_catalog.card.add": {
+            "card_catalog.card.create": {
                 "module": "backend.new_services.card_catalog.card_service",
                 "function": "add",
-                "repositories": ["card"]
+                "db_repositories": ["card"]
             },
-            "card_catalog.card.add_many": {
+            "card_catalog.card.create_many": {
                 "module": "backend.new_services.card_catalog.card_service",
                 "function": "add_many",
-                "repositories": ["card"]
+                "db_repositories": ["card"]
+            },
+            "card_catalog.card.process_large_json": {
+                "module": "backend.new_services.card_catalog.card_service",
+                "function": "process_large_cards_json",
+                "db_repositories": ["card"]
             },
             "card_catalog.card.delete": {
                 "module": "backend.new_services.card_catalog.card_service",
                 "function": "delete_card",
-                "repositories": ["card"]
+                "db_repositories": ["card"]
             },
             "card_catalog.set.add" : {
                 "module": "backend.new_services.card_catalog.set_service",
                 "function": "add_set",
-                "repositories": ["set"]
+                "db_repositories": ["set"]
             },
-            "card_catalog.set.create_bulk": {
+            "card_catalog.set.create_many": {
                 "module": "backend.new_services.card_catalog.set_service",
-                "function": "add_sets_bulk",
-                "repositories": ["set"]
+                "function": "add_many",
+                "db_repositories": ["set"]
+            },
+            "card_catalog.set.process_large_json": {
+                "module": "backend.new_services.card_catalog.set_service",
+                "function": "process_large_sets_json",
+                "db_repositories": ["set"]
             },
             "card_catalog.set.get": {
                 "module": "backend.new_services.card_catalog.set_service",
                 "function": "get_set",
-                "repositories": ["set"]
+                "db_repositories": ["set"]
             },
             "card_catalog.set.list": {
                 "module": "backend.new_services.card_catalog.set_service",
                 "function": "list_sets",
-                "repositories": ["set"]
+                "db_repositories": ["set"]
             },
             "card_catalog.set.delete":{
                 "module": "backend.new_services.card_catalog.set_service",
                 "function": "delete_set",
-                "repositories": ["set"]
+                "db_repositories": ["set"]
             },
             "card_catalog.collection.add": {
                 "module": "backend.new_services.card_catalog.collection_service",
                 "function": "add_collection",
-                "repositories": ["user_collection"]
+                "db_repositories": ["user_collection"]
             },
             "card_catalog.collection.get": {
                 "module": "backend.new_services.card_catalog.collection_service",
                 "function": "get_collection",
-                "repositories": ["user_collection"]
+                "db_repositories": ["user_collection"]
             },
             "card_catalog.collection.get_many": {
                 "module": "backend.new_services.card_catalog.collection_service",
                 "function": "get_many_collections",
-                "repositories": ["user_collection", "card"]
+                "db_repositories": ["user_collection", "card"]
             },
             "card_catalog.collection.update": {
                 "module": "backend.new_services.card_catalog.collection_service",
                 "function": "update_collection",
-                "repositories": ["user_collection"]
+                "db_repositories": ["user_collection"]
             },
             "card_catalog.collection.delete": {
                 "module": "backend.new_services.card_catalog.collection_service",
                 "function": "delete_collection",
-                "repositories": ["user_collection"]
+                "db_repositories": ["user_collection"]
             },
             "card_catalog.collection.delete_entry": {
                 "module": "backend.new_services.card_catalog.collection_service",
                 "function": "delete_entry",
-                "repositories": ["user_collection"]
+                "db_repositories": ["user_collection"]
             },
             "card_catalog.collection.get_entry": {
                 "module": "backend.new_services.card_catalog.collection_service",
                 "function": "get_entry",
-                "repositories": ["collection", "card"]
+                "db_repositories": ["collection", "card"]
             },
             # Ebay services
-            "ebay.app.auth": {
-                "module": "backend.new_services.app_integration.ebay.auth_service",
-                "function": "authenticate",
-                "repositories": ["app"]
+            "integrations.ebay.start_oauth_flow": {
+                "module": "backend.new_services.app_integration.ebay.auth_services",
+                "function": "request_auth_code",
+                "db_repositories": ["auth"],
+                "api_repositories": ["auth_oauth"]
             },
-            
-            # Add more services as needed
+            "integrations.ebay.process_callback": {
+                "module": "backend.new_services.app_integration.ebay.auth_services",
+                "function": "handle_callback",
+                "db_repositories": ["auth"],
+                "api_repositories": ["auth_oauth"]
+            },
+            "integrations.ebay.exchange_refresh_token": {
+                "module": "backend.new_services.app_integration.ebay.auth_services",
+                "function": "exchange_refresh_token",
+                "db_repositories": ["auth"],
+                "api_repositories": ["auth_oauth"]
+            },
+            "integrations.ebay.register_app":{
+                "module": "backend.new_services.app_integration.ebay.auth_services",
+                "function": "register_app",
+                "db_repositories": ["app"]
+            },
+            "integrations.ebay.search": {
+                "module": "backend.new_services.app_integration.ebay.browsing_services",
+                "function": "search_items",
+                "api_repositories": ["search"]
+            },
+            "integrations.ebay.get_token": {##change later
+                "module": "backend.new_services.app_integration.ebay.auth_services",
+                "function": "get_access_token",
+                "db_repositories": ["auth"],
+            },
+            "integrations.ebay.get_environment": {
+                "module": "backend.new_services.app_integration.ebay.auth_services",
+                "function": "get_environment",
+                "db_repositories": ["auth"],
+            },
+            "integrations.ebay.get_environment_callback": {
+                "module": "backend.new_services.app_integration.ebay.auth_services",
+                "function": "get_environment_callback",
+                "db_repositories": ["auth"],
+            },
+            "integrations.ebay.selling": {
+                "module": "backend.new_services.app_integration.ebay.selling_services",
+                "function": "handle_selling_request",
+                "db_repositories": ["auth"],
+                "api_repositories": ["selling"]
+            },
+            # mtg_stock
+            "integration.mtg_stock.load": {
+                "module": "backend.new_services.app_integration.mtg_stock.data_loader",
+                "function": "run_batch",
+                "api_repositories": ["mtg_stock"]
+                },
+            "integration.mtg_stock.stage": {
+                "module": "backend.new_services.app_integration.mtg_stock.data_staging",
+                "function": "bulk_load",
+                "db_repositories": ["price"]
+            }
         }
-        
+            # Add more services as needed
+    
         # Repository registry - maps repo types to module paths and class names
-        self._repository_registry = {
+
+        self._api_repository_registry = {
+             "auth_oauth": ("backend.repositories.app_integration.ebay.ApiAuth_repository", "EbayAuthAPIRepository"),
+             "search": ("backend.repositories.app_integration.ebay.ApiBrowse_repository", "EbayBrowseAPIRepository"),
+             "selling": ("backend.repositories.app_integration.ebay.ApiSelling_repository", "EbaySellingRepository"),
+             "mtg_stock": ("backend.repositories.app_integration.mtg_stock.ApiMtgStock_repository", "ApiMtgStockRepository")
+        }
+        self._db_repository_registry = {
             # Auth repositories
             "auth": ("backend.repositories.auth.auth_repository", "AuthRepository"),
             "session": ("backend.repositories.auth.session_repository", "SessionRepository"),
@@ -248,13 +314,15 @@ class ServiceManager:
             "collection": ("backend.repositories.shop_meta.collection_repository", "CollectionRepository"),
             "theme": ("backend.repositories.shop_meta.theme_repository", "ThemeRepository"),
             
-            # Integration repositories
-            "app": ("backend.repositories.app_integration.app_repository", "EbayRepository"),
-            
+            "app": ("backend.repositories.app_integration.ebay.app_repository", "EbayAppRepository"),
+            "auth": ("backend.repositories.app_integration.ebay.auth_repository", "EbayAuthRepository"),
+
             # Card Catalog repositories
             "card": ("backend.repositories.card_catalog.card_repository", "CardReferenceRepository"),
             "set": ("backend.repositories.card_catalog.set_repository", "SetReferenceRepository"),
             "user_collection": ("backend.repositories.card_catalog.collection_repository", "CollectionRepository"),
+            # Price repository
+            "price": ("backend.repositories.app_integration.mtg_stock.price_repository", "PriceRepository")
         }
 
     @asynccontextmanager
@@ -349,25 +417,15 @@ class ServiceManager:
                 repositories = {}
                 
                 # Get repository types needed for this service
-                repo_types = service_config.get("repositories", [])
-                
-                # For backward compatibility, if no repositories specified, 
-                # use domain.entity to determine repository
-                if not repo_types:
-                    parts = service_path.split('.')
-                    if len(parts) >= 2:
-                        domain, entity = parts[0], parts[1]
-                        # Use legacy repository mapping logic
-                        repository = self._get_legacy_repository(domain, entity, conn)
-                        result = await service_method(repository=repository, **kwargs)
-                        return result
+                db_repository_types = service_config.get("db_repositories", [])
+
                 
                 # Create each required repository
-                for repo_type in repo_types:
-                    if repo_type not in self._repository_registry:
+                for repo_type in db_repository_types:
+                    if repo_type not in self._db_repository_registry:
                         raise ValueError(f"Unknown repository type: {repo_type}")
-                    
-                    module_path, class_name = self._repository_registry[repo_type]
+                    logger.info(f"Creating repository for {repo_type}")
+                    module_path, class_name = self._db_repository_registry[repo_type]
                     module = importlib.import_module(module_path)
                     repo_class = getattr(module, class_name)
                     
@@ -375,7 +433,23 @@ class ServiceManager:
                     # This allows services to receive multiple repositories with distinct names
                     repo_param_name = f"{repo_type}_repository"
                     repositories[repo_param_name] = repo_class(conn, self.query_executor)
-                
+
+                api_repos = service_config.get("api_repositories", [])
+                for repo_name in api_repos:
+                    if repo_name in self._api_repository_registry:
+                        logger.info(f"Creating API repository for {repo_name}")
+                        repo_module_path, repo_class_name = self._api_repository_registry[repo_name]
+                        repo_module = importlib.import_module(repo_module_path)
+                        repo_class = getattr(repo_module, repo_class_name)
+                        repo_param_name = f"{repo_name}_repository"
+                        env = kwargs.get("environment", "sandbox")
+                        logger.info(f"Using environment: {env}")
+                        # Create API repository without connection
+                        repositories[repo_param_name] = repo_class(environment=env)
+
+                if "environment" in kwargs:
+                    logger.info("Removing 'environment' parameter before calling the service method")
+                    kwargs.pop("environment")
                 # Log the repositories being used
                 repo_names = ", ".join(repositories.keys())
                 logger.info(f"Executing service {service_path} with repositories: {repo_names}")
@@ -398,9 +472,7 @@ class ServiceManager:
             "shop_meta.theme": "ThemeRepository",
             
             # Integration repositories
-            "app_integration.ebay": "EbayRepository",
             "ebay.app": "EbayRepository",  # For backward compatibility
-            
             # Card Catalog repositories
             "card_catalog.card": "CardReferenceRepository",
             "card_catalog.set": "SetReferenceRepository",
@@ -410,6 +482,7 @@ class ServiceManager:
             "auth.auth": "AuthRepository",
             "auth.session": "SessionRepository",
         }
+        #need to add the user provided kwargs
 
         repo_key = f"{domain}.{entity}"
         repo_name = repo_map.get(repo_key)
@@ -431,13 +504,13 @@ class ServiceManager:
         self._service_registry[service_path] = {
             "module": module_path,
             "function": function_name,
-            "repositories": repository_types
+            "db_repositories": repository_types
         }
         logger.info(f"Registered service: {service_path}")
         
     def register_repository(self, repo_type: str, module_path: str, class_name: str):
         """Register a new repository in the repository registry"""
-        self._repository_registry[repo_type] = (module_path, class_name)
+        self._db_repository_registry[repo_type] = (module_path, class_name)
         logger.info(f"Registered repository type: {repo_type}")
     
     @classmethod

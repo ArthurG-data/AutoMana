@@ -1,23 +1,37 @@
 from uuid import UUID
+import logging
 from backend.repositories.AbstractRepository import AbstractRepository
 from backend.repositories.app_integration.ebay import app_queries
 from typing import Optional
 from backend.repositories.app_integration.ebay import auth_queries
+from backend.dependancies.settings import get_general_settings
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class EbayAppRepository(AbstractRepository):
-    def __init__(self, connection, queryExecutor):
-        super().__init__(queryExecutor)
-        self.connection = connection
+    def __init__(self, connection, executor : None):
+        super().__init__(connection, executor)
 
-
-  
     @property
     def name(self):
         return "EbayAccountRepository"
-    
-    async def add(self, values : tuple)->bool:
-        result = await self.execute_command(app_queries.register_app_query, values)
-        return True if result == 1 else False
+
+    def _get_encryption_key(self) ->str:
+        key = get_general_settings().pgp_secret_key
+        if not key or key == 'fallback-key-change-in-production':
+            import warnings
+            warnings.warn("Using default encryption key! Set EBAY_ENCRYPTION_KEY environment variable!")
+        return key
+
+    async def add(self, values: tuple) -> bool:
+        list_values = list(values)
+        list_values.append(self._get_encryption_key())
+        input = tuple(list_values)
+        result = await self.execute_query(app_queries.register_app_query
+                                            , input)
+        logger.info(f"App registration result: {result}")
+        return result[0]['app_code'] if result else None
 
     async def assign_scope(self, scope : str, app_id : str, user_id : UUID) -> bool | None:
         result = await self.execute_command(app_queries.assign_scope_query, (app_id, scope, user_id))#query needs to be modifies
@@ -47,3 +61,11 @@ class EbayAppRepository(AbstractRepository):
         raise NotImplementedError("Method 'update' is not implemented in EbayAccountRepository")    
     def delete(self, values):
         raise NotImplementedError("Method 'delete' is not implemented in EbayAccountRepository")
+
+    async def register_app_scopes(
+            self, app_id: str, scopes: list[str]
+    ):
+        await self.execute_command(app_queries.register_app_scopes_query, (app_id, scopes))
+
+    async def list(self):
+        raise NotImplementedError("Method 'list' is not implemented in EbayAccountRepository")
