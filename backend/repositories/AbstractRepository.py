@@ -20,6 +20,8 @@ class AbstractRepository(Generic[T], ABC):
         self.connection = connection
         self.executor = executor
 
+
+
     async def execute_query(self, query, *args):
         """Execute a query that returns results"""
         if self.executor:

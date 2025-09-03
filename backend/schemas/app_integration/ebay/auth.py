@@ -1,7 +1,9 @@
+import secrets
 from typing import Optional, List, Dict
 from pydantic import BaseModel, Field, model_validator
 from datetime import datetime, timedelta
 from uuid import UUID
+from enum import Enum, auto
 from backend.utils_new.auth import get_hash_password
 import base64
 
@@ -15,7 +17,7 @@ class HeaderApi(BaseModel):
         
 class AuthHeader(BaseModel):
     app_id : str 
-    secret : str 
+    secret : str
     authorization : Optional[str] = None
 
     @model_validator(mode='after')
@@ -99,4 +101,45 @@ class InputEbaySettings(BaseModel):
     @model_validator(mode="after")
     def compute_hashed_secret(self) -> "InputEbaySettings":
         self.secret = get_hash_password(self.secret)
+        return self
+    
+class AppRegistrationRequest(BaseModel):
+    app_code: str          # Public identifier like "automana-trading"
+    scopes: List[str]      # Requested permissions
+    agreement: bool 
+
+class EnvironmentSettings(Enum):
+    SANDBOX = "SANDBOX"
+    PRODUCTION = "PRODUCTION"
+
+
+_ADJECTIVES = [
+    "quick", "smart", "fast", "cool", "blue", "green", "red",
+    "alpha", "beta", "main", "test", "dev", "prod"
+]
+_NOUNS = ["app", "store", "shop", "market", "trade", "sell", "buy"]
+
+class CreateAppRequest(BaseModel):
+    app_name: str
+    description: str
+    environment: EnvironmentSettings = EnvironmentSettings.SANDBOX
+    ebay_app_id: str
+    client_secret: str
+    redirect_uri: str
+    response_type: str = "code"
+    allowed_scopes: List[str]
+    user_requirements: List[str] = ["premium"]
+    app_code: str
+
+    @staticmethod
+    def generate_random_code() -> str:
+        adjective = secrets.choice(_ADJECTIVES)
+        noun = secrets.choice(_NOUNS)
+        number = f"{secrets.randbelow(1000):03d}"  # 000-999
+        return f"{adjective}_{noun}_{number}"
+
+    @model_validator(mode="after")
+    def _ensure_app_code(self):
+        if not self.app_code:
+            self.app_code = self.generate_random_code()
         return self

@@ -1,86 +1,112 @@
-from typing import Annotated, Any
+from typing import Annotated, Any, Callable, Dict
 import xmltodict
 import xml.etree.ElementTree as ET 
 from backend.schemas.app_integration.ebay.listings import  BaseModel,ItemModel
 
-def create_xml_body_get_item(item_id : str):
-  xml_body = f"""<?xml version="1.0" encoding="utf-8"?>
-<GetItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">    
-	<ErrorLanguage>en_US</ErrorLanguage>
-	<WarningLevel>High</WarningLevel>
-      <!--Enter an ItemID-->
-  <ItemID>{item_id}</ItemID>
-</GetItemRequest>
-""" 
-  return xml_body
+def to_xml_element(parent: ET.Element, name: str, value: Any):
+        if value is None:
+            return
+        if isinstance(value, BaseModel):
+            child = ET.SubElement(parent, name)
+            for sub_name, sub_value in value.model_dump(exclude_none=True).items():
+                to_xml_element(child, sub_name, sub_value)
+        elif isinstance(value, list):
+            for item in value:
+                to_xml_element(parent, name, item)
+        elif isinstance(value, dict):
+            child = ET.SubElement(parent, name)
+            for k, v in value.items():
+                to_xml_element(child, k, v)
+        else:
+            ET.SubElement(parent, name).text = str(value)
 
-def create_xml_body(
-    apiCall: str,
-    limit: Annotated[int, "min=1, max=100"] = 10,
-    offset: int = 1,
-) -> str:
-    xml_body = f"""<?xml version="1.0" encoding="utf-8"?>
-<{apiCall} xmlns="urn:ebay:apis:eBLBaseComponents">    
-  <ErrorLanguage>en_US</ErrorLanguage>
-  <WarningLevel>High</WarningLevel>
-  <ActiveList>
-    <Sort>TimeLeft</Sort>
-    <Pagination>
-      <EntriesPerPage>{limit}</EntriesPerPage>
-      <PageNumber>{offset}</PageNumber>
-    </Pagination>
-  </ActiveList>
-</{apiCall}>
-"""
-    return xml_body
+REQUEST_GENERATORS: Dict[str, Callable[..., str]] = {}
 
+def register_request_generator(request_type: str):
+    """
+    Decorator to register a request generator function in the factory.
+
+    Args:
+        request_type: The type of eBay API request (e.g., "AddFixedPriceItemRequest").
+    """
+    def decorator(func: Callable[..., str]):
+        REQUEST_GENERATORS[request_type] = func
+        return func
+    return decorator
+
+def generate_ebay_request_xml(request_type: str, **kwargs) -> str:
+    """
+    Generate XML for various eBay Trading API requests using the factory.
+
+    Args:
+        request_type: The type of eBay API request (e.g., "AddFixedPriceItemRequest").
+        kwargs: Additional parameters for the request generator.
+
+    Returns:
+        A string containing the XML request body.
+    """
+    generator = REQUEST_GENERATORS.get(request_type)
+    if not generator:
+        raise ValueError(f"Unsupported request type: {request_type}")
+    return generator(**kwargs)
+
+@register_request_generator("AddFixedPriceItemRequest")
+def generate_add_fixed_price_item_request_xml(item: ItemModel) -> str:
+    root = ET.Element("AddFixedPriceItemRequest", xmlns="urn:ebay:apis:eBLBaseComponents")
+    ET.SubElement(root, "ErrorLanguage").text = "en_US"
+    ET.SubElement(root, "WarningLevel").text = "High"
+
+    item_element = ET.SubElement(root, "Item")
+    for field_name, field_value in item.model_dump(exclude_none=True).items():
+        to_xml_element(item_element, field_name, field_value)
+
+    return ET.tostring(root, encoding="utf-8", method="xml").decode("utf-8")
+
+@register_request_generator("ReviseItemRequest")
 def generate_revise_item_request_xml(item: ItemModel) -> str:
     if not item.ItemID:
         raise ValueError("ItemID is required to revise a listing.")
 
-    item_block = item_model_to_xml(item)
-    return f"""<?xml version="1.0" encoding="utf-8"?>
-<ReviseItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
-  <ErrorLanguage>en_US</ErrorLanguage>
-  <WarningLevel>High</WarningLevel>
-  {item_block}
-</ReviseItemRequest>"""
+    root = ET.Element("ReviseItemRequest", xmlns="urn:ebay:apis:eBLBaseComponents")
+    ET.SubElement(root, "ErrorLanguage").text = "en_US"
+    ET.SubElement(root, "WarningLevel").text = "High"
 
-def generate_add_item_request_xml(item: ItemModel) -> str:
-    item_block = item_model_to_xml(item)
-    return f"""<?xml version="1.0" encoding="utf-8"?>
-<AddItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
-  <ErrorLanguage>en_US</ErrorLanguage>
-  <WarningLevel>High</WarningLevel>
-  {item_block}
-</AddItemRequest>"""
+    item_element = ET.SubElement(root, "Item")
+    for field_name, field_value in item.model_dump(exclude_none=True).items():
+        to_xml_element(item_element, field_name, field_value)
 
+    return ET.tostring(root, encoding="utf-8", method="xml").decode("utf-8")
+
+@register_request_generator("EndItemRequest")
 def generate_end_item_request_xml(item_id: str, reason: str = "NotAvailable") -> str:
-    return f"""<?xml version="1.0" encoding="utf-8"?>
-<EndItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
-  <ErrorLanguage>en_US</ErrorLanguage>
-  <WarningLevel>High</WarningLevel>
-  <ItemID>{item_id}</ItemID>
-  <EndingReason>{reason}</EndingReason>
-</EndItemRequest>"""
+    root = ET.Element("EndItemRequest", xmlns="urn:ebay:apis:eBLBaseComponents")
+    ET.SubElement(root, "ErrorLanguage").text = "en_US"
+    ET.SubElement(root, "WarningLevel").text = "High"
+    ET.SubElement(root, "ItemID").text = item_id
+    ET.SubElement(root, "EndingReason").text = reason
 
-def item_model_to_xml(item: ItemModel) -> str:
-    item_dict = item.model_dump(exclude_none=True)
-    return xmltodict.unparse({"Item": item_dict}, pretty=True,full_document=False)
+    return ET.tostring(root, encoding="utf-8", method="xml").decode("utf-8")
 
-def to_xml_element(parent: ET.Element, name: str, value: Any):
-    if value is None:
-        return
-    if isinstance(value, BaseModel):
-        child = ET.SubElement(parent, name)
-        for sub_name, sub_value in value:
-            to_xml_element(child, sub_name, sub_value)
-    elif isinstance(value, list):
-        for item in value:
-            to_xml_element(parent, name, item)
-    elif isinstance(value, dict):
-        child = ET.SubElement(parent, name)
-        for k, v in value.items():
-            to_xml_element(child, k, v)
-    else:
-        ET.SubElement(parent, name).text = str(value)
+@register_request_generator("GetItemRequest")
+def generate_get_item_request_xml(item_id: str) -> str:
+    root = ET.Element("GetItemRequest", xmlns="urn:ebay:apis:eBLBaseComponents")
+    ET.SubElement(root, "ErrorLanguage").text = "en_US"
+    ET.SubElement(root, "WarningLevel").text = "High"
+    ET.SubElement(root, "ItemID").text = item_id
+
+    return ET.tostring(root, encoding="utf-8", method="xml").decode("utf-8")
+
+@register_request_generator("GetMyeBaySellingRequest")
+def generate_get_my_ebay_selling_request_xml(entries_per_page: int = 3, page_number: int = 1) -> str:
+    root = ET.Element("GetMyeBaySellingRequest", xmlns="urn:ebay:apis:eBLBaseComponents")
+    ET.SubElement(root, "ErrorLanguage").text = "en_US"
+    ET.SubElement(root, "WarningLevel").text = "High"
+    active_list = ET.SubElement(root, "ActiveList")
+    ET.SubElement(active_list, "Sort").text = "TimeLeft"
+
+    # Add Pagination block
+    pagination = ET.SubElement(active_list, "Pagination")
+    ET.SubElement(pagination, "EntriesPerPage").text = str(entries_per_page)
+    ET.SubElement(pagination, "PageNumber").text = str(max(page_number, 1))
+
+    return '<?xml version="1.0" encoding="utf-8"?>' + ET.tostring(root, encoding="utf-8", method="xml").decode("utf-8")

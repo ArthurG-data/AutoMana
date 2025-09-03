@@ -30,3 +30,11 @@ class SetRetrievalError(SetError):
 class SetParsingError(SetError):
     """Raised when set parsing from JSON fails"""
     pass
+
+class SetDeletionError(SetError):
+    """Raised when set deletion fails"""
+    pass
+
+class SetInsertError(SetError):
+    """Raised when set insertion fails"""
+    pass
