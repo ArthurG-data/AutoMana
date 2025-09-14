@@ -101,7 +101,8 @@ async def insert_card( card : CreateCard
 @card_reference_router.post('/bulk', response_model=None,)
 async def insert_cards( cards : List[CreateCard]
                        , service_manager: ServiceManager = Depends(get_service_manager)):
-    cards : CreateCards = CreateCards(items=cards)
+    validated_cards : CreateCards = CreateCards(items=cards)
+    return validated_cards.prepare_for_db()
     try:
         if len(cards) > BULK_INSERT_LIMIT:
             raise HTTPException(
@@ -118,7 +119,7 @@ async def insert_cards( cards : List[CreateCard]
         
         logger.info(f"Processing bulk insert of {len(cards)} cards")
 
-        result = await service_manager.execute_service("card_catalog.card.create_many", cards=cards)
+        result = await service_manager.execute_service("card_catalog.card.create_many", cards=validated_cards)
         if not result:
             raise HTTPException(status_code=500, detail="Failed to insert cards")
         return ApiResponse(data = {"InsertedCards": result.successful_inserts,

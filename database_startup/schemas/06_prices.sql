@@ -234,9 +234,8 @@ BEGIN
   JOIN price_metric pm ON pm.code = s.metric_code
   WHERE s.value IS NOT NULL;
 
-  TRUNCATE TABLE stg_price_observation;
   CREATE INDEX IF NOT EXISTS dim_price_obs_ts_idx
-  ON dim_price_observation (ts_date)
+  ON dim_price_observation (ts_date);
 END;
 $$;
 
@@ -289,7 +288,6 @@ BEGIN
     WHERE rn = 1;
 
     CREATE INDEX ON _dedup (ts_date);
-    ANALYZE _dedup;
 
     -- Insert in time order to keep inserts chunk-local
     INSERT INTO price_observation (ts_date, game_id, print_id, source_id, metric_id, value, scraped_at)
@@ -307,9 +305,6 @@ BEGIN
     v_start := v_end + 1;
   END LOOP;
 
-  -- Clear staging once everything is in
-  TRUNCATE TABLE dim_price_observation;
-
   -- Recreate helper index(es) AFTER load
   CREATE INDEX IF NOT EXISTS idx_price_date ON price_observation(ts_date DESC);
 
@@ -325,3 +320,5 @@ END;
 $$;
 
 ----------The last step should be to add back the references
+
+-

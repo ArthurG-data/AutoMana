@@ -189,6 +189,23 @@ CREATE TABLE card_source_map (
     PRIMARY KEY (card_version_id, source_id, external_id)
 );
 
+CREATE TABLE IF NOT EXISTS card_external_identifier (
+    card_identifier_ref_id SMALLINT NOT NULL REFERENCES card_identifier_ref(card_identifier_ref_id),
+    card_version_id UUID NOT NULL REFERENCES card_version(card_version_id) ON DELETE CASCADE,
+    value TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    PRIMARY KEY (card_version_id, card_identifier_ref_id),
+    UNIQUE (card_identifier_ref_id, value)
+);
+
+CREATE TABLE IF NOT EXISTS card_identifier_ref (
+    card_identifier_ref_id SMALLSERIAL PRIMARY KEY,
+    identifier_name TEXT UNIQUE NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE (identifier_name)
+);
 
 --VIEWS -------------------------------------
 CREATE OR REPLACE VIEW card_version_count AS
@@ -470,7 +487,14 @@ CREATE OR REPLACE FUNCTION insert_full_card_version(
     p_defense TEXT,--new
     p_promo_types JSONB,
     p_variation BOOLEAN,
-    p_card_faces JSONB
+    p_card_faces JSONB,
+    --new
+    p_scryfall_id UUID,
+    p_oracle_id UUID,
+    p_multiverse_ids JSONB,
+    p_tcgplayer_id INT,
+    p_tcgplayer_etched_id INT,
+    p_cardmarket_id INT
 )
 RETURNS UUID AS $$
 DECLARE
@@ -496,6 +520,12 @@ DECLARE
     v_artist_name TEXT;
     v_artist_uuid UUID;
     v_illustration_id UUID;
+    v_scryfall_id UUID;
+    v_oracle_id UUID;
+    v_multiverse_id INT;
+    v_tcgplayer_id INT;
+    v_tcgplayer_etched_id INT;
+    v_cardmarket_id INT;
 BEGIN
     -- Insert or retrieve unique card
     INSERT INTO unique_cards_ref (card_name, cmc, mana_cost, reserved)
@@ -562,6 +592,30 @@ BEGIN
         p_variation
     )
     RETURNING card_version_id INTO v_card_version_id;
+    --add the ids
+
+    WITH provided(name, value) AS (
+    SELECT 'scryfall_id',        p_scryfall_id::text UNION ALL
+    SELECT 'oracle_id',          p_oracle_id::text   UNION ALL
+    -- expand JSONB array for multiverse ids (may produce 0..n rows)
+    SELECT 'multiverse_id',      x::text
+      FROM jsonb_array_elements_text(p_multiverse_ids) AS x UNION ALL
+    SELECT 'tcgplayer_id',       p_tcgplayer_id::text UNION ALL
+    SELECT 'tcgplayer_etched_id',p_tcgplayer_etched_id::text UNION ALL
+    SELECT 'cardmarket_id',      p_cardmarket_id::text
+    ),
+    non_null AS (
+        SELECT name, value
+        FROM provided
+        WHERE value IS NOT NULL
+    )
+    INSERT INTO card_external_identifier  (card_identifier_ref_id, card_version_id, value)
+    SELECT r. card_identifier_ref_id, v_card_version_id, n.value
+    FROM non_null n
+    JOIN card_identifier_ref r
+    ON r.identifier_name = n.name
+    ON CONFLICT DO NOTHING;
+
 
     --card stat
     INSERT INTO card_version_stats (card_version_id, stat_id, stat_value)
@@ -720,7 +774,7 @@ BEGIN
     RETURN v_card_version_id;
 END;
 $$ LANGUAGE plpgsql;
-
+------------------------------------------------
 CREATE OR REPLACE FUNCTION insert_batch_card_versions(
     p_cards JSONB  -- Array of card objects
 )
@@ -781,7 +835,13 @@ BEGIN
                 v_card ->> 'defense',
                 v_card -> 'promo_types',
                 (v_card ->> 'variation')::BOOLEAN,
-                v_card -> 'card_faces'
+                v_card -> 'card_faces',
+                (v_card ->> 'scryfall_id')::UUID,
+                (v_card ->> 'oracle_id')::UUID,
+                v_card -> 'multiverse_ids',
+                (v_card ->> 'tcgplayer_id')::INT,
+                (v_card ->> 'tcgplayer_etched_id')::INT,
+                (v_card ->> 'cardmarket_id')::INT
             ) INTO v_result;
             
             -- Success

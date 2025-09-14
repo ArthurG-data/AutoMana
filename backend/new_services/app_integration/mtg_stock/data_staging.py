@@ -43,6 +43,41 @@ async def process_prices_file(path, id_dict):
 
 BASE = os.path.join(Path(__file__).resolve().parents[4], 'data/mtgstocks/raw/prints')
 
+async def insert_card_identifiers():
+    #initialisation process
+    #await price_repository.rollback_transaction()
+    try:
+        for i, folder in enumerate(os.listdir(BASE), 1):
+            try:
+                pdir = os.path.join(BASE,folder)
+                info_path = os.path.join(pdir, "info.json")
+                logger.info("Processing: %s", info_path)
+                id_dict = await process_info_file(info_path)
+                # insert into dim_card_identifier if not exists
+                # this is a bit tricky as we have multiple possible identifiers
+                # we will use upsert with conflict on unique constraint
+                # assuming you have a unique constraint on (source, source_id)
+                # you may need to adjust this based on your actual schema
+                query = """
+                INSERT INTO dim_card_identifier (source, source_id, scryfall_id, multiverse_ids, tcg_id, cardtrader_id)
+                VALUES 
+                ('mtgstocks', %(mtgstock)s, %(scryfallId)s, %(multiverse_ids)s::jsonb, %(tcg_id)s, %(cardtrader_id)s)
+                ON CONFLICT (source, source_id) DO UPDATE 
+                SET scryfall_id = EXCLUDED.scryfall_id,
+                    multiverse_ids = EXCLUDED.multiverse_ids,
+                    tcg_id = EXCLUDED.tcg_id,
+                    cardtrader_id = EXCLUDED.cardtrader_id
+                """
+                # execute the query using your database connection / ORM
+                # e.g. await db.execute(query, id_dict)
+            except Exception as e:
+                logger.warning(f"Error processing folder: {folder} Error: {e}")
+            if i % 100 == 0:
+                logger.info(f"Processed {i} folders")
+    finally:
+        pass
+        #await price_repository.rollback_transaction()
+
 async def bulk_load(price_repository: PriceRepository, root_folder=BASE, batch_size=10000):
     price_rows = []
     #initialisation process

@@ -30,9 +30,9 @@ async def add(card_repository : CardReferenceRepository
 
 
 async def add_many(card_repository : CardReferenceRepository, cards: card_schemas.CreateCards):
-    cards = cards.prepare_for_db()
+    prepared_cards = cards.prepare_for_db()
     try:
-        result = await card_repository.add_many(cards)
+        result = await card_repository.add_many(prepared_cards)
 
         return result 
     except Exception as e:

@@ -61,7 +61,7 @@ class CreateCard(BaseCard):
     artist: str = Field(max_length=100)
     artist_ids : List[UUID] = []
     cmc : int=Field(default=0)
-    illustration_id: Optional[UUID] = '00000000-0000-0000-0000-000000000001'
+    illustration_id: Optional[UUID] = UUID('00000000-0000-0000-0000-000000000001')
     games : List[str] = []
     mana_cost : Optional[str]=Field(max_length=100, default=None)
     collector_number: Union[int, str] 
@@ -97,6 +97,14 @@ class CreateCard(BaseCard):
     set : str
     set_id : UUID
 
+    #new
+    id: Optional[UUID]=None
+    oracle_id: Optional[UUID]=None #should be the unique card id 
+    multiverse_ids: Optional[List[int]]=[]
+    tcgplayer_id: Optional[int]=None
+    tcgplayer_etched_id: Optional[int]=None
+    cardmarket_id: Optional[int]=None
+
     def prepare_for_db(self):
         """
         Prepare the card for database insertion by converting types and ensuring all fields are set.
@@ -120,7 +128,7 @@ class CreateCard(BaseCard):
         self.artist,
         self.artist_ids[0] if self.artist_ids else UUID("00000000-0000-0000-0000-000000000000"),
         json.dumps(self.legalities),
-        self.illustration_id,
+        self.illustration_id if self.illustration_id else UUID("00000000-0000-0000-0000-000000000001"),
         json.dumps(self.types),
         json.dumps(self.supertypes),
         json.dumps(self.subtypes),
@@ -181,7 +189,14 @@ class CreateCard(BaseCard):
             "defense": str(data["defense"]) if data["defense"] is not None else None,
             "promo_types": data["promo_types"] or [],
             "variation": data["variation"] or False,
-            "card_faces": data["card_faces"] or []
+            "card_faces": data["card_faces"] or [],
+
+            "scryfall_id": data["id"],  
+            "oracle_id": data["oracle_id"],
+            "multiverse_ids": data["multiverse_ids"] or [],
+            "tcgplayer_id": data["tcgplayer_id"],
+            "tcgplayer_etched_id": data["tcgplayer_etched_id"],
+            "cardmarket_id": data["cardmarket_id"],
         }
     
     

@@ -45,6 +45,8 @@ insert_full_card_query = """
         $31, -- promo_types
         $32, -- variation
         $33 -- card_faces
+
+        
     );
 """
 
