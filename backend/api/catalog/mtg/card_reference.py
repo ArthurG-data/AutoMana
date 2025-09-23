@@ -102,7 +102,6 @@ async def insert_card( card : CreateCard
 async def insert_cards( cards : List[CreateCard]
                        , service_manager: ServiceManager = Depends(get_service_manager)):
     validated_cards : CreateCards = CreateCards(items=cards)
-    return validated_cards.prepare_for_db()
     try:
         if len(cards) > BULK_INSERT_LIMIT:
             raise HTTPException(

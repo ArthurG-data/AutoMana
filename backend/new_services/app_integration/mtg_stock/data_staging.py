@@ -41,42 +41,7 @@ async def process_prices_file(path, id_dict):
                ,"source_code"
                ,"scraped_at"]]
 
-BASE = os.path.join(Path(__file__).resolve().parents[4], 'data/mtgstocks/raw/prints')
-
-async def insert_card_identifiers():
-    #initialisation process
-    #await price_repository.rollback_transaction()
-    try:
-        for i, folder in enumerate(os.listdir(BASE), 1):
-            try:
-                pdir = os.path.join(BASE,folder)
-                info_path = os.path.join(pdir, "info.json")
-                logger.info("Processing: %s", info_path)
-                id_dict = await process_info_file(info_path)
-                # insert into dim_card_identifier if not exists
-                # this is a bit tricky as we have multiple possible identifiers
-                # we will use upsert with conflict on unique constraint
-                # assuming you have a unique constraint on (source, source_id)
-                # you may need to adjust this based on your actual schema
-                query = """
-                INSERT INTO dim_card_identifier (source, source_id, scryfall_id, multiverse_ids, tcg_id, cardtrader_id)
-                VALUES 
-                ('mtgstocks', %(mtgstock)s, %(scryfallId)s, %(multiverse_ids)s::jsonb, %(tcg_id)s, %(cardtrader_id)s)
-                ON CONFLICT (source, source_id) DO UPDATE 
-                SET scryfall_id = EXCLUDED.scryfall_id,
-                    multiverse_ids = EXCLUDED.multiverse_ids,
-                    tcg_id = EXCLUDED.tcg_id,
-                    cardtrader_id = EXCLUDED.cardtrader_id
-                """
-                # execute the query using your database connection / ORM
-                # e.g. await db.execute(query, id_dict)
-            except Exception as e:
-                logger.warning(f"Error processing folder: {folder} Error: {e}")
-            if i % 100 == 0:
-                logger.info(f"Processed {i} folders")
-    finally:
-        pass
-        #await price_repository.rollback_transaction()
+BASE = r"D:\data_app\mtgstocks\raw\prints"
 
 async def bulk_load(price_repository: PriceRepository, root_folder=BASE, batch_size=10000):
     price_rows = []
@@ -106,29 +71,36 @@ async def bulk_load(price_repository: PriceRepository, root_folder=BASE, batch_s
         if price_rows:
             big_price_df = pd.concat(price_rows, ignore_index=True)
             await price_repository.copy_prices(big_price_df)
-    
-        #start = time.perf_counter()
-        #await price_repository.call_load_stage_from_raw()
-        #elapsed = time.perf_counter() - start
-        #logger.info("load_stage_from_raw took %.3f s", elapsed)
-    #count = await price_repository.fetch_all_prices("stg_price_observation")
-    #logger.info(f"Total rows in staging after load_stage_from_raw: {count}")
-    #if count ==0:
-    #    raise ValueError("No rows found in stg_price_observation table after load_stage_from_raw")
-        #start = time.perf_counter()
-        #await price_repository.call_load_dim_from_staging()
-        #elapsed = time.perf_counter() - start
-        #logger.info("load_dim_from_staging took %.3f s", elapsed)
-    #count = await price_repository.fetch_all_prices("dim_price_observation")
-    #logger.info(f"Total rows in staging after load_dim_from_staging: {count}")
-    #if count ==0:
-    #    raise ValueError("No rows found in dim_price_observation table after load_dim_from_staging")
-        #start = time.perf_counter()
-        #await price_repository.call_load_prices_from_dim()
-        #elapsed = time.perf_counter() - start
-        #logger.info("load_prices_from_dim took %.3f s", elapsed)
     finally:
         pass
-        #await price_repository.drop_staging_table()
-        #await price_repository.rollback_transaction()
+    
+async def insert_card_identifiers(card_repository, folder_path=BASE):
+    try:
+        ids = {}
+        for i, folder in enumerate(os.listdir(folder_path), 1):
+            try:
+                pdir = os.path.join(folder_path, folder)
+                info_path = os.path.join(pdir, "info.json")
+                logger.info("Processing: %s", info_path)
+                id_dict = await process_info_file(info_path)
+                scry_id = id_dict.get("scryfallId", None)
+                stock_id = id_dict.get("mtgstock", None)
+                if scry_id and stock_id:
+                    ids[scry_id] = stock_id
+                else:
+                    logger.warning(f"Missing scryfallId or mtgstock id in {info_path}")
+                    continue
+                # insert into dim_card_identifier if not exists
+                # this is a bit tricky as we have multiple possible identifiers
+                # we will use upsert with conflict on unique constraint
+                # assuming you have a unique constraint on (source, source_id)
+                # you may need to adjust this based on your actual schema
 
+
+            except Exception as e:
+                logger.warning(f"Error processing folder: {folder} Error: {e}")
+            ids = {str(k): str(v) for k, v in ids.items() if k and v}  # filter out None values
+        await card_repository.bulk_update_mtg_stock_ids(ids)
+    finally:
+        pass
+        #await price_repository.rollback_transaction()

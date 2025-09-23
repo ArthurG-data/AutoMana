@@ -29,6 +29,7 @@ async def init_async_pool():
             database=get_db_settings().postgres_db,
             min_size=1,
             max_size=10,  # Adjust based on your app's load
+            server_settings={'client_encoding': 'UTF8'}
         )
     return async_db_pool
 
@@ -48,6 +49,7 @@ db_pool = pool.SimpleConnectionPool(
     user=get_db_settings().postgres_user,
     password=get_db_settings().postgres_password,
     cursor_factory=RealDictCursor,
+    options='-c client_encoding=UTF8'
 )
 
 

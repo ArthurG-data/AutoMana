@@ -1,0 +1,12 @@
+{
+    "git.ignoreLimitWarning": true,
+    "files.watcherExclude": {
+    "**/data/**": true
+  },
+  "search.exclude": {
+    "**/data/**": true
+  },
+  "files.exclude": {
+    "**/data/**": true
+  }
+}

@@ -1,7 +1,8 @@
+
 CREATE TABLE IF NOT EXISTS price_source (
   source_id   SMALLSERIAL PRIMARY KEY,
-  code        TEXT UNIQUE NOT NULL,   -- 'mtgstocks','tcgplayer','scryfall','cardmarket','ebay'
-  name        TEXT NOT NULL,
+  code        TEXT UNIQUE NOT NULL,   -- 'tcgplayer','cardkingdom','ebay','amazon', etc.
+  name       TEXT NOT NULL,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );

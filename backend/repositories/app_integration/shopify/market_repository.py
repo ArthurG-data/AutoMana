@@ -1,10 +1,15 @@
 from backend.repositories.AbstractRepository import AbstractRepository
 from typing import List, Optional, Any
-from backend.schemas.external_marketplace.shopify.shopify_theme import Market as Market_Model
-from backend.repositories.shop_meta import market_queries as queries
-class MarketRepository(AbstractRepository[Market_Model.Market]):
-    def __init__(self, connection):
-        super().__init__(connection)
+from backend.schemas.external_marketplace.shopify import Market as Market_Model
+from backend.repositories.app_integration.shopify import market_queries as queries
+
+class MarketRepository(AbstractRepository):
+    def __init__(self, connection, executor = None):
+        super().__init__(connection, executor)
+
+    @property
+    def name(self) -> str:
+        return "MarketShopifyRepository"
 
     async def add(self, values: Market_Model.InsertMarket):
         """Add a market to the database"""
@@ -13,6 +18,15 @@ class MarketRepository(AbstractRepository[Market_Model.Market]):
             values.name, values.api_url, values.country_code, values.city
         )
 
+    async def get_market_code(self, name: str) -> Optional[str]:
+        """Get a market by name"""
+        query = "SELECT source_id FROM price_source WHERE code = $1;"
+        result = await self.execute_query(
+            query,
+            (name,)
+        )
+        return result[0].get('source_id') if result else None
+    
     async def get(self, id: int) -> Market_Model.Market | None:
         """Get a market by ID"""
         result = await self.connection.fetchrow(

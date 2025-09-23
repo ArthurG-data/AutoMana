@@ -180,14 +180,7 @@ CREATE TABLE IF NOT EXISTS card_faces (
     flavor_text TEXT
 );
 
-CREATE TABLE card_source_map (
-    card_version_id UUID NOT NULL REFERENCES card_version(card_version_id) ON DELETE CASCADE,
-    source_id       SMALLINT NOT NULL REFERENCES price_source(source_id) ON DELETE CASCADE,
-    external_id     TEXT NOT NULL,   -- ID from source system (e.g. TCGPlayer productId)
-    url             TEXT,            -- optional, direct URL to listing
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    PRIMARY KEY (card_version_id, source_id, external_id)
-);
+
 
 CREATE TABLE IF NOT EXISTS card_external_identifier (
     card_identifier_ref_id SMALLINT NOT NULL REFERENCES card_identifier_ref(card_identifier_ref_id),

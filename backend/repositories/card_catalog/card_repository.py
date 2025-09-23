@@ -158,3 +158,38 @@ class CardReferenceRepository(AbstractRepository[Any]):
         }
     async def list(self) -> list[ApiResponse]:
         raise NotImplementedError("Method not implemented")
+
+
+    async def bulk_update_mtg_stock_ids(self, ids: dict[str, str]):
+        if not ids:
+            return 0  # or just return
+
+        # build two parallel arrays
+        scry_ids = list(ids.keys())
+        stock_ids = list(ids.values())
+
+        query = """
+        WITH ids AS (
+            SELECT
+                (SELECT card_identifier_ref_id FROM card_identifier_ref WHERE identifier_name = 'scryfall_id')  AS scry_ref,
+                (SELECT card_identifier_ref_id FROM card_identifier_ref WHERE identifier_name = 'mtg_stock_id') AS stock_ref
+        ),
+        data(scryfall_id, mtgstock_id) AS (
+            SELECT * FROM unnest($1::TEXT[], $2::TEXT[])  -- zipped pairs
+        )
+        INSERT INTO card_external_identifier (card_identifier_ref_id, card_version_id, value)
+        SELECT
+            ids.stock_ref,                -- we are INSERTING mtg_stock_id ...
+            cei.card_version_id,
+            data.mtgstock_id
+        FROM data
+        CROSS JOIN ids
+        JOIN card_external_identifier AS cei
+        ON cei.card_identifier_ref_id = ids.scry_ref  -- ... using scryfall to resolve card_version
+        AND cei.value::TEXT             = data.scryfall_id
+        ON CONFLICT (card_identifier_ref_id, card_version_id)
+        DO UPDATE SET value = EXCLUDED.value;
+        """
+
+        # Pass TWO params, not one
+        await self.execute_command(query,(scry_ids, stock_ids))

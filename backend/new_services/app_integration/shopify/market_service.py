@@ -1,4 +1,4 @@
-from backend.repositories.shop_meta.market_repository import MarketRepository
+from backend.repositories.app_integration.shopify.market_repository import MarketRepository
 from backend.schemas.external_marketplace.shopify.Market import InsertMarket, MarketInDb
 from typing import List, Optional
 
@@ -16,3 +16,4 @@ async def get(repository: MarketRepository, id: Optional[int] = None):
     if market:
         return {"status": "success", "market": market}
     return {"status": "error", "message": "Market not found"}
+

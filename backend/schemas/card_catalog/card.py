@@ -92,12 +92,10 @@ class CreateCard(BaseCard):
     defense : Optional[int|str]=None
     variation : Optional[bool]=False
     reserved : bool=Field(default=False)
-    card_faces : List[CardFace]=[],
+    card_faces : Optional[List[CardFace]]=[],
     set_name : str=Field('MISSING_SET')
     set : str
     set_id : UUID
-
-    #new
     id: Optional[UUID]=None
     oracle_id: Optional[UUID]=None #should be the unique card id 
     multiverse_ids: Optional[List[int]]=[]
@@ -143,7 +141,13 @@ class CreateCard(BaseCard):
         str(self.defense) if self.defense is not None else None,
         json.dumps(self.promo_types),
         self.variation,
-        self.to_json_safe([f.model_dump() for f in self.card_faces]) if self.card_faces else json.dumps([])
+        self.to_json_safe([f.model_dump() for f in self.card_faces]) if self.card_faces else json.dumps([]),
+        self.id,
+        self.oracle_id,
+        json.dumps(self.multiverse_ids) if self.multiverse_ids else json.dumps([]),
+        self.tcgplayer_id,
+        self.tcgplayer_etched_id,
+        self.cardmarket_id,
     )
     def model_dump_for_sql(self) -> Dict[str, Any]:
         """

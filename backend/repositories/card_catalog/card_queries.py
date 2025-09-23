@@ -44,9 +44,14 @@ insert_full_card_query = """
         -- Additional data (29-33)
         $31, -- promo_types
         $32, -- variation
-        $33 -- card_faces
+        $33, -- card_faces
 
-        
+        $34, -- scryfall_id
+        $35, -- oracle_id
+        $36, -- multiverse_ids
+        $37, -- tcgplayer_id
+        $38, -- tcgplayer_etched_id
+        $39 -- cardmarket_id        
     );
 """
 
