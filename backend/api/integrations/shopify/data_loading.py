@@ -15,3 +15,15 @@ async def load_data(PATH_TO_JSON: str = Query(...), market_code: str = Query(...
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+@data_loading_router.post("/stage_data")
+async def stage_data(PATH_TO_PARQUET_DIR: str = Query(...),  batch_size: int = Query(10000), service_manager: ServiceManager = Depends(get_service_manager)):
+    try:
+        test = await service_manager.execute_service(
+            "integration.shopify.stage_data",
+            parquet_base_path=PATH_TO_PARQUET_DIR,
+            batch_size=batch_size   
+        )
+        return test
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

@@ -78,7 +78,7 @@ class PriceRepository(AbstractRepository):
             return 0
 
     async def copy_prices(self, df):
-        await self._copy_to_table(df, "raw_mtg_stock_price")
+        await self._copy_to_table(df, "shopify_staging_raw")
         await self.connection.execute('COMMIT;')
 
     

@@ -391,3 +391,91 @@ async def process_json_dir_to_parquet(market_repository, path_to_json: str, mark
     # final flush for all remaining products
     for pid in list(buffers.keys()):
         _flush_product(pid)
+
+import pyarrow.parquet as pq
+import tempfile
+#add the foolowing code to add the data to a staging table
+async def stage_data_from_parquet(product_repository: ProductRepository, parquet_base_path: str, batch_size: int = 10000):
+    """
+    Scan the parquet_base_path for product subdirectories, read their data.parquet files,
+    and stage the data into the database using the provided repository.
+    """
+    product_dirs = [d for d in glob.glob(os.path.join(parquet_base_path, "*")) if os.path.isdir(d)]
+
+    source = parquet_base_path.split("/")[-1]
+    total_products = len(product_dirs)
+    if total_products == 0:
+        logging.warning(f"No product directories found in {parquet_base_path}")
+        return
+
+    
+
+
+    parquet_files = []
+    for prod_dir in product_dirs:
+        parquet_file_path = os.path.join(prod_dir, "data.parquet")
+        if os.path.exists(parquet_file_path):
+            parquet_files.append(parquet_file_path)
+        else:
+            logging.warning(f"  (no data.parquet) {prod_dir}")
+    
+    if not parquet_files:
+        logging.warning("No parquet files found to process")
+        return
+    
+    logging.info(f"Staging data from {total_products} products in {parquet_base_path}")
+
+    schema = pq.ParquetFile(parquet_files[0]).schema_arrow
+    
+    # Create temporary file for concatenated data
+    with tempfile.NamedTemporaryFile(suffix='.parquet', delete=False) as temp_file:
+        temp_parquet_path = temp_file.name
+    try:
+        # Step 1: Concatenate all parquet files into one
+        logging.info("Concatenating parquet files...")
+        with pq.ParquetWriter(temp_parquet_path, schema=schema) as writer:
+            for parquet_file_path in tqdm(parquet_files, desc="Concatenating files", unit="file", dynamic_ncols=True):
+                try:
+                    table = pq.read_table(parquet_file_path, schema=schema)
+                    writer.write_table(table)
+                except Exception as e:
+                    logging.error(f"Error processing {parquet_file_path}: {e}")
+                    continue
+        
+        # Step 2: Read the concatenated file and prepare for COPY
+        logging.info("Reading concatenated data for staging...")
+        combined_table = pq.read_table(temp_parquet_path)
+        df = combined_table.to_pandas()
+        
+        total_rows = len(df)
+        if total_rows == 0:
+            logging.warning("No data found to stage")
+            return
+
+        logging.info(f"Total rows to stage: {total_rows}")
+
+        # Step 3: Process in batches using COPY
+        total_batches = (total_rows + batch_size - 1) // batch_size
+        
+        with tqdm(total=total_batches, desc="Staging to PostgreSQL", unit="batch") as pbar:
+            for i in range(0, total_rows, batch_size):
+                end_idx = min(i + batch_size, total_rows)
+                batch_df = df.iloc[i:end_idx]
+        
+
+                try:
+                    await product_repository.bulk_copy_prices(batch_df)
+                    pbar.update(1)
+                    pbar.set_postfix_str(f"Rows {i+1}-{end_idx}")
+                except Exception as e:
+                    logging.error(f"Error inserting batch {i//batch_size + 1}: {e}")
+                    raise
+
+        logging.info(f"✅ Staging completed successfully! Processed {total_rows} rows in {total_batches} batches.")
+
+    finally:
+        # Clean up temporary file
+        try:
+            os.unlink(temp_parquet_path)
+        except Exception as e:
+            print(f"Warning: Could not delete temporary file {temp_parquet_path}: {e}")

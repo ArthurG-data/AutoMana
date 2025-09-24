@@ -293,10 +293,16 @@ class ServiceManager:
                 "function": "insert_card_identifiers",
                 "db_repositories": ["card"]
             },
+            # Shopify services
             "integration.shopify.load_data": {
                 "module": "backend.new_services.app_integration.shopify.data_staging_service",
                 "function": "process_json_dir_to_parquet",
                 "db_repositories": ['market']
+            }, 
+            "integration.shopify.stage_data": {
+                "module": "backend.new_services.app_integration.shopify.data_staging_service",
+                "function": "stage_data_from_parquet",
+                "db_repositories": ['product']
             }
         }
             # Add more services as needed
