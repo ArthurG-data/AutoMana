@@ -1,13 +1,17 @@
-import json
-import os,  glob, ijson, functools, requests
+
+import os,  glob, ijson, functools, requests, json, tempfile
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import List, Any, Optional, Tuple
 import pandas as pd
 from tqdm import tqdm
 from dotenv import load_dotenv
+import pyarrow.parquet as pq
 from backend.schemas.external_marketplace.shopify import shopify_theme
 from backend.repositories.app_integration.shopify.product_repository import ProductRepository
+from collections import defaultdict
+from bs4 import BeautifulSoup
+from typing import Dict
 
 @functools.lru_cache(maxsize=365)
 def fetch_fx_rate(from_currency: str, to_currency: str, date_str: str, app_id : str) -> float:
@@ -222,7 +226,7 @@ def _df_from_item(item: dict) -> pd.DataFrame:
     """
     variants = item.get("variants", []) or []
     if not variants:
-        return pd.DataFrame(columns=["product_id", "date", "variation", "price"])
+        return pd.DataFrame(columns=["product_id", "date",  "price","variation", "price", "scraped_at"])
 
     local_date = _current_local_date()
 
@@ -297,8 +301,57 @@ async def get_total_items_in_json(path_to_json: str) -> int:
 
 MAX_ROWS_PER_PRODUCT_BEFORE_FLUSH = 100_000   # flush when a single product buffer exceeds this
 ROW_GROUP_TARGET = 50_000                    # used inside _append_product_file
-from collections import defaultdict
 
+async def parse_html_description(html: str) -> str:
+    """
+    Simple HTML to plain text conversion.
+    """
+    soup = BeautifulSoup(html, 'html.parser')
+    text = soup.get_text(separator=' ', strip=True)
+    return text
+
+async def get_card_id_from_html(html: str) -> Optional[str]:
+    """
+    Extract card ID from HTML data attributes.
+    Looks for data-cardid attribute in catalogMetaData div.
+    """
+    if not html:
+        return None
+    
+    try:
+        soup = BeautifulSoup(html, 'html.parser')
+        catalog_div = soup.find('div', class_='catalogMetaData')
+        if catalog_div:
+            card_id = catalog_div.get('data-cardid')
+            return card_id
+        return None
+    except Exception as e:
+        print(f"Error extracting card ID from HTML: {e}")
+        return None
+
+async def extract_all_metadata_from_html(html: str) -> Dict[str, Optional[str]]:
+    """
+    Extract all metadata from the catalogMetaData div.
+    Returns a dictionary with all data attributes.
+    """
+    if not html:
+        return {}
+    
+    try:
+        soup = BeautifulSoup(html, 'html.parser')
+        catalog_div = soup.find('div', class_='catalogMetaData')
+        if catalog_div:
+            return {
+                'card_id': catalog_div.get('data-cardid'),
+                'tcg_id': catalog_div.get('data-tcgid'),
+                'card_type': catalog_div.get('data-cardtype'),
+                'last_updated': catalog_div.get('data-lastupdated')
+            }
+        return {}
+    except Exception as e:
+        print(f"Error extracting metadata from HTML: {e}")
+        return {}
+    
 async def process_json_dir_to_parquet(market_repository, path_to_json: str, market_code: str, output_path: str):
     """
     - Reads all *.json in `path_to_json`
@@ -344,7 +397,7 @@ async def process_json_dir_to_parquet(market_repository, path_to_json: str, mark
             tqdm.write(f"   (no items) {os.path.basename(json_file)}")
             continue
 
-        with open(json_file, "rb") as f:  # IMPORTANT: pass a file object to ijson
+        with open(json_file, "rb") as f:
             pbar = tqdm(total=total_items, desc=f"Items in {os.path.basename(json_file)}", unit="it", leave=False)
             try:
                 for item in ijson.items(f, "items.item"):  # adjust prefix if your JSON structure differs
@@ -356,7 +409,9 @@ async def process_json_dir_to_parquet(market_repository, path_to_json: str, mark
                     df_item = _df_from_item(item)
                     if df_item.empty:
                         continue
-
+                    meta_data = await extract_all_metadata_from_html(item.get("body_html", ""))
+                    df_item["card_id"] = meta_data.get("card_id")
+                    df_item["tcg_id"] = meta_data.get("tcg_id")
                     # buffer
                     buffers[pid].append(df_item)
                     buffered_rows_count[pid] += len(df_item)
@@ -373,6 +428,9 @@ async def process_json_dir_to_parquet(market_repository, path_to_json: str, mark
                                 "title": item.get("title"),
                                 "vendor": item.get("vendor"),
                                 "product_type": item.get("product_type"),
+                                "card_id": meta_data.get("card_id"),
+                                "tcg_id": meta_data.get("tcg_id"),
+                                "card_type": meta_data.get("card_type"),
                                 "tags": item.get("tags"),
                                 "published_at": str(item.get("published_at")),
                                 "created_at": str(item.get("created_at")),
@@ -392,8 +450,6 @@ async def process_json_dir_to_parquet(market_repository, path_to_json: str, mark
     for pid in list(buffers.keys()):
         _flush_product(pid)
 
-import pyarrow.parquet as pq
-import tempfile
 #add the foolowing code to add the data to a staging table
 async def stage_data_from_parquet(product_repository: ProductRepository, parquet_base_path: str, batch_size: int = 10000):
     """
@@ -446,7 +502,11 @@ async def stage_data_from_parquet(product_repository: ProductRepository, parquet
         logging.info("Reading concatenated data for staging...")
         combined_table = pq.read_table(temp_parquet_path)
         df = combined_table.to_pandas()
-        
+
+        logging.info(f"Final DataFrame columns: {df.columns.tolist()}")
+        logging.info(f"Final DataFrame dtypes:\n{df.dtypes}")
+        logging.info(f"Sample final data:\n{df.head()}")
+
         total_rows = len(df)
         if total_rows == 0:
             logging.warning("No data found to stage")
@@ -461,7 +521,7 @@ async def stage_data_from_parquet(product_repository: ProductRepository, parquet
             for i in range(0, total_rows, batch_size):
                 end_idx = min(i + batch_size, total_rows)
                 batch_df = df.iloc[i:end_idx]
-        
+
 
                 try:
                     await product_repository.bulk_copy_prices(batch_df)
