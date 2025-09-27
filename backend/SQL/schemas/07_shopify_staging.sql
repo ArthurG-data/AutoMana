@@ -8,8 +8,6 @@ CREATE UNLOGGED TABLE shopify_staging_raw (
     tcg_id BIGINT
 );
 
-CREATE OR REPLACE FUNCTION find_card_version(title)
-
 CREATE INDEX idx_shopify_staging_raw_product_id ON shopify_staging_raw(product_id);
 CREATE INDEX idx_shopify_staging_raw_date ON shopify_staging_raw(date);     
 
