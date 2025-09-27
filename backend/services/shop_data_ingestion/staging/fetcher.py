@@ -1,6 +1,6 @@
 
 from urllib.parse import  urlunsplit
-from backend.services.shop_data_ingestion.models.error_models import InternalServiceError
+#from backend.services.shop_data_ingestion.models.error_models import InternalServiceError
 from datetime import datetime
 import os, csv, json, httpx, time
 from tqdm import tqdm

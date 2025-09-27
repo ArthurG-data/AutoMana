@@ -11,15 +11,14 @@ class ShopifyCollectionRepository(AbstractRepository[shopify_theme.CollectionMod
 
     async def add(self, values: shopify_theme.InsertCollection):
         """Add a collection to the database"""
-        await self.connection.execute(
+    
+        query = """
+            INSERT INTO collection_handles (market_id, name)
+            VALUES (SELECT market_id FROM market_ref WHERE name = %s), %s
+            ON CONFLICT (name) DO NOTHING;
             """
-            INSERT INTO collections (name, market_id)
-            VALUES ($1, $2)
-            ON CONFLICT (name, market_id)
-            DO NOTHING;
-            """,
-            values.name, values.market_id
-        )
+        
+        self.execute_command(query,(values.market_id, values.name) )
 
     async def add_many(self, values: List[shopify_theme.InsertCollection]):
         """Add multiple collections to the database"""
@@ -43,7 +42,7 @@ class ShopifyCollectionRepository(AbstractRepository[shopify_theme.CollectionMod
         )
         return result if result else None
     
-    async def link_collection_theme(self, collection_name: str, theme_code: str) -> Any:
+    async def link_collection_theme(self, values : shopify_theme.InsertCollectionTheme) -> Any:
         """Link a collection to a theme"""
         result = await self.execute_command(
             """
@@ -55,7 +54,7 @@ class ShopifyCollectionRepository(AbstractRepository[shopify_theme.CollectionMod
             ON CONFLICT (handle_id, theme_id) DO NOTHING
             RETURNING *;
             """,
-            collection_name, theme_code
+            (values.collection_name, values.theme_code)
         )
         return result if result else None
 
@@ -65,3 +64,13 @@ class ShopifyCollectionRepository(AbstractRepository[shopify_theme.CollectionMod
             "SELECT * FROM collections"
         )
         return [dict(row) for row in rows] if rows else []
+    
+    async def add_theme(self, values : shopify_theme.InsertTheme):
+        query = """
+            INSERT INTO theme_ref (code, name)
+            VALUES (%s, %s)
+            ON CONFLICT (code) DO NOTHING;
+            """
+        await self.execute_command(query, (values.code, values.name))
+
+        

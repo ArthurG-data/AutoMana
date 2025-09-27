@@ -287,6 +287,22 @@ class ServiceManager:
                 "module": "backend.new_services.app_integration.mtg_stock.data_staging",
                 "function": "bulk_load",
                 "db_repositories": ["price"]
+            },
+            "integration.mtg_stock.load_ids": {
+                "module": "backend.new_services.app_integration.mtg_stock.data_staging",
+                "function": "insert_card_identifiers",
+                "db_repositories": ["card"]
+            },
+            # Shopify services
+            "integration.shopify.load_data": {
+                "module": "backend.new_services.app_integration.shopify.data_staging_service",
+                "function": "process_json_dir_to_parquet",
+                "db_repositories": ['market']
+            }, 
+            "integration.shopify.stage_data": {
+                "module": "backend.new_services.app_integration.shopify.data_staging_service",
+                "function": "stage_data_from_parquet",
+                "db_repositories": ['product']
             }
         }
             # Add more services as needed
@@ -309,11 +325,11 @@ class ServiceManager:
             "role": ("backend.repositories.user_management.role_repository", "RoleRepository"),
 
             # Shop Meta repositories
-            "market": ("backend.repositories.shop_meta.market_repository", "MarketRepository"),
-            "product": ("backend.repositories.shop_meta.product_repository", "ProductRepository"),
-            "collection": ("backend.repositories.shop_meta.collection_repository", "CollectionRepository"),
-            "theme": ("backend.repositories.shop_meta.theme_repository", "ThemeRepository"),
-            
+            "market": ("backend.repositories.app_integration.shopify.market_repository", "MarketRepository"),
+            "product": ("backend.repositories.app_integration.shopify.product_repository", "ProductRepository"),
+            "collection": ("backend.repositories.app_integration.shopify.collection_repository", "CollectionRepository"),
+            "theme": ("backend.repositories.app_integration.shopify.theme_repository", "ThemeRepository"),
+
             "app": ("backend.repositories.app_integration.ebay.app_repository", "EbayAppRepository"),
             "auth": ("backend.repositories.app_integration.ebay.auth_repository", "EbayAuthRepository"),
 

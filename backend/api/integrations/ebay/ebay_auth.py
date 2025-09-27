@@ -1,25 +1,4 @@
-"""
-from backend.modules.ebay.models.auth import  TokenResponse
-from backend.repositories.app_integration.ebay.auth_queries import get_refresh_token_query
-from backend.modules.auth.dependancies import currentActiveUser
-from backend.shared.dependancies import cursorDep, currentActiveSession
-from backend.modules.ebay.services import auth
-from backend.modules.auth.services import get_info_session
-from fastapi import APIRouter,Response, Depends, Path
-from backend.database.get_database import cursorDep
-from backend.modules.ebay.models.auth import InputEbaySettings
-from backend.modules.ebay.services.app import assign_scope, register_app, assign_app
-from uuid import UUID
-from backend.services_old.shop_data_ingestion.db.dependencies import get_sync_query_executor
-from backend.services_old.shop_data_ingestion.db import QueryExecutor
-from fastapi import APIRouter,Response, Depends
-from backend.database.get_database import cursorDep
-from backend.modules.auth.dependancies import currentActiveUser
-from backend.modules.ebay.services.dev import register_ebay_user
-from uuid import UUID
-from backend.services_old.shop_data_ingestion.db import QueryExecutor
-from backend.services_old.shop_data_ingestion.db.dependencies import get_sync_query_executor
-"""
+
 
 from fastapi import Cookie, HTTPException, APIRouter, Query, Request, Depends, Response, status
 from backend.new_services.service_manager import ServiceManager

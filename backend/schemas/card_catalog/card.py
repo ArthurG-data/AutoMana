@@ -61,7 +61,7 @@ class CreateCard(BaseCard):
     artist: str = Field(max_length=100)
     artist_ids : List[UUID] = []
     cmc : int=Field(default=0)
-    illustration_id: Optional[UUID] = '00000000-0000-0000-0000-000000000001'
+    illustration_id: Optional[UUID] = UUID('00000000-0000-0000-0000-000000000001')
     games : List[str] = []
     mana_cost : Optional[str]=Field(max_length=100, default=None)
     collector_number: Union[int, str] 
@@ -92,10 +92,16 @@ class CreateCard(BaseCard):
     defense : Optional[int|str]=None
     variation : Optional[bool]=False
     reserved : bool=Field(default=False)
-    card_faces : List[CardFace]=[],
+    card_faces : Optional[List[CardFace]]=[],
     set_name : str=Field('MISSING_SET')
     set : str
     set_id : UUID
+    id: Optional[UUID]=None
+    oracle_id: Optional[UUID]=None #should be the unique card id 
+    multiverse_ids: Optional[List[int]]=[]
+    tcgplayer_id: Optional[int]=None
+    tcgplayer_etched_id: Optional[int]=None
+    cardmarket_id: Optional[int]=None
 
     def prepare_for_db(self):
         """
@@ -120,7 +126,7 @@ class CreateCard(BaseCard):
         self.artist,
         self.artist_ids[0] if self.artist_ids else UUID("00000000-0000-0000-0000-000000000000"),
         json.dumps(self.legalities),
-        self.illustration_id,
+        self.illustration_id if self.illustration_id else UUID("00000000-0000-0000-0000-000000000001"),
         json.dumps(self.types),
         json.dumps(self.supertypes),
         json.dumps(self.subtypes),
@@ -135,7 +141,13 @@ class CreateCard(BaseCard):
         str(self.defense) if self.defense is not None else None,
         json.dumps(self.promo_types),
         self.variation,
-        self.to_json_safe([f.model_dump() for f in self.card_faces]) if self.card_faces else json.dumps([])
+        self.to_json_safe([f.model_dump() for f in self.card_faces]) if self.card_faces else json.dumps([]),
+        self.id,
+        self.oracle_id,
+        json.dumps(self.multiverse_ids) if self.multiverse_ids else json.dumps([]),
+        self.tcgplayer_id,
+        self.tcgplayer_etched_id,
+        self.cardmarket_id,
     )
     def model_dump_for_sql(self) -> Dict[str, Any]:
         """
@@ -181,7 +193,14 @@ class CreateCard(BaseCard):
             "defense": str(data["defense"]) if data["defense"] is not None else None,
             "promo_types": data["promo_types"] or [],
             "variation": data["variation"] or False,
-            "card_faces": data["card_faces"] or []
+            "card_faces": data["card_faces"] or [],
+
+            "scryfall_id": data["id"],  
+            "oracle_id": data["oracle_id"],
+            "multiverse_ids": data["multiverse_ids"] or [],
+            "tcgplayer_id": data["tcgplayer_id"],
+            "tcgplayer_etched_id": data["tcgplayer_etched_id"],
+            "cardmarket_id": data["cardmarket_id"],
         }
     
     

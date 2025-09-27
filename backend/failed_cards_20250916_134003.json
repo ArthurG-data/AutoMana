@@ -1,6 +1,6 @@
 [
   {
-    "position": 689,
+    "position": 691,
     "data": {
       "object": "card",
       "id": "018830b2-dff9-45f3-9cc2-dc5b2eec0e54",
@@ -117,10 +117,10 @@
       "promo_types": [
         "thick"
       ],
-      "edhrec_rank": 3527,
+      "edhrec_rank": 3590,
       "penny_rank": 4534,
       "prices": {
-        "usd": "2.15",
+        "usd": "2.17",
         "usd_foil": null,
         "usd_etched": null,
         "eur": null,
@@ -141,7 +141,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 1976,
+    "position": 1983,
     "data": {
       "object": "card",
       "id": "0489be0d-2117-46a8-97ab-31fe480685e2",
@@ -230,14 +230,17 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 494,
+      "promo_types": [
+        "poster"
+      ],
+      "edhrec_rank": 492,
       "penny_rank": 1959,
       "prices": {
-        "usd": "8.73",
-        "usd_foil": "10.75",
+        "usd": "9.85",
+        "usd_foil": "11.24",
         "usd_etched": null,
-        "eur": "8.45",
-        "eur_foil": "8.58",
+        "eur": "8.16",
+        "eur_foil": "8.63",
         "tix": null
       },
       "related_uris": {
@@ -254,7 +257,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 1981,
+    "position": 1988,
     "data": {
       "object": "card",
       "id": "048ddb71-e9ea-4f11-9b8a-c53961cf3a2c",
@@ -345,13 +348,13 @@
       "promo_types": [
         "poster"
       ],
-      "edhrec_rank": 7475,
+      "edhrec_rank": 7597,
       "prices": {
         "usd": null,
-        "usd_foil": "8.43",
+        "usd_foil": "8.49",
         "usd_etched": null,
         "eur": null,
-        "eur_foil": "10.39",
+        "eur_foil": "8.19",
         "tix": null
       },
       "related_uris": {
@@ -368,7 +371,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 2175,
+    "position": 2183,
     "data": {
       "object": "card",
       "id": "0508086d-d80f-4793-b50c-dacf6a2630e0",
@@ -498,7 +501,7 @@
     "error": "1 validation error for CreateCard\ntype_line\n  Field required [type=missing, input_value={'object': 'card_face', '...2630e0.jpg?1630030638'}}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.10/v/missing"
   },
   {
-    "position": 2579,
+    "position": 2591,
     "data": {
       "object": "card",
       "id": "05fab477-5e35-4a47-a972-441bbddc3302",
@@ -610,13 +613,16 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 3223,
+      "promo_types": [
+        "poster"
+      ],
+      "edhrec_rank": 3260,
       "prices": {
-        "usd": "2.34",
-        "usd_foil": "2.35",
+        "usd": "2.24",
+        "usd_foil": "2.49",
         "usd_etched": null,
         "eur": "6.38",
-        "eur_foil": "5.45",
+        "eur_foil": "4.85",
         "tix": null
       },
       "related_uris": {
@@ -633,7 +639,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 3520,
+    "position": 3536,
     "data": {
       "object": "card",
       "id": "081f2de5-251a-41c9-a62f-11487f54d355",
@@ -641,7 +647,7 @@
         695125,
         695126
       ],
-      "mtgo_id": 139629,
+      "mtgo_id": 139625,
       "tcgplayer_id": 624143,
       "cardmarket_id": 819515,
       "name": "Bloomvine Regent // Claim Territory // Bloomvine Regent",
@@ -731,14 +737,14 @@
       "promo_types": [
         "boosterfun"
       ],
-      "edhrec_rank": 5639,
+      "edhrec_rank": 5352,
       "penny_rank": 3030,
       "prices": {
-        "usd": "1.34",
-        "usd_foil": "1.37",
+        "usd": "1.21",
+        "usd_foil": "1.59",
         "usd_etched": null,
-        "eur": "1.09",
-        "eur_foil": "1.53",
+        "eur": "1.06",
+        "eur_foil": "1.39",
         "tix": "0.14"
       },
       "related_uris": {
@@ -750,13 +756,13 @@
       "purchase_uris": {
         "tcgplayer": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&u=https%3A%2F%2Fwww.tcgplayer.com%2Fproduct%2F624143%3Fpage%3D1",
         "cardmarket": "https://www.cardmarket.com/en/Magic/Products?idProduct=819515&referrer=scryfall&utm_campaign=card_prices&utm_medium=text&utm_source=scryfall",
-        "cardhoarder": "https://www.cardhoarder.com/cards/139629?affiliate_id=scryfall&ref=card-profile&utm_campaign=affiliate&utm_medium=card&utm_source=scryfall"
+        "cardhoarder": "https://www.cardhoarder.com/cards/139625?affiliate_id=scryfall&ref=card-profile&utm_campaign=affiliate&utm_medium=card&utm_source=scryfall"
       }
     },
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 3712,
+    "position": 3730,
     "data": {
       "object": "card",
       "id": "087c3a0d-c710-4451-989e-596b55352184",
@@ -843,14 +849,14 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 4975,
+      "edhrec_rank": 4949,
       "penny_rank": 4702,
       "prices": {
         "usd": null,
-        "usd_foil": "6.00",
+        "usd_foil": "6.53",
         "usd_etched": null,
         "eur": null,
-        "eur_foil": "5.94",
+        "eur_foil": "6.07",
         "tix": null
       },
       "related_uris": {
@@ -867,7 +873,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 14008,
+    "position": 14093,
     "data": {
       "object": "card",
       "id": "20bdc926-b1ab-4314-899b-167c3d8a7af7",
@@ -958,18 +964,21 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 7690,
+      "promo_types": [
+        "poster"
+      ],
+      "edhrec_rank": 7816,
       "preview": {
         "source": "Wizards of the Coast",
         "source_uri": "",
         "previewed_at": "2025-03-23"
       },
       "prices": {
-        "usd": "1.98",
+        "usd": "1.75",
         "usd_foil": null,
         "usd_etched": null,
-        "eur": "3.44",
-        "eur_foil": "5.56",
+        "eur": "2.88",
+        "eur_foil": "3.27",
         "tix": null
       },
       "related_uris": {
@@ -986,7 +995,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 15174,
+    "position": 15264,
     "data": {
       "object": "card",
       "id": "236e9bcf-ced2-4bee-8188-41dd94df02da",
@@ -1071,11 +1080,11 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 315,
+      "edhrec_rank": 319,
       "penny_rank": 5975,
       "prices": {
         "usd": null,
-        "usd_foil": "70.21",
+        "usd_foil": "69.65",
         "usd_etched": null,
         "eur": null,
         "eur_foil": null,
@@ -1095,7 +1104,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 19490,
+    "position": 19607,
     "data": {
       "object": "card",
       "id": "2d87ef32-5b97-4c97-85e6-89c94eaffc08",
@@ -1225,7 +1234,7 @@
     "error": "1 validation error for CreateCard\ntype_line\n  Field required [type=missing, input_value={'object': 'card_face', '...affc08.jpg?1630032735'}}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.10/v/missing"
   },
   {
-    "position": 23534,
+    "position": 23669,
     "data": {
       "object": "card",
       "id": "36ea852d-ed2b-4c56-9b73-52dce8a3e520",
@@ -1311,13 +1320,13 @@
       "promo_types": [
         "poster"
       ],
-      "edhrec_rank": 7892,
+      "edhrec_rank": 7962,
       "prices": {
         "usd": null,
-        "usd_foil": "12.27",
+        "usd_foil": "12.21",
         "usd_etched": null,
         "eur": null,
-        "eur_foil": "10.68",
+        "eur_foil": "11.63",
         "tix": null
       },
       "related_uris": {
@@ -1334,7 +1343,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 24666,
+    "position": 24809,
     "data": {
       "object": "card",
       "id": "399bf36a-5901-437f-b5d3-32283cedbbcb",
@@ -1422,11 +1431,11 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 1805,
+      "edhrec_rank": 1831,
       "penny_rank": 8647,
       "prices": {
         "usd": null,
-        "usd_foil": "18.73",
+        "usd_foil": "20.37",
         "usd_etched": null,
         "eur": null,
         "eur_foil": null,
@@ -1446,7 +1455,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 24805,
+    "position": 24949,
     "data": {
       "object": "card",
       "id": "39fabb62-1644-4dc5-bb99-dc3508bd6681",
@@ -1576,7 +1585,7 @@
     "error": "1 validation error for CreateCard\ntype_line\n  Field required [type=missing, input_value={'object': 'card_face', '...bd6681.jpg?1675594803'}}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.10/v/missing"
   },
   {
-    "position": 25465,
+    "position": 25614,
     "data": {
       "object": "card",
       "id": "3babdb30-3be2-4a8c-a2a8-95947e40cf64",
@@ -1706,7 +1715,7 @@
     "error": "1 validation error for CreateCard\ntype_line\n  Field required [type=missing, input_value={'object': 'card_face', '...40cf64.jpg?1630032186'}}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.10/v/missing"
   },
   {
-    "position": 25921,
+    "position": 26070,
     "data": {
       "object": "card",
       "id": "3cb0824c-57cc-46bf-bd43-425d58b8a762",
@@ -1796,14 +1805,17 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 3109,
+      "promo_types": [
+        "poster"
+      ],
+      "edhrec_rank": 3164,
       "penny_rank": 1164,
       "prices": {
-        "usd": "8.13",
-        "usd_foil": "9.21",
+        "usd": "7.58",
+        "usd_foil": "8.95",
         "usd_etched": null,
-        "eur": "6.03",
-        "eur_foil": "5.88",
+        "eur": "6.05",
+        "eur_foil": "5.62",
         "tix": null
       },
       "related_uris": {
@@ -1820,7 +1832,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 26291,
+    "position": 26440,
     "data": {
       "object": "card",
       "id": "3d89c9be-2489-47e4-8e53-f980c82442b4",
@@ -1911,14 +1923,14 @@
       "promo_types": [
         "sldbonus"
       ],
-      "edhrec_rank": 5932,
+      "edhrec_rank": 5846,
       "penny_rank": 5443,
       "prices": {
-        "usd": "13.93",
-        "usd_foil": "10.87",
+        "usd": "12.30",
+        "usd_foil": "11.16",
         "usd_etched": null,
-        "eur": "8.67",
-        "eur_foil": "11.72",
+        "eur": "8.86",
+        "eur_foil": "13.96",
         "tix": null
       },
       "related_uris": {
@@ -1935,7 +1947,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 26592,
+    "position": 26743,
     "data": {
       "object": "card",
       "id": "3e3f0bcd-0796-494d-bf51-94b33c1671e9",
@@ -2021,13 +2033,13 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 127,
+      "edhrec_rank": 126,
       "prices": {
         "usd": null,
-        "usd_foil": "30.67",
+        "usd_foil": "31.91",
         "usd_etched": null,
         "eur": null,
-        "eur_foil": "27.35",
+        "eur_foil": "28.86",
         "tix": null
       },
       "related_uris": {
@@ -2044,7 +2056,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 27512,
+    "position": 27667,
     "data": {
       "object": "card",
       "id": "408158b0-bc33-4588-9bf9-634a7e61452a",
@@ -2131,14 +2143,17 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 3771,
+      "promo_types": [
+        "poster"
+      ],
+      "edhrec_rank": 3824,
       "penny_rank": 6483,
       "prices": {
-        "usd": "2.23",
-        "usd_foil": "2.14",
+        "usd": "2.18",
+        "usd_foil": "1.99",
         "usd_etched": null,
-        "eur": "3.18",
-        "eur_foil": "3.45",
+        "eur": "2.98",
+        "eur_foil": "3.36",
         "tix": null
       },
       "related_uris": {
@@ -2155,7 +2170,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 28550,
+    "position": 28713,
     "data": {
       "object": "card",
       "id": "42efae65-8a2e-4771-aa19-7b6ddb1cbd1d",
@@ -2285,7 +2300,7 @@
     "error": "1 validation error for CreateCard\ntype_line\n  Field required [type=missing, input_value={'object': 'card_face', '...1cbd1d.jpg?1630032417'}}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.10/v/missing"
   },
   {
-    "position": 28683,
+    "position": 28848,
     "data": {
       "object": "card",
       "id": "434a3cb4-7226-4909-a8cc-ccc7783ab572",
@@ -2376,14 +2391,14 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 7238,
+      "edhrec_rank": 7283,
       "penny_rank": 2974,
       "prices": {
-        "usd": "10.49",
+        "usd": "10.17",
         "usd_foil": null,
         "usd_etched": null,
-        "eur": "7.59",
-        "eur_foil": "8.65",
+        "eur": "7.37",
+        "eur_foil": "9.13",
         "tix": null
       },
       "related_uris": {
@@ -2400,7 +2415,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 30092,
+    "position": 30269,
     "data": {
       "object": "card",
       "id": "4696f5de-fe5b-40df-a194-1a73b4c5150f",
@@ -2490,13 +2505,14 @@
       "booster": false,
       "story_spotlight": false,
       "promo_types": [
+        "poster",
         "sldbonus"
       ],
-      "edhrec_rank": 3109,
+      "edhrec_rank": 3164,
       "penny_rank": 1164,
       "prices": {
         "usd": null,
-        "usd_foil": "320.00",
+        "usd_foil": null,
         "usd_etched": null,
         "eur": null,
         "eur_foil": "396.97",
@@ -2516,14 +2532,14 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 30814,
+    "position": 30996,
     "data": {
       "object": "card",
       "id": "484b5580-b179-4dce-8bdf-d714eb4635e5",
       "multiverse_ids": [
         695119
       ],
-      "mtgo_id": 139609,
+      "mtgo_id": 139605,
       "tcgplayer_id": 623887,
       "cardmarket_id": 817989,
       "name": "Marang River Regent // Coil and Catch // Marang River Regent",
@@ -2613,13 +2629,13 @@
       "promo_types": [
         "boosterfun"
       ],
-      "edhrec_rank": 6110,
+      "edhrec_rank": 5705,
       "prices": {
-        "usd": "3.05",
-        "usd_foil": "3.75",
+        "usd": "2.88",
+        "usd_foil": "4.28",
         "usd_etched": null,
-        "eur": "3.75",
-        "eur_foil": "5.64",
+        "eur": "3.53",
+        "eur_foil": "7.62",
         "tix": "0.73"
       },
       "related_uris": {
@@ -2631,20 +2647,20 @@
       "purchase_uris": {
         "tcgplayer": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&u=https%3A%2F%2Fwww.tcgplayer.com%2Fproduct%2F623887%3Fpage%3D1",
         "cardmarket": "https://www.cardmarket.com/en/Magic/Products?idProduct=817989&referrer=scryfall&utm_campaign=card_prices&utm_medium=text&utm_source=scryfall",
-        "cardhoarder": "https://www.cardhoarder.com/cards/139609?affiliate_id=scryfall&ref=card-profile&utm_campaign=affiliate&utm_medium=card&utm_source=scryfall"
+        "cardhoarder": "https://www.cardhoarder.com/cards/139605?affiliate_id=scryfall&ref=card-profile&utm_campaign=affiliate&utm_medium=card&utm_source=scryfall"
       }
     },
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 31317,
+    "position": 31505,
     "data": {
       "object": "card",
       "id": "4981dc79-4efd-40e1-9fc1-c08e284aff22",
       "multiverse_ids": [
         695123
       ],
-      "mtgo_id": 139623,
+      "mtgo_id": 139621,
       "tcgplayer_id": 624245,
       "cardmarket_id": 817990,
       "name": "Magmatic Hellkite // Magmatic Hellkite",
@@ -2734,7 +2750,7 @@
       "promo_types": [
         "boosterfun"
       ],
-      "edhrec_rank": 9642,
+      "edhrec_rank": 9387,
       "penny_rank": 1077,
       "preview": {
         "source": "CoolStuffInc",
@@ -2742,11 +2758,11 @@
         "previewed_at": "2025-03-19"
       },
       "prices": {
-        "usd": "1.35",
-        "usd_foil": "2.95",
+        "usd": "1.53",
+        "usd_foil": "3.07",
         "usd_etched": null,
-        "eur": "1.47",
-        "eur_foil": "2.88",
+        "eur": "1.26",
+        "eur_foil": "2.49",
         "tix": "0.30"
       },
       "related_uris": {
@@ -2758,13 +2774,13 @@
       "purchase_uris": {
         "tcgplayer": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&u=https%3A%2F%2Fwww.tcgplayer.com%2Fproduct%2F624245%3Fpage%3D1",
         "cardmarket": "https://www.cardmarket.com/en/Magic/Products?idProduct=817990&referrer=scryfall&utm_campaign=card_prices&utm_medium=text&utm_source=scryfall",
-        "cardhoarder": "https://www.cardhoarder.com/cards/139623?affiliate_id=scryfall&ref=card-profile&utm_campaign=affiliate&utm_medium=card&utm_source=scryfall"
+        "cardhoarder": "https://www.cardhoarder.com/cards/139621?affiliate_id=scryfall&ref=card-profile&utm_campaign=affiliate&utm_medium=card&utm_source=scryfall"
       }
     },
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 32389,
+    "position": 32586,
     "data": {
       "object": "card",
       "id": "4be5abc8-4a03-4e23-b1be-61a02b5c0a8e",
@@ -2894,7 +2910,7 @@
     "error": "1 validation error for CreateCard\ntype_line\n  Field required [type=missing, input_value={'object': 'card_face', '...5c0a8e.jpg?1677529422'}}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.10/v/missing"
   },
   {
-    "position": 32865,
+    "position": 33063,
     "data": {
       "object": "card",
       "id": "4d227cd3-ebfe-4dd3-929a-4f8ff7c8981e",
@@ -2998,14 +3014,14 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 1116,
+      "edhrec_rank": 1124,
       "penny_rank": 489,
       "prices": {
-        "usd": "44.51",
-        "usd_foil": "48.15",
+        "usd": "50.17",
+        "usd_foil": "54.15",
         "usd_etched": null,
-        "eur": "31.30",
-        "eur_foil": "33.46",
+        "eur": "30.40",
+        "eur_foil": "33.42",
         "tix": null
       },
       "related_uris": {
@@ -3022,7 +3038,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 33440,
+    "position": 33640,
     "data": {
       "object": "card",
       "id": "4e82ad5e-6c7c-4140-bbef-9c97b7765e4e",
@@ -3113,14 +3129,14 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 5740,
+      "edhrec_rank": 5821,
       "penny_rank": 5464,
       "prices": {
-        "usd": "6.67",
+        "usd": "6.94",
         "usd_foil": null,
         "usd_etched": null,
-        "eur": "5.75",
-        "eur_foil": "6.78",
+        "eur": "5.72",
+        "eur_foil": "6.58",
         "tix": null
       },
       "related_uris": {
@@ -3137,7 +3153,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 33656,
+    "position": 33856,
     "data": {
       "object": "card",
       "id": "4efaa120-978f-4f84-8c18-91aa51ea8e2a",
@@ -3229,13 +3245,16 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 2391,
+      "promo_types": [
+        "poster"
+      ],
+      "edhrec_rank": 2378,
       "prices": {
-        "usd": "1.97",
+        "usd": "1.71",
         "usd_foil": null,
         "usd_etched": null,
-        "eur": "3.99",
-        "eur_foil": "5.25",
+        "eur": "3.95",
+        "eur_foil": "4.85",
         "tix": null
       },
       "related_uris": {
@@ -3252,14 +3271,14 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 35616,
+    "position": 35824,
     "data": {
       "object": "card",
       "id": "53b11c30-1c4e-4238-9d42-2e1480df60c1",
       "multiverse_ids": [
         695177
       ],
-      "mtgo_id": 139635,
+      "mtgo_id": 139633,
       "tcgplayer_id": 624036,
       "cardmarket_id": 817991,
       "name": "Ugin, Eye of the Storms // Ugin, Eye of the Storms",
@@ -3345,14 +3364,14 @@
       "promo_types": [
         "boosterfun"
       ],
-      "edhrec_rank": 3775,
+      "edhrec_rank": 3448,
       "prices": {
-        "usd": "33.14",
-        "usd_foil": "40.30",
+        "usd": "31.24",
+        "usd_foil": "36.27",
         "usd_etched": null,
-        "eur": "33.61",
-        "eur_foil": "51.52",
-        "tix": "29.95"
+        "eur": "34.44",
+        "eur_foil": "42.97",
+        "tix": "35.04"
       },
       "related_uris": {
         "gatherer": "https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=695177&printed=false",
@@ -3363,13 +3382,13 @@
       "purchase_uris": {
         "tcgplayer": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&u=https%3A%2F%2Fwww.tcgplayer.com%2Fproduct%2F624036%3Fpage%3D1",
         "cardmarket": "https://www.cardmarket.com/en/Magic/Products?idProduct=817991&referrer=scryfall&utm_campaign=card_prices&utm_medium=text&utm_source=scryfall",
-        "cardhoarder": "https://www.cardhoarder.com/cards/139635?affiliate_id=scryfall&ref=card-profile&utm_campaign=affiliate&utm_medium=card&utm_source=scryfall"
+        "cardhoarder": "https://www.cardhoarder.com/cards/139633?affiliate_id=scryfall&ref=card-profile&utm_campaign=affiliate&utm_medium=card&utm_source=scryfall"
       }
     },
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 38726,
+    "position": 38952,
     "data": {
       "object": "card",
       "id": "5ab0412a-2b2f-430f-8830-002a42125148",
@@ -3457,14 +3476,17 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 12665,
+      "promo_types": [
+        "poster"
+      ],
+      "edhrec_rank": 12815,
       "penny_rank": 1837,
       "prices": {
-        "usd": "5.26",
-        "usd_foil": "6.82",
+        "usd": "4.94",
+        "usd_foil": "6.67",
         "usd_etched": null,
-        "eur": "5.89",
-        "eur_foil": "6.35",
+        "eur": "5.86",
+        "eur_foil": "5.94",
         "tix": null
       },
       "related_uris": {
@@ -3481,7 +3503,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 38822,
+    "position": 39048,
     "data": {
       "object": "card",
       "id": "5aeff60c-b5a6-46d8-9b25-5274e7631da8",
@@ -3611,7 +3633,7 @@
     "error": "1 validation error for CreateCard\ntype_line\n  Field required [type=missing, input_value={'object': 'card_face', '...631da8.jpg?1675464758'}}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.10/v/missing"
   },
   {
-    "position": 39735,
+    "position": 39964,
     "data": {
       "object": "card",
       "id": "5d02dee4-2071-448f-9fd3-58d63635d712",
@@ -3727,8 +3749,8 @@
       "booster": false,
       "story_spotlight": false,
       "prices": {
-        "usd": "3.02",
-        "usd_foil": "3.14",
+        "usd": "3.44",
+        "usd_foil": "3.27",
         "usd_etched": null,
         "eur": null,
         "eur_foil": null,
@@ -3748,7 +3770,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 40367,
+    "position": 40600,
     "data": {
       "object": "card",
       "id": "5e7944f4-7bd0-47f4-ac45-ae656672cd29",
@@ -3878,7 +3900,7 @@
     "error": "1 validation error for CreateCard\ntype_line\n  Field required [type=missing, input_value={'object': 'card_face', '...72cd29.jpg?1675594743'}}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.10/v/missing"
   },
   {
-    "position": 41340,
+    "position": 41582,
     "data": {
       "object": "card",
       "id": "60c92f1b-0c78-4809-9365-e1ffa515cb4b",
@@ -3964,16 +3986,17 @@
       "booster": false,
       "story_spotlight": false,
       "promo_types": [
+        "poster",
         "sldbonus"
       ],
-      "edhrec_rank": 7966,
+      "edhrec_rank": 8027,
       "penny_rank": 1979,
       "prices": {
-        "usd": "4.08",
-        "usd_foil": "3.58",
+        "usd": "4.23",
+        "usd_foil": "4.14",
         "usd_etched": null,
-        "eur": "2.96",
-        "eur_foil": "3.51",
+        "eur": "2.97",
+        "eur_foil": "3.53",
         "tix": null
       },
       "related_uris": {
@@ -3990,7 +4013,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 43626,
+    "position": 43883,
     "data": {
       "object": "card",
       "id": "6620b5f4-b1e5-4d1b-bbf2-c6ad9c8284c5",
@@ -4086,12 +4109,12 @@
         "boosterfun"
       ],
       "prices": {
-        "usd": "1.99",
-        "usd_foil": "5.96",
+        "usd": "2.14",
+        "usd_foil": "5.93",
         "usd_etched": null,
-        "eur": "1.63",
-        "eur_foil": "9.88",
-        "tix": "0.67"
+        "eur": "1.36",
+        "eur_foil": "8.69",
+        "tix": "0.60"
       },
       "related_uris": {
         "gatherer": "https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=642577&printed=false",
@@ -4108,7 +4131,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 43778,
+    "position": 44035,
     "data": {
       "object": "card",
       "id": "6676e2f8-7625-4c0e-bfed-bed36fb8440c",
@@ -4237,7 +4260,7 @@
     "error": "1 validation error for CreateCard\ntype_line\n  Field required [type=missing, input_value={'object': 'card_face', '...b8440c.jpg?1630031781'}}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.10/v/missing"
   },
   {
-    "position": 44145,
+    "position": 44404,
     "data": {
       "object": "card",
       "id": "67574bb4-c443-40fa-b7e6-05e9965c98b8",
@@ -4327,13 +4350,16 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 3052,
+      "promo_types": [
+        "poster"
+      ],
+      "edhrec_rank": 3090,
       "prices": {
-        "usd": "6.54",
-        "usd_foil": "9.63",
+        "usd": "7.35",
+        "usd_foil": "9.67",
         "usd_etched": null,
         "eur": "4.52",
-        "eur_foil": "7.61",
+        "eur_foil": "7.33",
         "tix": null
       },
       "related_uris": {
@@ -4350,7 +4376,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 45291,
+    "position": 45557,
     "data": {
       "object": "card",
       "id": "6a03d849-67ef-47a8-babb-8a71c1f19d17",
@@ -4461,13 +4487,16 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 2667,
+      "promo_types": [
+        "poster"
+      ],
+      "edhrec_rank": 2693,
       "penny_rank": 3582,
       "prices": {
-        "usd": "5.14",
-        "usd_foil": "4.93",
+        "usd": "5.34",
+        "usd_foil": "5.11",
         "usd_etched": null,
-        "eur": "6.94",
+        "eur": "6.73",
         "eur_foil": "8.17",
         "tix": null
       },
@@ -4485,7 +4514,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 45636,
+    "position": 45902,
     "data": {
       "object": "card",
       "id": "6adadbc9-4a08-4c1d-adf7-edee73799d9e",
@@ -4522,11 +4551,11 @@
         },
         {
           "object": "related_card",
-          "id": "09d6521e-438a-4d16-992f-f2ab27b26ce4",
+          "id": "e980eddf-92f8-4dc4-8bad-b2f3dcaf03ef",
           "component": "token",
           "name": "Copy",
           "type_line": "Token",
-          "uri": "https://api.scryfall.com/cards/09d6521e-438a-4d16-992f-f2ab27b26ce4"
+          "uri": "https://api.scryfall.com/cards/e980eddf-92f8-4dc4-8bad-b2f3dcaf03ef"
         }
       ],
       "legalities": {
@@ -4594,13 +4623,16 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 1275,
+      "promo_types": [
+        "poster"
+      ],
+      "edhrec_rank": 1291,
       "prices": {
-        "usd": "10.33",
-        "usd_foil": "10.51",
+        "usd": "10.23",
+        "usd_foil": "11.35",
         "usd_etched": null,
-        "eur": "6.78",
-        "eur_foil": "7.50",
+        "eur": "6.68",
+        "eur_foil": "7.72",
         "tix": null
       },
       "related_uris": {
@@ -4617,7 +4649,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 46263,
+    "position": 46535,
     "data": {
       "object": "card",
       "id": "6c69ecd2-cb36-4628-802b-fd5ff7405f22",
@@ -4705,13 +4737,16 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 3026,
+      "promo_types": [
+        "poster"
+      ],
+      "edhrec_rank": 2990,
       "prices": {
-        "usd": "15.00",
-        "usd_foil": "14.51",
+        "usd": "13.28",
+        "usd_foil": "14.11",
         "usd_etched": null,
-        "eur": "11.92",
-        "eur_foil": "12.34",
+        "eur": "11.18",
+        "eur_foil": "11.44",
         "tix": null
       },
       "related_uris": {
@@ -4728,7 +4763,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 50626,
+    "position": 50916,
     "data": {
       "object": "card",
       "id": "76c343f5-6955-4ba2-a435-36d55182d1dd",
@@ -4736,7 +4771,7 @@
         642579,
         642578
       ],
-      "mtgo_id": 117454,
+      "mtgo_id": 117456,
       "tcgplayer_id": 526432,
       "cardmarket_id": 743401,
       "name": "Island // Island",
@@ -4824,12 +4859,12 @@
         "boosterfun"
       ],
       "prices": {
-        "usd": "1.12",
-        "usd_foil": "4.48",
+        "usd": "1.32",
+        "usd_foil": "4.35",
         "usd_etched": null,
-        "eur": "1.09",
-        "eur_foil": "4.37",
-        "tix": "0.59"
+        "eur": "1.11",
+        "eur_foil": "4.32",
+        "tix": "0.42"
       },
       "related_uris": {
         "gatherer": "https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=642579&printed=false",
@@ -4840,13 +4875,13 @@
       "purchase_uris": {
         "tcgplayer": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&u=https%3A%2F%2Fwww.tcgplayer.com%2Fproduct%2F526432%3Fpage%3D1",
         "cardmarket": "https://www.cardmarket.com/en/Magic/Products?idProduct=743401&referrer=scryfall&utm_campaign=card_prices&utm_medium=text&utm_source=scryfall",
-        "cardhoarder": "https://www.cardhoarder.com/cards/117454?affiliate_id=scryfall&ref=card-profile&utm_campaign=affiliate&utm_medium=card&utm_source=scryfall"
+        "cardhoarder": "https://www.cardhoarder.com/cards/117456?affiliate_id=scryfall&ref=card-profile&utm_campaign=affiliate&utm_medium=card&utm_source=scryfall"
       }
     },
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 53810,
+    "position": 54117,
     "data": {
       "object": "card",
       "id": "7e703632-5ed0-4509-a12b-594269f865f1",
@@ -4854,7 +4889,7 @@
         642584,
         642585
       ],
-      "mtgo_id": 117466,
+      "mtgo_id": 117468,
       "tcgplayer_id": 524345,
       "cardmarket_id": 741070,
       "name": "Forest // Forest",
@@ -4942,12 +4977,12 @@
         "boosterfun"
       ],
       "prices": {
-        "usd": "6.08",
-        "usd_foil": "14.20",
+        "usd": "5.81",
+        "usd_foil": "14.04",
         "usd_etched": null,
-        "eur": "5.80",
-        "eur_foil": "18.02",
-        "tix": "1.58"
+        "eur": "5.38",
+        "eur_foil": "18.44",
+        "tix": "1.30"
       },
       "related_uris": {
         "gatherer": "https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=642584&printed=false",
@@ -4958,13 +4993,13 @@
       "purchase_uris": {
         "tcgplayer": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&u=https%3A%2F%2Fwww.tcgplayer.com%2Fproduct%2F524345%3Fpage%3D1",
         "cardmarket": "https://www.cardmarket.com/en/Magic/Products?idProduct=741070&referrer=scryfall&utm_campaign=card_prices&utm_medium=text&utm_source=scryfall",
-        "cardhoarder": "https://www.cardhoarder.com/cards/117466?affiliate_id=scryfall&ref=card-profile&utm_campaign=affiliate&utm_medium=card&utm_source=scryfall"
+        "cardhoarder": "https://www.cardhoarder.com/cards/117468?affiliate_id=scryfall&ref=card-profile&utm_campaign=affiliate&utm_medium=card&utm_source=scryfall"
       }
     },
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 54690,
+    "position": 55007,
     "data": {
       "object": "card",
       "id": "80755ccc-6725-4d31-b6f6-e5eb7210669d",
@@ -5094,7 +5129,7 @@
     "error": "1 validation error for CreateCard\ntype_line\n  Field required [type=missing, input_value={'object': 'card_face', '...10669d.jpg?1675464152'}}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.10/v/missing"
   },
   {
-    "position": 55561,
+    "position": 55882,
     "data": {
       "object": "card",
       "id": "8288607d-57a0-4dce-a333-6ae1c86a6cdf",
@@ -5184,14 +5219,14 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 5719,
+      "edhrec_rank": 5843,
       "penny_rank": 5254,
       "prices": {
-        "usd": "4.59",
+        "usd": "4.39",
         "usd_foil": null,
         "usd_etched": null,
-        "eur": "6.04",
-        "eur_foil": "5.64",
+        "eur": "5.90",
+        "eur_foil": "6.30",
         "tix": null
       },
       "related_uris": {
@@ -5208,7 +5243,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 55734,
+    "position": 56057,
     "data": {
       "object": "card",
       "id": "82fa24fb-aecc-4c33-9e79-c29651ddafbe",
@@ -5295,13 +5330,16 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 1159,
+      "promo_types": [
+        "poster"
+      ],
+      "edhrec_rank": 1174,
       "prices": {
-        "usd": "22.67",
-        "usd_foil": "24.74",
+        "usd": "23.86",
+        "usd_foil": "24.47",
         "usd_etched": null,
-        "eur": "24.44",
-        "eur_foil": "27.07",
+        "eur": "24.04",
+        "eur_foil": "26.11",
         "tix": null
       },
       "related_uris": {
@@ -5318,7 +5356,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 56230,
+    "position": 56557,
     "data": {
       "object": "card",
       "id": "8421ad46-dc7f-4b66-800b-e41c30835300",
@@ -5427,9 +5465,9 @@
       "promo_types": [
         "thick"
       ],
-      "edhrec_rank": 7025,
+      "edhrec_rank": 7080,
       "prices": {
-        "usd": "4.10",
+        "usd": "4.15",
         "usd_foil": null,
         "usd_etched": null,
         "eur": null,
@@ -5450,7 +5488,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 56271,
+    "position": 56599,
     "data": {
       "object": "card",
       "id": "843b35ec-7b59-4a22-8fee-2e876a02306b",
@@ -5458,7 +5496,7 @@
         642581,
         642580
       ],
-      "mtgo_id": 117458,
+      "mtgo_id": 117460,
       "tcgplayer_id": 526433,
       "cardmarket_id": 743402,
       "name": "Swamp // Swamp",
@@ -5546,12 +5584,12 @@
         "boosterfun"
       ],
       "prices": {
-        "usd": "1.17",
-        "usd_foil": "2.79",
+        "usd": "1.32",
+        "usd_foil": "3.08",
         "usd_etched": null,
-        "eur": "0.89",
-        "eur_foil": "2.38",
-        "tix": "1.17"
+        "eur": "0.86",
+        "eur_foil": "2.13",
+        "tix": "0.95"
       },
       "related_uris": {
         "gatherer": "https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=642581&printed=false",
@@ -5562,13 +5600,13 @@
       "purchase_uris": {
         "tcgplayer": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&u=https%3A%2F%2Fwww.tcgplayer.com%2Fproduct%2F526433%3Fpage%3D1",
         "cardmarket": "https://www.cardmarket.com/en/Magic/Products?idProduct=743402&referrer=scryfall&utm_campaign=card_prices&utm_medium=text&utm_source=scryfall",
-        "cardhoarder": "https://www.cardhoarder.com/cards/117458?affiliate_id=scryfall&ref=card-profile&utm_campaign=affiliate&utm_medium=card&utm_source=scryfall"
+        "cardhoarder": "https://www.cardhoarder.com/cards/117460?affiliate_id=scryfall&ref=card-profile&utm_campaign=affiliate&utm_medium=card&utm_source=scryfall"
       }
     },
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 59206,
+    "position": 59548,
     "data": {
       "object": "card",
       "id": "8ae0caed-940d-45bc-9877-7cc014b2700e",
@@ -5656,9 +5694,10 @@
       "booster": false,
       "story_spotlight": false,
       "promo_types": [
+        "poster",
         "sldbonus"
       ],
-      "edhrec_rank": 12665,
+      "edhrec_rank": 12815,
       "penny_rank": 1837,
       "prices": {
         "usd": null,
@@ -5682,7 +5721,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 59388,
+    "position": 59730,
     "data": {
       "object": "card",
       "id": "8b5341ab-85a6-44b2-b738-1110e699c02b",
@@ -5767,14 +5806,14 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 3439,
+      "edhrec_rank": 3377,
       "penny_rank": 1566,
       "prices": {
-        "usd": "12.06",
-        "usd_foil": "12.43",
+        "usd": "12.00",
+        "usd_foil": "13.08",
         "usd_etched": null,
-        "eur": "8.71",
-        "eur_foil": "9.33",
+        "eur": "8.63",
+        "eur_foil": "9.66",
         "tix": null
       },
       "related_uris": {
@@ -5791,7 +5830,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 59639,
+    "position": 59982,
     "data": {
       "object": "card",
       "id": "8bcf942f-5afd-414e-a50d-00d884fe59da",
@@ -5879,13 +5918,16 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 2786,
+      "promo_types": [
+        "poster"
+      ],
+      "edhrec_rank": 2772,
       "prices": {
-        "usd": "13.70",
-        "usd_foil": "14.61",
+        "usd": "11.44",
+        "usd_foil": "13.35",
         "usd_etched": null,
-        "eur": "10.65",
-        "eur_foil": "11.08",
+        "eur": "10.39",
+        "eur_foil": "10.34",
         "tix": null
       },
       "related_uris": {
@@ -5902,7 +5944,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 61534,
+    "position": 61885,
     "data": {
       "object": "card",
       "id": "9052f5c7-ee3b-457d-97ca-ac6b4518997c",
@@ -5984,14 +6026,14 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 3576,
+      "edhrec_rank": 3612,
       "penny_rank": 9326,
       "prices": {
-        "usd": "16.46",
-        "usd_foil": "16.10",
+        "usd": "16.41",
+        "usd_foil": "16.74",
         "usd_etched": null,
-        "eur": "9.18",
-        "eur_foil": "9.52",
+        "eur": "9.33",
+        "eur_foil": "9.71",
         "tix": null
       },
       "related_uris": {
@@ -6008,7 +6050,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 61811,
+    "position": 62162,
     "data": {
       "object": "card",
       "id": "90f17b85-a866-48e8-aae0-55330109550e",
@@ -6112,10 +6154,10 @@
       "story_spotlight": false,
       "prices": {
         "usd": "0.31",
-        "usd_foil": "15.64",
+        "usd_foil": "15.72",
         "usd_etched": null,
-        "eur": "0.19",
-        "eur_foil": "11.09",
+        "eur": "0.23",
+        "eur_foil": "11.56",
         "tix": null
       },
       "related_uris": {
@@ -6134,7 +6176,7 @@
     "error": "1 validation error for CreateCard\ncmc\n  Input should be a valid integer, got a number with a fractional part [type=int_from_float, input_value=Decimal('0.5'), input_type=Decimal]\n    For further information visit https://errors.pydantic.dev/2.10/v/int_from_float"
   },
   {
-    "position": 61932,
+    "position": 62283,
     "data": {
       "object": "card",
       "id": "9137168d-ec86-4460-910c-d786a30df744",
@@ -6225,13 +6267,13 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 2004,
+      "edhrec_rank": 1989,
       "prices": {
-        "usd": "13.36",
+        "usd": "13.27",
         "usd_foil": null,
         "usd_etched": null,
-        "eur": "11.31",
-        "eur_foil": "11.29",
+        "eur": "10.56",
+        "eur_foil": "10.89",
         "tix": null
       },
       "related_uris": {
@@ -6248,7 +6290,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 61951,
+    "position": 62302,
     "data": {
       "object": "card",
       "id": "913f0aca-ac61-4377-b3b1-cd556b950df2",
@@ -6351,14 +6393,17 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 3829,
+      "promo_types": [
+        "poster"
+      ],
+      "edhrec_rank": 3857,
       "penny_rank": 9224,
       "prices": {
-        "usd": "2.68",
-        "usd_foil": "2.82",
+        "usd": "2.79",
+        "usd_foil": "3.19",
         "usd_etched": null,
-        "eur": "3.62",
-        "eur_foil": "3.51",
+        "eur": "3.72",
+        "eur_foil": "3.25",
         "tix": null
       },
       "related_uris": {
@@ -6375,7 +6420,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 63157,
+    "position": 63511,
     "data": {
       "object": "card",
       "id": "94594d48-b728-4be6-9d7a-c67088df8acd",
@@ -6463,13 +6508,14 @@
       "booster": false,
       "story_spotlight": false,
       "promo_types": [
+        "poster",
         "sldbonus"
       ],
-      "edhrec_rank": 4158,
+      "edhrec_rank": 4207,
       "penny_rank": 1006,
       "prices": {
         "usd": null,
-        "usd_foil": "597.99",
+        "usd_foil": "573.99",
         "usd_etched": null,
         "eur": null,
         "eur_foil": "640.17",
@@ -6489,7 +6535,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 63419,
+    "position": 63773,
     "data": {
       "object": "card",
       "id": "94eea6e3-20bc-4dab-90ba-3113c120fb90",
@@ -6597,13 +6643,13 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 7025,
+      "edhrec_rank": 7080,
       "prices": {
         "usd": null,
-        "usd_foil": "24.18",
+        "usd_foil": "25.33",
         "usd_etched": null,
         "eur": null,
-        "eur_foil": "18.20",
+        "eur_foil": "17.97",
         "tix": null
       },
       "related_uris": {
@@ -6620,7 +6666,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 64091,
+    "position": 64449,
     "data": {
       "object": "card",
       "id": "9680a2d6-1d66-4f69-b400-a79fea4187d8",
@@ -6706,14 +6752,14 @@
       "promo_types": [
         "poster"
       ],
-      "edhrec_rank": 2723,
+      "edhrec_rank": 2727,
       "penny_rank": 3409,
       "prices": {
         "usd": null,
-        "usd_foil": "6.28",
+        "usd_foil": "5.95",
         "usd_etched": null,
         "eur": null,
-        "eur_foil": "5.84",
+        "eur_foil": "5.25",
         "tix": null
       },
       "related_uris": {
@@ -6730,7 +6776,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 66866,
+    "position": 67238,
     "data": {
       "object": "card",
       "id": "9cd6a16f-1eff-4624-8f7f-4d9e70a694bb",
@@ -6836,13 +6882,14 @@
       "booster": false,
       "story_spotlight": false,
       "promo_types": [
+        "poster",
         "sldbonus"
       ],
-      "edhrec_rank": 10063,
+      "edhrec_rank": 10129,
       "penny_rank": 2874,
       "prices": {
         "usd": null,
-        "usd_foil": "221.32",
+        "usd_foil": "211.99",
         "usd_etched": null,
         "eur": null,
         "eur_foil": "209.12",
@@ -6862,14 +6909,14 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 66913,
+    "position": 67285,
     "data": {
       "object": "card",
       "id": "9cf54062-7b5b-4e46-ae1e-fab7e419a9fa",
       "multiverse_ids": [
         695121
       ],
-      "mtgo_id": 139617,
+      "mtgo_id": 139613,
       "tcgplayer_id": 624730,
       "cardmarket_id": 818660,
       "name": "Scavenger Regent // Exude Toxin // Scavenger Regent",
@@ -6960,18 +7007,18 @@
       "promo_types": [
         "boosterfun"
       ],
-      "edhrec_rank": 8956,
+      "edhrec_rank": 8573,
       "preview": {
         "source": "Numot The Nummy",
         "source_uri": "https://x.com/NumotTheNummy/status/1904202239729922499",
         "previewed_at": "2025-03-24"
       },
       "prices": {
-        "usd": "1.07",
-        "usd_foil": "1.11",
+        "usd": "0.77",
+        "usd_foil": "1.19",
         "usd_etched": null,
-        "eur": "1.11",
-        "eur_foil": "1.98",
+        "eur": "0.99",
+        "eur_foil": "2.25",
         "tix": "0.35"
       },
       "related_uris": {
@@ -6983,13 +7030,13 @@
       "purchase_uris": {
         "tcgplayer": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&u=https%3A%2F%2Fwww.tcgplayer.com%2Fproduct%2F624730%3Fpage%3D1",
         "cardmarket": "https://www.cardmarket.com/en/Magic/Products?idProduct=818660&referrer=scryfall&utm_campaign=card_prices&utm_medium=text&utm_source=scryfall",
-        "cardhoarder": "https://www.cardhoarder.com/cards/139617?affiliate_id=scryfall&ref=card-profile&utm_campaign=affiliate&utm_medium=card&utm_source=scryfall"
+        "cardhoarder": "https://www.cardhoarder.com/cards/139613?affiliate_id=scryfall&ref=card-profile&utm_campaign=affiliate&utm_medium=card&utm_source=scryfall"
       }
     },
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 67194,
+    "position": 67566,
     "data": {
       "object": "card",
       "id": "9d943cf2-0462-4f31-9a92-d76fe4971b17",
@@ -7082,7 +7129,7 @@
       "promo_types": [
         "poster"
       ],
-      "edhrec_rank": 963,
+      "edhrec_rank": 957,
       "penny_rank": 10802,
       "preview": {
         "source": "IGN",
@@ -7090,11 +7137,11 @@
         "previewed_at": "2024-09-17"
       },
       "prices": {
-        "usd": "15.50",
-        "usd_foil": "17.36",
+        "usd": "15.06",
+        "usd_foil": "17.56",
         "usd_etched": null,
-        "eur": "13.10",
-        "eur_foil": "15.05",
+        "eur": "13.34",
+        "eur_foil": "16.29",
         "tix": null
       },
       "related_uris": {
@@ -7111,7 +7158,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 67340,
+    "position": 67712,
     "data": {
       "object": "card",
       "id": "9de46c01-f2d9-44d4-af72-242b6283ec30",
@@ -7241,7 +7288,7 @@
     "error": "1 validation error for CreateCard\ntype_line\n  Field required [type=missing, input_value={'object': 'card_face', '...83ec30.jpg?1664728761'}}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.10/v/missing"
   },
   {
-    "position": 67566,
+    "position": 67938,
     "data": {
       "object": "card",
       "id": "9e69f9e0-4981-4fc0-955f-7ebe04264fca",
@@ -7329,13 +7376,16 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 3909,
+      "promo_types": [
+        "poster"
+      ],
+      "edhrec_rank": 3946,
       "penny_rank": 10581,
       "prices": {
-        "usd": "14.08",
-        "usd_foil": "11.09",
+        "usd": "13.75",
+        "usd_foil": "10.89",
         "usd_etched": null,
-        "eur": "7.57",
+        "eur": "7.68",
         "eur_foil": "6.89",
         "tix": null
       },
@@ -7353,7 +7403,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 67959,
+    "position": 68332,
     "data": {
       "object": "card",
       "id": "9f63277b-e139-46c8-b9e3-0cfb647f44cc",
@@ -7438,14 +7488,14 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 4654,
+      "edhrec_rank": 4687,
       "penny_rank": 4757,
       "prices": {
         "usd": null,
-        "usd_foil": "20.88",
+        "usd_foil": "21.43",
         "usd_etched": null,
         "eur": null,
-        "eur_foil": "19.27",
+        "eur_foil": "18.71",
         "tix": null
       },
       "related_uris": {
@@ -7462,7 +7512,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 68712,
+    "position": 69093,
     "data": {
       "object": "card",
       "id": "a129558c-45a1-441c-97f0-b70b4e9d8a56",
@@ -7576,10 +7626,10 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 5071,
+      "edhrec_rank": 5088,
       "prices": {
         "usd": null,
-        "usd_foil": "30.63",
+        "usd_foil": "33.90",
         "usd_etched": null,
         "eur": null,
         "eur_foil": null,
@@ -7599,7 +7649,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 70267,
+    "position": 70659,
     "data": {
       "object": "card",
       "id": "a4a2dd5b-6143-4b8d-ae71-e148cf19b66c",
@@ -7716,9 +7766,9 @@
       "promo_types": [
         "thick"
       ],
-      "edhrec_rank": 5071,
+      "edhrec_rank": 5088,
       "prices": {
-        "usd": "5.43",
+        "usd": "5.02",
         "usd_foil": null,
         "usd_etched": null,
         "eur": null,
@@ -7739,7 +7789,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 71343,
+    "position": 71742,
     "data": {
       "object": "card",
       "id": "a724ebbc-0f77-42e9-95e0-b3e7cb130148",
@@ -7847,13 +7897,13 @@
       "promo_types": [
         "poster"
       ],
-      "edhrec_rank": 10036,
+      "edhrec_rank": 10180,
       "prices": {
         "usd": null,
-        "usd_foil": "3.33",
+        "usd_foil": "3.01",
         "usd_etched": null,
         "eur": null,
-        "eur_foil": "2.64",
+        "eur_foil": "2.66",
         "tix": null
       },
       "related_uris": {
@@ -7870,7 +7920,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 72996,
+    "position": 73401,
     "data": {
       "object": "card",
       "id": "aae84079-b65b-4132-86fb-e82503bb6c7b",
@@ -7878,7 +7928,7 @@
         642583,
         642582
       ],
-      "mtgo_id": 117462,
+      "mtgo_id": 117464,
       "tcgplayer_id": 525383,
       "cardmarket_id": 743247,
       "name": "Mountain // Mountain",
@@ -7966,12 +8016,12 @@
         "boosterfun"
       ],
       "prices": {
-        "usd": "3.06",
-        "usd_foil": "8.81",
+        "usd": "3.31",
+        "usd_foil": "8.76",
         "usd_etched": null,
-        "eur": "2.56",
-        "eur_foil": "10.54",
-        "tix": "1.62"
+        "eur": "2.80",
+        "eur_foil": "10.47",
+        "tix": "1.43"
       },
       "related_uris": {
         "gatherer": "https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=642583&printed=false",
@@ -7982,13 +8032,13 @@
       "purchase_uris": {
         "tcgplayer": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&u=https%3A%2F%2Fwww.tcgplayer.com%2Fproduct%2F525383%3Fpage%3D1",
         "cardmarket": "https://www.cardmarket.com/en/Magic/Products?idProduct=743247&referrer=scryfall&utm_campaign=card_prices&utm_medium=text&utm_source=scryfall",
-        "cardhoarder": "https://www.cardhoarder.com/cards/117462?affiliate_id=scryfall&ref=card-profile&utm_campaign=affiliate&utm_medium=card&utm_source=scryfall"
+        "cardhoarder": "https://www.cardhoarder.com/cards/117464?affiliate_id=scryfall&ref=card-profile&utm_campaign=affiliate&utm_medium=card&utm_source=scryfall"
       }
     },
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 73841,
+    "position": 74252,
     "data": {
       "object": "card",
       "id": "acdb72e2-c000-4b92-b5ea-73115969020f",
@@ -8094,14 +8144,17 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 10063,
+      "promo_types": [
+        "poster"
+      ],
+      "edhrec_rank": 10129,
       "penny_rank": 2874,
       "prices": {
-        "usd": "4.88",
-        "usd_foil": "4.88",
+        "usd": "4.94",
+        "usd_foil": "4.97",
         "usd_etched": null,
-        "eur": "4.05",
-        "eur_foil": "3.86",
+        "eur": "4.06",
+        "eur_foil": "3.97",
         "tix": null
       },
       "related_uris": {
@@ -8118,7 +8171,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 73879,
+    "position": 74290,
     "data": {
       "object": "card",
       "id": "acf375d1-6355-458c-bae2-3ae3770da53b",
@@ -8209,13 +8262,16 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 879,
+      "promo_types": [
+        "poster"
+      ],
+      "edhrec_rank": 872,
       "prices": {
-        "usd": "10.48",
+        "usd": "11.18",
         "usd_foil": null,
         "usd_etched": null,
-        "eur": "9.10",
-        "eur_foil": "10.46",
+        "eur": "10.30",
+        "eur_foil": "10.40",
         "tix": null
       },
       "related_uris": {
@@ -8232,7 +8288,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 75958,
+    "position": 76386,
     "data": {
       "object": "card",
       "id": "b1e0fc39-93b4-4266-bd29-d280f883e316",
@@ -8361,14 +8417,14 @@
     "error": "1 validation error for CreateCard\ntype_line\n  Field required [type=missing, input_value={'object': 'card_face', '...83e316.jpg?1752742950'}}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.10/v/missing"
   },
   {
-    "position": 76712,
+    "position": 77142,
     "data": {
       "object": "card",
       "id": "b3aecdfc-9d37-4f1f-9123-fc07b669d747",
       "multiverse_ids": [
         695117
       ],
-      "mtgo_id": 139603,
+      "mtgo_id": 139601,
       "tcgplayer_id": 624546,
       "cardmarket_id": 818628,
       "name": "Clarion Conqueror // Clarion Conqueror",
@@ -8458,14 +8514,14 @@
       "promo_types": [
         "boosterfun"
       ],
-      "edhrec_rank": 9034,
+      "edhrec_rank": 8717,
       "prices": {
-        "usd": "3.59",
-        "usd_foil": "4.50",
+        "usd": "3.56",
+        "usd_foil": "5.60",
         "usd_etched": null,
-        "eur": "2.35",
-        "eur_foil": "3.59",
-        "tix": "6.42"
+        "eur": "2.78",
+        "eur_foil": "4.98",
+        "tix": "3.53"
       },
       "related_uris": {
         "gatherer": "https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=695117&printed=false",
@@ -8476,13 +8532,13 @@
       "purchase_uris": {
         "tcgplayer": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&u=https%3A%2F%2Fwww.tcgplayer.com%2Fproduct%2F624546%3Fpage%3D1",
         "cardmarket": "https://www.cardmarket.com/en/Magic/Products?idProduct=818628&referrer=scryfall&utm_campaign=card_prices&utm_medium=text&utm_source=scryfall",
-        "cardhoarder": "https://www.cardhoarder.com/cards/139603?affiliate_id=scryfall&ref=card-profile&utm_campaign=affiliate&utm_medium=card&utm_source=scryfall"
+        "cardhoarder": "https://www.cardhoarder.com/cards/139601?affiliate_id=scryfall&ref=card-profile&utm_campaign=affiliate&utm_medium=card&utm_source=scryfall"
       }
     },
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 79164,
+    "position": 79605,
     "data": {
       "object": "card",
       "id": "b96d6ea4-a3a4-4e33-be97-b3767f2bb63a",
@@ -8569,14 +8625,17 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 252,
+      "promo_types": [
+        "poster"
+      ],
+      "edhrec_rank": 251,
       "penny_rank": 4392,
       "prices": {
-        "usd": "8.99",
-        "usd_foil": "10.20",
+        "usd": "9.40",
+        "usd_foil": "10.45",
         "usd_etched": null,
-        "eur": "6.95",
-        "eur_foil": "7.14",
+        "eur": "6.41",
+        "eur_foil": "7.30",
         "tix": null
       },
       "related_uris": {
@@ -8593,7 +8652,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 81981,
+    "position": 82437,
     "data": {
       "object": "card",
       "id": "bffbe9ec-edbc-43ed-a3bf-60635e7e625c",
@@ -8601,7 +8660,7 @@
         642587,
         642586
       ],
-      "mtgo_id": 117470,
+      "mtgo_id": 117472,
       "tcgplayer_id": 524276,
       "cardmarket_id": 740990,
       "name": "Command Tower // Command Tower",
@@ -8713,12 +8772,12 @@
       ],
       "edhrec_rank": 2,
       "prices": {
-        "usd": "1.99",
-        "usd_foil": "6.40",
+        "usd": "1.98",
+        "usd_foil": "6.85",
         "usd_etched": null,
-        "eur": "1.73",
-        "eur_foil": "5.36",
-        "tix": "0.23"
+        "eur": "1.82",
+        "eur_foil": "6.20",
+        "tix": "0.18"
       },
       "related_uris": {
         "gatherer": "https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=642587&printed=false",
@@ -8729,13 +8788,13 @@
       "purchase_uris": {
         "tcgplayer": "https://partner.tcgplayer.com/c/4931599/1830156/21018?subId1=api&u=https%3A%2F%2Fwww.tcgplayer.com%2Fproduct%2F524276%3Fpage%3D1",
         "cardmarket": "https://www.cardmarket.com/en/Magic/Products?idProduct=740990&referrer=scryfall&utm_campaign=card_prices&utm_medium=text&utm_source=scryfall",
-        "cardhoarder": "https://www.cardhoarder.com/cards/117470?affiliate_id=scryfall&ref=card-profile&utm_campaign=affiliate&utm_medium=card&utm_source=scryfall"
+        "cardhoarder": "https://www.cardhoarder.com/cards/117472?affiliate_id=scryfall&ref=card-profile&utm_campaign=affiliate&utm_medium=card&utm_source=scryfall"
       }
     },
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 82132,
+    "position": 82588,
     "data": {
       "object": "card",
       "id": "c05c6c38-d204-458c-af17-4cf5efd2c7fc",
@@ -8841,9 +8900,10 @@
       "booster": false,
       "story_spotlight": false,
       "promo_types": [
+        "poster",
         "sldbonus"
       ],
-      "edhrec_rank": 4859,
+      "edhrec_rank": 4920,
       "penny_rank": 237,
       "prices": {
         "usd": null,
@@ -8867,7 +8927,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 83692,
+    "position": 84160,
     "data": {
       "object": "card",
       "id": "c41e4843-c3bf-4f13-a0f2-b3cbdcce2740",
@@ -8958,14 +9018,14 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 5096,
+      "edhrec_rank": 4990,
       "penny_rank": 4597,
       "prices": {
-        "usd": "5.01",
+        "usd": "5.77",
         "usd_foil": null,
         "usd_etched": null,
-        "eur": "5.90",
-        "eur_foil": "7.65",
+        "eur": "6.10",
+        "eur_foil": "6.88",
         "tix": null
       },
       "related_uris": {
@@ -8982,7 +9042,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 84935,
+    "position": 85411,
     "data": {
       "object": "card",
       "id": "c6fb38a7-f453-44e4-b876-6d542d6c2a85",
@@ -9096,11 +9156,11 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 3527,
+      "edhrec_rank": 3590,
       "penny_rank": 4534,
       "prices": {
         "usd": null,
-        "usd_foil": "9.05",
+        "usd_foil": "9.72",
         "usd_etched": null,
         "eur": null,
         "eur_foil": null,
@@ -9120,7 +9180,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 86637,
+    "position": 87119,
     "data": {
       "object": "card",
       "id": "caf8d01d-07aa-43da-a26e-4a2ba3a76f2d",
@@ -9226,14 +9286,17 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 4859,
+      "promo_types": [
+        "poster"
+      ],
+      "edhrec_rank": 4920,
       "penny_rank": 237,
       "prices": {
-        "usd": "5.25",
-        "usd_foil": "5.89",
+        "usd": "5.11",
+        "usd_foil": "5.91",
         "usd_etched": null,
-        "eur": "4.41",
-        "eur_foil": "4.01",
+        "eur": "4.42",
+        "eur_foil": "4.43",
         "tix": null
       },
       "related_uris": {
@@ -9250,7 +9313,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 87824,
+    "position": 88315,
     "data": {
       "object": "card",
       "id": "cdb307bd-63d0-4739-a113-451c193f0b4a",
@@ -9336,14 +9399,17 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 1707,
+      "promo_types": [
+        "poster"
+      ],
+      "edhrec_rank": 1711,
       "penny_rank": 72,
       "prices": {
-        "usd": "5.28",
-        "usd_foil": "5.33",
+        "usd": "5.38",
+        "usd_foil": "5.40",
         "usd_etched": null,
-        "eur": "10.20",
-        "eur_foil": "10.60",
+        "eur": "9.25",
+        "eur_foil": "10.42",
         "tix": null
       },
       "related_uris": {
@@ -9360,7 +9426,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 88838,
+    "position": 89334,
     "data": {
       "object": "card",
       "id": "d002b29b-c3a6-4c91-86e1-96a50ce29966",
@@ -9448,14 +9514,17 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 5934,
+      "promo_types": [
+        "poster"
+      ],
+      "edhrec_rank": 5975,
       "penny_rank": 12348,
       "prices": {
-        "usd": "2.05",
-        "usd_foil": "2.09",
+        "usd": "2.01",
+        "usd_foil": "2.11",
         "usd_etched": null,
-        "eur": "1.22",
-        "eur_foil": "1.39",
+        "eur": "1.36",
+        "eur_foil": "1.46",
         "tix": null
       },
       "related_uris": {
@@ -9472,7 +9541,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 89459,
+    "position": 89958,
     "data": {
       "object": "card",
       "id": "d1628a06-753c-423a-8eea-e29667dd95f7",
@@ -9602,7 +9671,7 @@
     "error": "1 validation error for CreateCard\ntype_line\n  Field required [type=missing, input_value={'object': 'card_face', '...dd95f7.jpg?1664728738'}}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.10/v/missing"
   },
   {
-    "position": 91303,
+    "position": 91812,
     "data": {
       "object": "card",
       "id": "d5dfd236-b1da-4552-b94f-ebf6bb9dafdf",
@@ -9710,13 +9779,13 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 10672,
+      "edhrec_rank": 10703,
       "prices": {
         "usd": null,
-        "usd_foil": "23.00",
+        "usd_foil": "23.88",
         "usd_etched": null,
         "eur": null,
-        "eur_foil": "25.95",
+        "eur_foil": "26.57",
         "tix": null
       },
       "related_uris": {
@@ -9733,7 +9802,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 91359,
+    "position": 91868,
     "data": {
       "object": "card",
       "id": "d5f7a626-7b6b-41ba-a0f5-3aefe511b267",
@@ -9821,14 +9890,17 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 4158,
+      "promo_types": [
+        "poster"
+      ],
+      "edhrec_rank": 4207,
       "penny_rank": 1006,
       "prices": {
-        "usd": "22.78",
-        "usd_foil": "31.72",
+        "usd": "21.25",
+        "usd_foil": "31.46",
         "usd_etched": null,
-        "eur": "13.99",
-        "eur_foil": "13.43",
+        "eur": "14.57",
+        "eur_foil": "15.08",
         "tix": null
       },
       "related_uris": {
@@ -9845,7 +9917,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 91899,
+    "position": 92415,
     "data": {
       "object": "card",
       "id": "d74a72a2-d46a-41c2-a400-70571197b020",
@@ -9934,7 +10006,7 @@
       "edhrec_rank": 1,
       "prices": {
         "usd": null,
-        "usd_foil": "82.64",
+        "usd_foil": "78.47",
         "usd_etched": null,
         "eur": null,
         "eur_foil": null,
@@ -9954,7 +10026,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 93430,
+    "position": 93954,
     "data": {
       "object": "card",
       "id": "dae8751c-4c72-4034-a192-a1e166f20246",
@@ -10058,11 +10130,11 @@
         "previewed_at": "2024-07-23"
       },
       "prices": {
-        "usd": "34.80",
-        "usd_foil": "35.99",
+        "usd": "35.07",
+        "usd_foil": "39.80",
         "usd_etched": null,
-        "eur": "23.61",
-        "eur_foil": "27.43",
+        "eur": "26.04",
+        "eur_foil": "30.02",
         "tix": null
       },
       "related_uris": {
@@ -10079,7 +10151,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 95245,
+    "position": 95775,
     "data": {
       "object": "card",
       "id": "df08020f-0219-4648-8783-379679773f98",
@@ -10168,10 +10240,13 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 5826,
+      "promo_types": [
+        "poster"
+      ],
+      "edhrec_rank": 5981,
       "penny_rank": 1942,
       "prices": {
-        "usd": "0.98",
+        "usd": "0.94",
         "usd_foil": null,
         "usd_etched": null,
         "eur": "3.65",
@@ -10192,7 +10267,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 96616,
+    "position": 97154,
     "data": {
       "object": "card",
       "id": "e25ce640-baf5-442b-8b75-d05dd9fb20dd",
@@ -10301,9 +10376,9 @@
       "promo_types": [
         "thick"
       ],
-      "edhrec_rank": 10672,
+      "edhrec_rank": 10703,
       "prices": {
-        "usd": "4.59",
+        "usd": "4.67",
         "usd_foil": null,
         "usd_etched": null,
         "eur": null,
@@ -10324,7 +10399,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 97213,
+    "position": 97753,
     "data": {
       "object": "card",
       "id": "e3cb0f04-d6fa-4dc3-8351-9dd9075583bc",
@@ -10454,7 +10529,7 @@
     "error": "1 validation error for CreateCard\ntype_line\n  Field required [type=missing, input_value={'object': 'card_face', '...5583bc.jpg?1675594877'}}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.10/v/missing"
   },
   {
-    "position": 102313,
+    "position": 102881,
     "data": {
       "object": "card",
       "id": "eff6a02b-04ff-48da-b940-d3344134b45d",
@@ -10545,10 +10620,10 @@
       "promo_types": [
         "thick"
       ],
-      "edhrec_rank": 1805,
+      "edhrec_rank": 1831,
       "penny_rank": 8647,
       "prices": {
-        "usd": "7.79",
+        "usd": "7.64",
         "usd_foil": null,
         "usd_etched": null,
         "eur": null,
@@ -10569,7 +10644,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 104388,
+    "position": 104967,
     "data": {
       "object": "card",
       "id": "f4e7b3a4-a346-4177-9cfe-0142b40ef4a6",
@@ -10657,14 +10732,17 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 1524,
+      "promo_types": [
+        "poster"
+      ],
+      "edhrec_rank": 1546,
       "penny_rank": 1812,
       "prices": {
-        "usd": "16.69",
-        "usd_foil": "14.51",
+        "usd": "17.20",
+        "usd_foil": "17.41",
         "usd_etched": null,
-        "eur": "10.13",
-        "eur_foil": "11.18",
+        "eur": "11.24",
+        "eur_foil": "10.41",
         "tix": null
       },
       "related_uris": {
@@ -10681,7 +10759,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 105887,
+    "position": 106477,
     "data": {
       "object": "card",
       "id": "f84993cc-2e5e-449b-bbba-8c1b8ca26b40",
@@ -10811,7 +10889,7 @@
     "error": "1 validation error for CreateCard\ntype_line\n  Field required [type=missing, input_value={'object': 'card_face', '...a26b40.jpg?1630032222'}}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.10/v/missing"
   },
   {
-    "position": 106360,
+    "position": 106953,
     "data": {
       "object": "card",
       "id": "f973a1f3-6dcb-470d-89d2-6ddbf2426999",
@@ -10901,13 +10979,16 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 1100,
+      "promo_types": [
+        "poster"
+      ],
+      "edhrec_rank": 1119,
       "prices": {
-        "usd": "37.80",
-        "usd_foil": "40.23",
+        "usd": "38.37",
+        "usd_foil": "38.04",
         "usd_etched": null,
-        "eur": "29.42",
-        "eur_foil": "27.22",
+        "eur": "29.68",
+        "eur_foil": "30.92",
         "tix": null
       },
       "related_uris": {
@@ -10924,7 +11005,7 @@
     "error": "argument of type 'NoneType' is not iterable"
   },
   {
-    "position": 108369,
+    "position": 108972,
     "data": {
       "object": "card",
       "id": "fe388da5-9197-4d07-be7f-c49fcdf56dfa",
@@ -11014,13 +11095,16 @@
       "textless": false,
       "booster": false,
       "story_spotlight": false,
-      "edhrec_rank": 5360,
+      "promo_types": [
+        "poster"
+      ],
+      "edhrec_rank": 5399,
       "penny_rank": 13810,
       "prices": {
-        "usd": "11.94",
-        "usd_foil": "14.56",
+        "usd": "11.13",
+        "usd_foil": "14.02",
         "usd_etched": null,
-        "eur": "6.08",
+        "eur": "5.94",
         "eur_foil": "8.62",
         "tix": null
       },
