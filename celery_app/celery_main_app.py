@@ -5,12 +5,8 @@ from dotenv import load_dotenv
 
 
 celery_app = Celery('etl')
-
 celery_app.config_from_object('celeryconfig')
 
 @celery_app.task
 def hello():
     return "Hello, World!"
-
-if __name__ == '__main__':
-    celery_app.start()
