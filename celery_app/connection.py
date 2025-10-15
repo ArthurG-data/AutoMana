@@ -15,8 +15,6 @@ def get_engine():
         engine = create_engine(connection_url)
     return engine
 
-
-
 @contextmanager
 def get_connection():
     engine = get_engine()

@@ -21,7 +21,31 @@ class AbstractRepository(Generic[T], ABC):
         self.executor = executor
 
 
-
+    def execute_query_sync(self, query, *args):
+        """Execute a query that returns results"""
+        if self.executor:
+            print("Executing query with executor")
+            return self.executor.execute_query(self.connection, query, *args)
+        else:
+            print("Executing query withOUT executor")
+            # Fallback to direct connection
+            with self.connection.cursor() as cursor:
+                cursor.execute(query, args)
+                return cursor.fetchall()
+    
+    def execute_command_sync(self, query, *args):
+        """Execute a command that doesn't return results"""
+        if self.executor:
+            print("Executing query with executor")
+            return self.executor.execute_command(self.connection, query, *args)
+        else:
+            # Fallback to direct connection
+            print("Executing query withOUT executor")
+            with self.connection.cursor() as cursor:
+                cursor.execute(query, args)
+                self.connection.commit()
+                return None
+            
     async def execute_query(self, query, *args):
         """Execute a query that returns results"""
         if self.executor:

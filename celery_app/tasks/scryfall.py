@@ -1,10 +1,14 @@
+from asyncio.log import logger
+import sys
+import os
+import tempfile
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from celery_main_app import celery_app
 from connection import get_connection
 from http_utils import get
 import pathlib, logging
 from sqlalchemy import text
-
-
 
 @celery_app.task(bind=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=5)
 def download_scryfall_bulk_uris(self):
@@ -278,7 +282,123 @@ def download_scryfall_data(self, external_type, save_path):
             "metadata_updated_at": metadata_updated_at.isoformat() if metadata_updated_at else None
         }
 
-def update_scryfall_database():
-    pass
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+from backend.new_services.service_manager import ServiceManager
+import asyncio
+@celery_app.task(bind=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=3)
+def stage_scryfall_set_data(self, file_path):
+    try:
+        # Validate file type
+        file_path = pathlib.Path(file_path)
 
-   
+        if not file_path.exists():
+            raise FileNotFoundError(f"File {file_path} does not exist")
+        
+        if not file_path.name.endswith('.json'):
+            raise ValueError("Only JSON files are supported")
+        
+        # Check file size (optional limit)
+        max_size =  1024 * 1024 * 1024  # 1GB default
+        file_size = file_path.stat().st_size
+        if file_size > max_size:
+            raise ValueError(f"File too large. Maximum size: {max_size / 1024 / 1024:.1f}MB")
+        logger.info(f"Processing file upload: {file_path.name}")
+
+        from backend.repositories.card_catalog.set_repository import SetReferenceRepository
+        from backend.request_handling.QueryExecutor import SQLAlchemyQueryExecutor
+        
+        with get_connection() as connection:
+            #get a new connection everytime a failure happends
+            try:
+                # Create query executor and repository
+                query_executor = SQLAlchemyQueryExecutor()
+                set_repository = SetReferenceRepository(connection, query_executor)
+                
+                # Import the service function directly
+                # You'll need to adjust this import based on your actual service structure
+                from backend.new_services.card_catalog.set_service import process_large_sets_json 
+
+                result = process_large_sets_json(
+                        set_repository=set_repository,
+                        file_path=str(file_path)
+                    )
+
+                logging.info(f"✅ Successfully processed file: {file_path}")
+            
+                return {
+                    "status": "success",
+                    "filename": file_path.name,
+                    "file_path": str(file_path),
+                    "file_size_mb": round(file_size / 1024 / 1024, 2),
+                    "processing_stats": result.to_dict() if hasattr(result, 'to_dict') else result
+                }
+            except Exception as db_error:
+                    # Log the specific database error
+                    logging.error(f"Database error processing file '{file_path}': {str(db_error)}")
+                    # Re-raise to trigger Celery retry
+                    raise
+        
+    except FileNotFoundError as e:
+        logging.error(f"File not found: {e}")
+        raise
+    except ValueError as e:
+        logging.error(f"Validation error: {e}")
+        raise
+    except Exception as e:
+        logging.error(f"Failed to process file '{file_path}': {str(e)}")
+        raise
+@celery_app.task(bind=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=3)
+def stage_scryfall_card_data(self, file_path):
+    try:
+        # Task implementation goes here
+        file_path = pathlib.Path(file_path)
+
+        if not file_path.exists():
+            raise FileNotFoundError(f"File {file_path} does not exist")
+        
+        if not file_path.name.endswith('.json'):
+            raise ValueError("Only JSON files are supported")
+        
+        file_size = file_path.stat().st_size
+        logging.info(f"Processing file upload: {file_path.name}")
+
+        from backend.request_handling.QueryExecutor import SQLAlchemyQueryExecutor
+        from backend.repositories.card_catalog.card_repository import CardReferenceRepository
+
+        with get_connection() as connection:
+            try:
+                # Create query executor and repository
+                query_executor = SQLAlchemyQueryExecutor()
+                card_repository = CardReferenceRepository(connection, query_executor)
+                
+                # Import the service function directly
+                # You'll need to adjust this import based on your actual service structure
+                from backend.new_services.card_catalog.card_service import process_large_cards_json 
+
+                result = process_large_cards_json(
+                        card_repository=card_repository,
+                        file_path=str(file_path)
+                    )
+
+                logging.info(f"✅ Successfully processed file: {file_path}")
+            
+                return {
+                    "status": "success",
+                    "filename": file_path.name,
+                    "file_path": str(file_path),
+                    "file_size_mb": round(file_size / 1024 / 1024, 2),
+                    "processing_stats": result.to_dict() if hasattr(result, 'to_dict') else result
+                }
+            except Exception as db_error:
+                logging.error(f"Database error processing file '{file_path}': {str(db_error)}")
+                # Re-raise to trigger Celery retry
+                raise
+    except FileNotFoundError as e:
+        logging.error(f"File not found: {e}")
+        raise
+    except ValueError as e:
+        logging.error(f"Validation error: {e}")
+        raise
+    except Exception as e:
+        logging.error(f"Failed to process file '{file_path}': {str(e)}")
+        raise
