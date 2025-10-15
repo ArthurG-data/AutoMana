@@ -154,7 +154,7 @@ class EnhancedSetImportService:
         self.stats = ProcessingStats()
         self.failed_sets: List[Dict[str, Any]] = []
 
-    async def process_large_sets_json(
+    def process_large_sets_json(
         self, 
         file_path: str,
         resume_from_batch: int = 0,
@@ -173,19 +173,19 @@ class EnhancedSetImportService:
             self.stats.start_time = datetime.utcnow()
             
             # Validate file exists and is readable
-            if not await self._validate_file(file_path):
+            if not self._validate_file(file_path):
                 raise set_exception.SetInsertError(f"File validation failed: {file_path}")
 
             # Process the file
-            await self._process_file_stream(file_path, resume_from_batch)
-            
+            self._process_file_stream(file_path, resume_from_batch)
+
             self.stats.end_time = datetime.utcnow()
             # Save failed sets if any
             if self.failed_sets and self.config.save_failed_sets:
-                await self._save_failed_sets()
+                self._save_failed_sets()
             
             # Final summary
-            await self._log_processing_summary()
+            self._log_processing_summary()
             
             return self.stats
             
@@ -194,7 +194,7 @@ class EnhancedSetImportService:
             logger.error(f"❌ File processing failed: {str(e)}")
             raise set_exception.SetInsertError(f"File processing failed: {str(e)}")
 
-    async def _validate_file(self, file_path: str) -> bool:
+    def _validate_file(self, file_path: str) -> bool:
         """Validate file exists and is accessible"""
         try:
             path = Path(file_path)
@@ -219,7 +219,7 @@ class EnhancedSetImportService:
             return False
 
 
-    async def _process_file_stream(self, file_path: str, resume_from_batch: int = 0):
+    def _process_file_stream(self, file_path: str, resume_from_batch: int = 0):
         """Process file using streaming with enhanced error handling"""
         batch = []
         batch_count = 0
@@ -228,7 +228,7 @@ class EnhancedSetImportService:
             logger.info(f"📁 Opening file for streaming: {file_path}")
             with open(file_path, "rb") as f:
                 sets_iter = ijson.items(f, "data.item")
-                async for set_json in self._async_json_iter(sets_iter):
+                for set_json in sets_iter:
                     try:
                         # Skip batches if resuming
                         if batch_count < resume_from_batch:
@@ -239,14 +239,14 @@ class EnhancedSetImportService:
                             continue
 
                         # Validate and create set
-                        set = NewSet.model_validate(set_json)
-                        if set:
-                            batch.append(set)
+                        set_object = NewSet.model_validate(set_json)
+                        if set_object:
+                            batch.append(set_object)
                             self.stats.total_sets += 1
 
                         # Process batch when full
                         if len(batch) >= self.config.batch_size:
-                            await self._process_batch(batch, batch_count + 1)
+                            self._process_batch(batch, batch_count + 1)
                             batch = []
                             batch_count += 1
                             
@@ -270,7 +270,7 @@ class EnhancedSetImportService:
                 
                 # Process remaining cards
                 if batch:
-                    await self._process_batch(batch, batch_count + 1)
+                    self._process_batch(batch, batch_count + 1)
                     
         except Exception as e:
             logger.error(f"❌ Stream processing error: {str(e)}")
@@ -283,8 +283,9 @@ class EnhancedSetImportService:
             # Allow other coroutines to run
             await asyncio.sleep(0)
 
-    async def _process_batch(self, batch: List[NewSet], batch_number: int):
+    def _process_batch(self, batch: List[NewSet], batch_number: int):
         """Process a batch with retry logic"""
+        import time
         retry_count = 0
         sets_obj = NewSets(items=batch)
         while retry_count <= self.config.max_retries:
@@ -292,7 +293,7 @@ class EnhancedSetImportService:
                 logger.info(f"🔄 Processing batch {batch_number} with {len(batch)} sets (attempt {retry_count + 1})")
 
                 sets_obj = NewSets(items=batch)
-                result = await self.set_repository.add_many(sets_obj.prepare_for_db())
+                result = self.set_repository.add_many(sets_obj.prepare_for_db())
 
                 # Update statistics
                 self.stats.successful_inserts += result.successful_inserts
@@ -315,14 +316,14 @@ class EnhancedSetImportService:
                 if retry_count <= self.config.max_retries:
                     wait_time = self.config.retry_delay * retry_count
                     logger.info(f"⏳ Retrying in {wait_time} seconds...")
-                    await asyncio.sleep(wait_time)  # Exponential backoff
+                    time.sleep(wait_time)  # Exponential backoff
                 else:
                     # Save failed batch for manual inspection
-                    await self._save_failed_batch(batch, batch_number, str(e))
+                    self._save_failed_batch(batch, batch_number, str(e))
                     self.stats.failed_inserts += len(batch)
                     raise set_exception.SetInsertError(f"Batch {batch_number} failed after {self.config.max_retries} retries: {str(e)}")
 
-    async def _save_failed_sets(self):
+    def _save_failed_sets(self):
         """Save failed sets to file for analysis"""
         if not self.failed_sets:
             return
@@ -338,7 +339,7 @@ class EnhancedSetImportService:
         except Exception as e:
             logger.error(f"❌ Failed to save failed sets: {str(e)}")
 
-    async def _save_failed_batch(self, batch: List[NewSet], batch_number: int, error: str):
+    def _save_failed_batch(self, batch: List[NewSet], batch_number: int, error: str):
         """Save a failed batch for recovery"""
         batch_file = f"failed_batch_{batch_number}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
         
@@ -357,7 +358,7 @@ class EnhancedSetImportService:
         except Exception as e:
             logger.error(f"❌ Failed to save failed batch: {str(e)}")
 
-    async def _log_processing_summary(self):
+    def _log_processing_summary(self):
         """Log comprehensive processing summary"""
         logger.info("=" * 60)
         logger.info("📊 FILE PROCESSING SUMMARY")
@@ -373,7 +374,7 @@ class EnhancedSetImportService:
         logger.info("=" * 60)
 
 # ✅ BACKWARD COMPATIBLE: Keep your original function but enhanced
-async def process_large_sets_json(
+def process_large_sets_json(
     set_repository: SetReferenceRepository,
     file_path: str,
     batch_size: int = 500,
@@ -399,7 +400,7 @@ async def process_large_sets_json(
     )
 
     service = EnhancedSetImportService(set_repository, config)
-    return await service.process_large_sets_json(
+    return service.process_large_sets_json(
         file_path=file_path,
         resume_from_batch=resume_from_batch
     )
