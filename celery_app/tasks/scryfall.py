@@ -283,10 +283,10 @@ def download_scryfall_data(self, external_type, save_path):
         }
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from backend.new_services.service_manager import ServiceManager
-import asyncio
+
 @celery_app.task(bind=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=3)
 def stage_scryfall_set_data(self, file_path):
+    """Process a large Scryfall sets JSON file and stage data into the database."""
     try:
         # Validate file type
         file_path = pathlib.Path(file_path)
@@ -349,6 +349,7 @@ def stage_scryfall_set_data(self, file_path):
         raise
 @celery_app.task(bind=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=3)
 def stage_scryfall_card_data(self, file_path):
+    """Process a large Scryfall cards JSON file and stage data into the database."""
     try:
         # Task implementation goes here
         file_path = pathlib.Path(file_path)
