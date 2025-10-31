@@ -370,3 +370,244 @@ def process_shopify_json_to_parquet(self, json_directory: str, market_code: str,
             "error": error_msg,
             "timestamp": datetime.datetime.utcnow().isoformat()
         }
+
+@celery_app.task(bind=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=3)
+def process_raw_to_staging(self):
+    """Process staged Parquet data into final price tables"""
+    task_id = self.request.id
+    start_time = datetime.datetime.utcnow()
+
+    logging.info(f"Starting raw database price data to staging processing task {task_id}")
+
+    try:
+        from backend.request_handling.QueryExecutor import SQLAlchemyQueryExecutor
+
+        query_executor = SQLAlchemyQueryExecutor()
+    
+        with get_connection() as conn:
+
+            query_executor.execute_command(conn, "CALL raw_to_stage();")
+            query_executor.execute_query(conn, "SELECT COUNT(*) FROM price_observation_stage ")
+            stage_count = conn.fetchone()[0]
+        end_time = datetime.datetime.utcnow()
+        duration = (end_time - start_time).total_seconds()
+
+        result = {
+            "status": "completed",
+            "task_id": task_id,
+            "stage" : "raw_to_stage",
+            "statistics": {
+                "rows_staged": stage_count,
+                "duration_seconds": round(duration, 2)
+            },
+            "timestamp": end_time.isoformat()}
+
+        logging.info(f"Raw database price data to staging processing task {task_id} completed successfully")
+        return result
+
+    except Exception as e:
+        error_msg = f"Raw database price data to staging processing task {task_id} failed: {str(e)}"
+        logging.error(error_msg)
+        return {
+            "status": "failed",
+            "task_id": task_id,
+            "error": error_msg,
+            "timestamp": datetime.datetime.utcnow().isoformat()
+        }
+    
+@celery_app.task(bind=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=3)
+def process_stage_to_observation(self):
+    task_id = self.request.id
+    start_time = datetime.datetime.utcnow()
+
+    logging.info(f"Starting staging to observation processing task {task_id}")
+
+    try:
+        from backend.request_handling.QueryExecutor import SQLAlchemyQueryExecutor
+
+        query_executor = SQLAlchemyQueryExecutor()
+    
+        with get_connection() as conn:
+
+            query_executor.execute_command(conn, "CALL stage_to_price_observation();")
+            query_executor.execute_query(conn, "SELECT COUNT(*) FROM price_observation WHERE scraped_at::date = CURRENT_DATE;")
+            price_obs_count = conn.fetchone()[0]
+    
+        end_time = datetime.datetime.utcnow()
+        duration = (end_time - start_time).total_seconds()
+
+        result = {
+            "status": "completed",
+            "task_id": task_id,
+            "stage" : "stage_to_price_observation",
+            "statistics": {
+                "rows_staged":  price_obs_count,
+                "duration_seconds": round(duration, 2)
+            },
+            "timestamp": end_time.isoformat()}
+
+        logging.info(f"Staging to observation processing task {task_id} completed successfully")
+        return result
+
+    except Exception as e:
+        error_msg = f"Staging to observation processing task {task_id} failed: {str(e)}"
+        logging.error(error_msg)
+        return {
+            "status": "failed",
+            "task_id": task_id,
+            "error": error_msg,
+            "timestamp": datetime.datetime.utcnow().isoformat()
+        }
+    
+@celery_app.task(bind=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=3)
+def cleanup_staging_tables(self):
+    """Clean up staging tables after processing"""
+    task_id = self.request.id
+    start_time = datetime.datetime.utcnow()
+    
+    logging.info(f"Starting staging cleanup task {task_id}")
+    
+    try:
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Get counts before cleanup
+            cursor.execute("SELECT COUNT(*) FROM shopify_staging_raw;")
+            raw_count = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT COUNT(*) FROM price_observation_stage;")
+            stage_count = cursor.fetchone()[0]
+            
+            # Clean up staging tables
+            cursor.execute("TRUNCATE TABLE shopify_staging_raw;")
+            cursor.execute("TRUNCATE TABLE price_observation_stage;")
+            conn.commit()
+            
+        end_time = datetime.datetime.utcnow()
+        duration = (end_time - start_time).total_seconds()
+        
+        result = {
+            "status": "completed",
+            "task_id": task_id,
+            "stage": "cleanup",
+            "statistics": {
+                "raw_rows_cleaned": raw_count,
+                "stage_rows_cleaned": stage_count,
+                "duration_seconds": round(duration, 2)
+            },
+            "timestamp": end_time.isoformat()
+        }
+        
+        logging.info(f"Staging cleanup completed: {raw_count + stage_count} rows cleaned")
+        return result
+        
+    except Exception as e:
+        error_msg = f"Staging cleanup failed: {str(e)}"
+        logging.error(error_msg)
+        return {
+            "status": "failed",
+            "task_id": task_id,
+            "error": error_msg,
+            "timestamp": datetime.datetime.utcnow().isoformat()
+        }
+
+@celery_app.task(bind=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=3)
+def complete_shopify_data_pipeline(self, target_path: str, market_code: str, app_id: str, product_currency: str = 'AUD', cleanup_after: bool = True):
+    """Complete Shopify data pipeline with all processing stages"""
+    task_id = self.request.id
+    start_time = datetime.datetime.utcnow()
+    
+    logging.info(f"Starting complete Shopify data pipeline task {task_id}")
+    
+    pipeline_results = {}
+    
+    try:
+        # Stage 1: Download data
+        logging.info("🚀 Stage 1: Downloading Shopify data...")
+        download_result = download_good_game_data.delay(target_path)
+        download_data = download_result.get(timeout=3600)
+        
+        if download_data['status'] != 'success':
+            raise Exception(f"Download failed: {download_data}")
+        
+        pipeline_results['download'] = download_data
+        logging.info("✅ Stage 1 completed: Data downloaded")
+        
+        # Stage 2: Upload to staging
+        logging.info("📤 Stage 2: Uploading to database...")
+        market_timestamp = datetime.datetime.now().strftime('%Y%m%d')
+        json_directory = os.path.join(target_path, 'collections', f'2_{market_timestamp}')
+        
+        upload_result = upload_json_directory_to_database.delay(
+            json_directory=json_directory,
+            market_id="2",
+            app_id=app_id,
+            batch_size=1000,
+            product_currency=product_currency
+        )
+        upload_data = upload_result.get(timeout=7200)
+        
+        if upload_data['status'] != 'completed':
+            raise Exception(f"Upload failed: {upload_data}")
+        
+        pipeline_results['upload'] = upload_data
+        logging.info("✅ Stage 2 completed: Data uploaded to staging")
+        
+        # Stage 3: Raw to Stage processing
+        logging.info("🔄 Stage 3: Processing raw to stage...")
+        raw_to_stage_result = raw_to_stage_processing.delay()
+        raw_to_stage_data = raw_to_stage_result.get(timeout=1800)  # 30 min
+        
+        if raw_to_stage_data['status'] != 'completed':
+            raise Exception(f"Raw to stage processing failed: {raw_to_stage_data}")
+        
+        pipeline_results['raw_to_stage'] = raw_to_stage_data
+        logging.info("✅ Stage 3 completed: Raw data processed to staging")
+        
+        # Stage 4: Stage to Price Observation
+        logging.info("💾 Stage 4: Processing stage to price observations...")
+        stage_to_price_result = stage_to_price_observation_processing.delay()
+        stage_to_price_data = stage_to_price_result.get(timeout=1800)  # 30 min
+        
+        if stage_to_price_data['status'] != 'completed':
+            raise Exception(f"Stage to price observation failed: {stage_to_price_data}")
+        
+        pipeline_results['stage_to_price'] = stage_to_price_data
+        logging.info("✅ Stage 4 completed: Price observations created")
+        
+        # Stage 5: Cleanup (optional)
+        if cleanup_after:
+            logging.info("🧹 Stage 5: Cleaning up staging tables...")
+            cleanup_result = cleanup_staging_tables.delay()
+            cleanup_data = cleanup_result.get(timeout=300)  # 5 min
+            
+            pipeline_results['cleanup'] = cleanup_data
+            logging.info("✅ Stage 5 completed: Staging tables cleaned")
+        
+        # Final summary
+        end_time = datetime.datetime.utcnow()
+        duration = (end_time - start_time).total_seconds()
+        
+        result = {
+            "status": "completed",
+            "task_id": task_id,
+            "target_path": target_path,
+            "market_code": market_code,
+            "pipeline_results": pipeline_results,
+            "total_duration_seconds": round(duration, 2),
+            "timestamp": end_time.isoformat()
+        }
+        
+        logging.info(f"🎉 Complete Shopify pipeline finished successfully")
+        return result
+        
+    except Exception as e:
+        error_msg = f"Pipeline failed: {str(e)}"
+        logging.error(error_msg)
+        return {
+            "status": "failed",
+            "task_id": task_id,
+            "error": error_msg,
+            "pipeline_results": pipeline_results,
+            "timestamp": datetime.datetime.utcnow().isoformat()
+        }

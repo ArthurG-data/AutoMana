@@ -6,6 +6,7 @@ from psycopg2 import pool
 from backend.dependancies.settings import get_db_settings
 from fastapi import Depends
 from typing_extensions import Annotated
+from contextlib import contextmanager, asynccontextmanager
 
 logging.basicConfig(level=logging.ERROR)
 
@@ -33,7 +34,7 @@ async def init_async_pool():
         )
     return async_db_pool
 
-
+@asynccontextmanager
 async def get_async_pool_connection() -> AsyncGenerator[asyncpg.Connection, None]:
     """Get a connection from the async pool"""
     pool = await init_async_pool()
@@ -52,7 +53,7 @@ db_pool = pool.SimpleConnectionPool(
     options='-c client_encoding=UTF8'
 )
 
-
+@contextmanager
 def get_connection() -> Generator[connection, Any, Any]:
     db = db_pool.getconn() 
     try:

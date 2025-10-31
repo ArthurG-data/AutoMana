@@ -1,5 +1,8 @@
+CREATE SCHEMA IF NOT EXISTS markets;
+SET search_path TO markets, public;
+
 --- table-------------
-CREATE TABLE market_ref (
+CREATE TABLE markets.market_ref (
     market_id SERIAL PRIMARY KEY,  -- unique identifier for the market
     name TEXT NOT NULL UNIQUE,
     country_code VARCHAR(3) NOT NULL DEFAULT 'AUD',
@@ -10,7 +13,7 @@ CREATE TABLE market_ref (
     UNIQUE(name, city, country_code)
 );
 
-CREATE TABLE IF NOT EXISTS product_ref(
+CREATE TABLE IF NOT EXISTS markets.product_ref(
     product_shop_id VARCHAR(64) PRIMARY KEY,  -- unique identifier for the product in the sho
     product_id TEXT NOT NULL,
     market_id INT NOT NULL REFERENCES market_ref(market_id) ON DELETE CASCADE,
@@ -41,7 +44,7 @@ CREATE TABLE product_prices (--producy prices, for cards at the moment but can b
 );
 
 
-CREATE TABLE collection_handles (
+CREATE TABLE markets.collection_handles (
     handle_id SERIAL PRIMARY KEY,
     market_id INT  NOT NULL REFERENCES market_ref(market_id) ON DELETE CASCADE,
     name TEXT NOT NULL,
@@ -50,22 +53,25 @@ CREATE TABLE collection_handles (
     UNIQUE( market_id, name)
 );
 
-CREATE TABLE theme_ref (
-  theme_id   SERIAL PRIMARY KEY,
-  code       TEXT UNIQUE NOT NULL,     -- e.g. 'mtg'
-  name       TEXT NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()           -- e.g. 'Magic: The Gathering'
-);
-
-
-CREATE TABLE handles_theme(
-  handle_id INT NOT NULL, 
-  theme_id INT NOT NULL,
+CREATE TABLE markets.handles_theme(
+  handle_id INT NOT NULL REFERENCES markets.collection_handles(handle_id) ON DELETE CASCADE,
+  theme_id INT NOT NULL REFERENCES card_game(game_id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  PRIMARY KEY(handle_id, theme_id)
+  PRIMARY KEY(handle_id, theme_id),
+  is_active BOOLEAN DEFAULT TRUE
 )
+-- Create a trigger function to soft delete
+CREATE OR REPLACE FUNCTION soft_delete_handles_theme()
+RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE markets.handles_theme 
+  SET is_active = FALSE 
+  WHERE theme_id = OLD.game_id;
+  RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
 ----- indexes-------------
 CREATE INDEX IF NOT EXISTS idx_porduct_price ON product_prices (product_shop_id, time DESC);
 
@@ -80,6 +86,12 @@ CREATE TRIGGER theme_set_updated_at
 BEFORE UPDATE ON theme_ref
 FOR EACH ROW
 EXECUTE FUNCTION trigger_set_updated_at();
+
+-- Create the trigger on the referenced table
+CREATE TRIGGER soft_delete_handles_theme_trigger
+    BEFORE DELETE ON card_game
+    FOR EACH ROW
+    EXECUTE FUNCTION soft_delete_handles_theme();
 
 ----------hyperytables 
 SELECT create_hypertable('product_prices', 'time', chunk_time_interval => interval '7 days');
