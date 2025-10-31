@@ -1,3 +1,6 @@
+CREATE TABLE IF NOT EXISTS market_collection
+
+
 CREATE UNLOGGED TABLE shopify_staging_raw (
     product_id BIGINT,
     date DATE,
