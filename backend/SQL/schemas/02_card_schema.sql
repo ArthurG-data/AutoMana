@@ -180,8 +180,6 @@ CREATE TABLE IF NOT EXISTS card_faces (
     flavor_text TEXT
 );
 
-
-
 CREATE TABLE IF NOT EXISTS card_external_identifier (
     card_identifier_ref_id SMALLINT NOT NULL REFERENCES card_identifier_ref(card_identifier_ref_id),
     card_version_id UUID NOT NULL REFERENCES card_version(card_version_id) ON DELETE CASCADE,

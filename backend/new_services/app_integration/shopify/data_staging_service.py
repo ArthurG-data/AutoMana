@@ -39,7 +39,7 @@ async def get_market_id(market_repository ,code : str)-> int:
         print(f"Error fetching market_id for {code}: {e}")
         return -1
 
-def prepare_product_shop_id_query(validated_batch: shopify_theme.BatchProductProces) -> Tuple[
+async def prepare_product_shop_id_query(validated_batch: shopify_theme.BatchProductProces) -> Tuple[
     list[str],
     list[str],
     list[int],
@@ -80,7 +80,6 @@ async def bulk_insert_product(batch: Tuple [
     list[str]
 ], repository: ProductRepository):
     await repository.bulk_insert_products( batch)
-
 
 async def bulk_insert_prices(batch: Tuple[
     List[datetime],
@@ -352,6 +351,8 @@ async def extract_all_metadata_from_html(html: str) -> Dict[str, Optional[str]]:
         print(f"Error extracting metadata from HTML: {e}")
         return {}
     
+
+
 async def process_json_dir_to_parquet(market_repository, path_to_json: str, market_code: str, output_path: str):
     """
     - Reads all *.json in `path_to_json`
@@ -361,12 +362,13 @@ async def process_json_dir_to_parquet(market_repository, path_to_json: str, mark
     - Writes/keeps info.json per product
     """
     market_id = await get_market_id(market_repository, market_code)
+
     if market_id == -1:
         raise ValueError(f"Market ID not found for market code: {market_code}")
 
     os.makedirs(output_path, exist_ok=True)
 
-    json_files = glob.glob(os.path.join(path_to_json, "*.json"))
+    json_files = glob.glob(os.path.join(path_to_json, f"{market_id}_*", "**", "*products.json"), recursive=True)
     total_files_size = sum(os.path.getsize(f) for f in json_files)
     tqdm.write(f"Processing {len(json_files)} JSON files from {path_to_json}, total {total_files_size / (1024*1024):.2f} MB")
 
@@ -539,3 +541,5 @@ async def stage_data_from_parquet(product_repository: ProductRepository, parquet
             os.unlink(temp_parquet_path)
         except Exception as e:
             print(f"Warning: Could not delete temporary file {temp_parquet_path}: {e}")
+
+
