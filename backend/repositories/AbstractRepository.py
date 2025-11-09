@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from concurrent.futures import ThreadPoolExecutor
 import asyncpg
 from typing import Optional,  TypeVar,  Generic
 from backend.request_handling.QueryExecutor import QueryExecutor
@@ -19,6 +20,7 @@ class AbstractRepository(Generic[T], ABC):
         """
         self.connection = connection
         self.executor = executor
+        self._thread_pool = ThreadPoolExecutor(max_workers=4)
 
 
     def execute_query_sync(self, query, *args):
