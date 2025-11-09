@@ -1,4 +1,4 @@
-from typing import Generic, TypeVar, Optional, List, Dict, Any
+from typing import Generic, TypeVar, Optional, List, Dict, Any, Union
 from pydantic import BaseModel, Field
 from datetime import datetime
 from uuid import uuid4
@@ -17,7 +17,7 @@ class ApiResponse(BaseModel, Generic[DataT]):
     success: bool = True
     status: str = "success"
     message: Optional[str] = None
-    data: Optional[DataT|List[DataT]] = None
+    data: Optional[Union[DataT, List[DataT]]] = None
     timestamp: datetime = Field(default_factory=datetime.now)
     request_id: str = Field(default_factory=lambda: str(uuid4()))
     

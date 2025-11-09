@@ -40,7 +40,7 @@ async def get_set(set_id: UUID
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get('/', response_model=PaginatedResponse)
+@router.get('/')
 async def get_sets(
                     limit: Annotated[int, Query(le=100)]=100,
                     offset: int=0,

@@ -1,3 +1,4 @@
+
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from backend.new_services.service_manager import ServiceManager
@@ -71,6 +72,7 @@ async def get_users(
 @router.post('/')
 async def add_user( user: BaseUser
                    , service_manager : ServiceManager = Depends(get_service_manager) ):
+    print(user)
     try:
         result = await service_manager.execute_service("auth.auth.register", user=user)
         return ApiResponse(data=result)
