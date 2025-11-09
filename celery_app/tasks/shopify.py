@@ -263,6 +263,8 @@ def download_good_game_data(self, target_path: str):
     logging.info(f"Download completed: {json.dumps(result, indent=2)}")
     return result
 
+
+
 import asyncio
 from backend.new_services.app_integration.shopify.data_staging_service import (
     process_json_dir_to_parquet,
@@ -611,3 +613,166 @@ def complete_shopify_data_pipeline(self, target_path: str, market_code: str, app
             "pipeline_results": pipeline_results,
             "timestamp": datetime.datetime.utcnow().isoformat()
         }
+    
+
+'''testing download task again'''
+@celery_app.task(bind=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=3)
+def download_face2face_data(self, target_path: str):
+    """Download Good Game Gaming data with rate limiting (2 requests per second)"""
+    start_time = time.time()
+    request_count = 0
+    
+    # for each shop in the db, update the collections name
+    # for drafting, just get the most recent market
+    markets = []
+    query = """
+    SELECT DISTINCT ON (market_id) market_id, api_url, updated_at 
+    FROM markets.market_ref 
+    WHERE name = 'Face to Face'
+    ORDER BY market_id, updated_at DESC
+    """
+    from backend.database.get_database import get_connection as async_raw_get_connection
+
+    with async_raw_get_connection() as conn:
+        result = conn.execute(text(query))
+        markets = [dict(row._mapping) for row in result.fetchall()]
+    
+    if not markets:
+        logging.warning("No Good Game Gaming markets found in database")
+        return {"status": "no_markets", "message": "No markets found"}
+    
+    logging.info(f"Starting download for {len(markets)} markets with rate limit: {REQUESTS_PER_SECOND} req/sec")
+    
+    # get the collections for each market
+    for market in markets:
+        market_id = market.get('market_id')
+        api_url = market.get('api_url')
+
+        logging.info(f"Processing market {market_id}: {api_url}")
+
+        # Save collections to folder
+        market_path = pathlib.Path(target_path) / f"collections/{market_id}_{datetime.datetime.now().strftime('%Y%m%d')}"
+        market_path.mkdir(parents=True, exist_ok=True)
+        
+        try:
+            # Fetch collections from Shopify API with rate limiting
+            collection_index = 1  # Fixed: Shopify pagination starts at 1
+            total_collections = []
+            
+            logging.info(f"Fetching collections for market {market_id}...")
+            
+            while True:
+                try:
+                    # Use the rate-limited fetch function
+                    collections_data = fetch_collections_page(api_url, collection_index)
+                    request_count += 1
+                    
+                    collections = collections_data.get('collections', [])
+                    if not collections:
+                        logging.info(f"Market {market_id} - No more collections to fetch at page {collection_index}")
+                        break
+                    
+                    total_collections.extend(collections)
+                    logging.info(f"Market {market_id} - Fetched {len(collections)} collections (page {collection_index})")
+                    collection_index += 1
+                    
+                except Exception as e:
+                    logging.error(f"Market {market_id} - Failed to fetch collections page {collection_index}: {str(e)}")
+                    break
+            
+            logging.info(f"Market {market_id} - Total collections found: {len(total_collections)}")
+            
+            # Process each collection with rate limiting
+            for idx, collection in enumerate(total_collections):
+                if collection.get("products_count", 0) == 0:
+                    continue
+
+                collection_id = collection.get('id')
+                collection_name = collection.get('handle')
+                
+                logging.info(f"Processing collection {idx+1}/{len(total_collections)}: {collection_name} ({collection.get('products_count')} products)")
+
+                # Create collection directory
+                collection_dir = market_path / f"{collection_name}_{collection_id}"
+                collection_dir.mkdir(parents=True, exist_ok=True)
+                
+                # Save collection metadata
+                collection_file = collection_dir / "collection.json"
+                save_data_to_file(collection, str(collection_file))
+                
+                # Check if it's MTG collection first (with rate limiting)
+                try:
+                    is_mtg = is_mtg_collection(api_url, collection_name)
+                    request_count += 1
+                    
+                    if not is_mtg:
+                        logging.info(f"Skipping non-MTG collection: {collection_name}")
+                        continue
+                        
+                    logging.info(f"MTG collection detected: {collection_name} - fetching products...")
+                    
+                except Exception as e:
+                    logging.warning(f"Could not determine collection type for {collection_name}: {str(e)}")
+                    # Continue anyway
+                
+                # Fetch and save products for the collection with rate limiting
+                try:
+                    product_index = 1  # Fixed: Shopify pagination starts at 1
+                    all_products = []
+                    
+                    while True:
+                        try:
+                            # Use the rate-limited fetch function
+                            products_data = fetch_products_page(api_url, collection_name, product_index)
+                            request_count += 1
+                            
+                            products_batch = products_data.get('products', [])
+                            
+                            if not products_batch:
+                                logging.info(f"All products fetched for collection {collection_name}")
+                                break
+                                
+                            all_products.extend(products_batch)
+                            logging.info(f"Fetched {len(products_batch)} products (page {product_index}) for {collection_name}")
+
+                            if len(products_batch) < 250:
+                                # Last page reached
+                                break
+                            product_index += 1
+                            
+                        except Exception as e:
+                            logging.error(f"Failed to fetch products for {collection_name} page {product_index}: {str(e)}")
+                            break
+                    
+                    # Save all products at once
+                    if all_products:
+                        products_file = collection_dir / "products.json"
+                        save_data_to_file({"products": all_products}, str(products_file))
+                        
+                        logging.info(f"✅ Saved {len(all_products)} total products for collection {collection_name}")
+
+                except Exception as e:
+                    logging.error(f"Exception fetching products for collection {collection_id}: {str(e)}")
+                    
+        except Exception as e:
+            logging.error(f"Market {market_id} - Exception during fetch: {str(e)}")
+    
+    # Calculate statistics
+    end_time = time.time()
+    duration = end_time - start_time
+    actual_rate = request_count / duration if duration > 0 else 0
+    
+    result = {
+        "status": "success", 
+        "markets_processed": len(markets),
+        "total_requests": request_count,
+        "duration_seconds": round(duration, 2),
+        "actual_request_rate": round(actual_rate, 2),
+        "target_request_rate": REQUESTS_PER_SECOND,
+        "message": f"Successfully processed {len(markets)} markets with {request_count} API calls"
+    }
+    
+    logging.info(f"Download completed: {json.dumps(result, indent=2)}")
+    return result
+    
+
