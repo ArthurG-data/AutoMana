@@ -50,70 +50,60 @@ def authenticate_celery_app(self, service_type: str) -> None:
     logging.info(f"Celery authentication task {task_id} started for service: {service_username}")
     
 
-    from backend.database.get_database import get_async_pool_connection
-    from backend.request_handling.QueryExecutor import AsyncQueryExecutor
     
-    
-    async def run_authenticate_sync():
-        try:
-            from backend.repositories.user_management.user_repository import UserRepository
-            from backend.database.get_database import get_async_pool_connection
-            from backend.request_handling.QueryExecutor import AsyncQueryExecutor
 
-            async with get_async_pool_connection() as conn:
-                query_executor = AsyncQueryExecutor()
-                user_repo = UserRepository(conn, query_executor)
-                service_user = await user_repo.get(service_username)
-                if not service_user:
-                    raise ValueError(f"User not found: {service_username}")
-                if not verify_password(service_password, service_user.hashed_password):
-                    raise ValueError(f"Invalid password for user: {service_username}")
-                logging.info(f"User {service_username} authenticated successfully.")
-
-            access_token_expires = timedelta(hours=24)
-            access_token = await create_access_token(
-                data={"sub": service_user.username, "user_id": service_user.id},
-                expires_delta=access_token_expires
-            )
-            
-            # Cache token in Redis
-            cache_key = f"celery_auth_token:{service_username}"
-            token_data = {
-                "access_token": access_token,
-                "token_type": "bearer",
-                "expires_at": (datetime.utcnow() + access_token_expires).isoformat(),
-                "user_id": service_user.id,
-                "username": service_user.username,
-                "authenticated_at": datetime.utcnow().isoformat()
-            }
-            
-            # Cache for 23 hours
-            redis_client.setex(
-                cache_key,
-                23 * 3600,
-                json.dumps(token_data)
-            )
-            
-            logging.info(f"✅ Celery app authenticated successfully for service: {service_username}")
-            return {
-                "success": True,
-                "service_name": service_username,
-                "user_id": service_user.id,
-                "token_cached": True,
-                "expires_at": token_data["expires_at"]
-            }
-            
-        except Exception as e:
-            logging.error(f"❌ Celery authentication failed for {service_username}: {str(e)}")
-            raise
-    
     try:
-        result = asyncio.run(run_authenticate_sync())
-        end_time = datetime.utcnow()
-        duration = (end_time - start_time).total_seconds()
-        logging.info(f"Celery authentication completed in {duration} seconds")
-        return result
+        from backend.repositories.user_management.user_repository import UserRepository
+        from celery_app.connection import get_connection
+        from backend.request_handling.QueryExecutor import SQLAlchemyQueryExecutor
+
+        with get_connection() as conn:
+            query_executor = SQLAlchemyQueryExecutor()
+            user_repo = UserRepository(conn, query_executor)
+            service_user = user_repo.get_sync(service_username)
+            if not service_user:
+                raise ValueError(f"User not found: {service_username}")
+            if not verify_password(service_password, service_user['hashed_password']):
+                raise ValueError(f"Invalid password for user: {service_username}")
+            logging.info(f"User {service_username} authenticated successfully.")
+
+        access_token_expires = timedelta(hours=24)
+        access_token = create_access_token(
+            data={"sub": service_user["username"], "user_id": str(service_user["unique_id"])},
+            secret_key=os.getenv("SECRET_KEY"),
+            algorithm=os.getenv("ENCRYPT_ALGORITHM"),
+            expires_delta=access_token_expires
+        )
+        
+        # Cache token in Redis
+        cache_key = f"celery_auth_token:{service_username}"
+        token_data = {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "expires_at": (datetime.utcnow() + access_token_expires).isoformat(),
+            "user_id": str(service_user['unique_id']),
+            "username": service_user['username'],
+            "authenticated_at": datetime.utcnow().isoformat()
+        }
+        
+        # Cache for 23 hours
+        redis_client.setex(
+            cache_key,
+            23 * 3600,
+            json.dumps(token_data)
+        )
+        
+        logging.info(f"✅ Celery app authenticated successfully for service: {service_username}")
+        return {
+            "success": True,
+            "service_name": service_username,
+            "user_id": str(service_user['unique_id'])  ,
+            "token_cached": True,
+            "expires_at": token_data["expires_at"]
+        }
+        
     except Exception as e:
-        logging.error(f"Celery authentication task failed: {str(e)}")
+        logging.error(f"❌ Celery authentication failed for {service_username}: {str(e)}")
         raise
-       
+    
+  

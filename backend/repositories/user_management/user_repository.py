@@ -1,3 +1,4 @@
+import asyncio
 from typing import Optional, Dict, Any
 from uuid import UUID
 from backend.repositories.AbstractRepository import AbstractRepository
@@ -34,7 +35,13 @@ class UserRepository(AbstractRepository):
         SELECT * FROM users WHERE username = $1;"""
         result = await self.execute_query(query, (username,))
         return result[0] if result else None
-    
+
+    def get_sync(self, username: str) -> dict:
+        query = """
+        SELECT * FROM users WHERE username = $1;"""
+        result = self.execute_query_sync(query, (username,))
+        return result[0] if result else None
+
     async def get_by_id(self, user_id: UUID) -> dict:
         query = """
         SELECT * FROM users WHERE unique_id = $1 AND disabled = FALSE;
@@ -195,4 +202,6 @@ class UserRepository(AbstractRepository):
     
     async def list(self):
         raise NotImplementedError("Method not implemented yet")
+    
+    
         
