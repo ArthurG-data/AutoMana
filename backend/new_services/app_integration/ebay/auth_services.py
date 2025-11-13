@@ -91,6 +91,7 @@ async def exchange_refresh_token(auth_repository: EbayAuthRepository
 
     settings = await auth_repository.get_app_settings(user_id=user_id, app_code=app_code)
     scopes = await auth_repository.get_app_scopes(app_id=settings["app_id"])
+    
     result = await auth_oauth_repository.exchange_refresh_token(
         refresh_token=refresh_token,
         app_id=settings["app_id"],
