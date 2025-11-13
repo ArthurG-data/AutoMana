@@ -51,6 +51,36 @@ class ApiRepository(ABC):
         base = self.base_url.rstrip("/")
         return f"{base}/{endpoint}"
 
+    def _make_get_request_sync(
+        self, 
+        url: str,
+        params: Optional[Dict[str, Any]] = None,
+        headers: Optional[dict]=None,
+        xml : Optional[str]=None
+    ) -> Dict[str, Any]:
+        """Make a synchronous GET request to the API"""
+        try:
+            full_url = self.get_full_url(url)
+            response = httpx.get(url=full_url, params=params, headers=headers if headers else None)
+            response.raise_for_status()
+            content_type = response.headers.get("content-type", "").lower()
+            if "application/json" in content_type:
+                return response.json()
+            elif "xml" in content_type:
+                return self._parse_xml_response(response.text)
+            else:
+                return response.text
+
+        except httpx.HTTPStatusError as e:
+            raise self._handle_http_error(e)
+        except httpx.RequestError as e:
+            raise ebay_api_exception.EbayBuyApiConnectionError(message=f"Failed to connect to API: {str(e)}")
+        except Exception as e:
+            raise ebay_api_exception.EbayBaseRepositoryError(message=f"Unexpected error in API call: {str(e)}")
+
+
+
+
     async def _make_get_request(
         self, 
         url: str,
@@ -134,6 +164,60 @@ class ApiRepository(ABC):
             raise ebay_api_exception.EbayBuyApiConnectionError(message="Failed to connect to API", status_code=404, error_data=str(e))
         except Exception as e:
             raise ebay_api_exception.EbayBaseRepositoryError(message="Failed to connect to API", status_code=404, error_data=str(e))
+
+
+    def _make_post_request_sync(
+        self, 
+        url: str, 
+        headers: Optional[dict]=None,
+        data: Optional[Dict[str, Any]]=None,
+        xml : Optional[str]=None,
+        trading_headers: Optional[dict]=None
+    ) -> Dict[str, Any]:
+        """Make a POST request to the API"""
+
+        try:
+            full_url = self.get_full_url(url)
+
+            logger.debug(f"Making POST request to {full_url}.")
+            with httpx.Client(timeout=self.timeout) as client:
+                if data is not None:
+
+                    headers["Content-Type"] = "application/json"
+                    response = client.post(
+                        url=full_url,
+                        data=data,
+                        headers=headers if headers else {}
+                    )
+                elif xml is not None:
+                    headers["Content-Type"] = "text/xml"
+
+                    response = client.post(
+                        url=full_url,
+                        data=xml,
+                        headers=headers
+                    )
+                else:
+                    response = client.post(
+                        url=full_url,
+                        content=xml,
+                        headers=headers or {}
+                    )
+                response.raise_for_status()
+                content_type = response.headers.get("content-type", "").lower()
+                if "application/json" in content_type:
+                    return response.json()
+                elif "xml" in content_type:
+                    return self._parse_xml_response(response.text)
+                else:
+                    return response.text
+        except httpx.HTTPStatusError as e:
+            raise self._handle_http_error(e)
+        except httpx.RequestError as e:
+            raise ebay_api_exception.EbayBuyApiConnectionError(message="Failed to connect to API", status_code=404, error_data=str(e))
+        except Exception as e:
+            raise ebay_api_exception.EbayBaseRepositoryError(message="Failed to connect to API", status_code=404, error_data=str(e))
+
 
     def _handle_http_error(self, error: httpx.HTTPStatusError) -> ebay_api_exception.EbayBaseRepositoryError:
         """Handle HTTP errors and convert to appropriate repository exceptions"""
