@@ -1,91 +1,86 @@
+import json, logging, datetime, redis
 from typing import List, Optional
-import datetime
-import logging
-from celery_main_app import celery_app
-from backend.new_services.analysis.pricing import enhanced_pricing_analysis
-
+from backend.repositories.app_integration.ebay import auth_repository
+from backend.schemas.auth.cookie import RefreshTokenResponse
+from celery_app.celery_main_app import celery_app
+from celery_app.connection import get_connection
+from backend.request_handling.QueryExecutor import SQLAlchemyQueryExecutor
+#from backend.new_services.analysis.pricing import enhanced_pricing_analysis
 #to do, create a user for the task manager
-
+redis_client = redis.Redis(host='localhost', port=6379, db=2, decode_responses=True)
 
 #task to check prices for a card in collection , using ebay browse api
-
-
-
+from backend.schemas.app_integration.ebay.auth import TokenResponse
+from datetime import datetime, timedelta
 
 @celery_app.task(bind=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=3)
-def refresh_ebay_token(self, user_id: int = None, app_code: str = "default"):
+def get_or_refresh_ebay_token(self, app_code, user_id= None) :
     """
-    Task to refresh eBay access token and cache it in Redis
-    Can be used for specific user or system-wide token
+    Get eBay access token from Redis or refresh if expired
     """
-    task_id = self.request.id
-    start_time = datetime.utcnow()
+    if user_id:
+        cache_key = f"ebay_token:user:{user_id}"
+    else:
+        cache_key = f"ebay_token:system:{app_code}"
     
-    logging.info(f"Token refresh task {task_id} started for user {user_id}, app_code {app_code}")
+    try:
+        token_data_json = redis_client.get(cache_key)
+        if token_data_json:
+            token_data = json.loads(token_data_json)
+            expires_at = datetime.fromisoformat(token_data["expires_at"])
+            if expires_at > datetime.utcnow():
+                logging.info(f"Using cached eBay token for {cache_key}")
+                return token_data["access_token"]
     
-    async def refresh_token_async():
-        try:
-            from backend.repositories.app_integration.ebay.ApiAuth_repository import EbayAuthRepository
-            auth_repo = EbayAuthRepository(environment="production")
-            
-            if user_id:
-                # Get user-specific token from database
-                token_data = await get_user_ebay_token(user_id)
-                if not token_data or not token_data.refresh_token:
-                    raise ValueError(f"No refresh token found for user {user_id}")
-                
-                # Refresh user token
-                new_token = await auth_repo.refresh_access_token(token_data.refresh_token)
-                
-                # Update database
-                await update_user_ebay_token(user_id, new_token)
-                
-                # Cache in Redis with user-specific key
-                cache_key = f"ebay_token:user:{user_id}"
-            else:
-                # System-wide token (app-level)
-                system_refresh_token = await get_system_ebay_token(app_code)
-                if not system_refresh_token:
-                    raise ValueError(f"No system refresh token found for app_code {app_code}")
-                
-                new_token = await auth_repo.refresh_access_token(system_refresh_token)
-                
-                # Cache in Redis with system-level key
-                cache_key = f"ebay_token:system:{app_code}"
-            
-            # Cache token in Redis with expiry
-            token_cache_data = {
-                "access_token": new_token.access_token,
-                "expires_at": (datetime.utcnow() + timedelta(seconds=new_token.expires_in)).isoformat(),
-                "token_type": new_token.token_type,
+        from backend.repositories.app_integration.ebay.auth_repository import EbayAuthRepository
+        from backend.repositories.app_integration.ebay.ApiAuth_repository import EbayAuthAPIRepository
+       
+
+        with get_connection() as conn:
+            query_executor = SQLAlchemyQueryExecutor()
+            auth_repo = EbayAuthRepository(conn, query_executor)
+            api_repo = EbayAuthAPIRepository(environment="production")
+        
+            stored_access_token = auth_repo.get_valid_access_token_sync(app_code, user_id) if user_id else None
+            if not stored_access_token:
+                logging.info(f"No stored access token found for user {user_id}, refreshing...")
+                refresh_token = auth_repo.get_access_from_refresh(app_code, user_id)
+            if not refresh_token:
+                raise ValueError("No valid refresh token found")
+
+            settings = auth_repo.get_app_settings_sync(user_id=user_id, app_code=app_code)
+            if settings is None:
+                raise ValueError(f"No settings found for app_code: {app_code} and user_id: {user_id}")
+            logging.info(f"Using the settings {settings} to refresh eBay token for {cache_key}")
+            scopes = auth_repo.get_app_scopes_sync(app_id=settings["app_id"])
+
+            refresh_result = api_repo.exchange_refresh_token_sync(
+                        refresh_token=refresh_token,
+                        app_id=settings["app_id"],
+                        secret=settings["decrypted_secret"],
+                        scope=scopes if scopes else []
+                    )
+            if not refresh_result.get("access_token"):
+                raise ValueError("Failed to refresh eBay token - no access token returned")
+            logging.info(f"Refresh result: {refresh_result}")
+        token_cache_data = {
+                "access_token": refresh_result['access_token'],
+                "expires_at": refresh_result.get('expires_on'),
                 "refreshed_at": datetime.utcnow().isoformat()
             }
-            
-            # Set with expiry (refresh 5 minutes before actual expiry)
-            redis_client.setex(
-                cache_key, 
-                new_token.expires_in - 300,  # 5 minutes buffer
-                json.dumps(token_cache_data)
-            )
-            
-            logging.info(f"Token refreshed and cached for {cache_key}")
-            return token_cache_data
-            
-        except Exception as e:
-            logging.error(f"Token refresh failed: {str(e)}")
-            raise
+        redis_client.setex(
+            cache_key,
+            refresh_result["expires_in"],
+            json.dumps( token_cache_data)
+        )
+        if not refresh_result.get("access_token"):
+            raise ValueError("No valid access token found")
+        return refresh_result["access_token"]
     
-    import asyncio
-    try:
-        result = asyncio.run(refresh_token_async())
-        end_time = datetime.utcnow()
-        logging.info(f"Token refresh completed in {(end_time - start_time).total_seconds()} seconds")
-        return result
     except Exception as e:
-        logging.error(f"Token refresh task failed: {str(e)}")
+        logging.error(f"❌ Failed to get eBay token for {cache_key}: {str(e)}")
         raise
-
-
+"""
 @celery_app.task(bind=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=3)
 def ebay_search_price(
                      #app_code: str,
@@ -107,6 +102,9 @@ def ebay_search_price(
     #task_id = self.request.id else "unknown"
     task_id = self.request.id
     start_time = datetime.datetime.utcnow()
+
+    
+
 
     #logging.info(f"Task {task_id} started at {start_time.isoformat()} for app_code {app_code}")
     from backend.request_handling.StandardisedQueryResponse import PaginatedResponse, PaginationInfo
@@ -168,3 +166,4 @@ def analyze_results(self, results):
 #task to remove or suspend a listing
 
 #task to go through all items in collection
+"""
