@@ -7,6 +7,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv()
+""" TO DO: move to the main file to be created once, similar for celery_task"""
 
 class CeleryLogger:
     def __init__(self, log_file_path : str = None):
