@@ -65,11 +65,12 @@ class UpdateCollection(BaseModel):
 class Conditions(Enum):
     D = 'D'
     G = 'G'
+    LP = 'LP'
     NM = 'NM'
     Grd = 'Grd'
 
 class PublicCollectionEntry(BaseModel):
-    unique_card_id : UUID=Field(title='The card ID')
+    unique_card_id : UUID=Field(title='The card version ID')
     is_foil : bool=Field(
         default=False, title='Is the card foil'
     )

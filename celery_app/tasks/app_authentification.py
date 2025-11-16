@@ -4,8 +4,8 @@ from dotenv import load_dotenv
 from datetime import datetime, timedelta
 from sqlalchemy import text
 from backend.utils_new.auth.auth import get_hash_password, verify_password, create_access_token
-import json, asyncio
-
+import json
+from backend.schemas.logging.Celery_Logger import  CeleryLogger_instance
 load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
@@ -31,25 +31,41 @@ SERVICE_USER_MAPPING = {
         'password_env': 'CELERY_SERVICE_PASSWORD'
     }
 }
-@celery_app.task(bind=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=3)
+@celery_app.task(bind=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=3, name='authenticate_celery_app')
 def authenticate_celery_app(self, service_type: str) -> None:
+    logging.info(f"Starting authentication for service type: {service_type}")
     task_id = self.request.id
     start_time = datetime.utcnow()
-    
+    worker_name = self.request.hostname
+    queue_name = self.request.delivery_info.get('routing_key') if self.request.delivery_info else None
+    task_name = self.name   
 
     service_info = SERVICE_USER_MAPPING.get(service_type)
-    if not service_info:
-        raise ValueError(f"Unknown service type: {service_type}")
+    service_username = service_info.get('username') if service_info else None
+    service_password = os.getenv(service_info.get('password_env')) if service_info else None
+    if not service_info or not service_password:
+        message = f"Unknown service type or missing password: {service_type}"
+        error =  ValueError(message)
+        CeleryLogger_instance.log_task_failure(
+            task_id
+            , task_name
+            , str(error)
+            , service_username
+            , service_type=service_type
+            , worker_name=worker_name
+            , queue_name=queue_name
+            , start_time=start_time
+        )
+        raise error
     
-    service_username = service_info['username']
-    service_password = os.getenv(service_info['password_env'])
-    
-    if not service_password:
-        raise ValueError(f"Password not found in environment for {service_username}")
-    
-    logging.info(f"Celery authentication task {task_id} started for service: {service_username}")
-    
-
+    CeleryLogger_instance.log_task_start(
+        task_id
+        , task_name
+        , service_username
+        , service_type=service_type
+        , worker_name=worker_name
+        , queue_name=queue_name
+    )
     
 
     try:
@@ -93,17 +109,45 @@ def authenticate_celery_app(self, service_type: str) -> None:
             json.dumps(token_data)
         )
         
-        logging.info(f"✅ Celery app authenticated successfully for service: {service_username}")
-        return {
+        end_time = datetime.utcnow()
+        start_dt = start_time
+        duration = (end_time - start_dt).total_seconds()
+
+        result ={
             "success": True,
             "service_name": service_username,
-            "user_id": str(service_user['unique_id'])  ,
-            "token_cached": True,
-            "expires_at": token_data["expires_at"]
+            "token": token_data,
+            "duration": duration
         }
-        
+    
+        CeleryLogger_instance.log_task_success(
+            task_id=task_id,
+            task_name=task_name,
+            user=service_username,
+            service_type=service_type,
+            worker_name=worker_name,
+            queue_name=queue_name,
+            start_time=start_time,
+        )
+        return result       
+           
     except Exception as e:
-        logging.error(f"❌ Celery authentication failed for {service_username}: {str(e)}")
+        end_time = datetime.utcnow()
+        start_dt = start_time
+        duration = (end_time - start_dt).total_seconds()
+        
+        # Log failure
+        CeleryLogger_instance.log_task_failure(
+            task_id=task_id,
+            task_name=task_name,
+            error_message=str(e),
+            user=service_username,
+            service_type=service_type,
+            worker_name=worker_name,
+            queue_name=queue_name,
+            start_time=start_time,  
+            additional_info={"duration": duration}
+        )
         raise
     
   
