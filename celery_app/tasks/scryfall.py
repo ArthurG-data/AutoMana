@@ -403,3 +403,8 @@ def stage_scryfall_card_data(self, file_path):
     except Exception as e:
         logging.error(f"Failed to process file '{file_path}': {str(e)}")
         raise
+
+@celery_app.task(bind=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=3)
+def complete_scryfall_data_pipeline(self, source_id):
+    pass
+    
