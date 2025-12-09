@@ -1,8 +1,10 @@
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
+
+CREATE SCHEMA IF NOT EXISTS app_integration;
 --TABLES---------------------------------------------------------------------------------------------
 
-CREATE TABLE IF NOT EXISTS app_info(
+CREATE TABLE IF NOT EXISTS app_integration.app_info(
     --needs to be updated, maybe add cient id??
     app_id TEXT PRIMARY KEY,
     app_name VARCHAR(100) NOT NULL,
@@ -19,18 +21,18 @@ CREATE TABLE IF NOT EXISTS app_info(
 );
 
 
-CREATE TABLE IF NOT EXISTS app_user (
-    user_id UUID REFERENCES users(unique_id) ON DELETE CASCADE NOT NULL,
-    app_id TEXT REFERENCES app_info(app_id )  ON DELETE CASCADE NOT NULL,
+CREATE TABLE IF NOT EXISTS app_integration.app_user (
+    user_id UUID REFERENCES user_management.users(unique_id) ON DELETE CASCADE NOT NULL,
+    app_id TEXT REFERENCES app_integration.app_info(app_id )  ON DELETE CASCADE NOT NULL,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now(),
     is_active BOOLEAN DEFAULT TRUE,
     PRIMARY KEY (user_id, app_id)
 );
 
-CREATE TABLE IF NOT EXISTS ebay_tokens(
+CREATE TABLE IF NOT EXISTS app_integration.ebay_tokens(
     token_id SERIAL PRIMARY KEY,
-    app_id TEXT REFERENCES app_info(app_id) ON DELETE CASCADE NOT NULL,
+    app_id TEXT REFERENCES app_integration.app_info(app_id) ON DELETE CASCADE NOT NULL,
     token TEXT NOT NULL,
     acquired_on TIMESTAMPTZ DEFAULT now(),
     expires_on TIMESTAMPTZ NOT NULL,
@@ -38,33 +40,33 @@ CREATE TABLE IF NOT EXISTS ebay_tokens(
     used BOOLEAN DEFAULT FALSE
 );
 
-CREATE TABLE IF NOT EXISTS scopes (
+CREATE TABLE IF NOT EXISTS app_integration.scopes (
     scope_id SERIAL PRIMARY KEY, 
     scope_url TEXT UNIQUE NOT NULL, 
     scope_description TEXT 
 );
 --new implementation -> allowed to an app, and then user with a subset of that
-CREATE TABLE IF NOT EXISTS scope_app (
-    scope_id INT REFERENCES scopes(scope_id) ON DELETE CASCADE, 
-    app_id TEXT REFERENCES app_info(app_id), 
+CREATE TABLE IF NOT EXISTS app_integration.scope_app (
+    scope_id INT REFERENCES app_integration.scopes(scope_id) ON DELETE CASCADE, 
+    app_id TEXT REFERENCES app_integration.app_info(app_id), 
     granted_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now(),
     PRIMARY KEY (scope_id, app_id)
 );
 
-CREATE TABLE IF NOT EXISTS scopes_user(
-    scope_id INT REFERENCES scopes(scope_id) ON DELETE CASCADE,
-    user_id UUID REFERENCES users(unique_id) ON DELETE CASCADE,
-    app_id TEXT REFERENCES app_info(app_id) ON DELETE CASCADE,
+CREATE TABLE IF NOT EXISTS app_integration.scopes_user(
+    scope_id INT REFERENCES app_integration.scopes(scope_id) ON DELETE CASCADE,
+    user_id UUID REFERENCES user_management.users(unique_id) ON DELETE CASCADE,
+    app_id TEXT REFERENCES app_integration.app_info(app_id) ON DELETE CASCADE,
     granted_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now(),
     PRIMARY KEY (scope_id, user_id)
 );
 
-CREATE TABLE IF NOT EXISTS log_oauth_request (
+CREATE TABLE IF NOT EXISTS app_integration.log_oauth_request (
     unique_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID REFERENCES users(unique_id) ON DELETE CASCADE,
-    app_id TEXT REFERENCES app_info(app_id) ON DELETE CASCADE,
+    user_id UUID REFERENCES user_management.users(unique_id) ON DELETE CASCADE,
+    app_id TEXT REFERENCES app_integration.app_info(app_id) ON DELETE CASCADE,
     request TEXT,
     timestamp TIMESTAMPTZ DEFAULT now(),
     expires_on TIMESTAMPTZ DEFAULT now() + INTERVAL '1 minute',
@@ -73,9 +75,9 @@ CREATE TABLE IF NOT EXISTS log_oauth_request (
 CREATE INDEX IF NOT EXISTS idx_oauth_session ON log_oauth_request(session_id);
 
 -- VEWS----------------------------------------------------------------------------------------------------------------------------------------------
-CREATE OR REPLACE VIEW ebay_app AS 
+CREATE OR REPLACE VIEW app_integration.v_ebay_app AS 
     SELECT ai.app_id, ai.redirect_uri, ai.response_type,ai.client_secret_encrypted, ue.unique_id AS user_id
-    FROM app_info ai
-    JOIN app_user au  ON au.app_id = ai.app_id
-    JOIN user_ebay ue on ue.dev_id = au.dev_id
+    FROM app_integration.app_info ai
+    JOIN app_integration.app_user au  ON au.app_id = ai.app_id
+    JOIN app_integration.user_ebay ue on ue.dev_id = au.dev_id
 --FUNCTIONS----------------------------------------------------------------------------------------------------------------------------------------------
