@@ -19,19 +19,19 @@ CREATE TABLE Customers (
     country VARCHAR(100)
 );
 */
-
+CREATE SCHEMA IF NOT EXISTS user_collection;
 -- Reference: Card Conditions
-CREATE TABLE IF NOT EXISTS Ref_Condition (
+CREATE TABLE IF NOT EXISTS user_collection.ref_condition (
     condition_code SERIAL PRIMARY KEY,
     condition_description VARCHAR(10) UNIQUE NOT NULL
 );
 
 
-CREATE TABLE IF NOT EXISTS Collections (
+CREATE TABLE IF NOT EXISTS user_collection.collections (
     collection_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     collection_name VARCHAR(100) NOT NULL,
     description VARCHAR(100) NOT NULL,
-    user_id UUID REFERENCES users(unique_id) ON DELETE CASCADE,
+    user_id UUID REFERENCES user_management.users(unique_id) ON DELETE CASCADE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     is_active BOOLEAN DEFAULT TRUE,
     UC_Collection UNIQUE (collection_name,user_id)
@@ -39,14 +39,14 @@ CREATE TABLE IF NOT EXISTS Collections (
 
 
 -- Collection Items (Tracks Owned Cards)
-CREATE TABLE  IF NOT EXISTS CollectionItems (
+CREATE TABLE  IF NOT EXISTS user_collection.collection_items (
     item_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    collection_id UUID REFERENCES Collections(collection_id) ON DELETE CASCADE,
-    unique_card_id UUID REFERENCES card_version(card_version_id) ON DELETE CASCADE,
+    collection_id UUID REFERENCES user_collection.collections(collection_id) ON DELETE CASCADE,
+    unique_card_id UUID REFERENCES card_catalog.card_version(card_version_id) ON DELETE CASCADE,
     is_foil BOOLEAN DEFAULT FALSE,
     purchase_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     purchase_price DECIMAL(10,2),  -- Using DECIMAL for better financial precision
-    condition INT REFERENCES Ref_Condition(condition_code) DEFAULT 1  -- Assuming 1 = NM (Near Mint)
+    condition INT REFERENCES user_collection.ref_condition(condition_code) DEFAULT 1  -- Assuming 1 = NM (Near Mint)
 );
 
 

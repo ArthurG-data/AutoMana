@@ -2,7 +2,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- TABLES------------------------------------
 
-CREATE TABLE IF NOT EXISTS unique_cards_ref (
+CREATE TABLE IF NOT EXISTS card_catalog.unique_cards_ref (
     unique_card_id UUID PRIMARY KEY DEFAULT uuid_generate_v4() ON DELETE CASCADE,
     card_name TEXT NOT NULL UNIQUE,
     cmc INT,
@@ -12,93 +12,93 @@ CREATE TABLE IF NOT EXISTS unique_cards_ref (
     other_face_id UUID DEFAULT(NULL)
 );
 
-CREATE TABLE IF NOT EXISTS border_color_ref (
+CREATE TABLE IF NOT EXISTS card_catalog.border_color_ref (
     border_color_id SERIAL PRIMARY KEY, 
     border_color_name VARCHAR(20) NOT NULL UNIQUE
 );
 
-CREATE TABLE IF NOT EXISTS card_types (
-    unique_card_id UUID NOT NULL REFERENCES unique_cards_ref(unique_card_id) ON DELETE CASCADE,
+CREATE TABLE IF NOT EXISTS card_catalog.card_types (
+    unique_card_id UUID NOT NULL REFERENCES card_catalog.unique_cards_ref(unique_card_id) ON DELETE CASCADE,
     type_name VARCHAR(20) NOT NULL,
     type_category TEXT CHECK (type_category IN ('type', 'subtype', 'supertype')),
     PRIMARY KEY (unique_card_id, type_name)
 );
 
-CREATE TABLE IF NOT EXISTS rarities_ref (
+CREATE TABLE IF NOT EXISTS card_catalog.rarities_ref (
     rarity_id SERIAL PRIMARY KEY,
     rarity_name VARCHAR(20) UNIQUE NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS artists_ref (
+CREATE TABLE IF NOT EXISTS card_catalog.artists_ref (
     artist_id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
     artist_name VARCHAR(50) NOT NULL UNIQUE
 );
 
-CREATE TABLE IF NOT EXISTS frames_ref (
+CREATE TABLE IF NOT EXISTS card_catalog.frames_ref (
     frame_id SERIAL PRIMARY KEY,
     frame_year VARCHAR(20) NOT NULL UNIQUE
 );
 
-CREATE TABLE IF NOT EXISTS layouts_ref (
+CREATE TABLE IF NOT EXISTS card_catalog.layouts_ref (
     layout_id SERIAL PRIMARY KEY,
     layout_name VARCHAR(50) NOT NULL UNIQUE
 );
 
-CREATE TABLE IF NOT EXISTS keywords_ref (
+CREATE TABLE IF NOT EXISTS card_catalog.keywords_ref (
     keyword_id SERIAL PRIMARY KEY,
     keyword_name VARCHAR(50) UNIQUE NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS card_keyword (
-    unique_card_id UUID REFERENCES unique_cards_ref(unique_card_id) ON DELETE CASCADE,
-    keyword_id INT NOT NULL REFERENCES keywords_ref(keyword_id) ON DELETE CASCADE,
+CREATE TABLE IF NOT EXISTS card_catalog.card_keyword (
+    unique_card_id UUID REFERENCES card_catalog.unique_cards_ref(unique_card_id) ON DELETE CASCADE,
+    keyword_id INT NOT NULL REFERENCES card_catalog.keywords_ref(keyword_id) ON DELETE CASCADE,
     PRIMARY KEY (unique_card_id, keyword_id)
 );
 
-CREATE TABLE IF NOT EXISTS colors_ref (
+CREATE TABLE IF NOT EXISTS card_catalog.colors_ref (
     color_id SERIAL PRIMARY KEY,
     color_name VARCHAR(20) UNIQUE NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS color_produced (
-    unique_card_id UUID REFERENCES unique_cards_ref(unique_card_id) ON DELETE CASCADE,
-    color_id int NOT NULL REFERENCES colors_ref(color_id) ON DELETE CASCADE,
+CREATE TABLE IF NOT EXISTS card_catalog.color_produced (
+    unique_card_id UUID REFERENCES card_catalog.unique_cards_ref(unique_card_id) ON DELETE CASCADE,
+    color_id int NOT NULL REFERENCES card_catalog.colors_ref(color_id) ON DELETE CASCADE,
     PRIMARY KEY (unique_card_id, color_id)
 );
 
-CREATE TABLE IF NOT EXISTS card_color_identity (
-    unique_card_id UUID REFERENCES unique_cards_ref(unique_card_id) ON DELETE CASCADE,
-    color_id int NOT NULL REFERENCES colors_ref(color_id) ON DELETE CASCADE,
+CREATE TABLE IF NOT EXISTS card_catalog.card_color_identity (
+    unique_card_id UUID REFERENCES card_catalog.unique_cards_ref(unique_card_id) ON DELETE CASCADE,
+    color_id int NOT NULL REFERENCES card_catalog.colors_ref(color_id) ON DELETE CASCADE,
     PRIMARY KEY (unique_card_id, color_id)
 );
 
-CREATE TABLE IF NOT EXISTS formats_ref (
+CREATE TABLE IF NOT EXISTS card_catalog.formats_ref (
     format_id SERIAL PRIMARY KEY,
     format_name VARCHAR(20) UNIQUE NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS legal_status_ref (
+CREATE TABLE IF NOT EXISTS card_catalog.legal_status_ref (
     legality_id SERIAL PRIMARY KEY, 
     legal_status VARCHAR(20) NOT NULL UNIQUE
 );
 
-CREATE TABLE IF NOT EXISTS legalities (
-    unique_card_id UUID REFERENCES unique_cards_ref(unique_card_id) ON DELETE CASCADE,
-    format_id INT NOT NULL REFERENCES formats_ref(format_id) ON DELETE CASCADE,
-    legality_id INT NOT NULL REFERENCES legal_status_ref(legality_id) ON DELETE CASCADE,
+CREATE TABLE IF NOT EXISTS card_catalog.legalities (
+    unique_card_id UUID REFERENCES card_catalog.unique_cards_ref(unique_card_id) ON DELETE CASCADE,
+    format_id INT NOT NULL REFERENCES card_catalog.formats_ref(format_id) ON DELETE CASCADE,
+    legality_id INT NOT NULL REFERENCES card_catalog.legal_status_ref(legality_id) ON DELETE CASCADE,
     PRIMARY KEY(unique_card_id, format_id)
 );
 
-CREATE TABLE IF NOT EXISTS card_version (
+CREATE TABLE IF NOT EXISTS card_catalog.card_version (
     card_version_id UUID PRIMARY KEY DEFAULT uuid_generate_v4() ON DELETE CASCADE,
-    unique_card_id UUID NOT NULL REFERENCES unique_cards_ref(unique_card_id) ON DELETE CASCADE,
+    unique_card_id UUID NOT NULL REFERENCES card_catalog.unique_cards_ref(unique_card_id) ON DELETE CASCADE,
     oracle_text TEXT,
-    set_id UUID NOT NULL REFERENCES sets(set_id),
+    set_id UUID NOT NULL REFERENCES card_catalog.sets(set_id),
     collector_number VARCHAR(50),
-    rarity_id INT NOT NULL REFERENCES rarities_ref(rarity_id) ON DELETE CASCADE,
-    border_color_id INT NOT NULL REFERENCES border_color_ref(border_color_id) ON DELETE CASCADE,
-    frame_id int NOT NULL REFERENCES frames_ref(frame_id) ON DELETE CASCADE,
-    layout_id INT NOT NULL REFERENCES layouts_ref(layout_id) ON DELETE CASCADE, 
+    rarity_id INT NOT NULL REFERENCES card_catalog.rarities_ref(rarity_id) ON DELETE CASCADE,
+    border_color_id INT NOT NULL REFERENCES card_catalog.border_color_ref(border_color_id) ON DELETE CASCADE,
+    frame_id int NOT NULL REFERENCES card_catalog.frames_ref(frame_id) ON DELETE CASCADE,
+    layout_id INT NOT NULL REFERENCES card_catalog.layouts_ref(layout_id) ON DELETE CASCADE, 
     is_promo BOOL DEFAULT false, 
     is_digital BOOL DEFAULT false,
     is_oversized BOOL DEFAULT false,
@@ -109,65 +109,65 @@ CREATE TABLE IF NOT EXISTS card_version (
     UNIQUE (unique_card_id, set_id, collector_number)
 );
 
-CREATE TABLE IF NOT EXISTS illustrations (
+CREATE TABLE IF NOT EXISTS card_catalog.illustrations(
     illustration_id UUID PRIMARY KEY, 
     file_uri TEXT,
     added_on TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS illustration_artist (
+CREATE TABLE IF NOT EXISTS card_catalog.illustration_artist (
     illustration_id uuid PRIMARY KEY REFERENCES illustrations(illustration_id) ON DELETE CASCADE,
     artist_id uuid NOT NULL REFERENCES artists_ref(artist_id) ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS card_version_illustration (
+CREATE TABLE IF NOT EXISTS card_catalog.card_version_illustration (
     card_version_id UUID PRIMARY KEY REFERENCES card_version(card_version_id) ON DELETE CASCADE,
     illustration_id UUID NOT NULL
 );
 
 --need to be added
-CREATE TABLE IF NOT EXISTS games_ref (
+CREATE TABLE IF NOT EXISTS card_catalog.games_ref (
     game_id SERIAL PRIMARY KEY,
     game_description  VARCHAR(20) NOT NULL UNIQUE 
 );
 --new stats table
-CREATE TABLE IF NOT EXISTS card_stats_ref (
+CREATE TABLE IF NOT EXISTS card_catalog.card_stats_ref (
     stat_id SERIAL PRIMARY KEY,
     stat_name VARCHAR(20) NOT NULL UNIQUE,
     stat_description TEXT
 );
 --reference  newly added
-INSERT INTO card_stats_ref (stat_name, stat_description) VALUES
+INSERT INTO card_catalog.card_stats_ref (stat_name, stat_description) VALUES
 ('power', 'Creature power value'),
 ('toughness', 'Creature toughness value'),
 ('loyalty', 'Planeswalker loyalty value'),
 ('defense', 'Battle defense value');
 
 -- versioned stats table
-CREATE TABLE IF NOT EXISTS card_version_stats (
+CREATE TABLE IF NOT EXISTS card_catalog.card_version_stats (
     card_version_id UUID NOT NULL REFERENCES card_version(card_version_id) ON DELETE CASCADE,
     stat_id INT NOT NULL REFERENCES card_stats_ref(stat_id) ON DELETE CASCADE,
     stat_value TEXT NOT NULL,
     PRIMARY KEY (card_version_id, stat_id)
 );
 
-CREATE TABLE IF NOT EXISTS games_card_version (
+CREATE TABLE IF NOT EXISTS card_catalog.games_card_version (
     game_id INT NOT NULL REFERENCES games_ref(game_id),
     card_version_id UUID NOT NULL REFERENCES card_version(card_version_id),
     PRIMARY KEY (game_id, card_version_id)
 );
-CREATE TABLE IF NOT EXISTS promo_types_ref (
+CREATE TABLE IF NOT EXISTS card_catalog.promo_types_ref (
     promo_id SERIAL PRIMARY KEY,
     promo_type_desc TEXT UNIQUE NOT NULL 
 );
 
-CREATE TABLE IF NOT EXISTS promo_card (
+CREATE TABLE IF NOT EXISTS card_catalog.promo_card (
     promo_id INT NOT NULL REFERENCES promo_types_ref(promo_id),
     card_version_id UUID NOT NULL REFERENCES card_version(card_version_id),
 	PRIMARY KEY (promo_id, card_version_id)
 );
 
-CREATE TABLE IF NOT EXISTS card_faces (
+CREATE TABLE IF NOT EXISTS card_catalog.card_faces (
     card_faces_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     card_version_id UUID NOT NULL REFERENCES card_version(card_version_id),
     face_index INT,
@@ -180,7 +180,7 @@ CREATE TABLE IF NOT EXISTS card_faces (
     flavor_text TEXT
 );
 
-CREATE TABLE IF NOT EXISTS card_external_identifier (
+CREATE TABLE IF NOT EXISTS card_catalog.card_external_identifier (
     card_identifier_ref_id SMALLINT NOT NULL REFERENCES card_identifier_ref(card_identifier_ref_id),
     card_version_id UUID NOT NULL REFERENCES card_version(card_version_id) ON DELETE CASCADE,
     value TEXT NOT NULL,
@@ -190,7 +190,7 @@ CREATE TABLE IF NOT EXISTS card_external_identifier (
     UNIQUE (card_identifier_ref_id, value)
 );
 
-CREATE TABLE IF NOT EXISTS card_identifier_ref (
+CREATE TABLE IF NOT EXISTS card_catalog.card_identifier_ref (
     card_identifier_ref_id SMALLSERIAL PRIMARY KEY,
     identifier_name TEXT UNIQUE NOT NULL,
     created_at TIMESTAMPTZ DEFAULT now(),
@@ -199,16 +199,16 @@ CREATE TABLE IF NOT EXISTS card_identifier_ref (
 );
 
 --VIEWS -------------------------------------
-CREATE OR REPLACE VIEW card_version_count AS
+CREATE OR REPLACE VIEW card_catalog.v_card_version_count AS
 SELECT
-    uc.card_id,
-    uc.name,
-    COUNT(cv.version_id) AS version_count
-FROM unique_card uc
-LEFT JOIN card_version cv ON uc.card_id = cv.card_id
-GROUP BY uc.card_id, uc.name;
+    uc.unique_card_id,
+    uc.card_name,
+    COUNT(cv.card_version_id) AS version_count
+FROM card_catalog.unique_cards_ref uc
+LEFT JOIN card_catalog.card_version cv ON uc.unique_card_id = cv.unique_card_id
+GROUP BY uc.unique_card_id, uc.card_name;
 
-CREATE MATERIALIZED VIEW mv_card_versions_complete AS
+CREATE MATERIALIZED VIEW card_catalog.v_card_versions_complete AS
 WITH 
 -- Card types aggregated
 card_types_agg AS (
@@ -217,7 +217,7 @@ card_types_agg AS (
         array_agg(ct.type_name ORDER BY ct.type_name) FILTER (WHERE ct.type_category = 'type') AS types,
         array_agg(ct.type_name ORDER BY ct.type_name) FILTER (WHERE ct.type_category = 'subtype') AS subtypes,
         array_agg(ct.type_name ORDER BY ct.type_name) FILTER (WHERE ct.type_category = 'supertype') AS supertypes
-    FROM card_types ct
+    FROM card_catalog.card_types ct
     GROUP BY ct.unique_card_id
 ),
 -- Colors aggregated
@@ -225,8 +225,8 @@ colors_agg AS (
     SELECT 
         cci.unique_card_id,
         array_agg(cr.color_name ORDER BY cr.color_name) AS color_identity
-    FROM card_color_identity cci
-    JOIN colors_ref cr ON cci.color_id = cr.color_id
+    FROM card_catalog.card_color_identity cci
+    JOIN card_catalog.colors_ref cr ON cci.color_id = cr.color_id
     GROUP BY cci.unique_card_id
 ),
 -- Keywords aggregated
@@ -234,8 +234,8 @@ keywords_agg AS (
     SELECT 
         ck.unique_card_id,
         array_agg(kr.keyword_name ORDER BY kr.keyword_name) AS keywords
-    FROM card_keyword ck
-    JOIN keywords_ref kr ON ck.keyword_id = kr.keyword_id
+    FROM card_catalog.card_keyword ck
+    JOIN card_catalog.keywords_ref kr ON ck.keyword_id = kr.keyword_id
     GROUP BY ck.unique_card_id
 ),
 -- Legalities aggregated
@@ -246,9 +246,9 @@ legalities_agg AS (
             fr.format_name, 
             lsr.legal_status
         ) AS legalities
-    FROM legalities l
-    JOIN formats_ref fr ON l.format_id = fr.format_id
-    JOIN legal_status_ref lsr ON l.legality_id = lsr.legality_id
+    FROM card_catalog.legalities l
+    JOIN card_catalog.formats_ref fr ON l.format_id = fr.format_id
+    JOIN card_catalog.legal_status_ref lsr ON l.legality_id = lsr.legality_id
     GROUP BY l.unique_card_id
 ),
 -- Games aggregated
@@ -256,8 +256,8 @@ games_agg AS (
     SELECT 
         gcv.card_version_id,
         array_agg(gr.game_description ORDER BY gr.game_description) AS games
-    FROM games_card_version gcv
-    JOIN games_ref gr ON gcv.game_id = gr.game_id
+    FROM card_catalog.games_card_version gcv
+    JOIN card_catalog.games_ref gr ON gcv.game_id = gr.game_id
     GROUP BY gcv.card_version_id
 ),
 -- Promo types aggregated
@@ -265,8 +265,8 @@ promo_types_agg AS (
     SELECT 
         pc.card_version_id,
         array_agg(ptr.promo_type_desc ORDER BY ptr.promo_type_desc) AS promo_types
-    FROM promo_card pc
-    JOIN promo_types_ref ptr ON pc.promo_id = ptr.promo_id
+    FROM card_catalog.promo_card pc
+    JOIN card_catalog.promo_types_ref ptr ON pc.promo_id = ptr.promo_id
     GROUP BY pc.card_version_id
 ),
 -- Card stats pivoted
@@ -277,8 +277,8 @@ card_stats_agg AS (
         MAX(CASE WHEN csr.stat_name = 'toughness' THEN cvs.stat_value END) AS toughness,
         MAX(CASE WHEN csr.stat_name = 'loyalty' THEN cvs.stat_value END) AS loyalty,
         MAX(CASE WHEN csr.stat_name = 'defense' THEN cvs.stat_value END) AS defense
-    FROM card_version_stats cvs
-    JOIN card_stats_ref csr ON cvs.stat_id = csr.stat_id
+    FROM card_catalog.card_version_stats cvs
+    JOIN card_catalog.card_stats_ref csr ON cvs.stat_id = csr.stat_id
     GROUP BY cvs.card_version_id
 ),
 -- Illustrations with artists
@@ -290,10 +290,10 @@ illustrations_agg AS (
         ar.artist_id,
         i.file_uri,
         i.added_on AS illustration_added_on
-    FROM card_version_illustration cvi
-    JOIN illustrations i ON cvi.illustration_id = i.illustration_id
-    LEFT JOIN illustration_artist ia ON i.illustration_id = ia.illustration_id
-    LEFT JOIN artists_ref ar ON ia.artist_id = ar.artist_id
+    FROM card_catalog.card_version_illustration cvi
+    JOIN card_catalog.illustrations i ON cvi.illustration_id = i.illustration_id
+    LEFT JOIN card_catalog.illustration_artist ia ON i.illustration_id = ia.illustration_id
+    LEFT JOIN card_catalog.artists_ref ar ON ia.artist_id = ar.artist_id
 ),
 -- Card faces aggregated
 card_faces_agg AS (
@@ -311,7 +311,7 @@ card_faces_agg AS (
                 'flavor_text', cf.flavor_text
             ) ORDER BY cf.face_index
         ) AS card_faces
-    FROM card_faces cf
+    FROM card_catalog.card_faces cf
     GROUP BY cf.card_version_id
 )
 
@@ -413,13 +413,13 @@ SELECT
     -- Timestamps
     CURRENT_TIMESTAMP AS materialized_at
 
-FROM card_version cv
-JOIN unique_cards_ref ucr ON cv.unique_card_id = ucr.unique_card_id
+FROM card_catalog.card_version cv
+JOIN card_catalog.unique_cards_ref ucr ON cv.unique_card_id = ucr.unique_card_id
 JOIN sets s ON cv.set_id = s.set_id
-JOIN rarities_ref rr ON cv.rarity_id = rr.rarity_id
-JOIN border_color_ref bcr ON cv.border_color_id = bcr.border_color_id
-JOIN frames_ref fr ON cv.frame_id = fr.frame_id
-JOIN layouts_ref lr ON cv.layout_id = lr.layout_id
+JOIN card_catalog.rarities_ref rr ON cv.rarity_id = rr.rarity_id
+JOIN card_catalog.border_color_ref bcr ON cv.border_color_id = bcr.border_color_id
+JOIN card_catalog.frames_ref fr ON cv.frame_id = fr.frame_id
+JOIN card_catalog.layouts_ref lr ON cv.layout_id = lr.layout_id
 
 -- Join aggregated data
 LEFT JOIN card_types_agg cta ON ucr.unique_card_id = cta.unique_card_id
@@ -432,19 +432,19 @@ LEFT JOIN card_stats_agg csa ON cv.card_version_id = csa.card_version_id
 LEFT JOIN illustrations_agg ia ON cv.card_version_id = ia.card_version_id
 LEFT JOIN card_faces_agg cfa ON cv.card_version_id = cfa.card_version_id;
 
-CREATE UNIQUE INDEX idx_mv_card_versions_complete_pk ON mv_card_versions_complete (card_version_id);
-CREATE INDEX idx_mv_card_versions_complete_name ON mv_card_versions_complete (card_name);
-CREATE INDEX idx_mv_card_versions_complete_set ON mv_card_versions_complete (set_name, collector_number);
-CREATE INDEX idx_mv_card_versions_complete_cmc ON mv_card_versions_complete (cmc);
-CREATE INDEX idx_mv_card_versions_complete_colors ON mv_card_versions_complete USING GIN (color_identity);
-CREATE INDEX idx_mv_card_versions_complete_types ON mv_card_versions_complete USING GIN (types);
-CREATE INDEX idx_mv_card_versions_complete_rarity ON mv_card_versions_complete (rarity_name);
-CREATE INDEX idx_mv_card_versions_complete_search ON mv_card_versions_complete USING GIN (search_vector);
-CREATE INDEX idx_mv_card_versions_complete_legalities ON mv_card_versions_complete USING GIN (legalities);
+CREATE UNIQUE INDEX idx_v_card_versions_complete_pk ON card_catalog.v_card_versions_complete (card_version_id);
+CREATE INDEX idx_v_card_versions_complete_name ON card_catalog.v_card_versions_complete (card_name);
+CREATE INDEX idx_v_card_versions_complete_set ON card_catalog.v_card_versions_complete (set_name, collector_number);
+CREATE INDEX idx_v_card_versions_complete_cmc ON card_catalog.v_card_versions_complete (cmc);
+CREATE INDEX idx_v_card_versions_complete_colors ON card_catalog.v_card_versions_complete USING GIN (color_identity);
+CREATE INDEX idx_v_card_versions_complete_types ON card_catalog.v_card_versions_complete USING GIN (types);
+CREATE INDEX idx_v_card_versions_complete_rarity ON card_catalog.v_card_versions_complete (rarity_name);
+CREATE INDEX idx_v_card_versions_complete_search ON card_catalog.v_card_versions_complete USING GIN (search_vector);
+CREATE INDEX idx_v_card_versions_complete_legalities ON card_catalog.v_card_versions_complete USING GIN (legalities);
 
 
 --STORED PROCEDURE---------------------------
-CREATE OR REPLACE FUNCTION insert_full_card_version(
+CREATE OR REPLACE FUNCTION card_catalog.insert_full_card_version(
     p_card_name TEXT,
     p_cmc INT,
     p_mana_cost TEXT,
@@ -519,12 +519,12 @@ DECLARE
     v_cardmarket_id INT;
 BEGIN
     -- Insert or retrieve unique card
-    INSERT INTO unique_cards_ref (card_name, cmc, mana_cost, reserved)
+    INSERT INTO card_catalog.unique_cards_ref (card_name, cmc, mana_cost, reserved)
     VALUES (p_card_name, p_cmc, p_mana_cost, p_reserved)
     ON CONFLICT (card_name) DO NOTHING;
 
     SELECT unique_card_id INTO v_unique_card_id
-    FROM unique_cards_ref
+    FROM card_catalog.unique_cards_ref
     WHERE card_name = p_card_name;
 
     -- Set lookup
@@ -536,40 +536,40 @@ BEGIN
         v_set_id := '00000000-0000-0000-0000-000000000002';
     END IF;
     -- Rarity
-    INSERT INTO rarities_ref (rarity_name) VALUES (p_rarity_name)
+    INSERT INTO card_catalog.rarities_ref (rarity_name) VALUES (p_rarity_name)
     ON CONFLICT DO NOTHING;
-    SELECT rarity_id INTO v_rarity_id FROM rarities_ref WHERE rarity_name = p_rarity_name;
+    SELECT rarity_id INTO v_rarity_id FROM card_catalog.rarities_ref WHERE rarity_name = p_rarity_name;
 
     -- Border
-    INSERT INTO border_color_ref (border_color_name) VALUES (p_border_color)
+    INSERT INTO card_catalog.border_color_ref (border_color_name) VALUES (p_border_color)
     ON CONFLICT DO NOTHING;
-    SELECT border_color_id INTO v_border_color_id FROM border_color_ref WHERE border_color_name = p_border_color;
+    SELECT border_color_id INTO v_border_color_id FROM card_catalog.border_color_ref WHERE border_color_name = p_border_color;
 
     -- Frame
-    INSERT INTO frames_ref (frame_year) VALUES (p_frame_year)
+    INSERT INTO card_catalog.frames_ref (frame_year) VALUES (p_frame_year)
     ON CONFLICT DO NOTHING;
-    SELECT frame_id INTO v_frame_id FROM frames_ref WHERE frame_year = p_frame_year;
+    SELECT frame_id INTO v_frame_id FROM card_catalog.frames_ref WHERE frame_year = p_frame_year;
 
     -- Layout
-    INSERT INTO layouts_ref (layout_name) VALUES (p_layout_name)
+    INSERT INTO card_catalog.layouts_ref (layout_name) VALUES (p_layout_name)
     ON CONFLICT DO NOTHING;
-    SELECT layout_id INTO v_layout_id FROM layouts_ref WHERE layout_name = p_layout_name;
+    SELECT layout_id INTO v_layout_id FROM card_catalog.layouts_ref WHERE layout_name = p_layout_name;
 
     -- Artist
-    INSERT INTO artists_ref (artist_id, artist_name) VALUES (p_artist_id, p_artist)
+    INSERT INTO card_catalog.artists_ref (artist_id, artist_name) VALUES (p_artist_id, p_artist)
     ON CONFLICT DO NOTHING;
 
     -- Illustration
-    INSERT INTO illustrations (illustration_id)
+    INSERT INTO card_catalog.illustrations (illustration_id)
     VALUES (p_illustration_id)
     ON CONFLICT DO NOTHING;
 
-    INSERT INTO illustration_artist (illustration_id, artist_id)
+    INSERT INTO card_catalog.illustration_artist (illustration_id, artist_id)
     VALUES (p_illustration_id, p_artist_id)
     ON CONFLICT DO NOTHING;
 
     -- Card version
-    INSERT INTO card_version (
+    INSERT INTO card_catalog.card_version (
         unique_card_id, oracle_text, set_id,
         collector_number, rarity_id, border_color_id,
         frame_id, layout_id, is_promo, is_digital,
@@ -600,39 +600,39 @@ BEGIN
         FROM provided
         WHERE value IS NOT NULL
     )
-    INSERT INTO card_external_identifier  (card_identifier_ref_id, card_version_id, value)
+    INSERT INTO card_catalog.card_external_identifier  (card_identifier_ref_id, card_version_id, value)
     SELECT r. card_identifier_ref_id, v_card_version_id, n.value
     FROM non_null n
-    JOIN card_identifier_ref r
+    JOIN card_catalog.card_identifier_ref r
     ON r.identifier_name = n.name
     ON CONFLICT DO NOTHING;
 
 
     --card stat
-    INSERT INTO card_version_stats (card_version_id, stat_id, stat_value)
+    INSERT INTO card_catalog.card_version_stats (card_version_id, stat_id, stat_value)
     SELECT v_card_version_id, stat_id, stat_value
     FROM (
         VALUES 
-            ((SELECT stat_id FROM card_stats_ref WHERE stat_name = 'power'), p_power),
-            ((SELECT stat_id FROM card_stats_ref WHERE stat_name = 'toughness'), p_toughness),
-            ((SELECT stat_id FROM card_stats_ref WHERE stat_name = 'loyalty'), p_loyalty),
-            ((SELECT stat_id FROM card_stats_ref WHERE stat_name = 'defense'), p_defense)
+            ((SELECT stat_id FROM card_catalog.card_stats_ref WHERE stat_name = 'power'), p_power),
+            ((SELECT stat_id FROM card_catalog.card_stats_ref WHERE stat_name = 'toughness'), p_toughness),
+            ((SELECT stat_id FROM card_catalog.card_stats_ref WHERE stat_name = 'loyalty'), p_loyalty),
+            ((SELECT stat_id FROM card_catalog.card_stats_ref WHERE stat_name = 'defense'), p_defense)
     ) AS stats(stat_id, stat_value)
     WHERE stat_value IS NOT NULL
     ON CONFLICT DO NOTHING;
 
     --card illustrations
-    INSERT INTO card_version_illustration (card_version_id, illustration_id)
+    INSERT INTO card_catalog.card_version_illustration (card_version_id, illustration_id)
     VALUES (v_card_version_id, p_illustration_id)
     ON CONFLICT DO NOTHING;
 
     -- Promo types
     FOR v_promo_type IN SELECT jsonb_array_elements_text(p_promo_types)
     LOOP
-        INSERT INTO promo_types_ref (promo_type_desc) VALUES (v_promo_type)
+        INSERT INTO card_catalog.promo_types_ref (promo_type_desc) VALUES (v_promo_type)
         ON CONFLICT DO NOTHING;
-        SELECT promo_id INTO v_promo_id FROM promo_types_ref WHERE promo_type_desc = v_promo_type;
-        INSERT INTO promo_card(promo_id, card_version_id)
+        SELECT promo_id INTO v_promo_id FROM card_catalog.promo_types_ref WHERE promo_type_desc = v_promo_type;
+        INSERT INTO card_catalog.promo_card(promo_id, card_version_id)
         VALUES (v_promo_id, v_card_version_id)
         ON CONFLICT DO NOTHING;
     END LOOP;
@@ -642,19 +642,19 @@ BEGIN
     OR jsonb_typeof(p_card_faces) <> 'array'
     OR jsonb_array_length(p_card_faces) = 0 THEN
         FOR v_type IN SELECT jsonb_array_elements_text(p_supertypes) LOOP
-            INSERT INTO card_types (unique_card_id, type_name, type_category)
+            INSERT INTO card_catalog.card_types (unique_card_id, type_name, type_category)
             VALUES (v_unique_card_id, v_type, 'supertype')
             ON CONFLICT (unique_card_id, type_name) DO NOTHING;
         END LOOP;
 
         FOR v_type IN SELECT jsonb_array_elements_text(p_types) LOOP
-            INSERT INTO card_types (unique_card_id, type_name, type_category)
+            INSERT INTO card_catalog.card_types (unique_card_id, type_name, type_category)
             VALUES (v_unique_card_id, v_type, 'type')
             ON CONFLICT (unique_card_id, type_name) DO NOTHING;
         END LOOP;
 
         FOR v_type IN SELECT jsonb_array_elements_text(p_subtypes) LOOP
-            INSERT INTO card_types (unique_card_id, type_name, type_category)
+            INSERT INTO card_catalog.card_types (unique_card_id, type_name, type_category)
             VALUES (v_unique_card_id, v_type, 'subtype')
             ON CONFLICT (unique_card_id, type_name) DO NOTHING;
         END LOOP;
@@ -669,25 +669,25 @@ BEGIN
                 v_artist_uuid := (v_face ->> 'artist_id')::UUID;
                 v_artist_name := (v_face ->> 'artist')::TEXT;
 
-                INSERT INTO artists_ref (artist_id, artist_name)
+                INSERT INTO card_catalog.artists_ref (artist_id, artist_name)
                 VALUES (v_artist_uuid, v_artist_name)
                 ON CONFLICT DO NOTHING;
 
-                INSERT INTO illustrations (illustration_id)
+                INSERT INTO card_catalog.illustrations (illustration_id)
                 VALUES (v_illustration_id)
                 ON CONFLICT DO NOTHING;
 
-                INSERT INTO illustration_artist (illustration_id, artist_id)
+                INSERT INTO card_catalog.illustration_artist (illustration_id, artist_id)
                 VALUES (v_illustration_id, v_artist_uuid)
                 ON CONFLICT DO NOTHING;
 
-                INSERT INTO card_version_illustration (card_version_id, illustration_id)
+                INSERT INTO card_catalog.card_version_illustration (card_version_id, illustration_id)
                 VALUES (v_card_version_id, v_illustration_id)
                 ON CONFLICT DO NOTHING;
             END IF;
 
             -- Insert card face
-            INSERT INTO card_faces (
+            INSERT INTO card_catalog.card_faces (
                 card_version_id, face_index, name, mana_cost,
                 type_line, oracle_text, power, toughness, flavor_text
             ) VALUES (
@@ -704,19 +704,19 @@ BEGIN
 
             -- Face-level types
             FOR v_type IN SELECT jsonb_array_elements_text(v_face -> 'supertypes') LOOP
-                INSERT INTO card_types (unique_card_id, type_name, type_category)
+                INSERT INTO card_catalog.card_types (unique_card_id, type_name, type_category)
                 VALUES (v_unique_card_id, v_type, 'supertype')
                 ON CONFLICT (unique_card_id, type_name) DO NOTHING;
             END LOOP;
 
             FOR v_type IN SELECT jsonb_array_elements_text(v_face -> 'types') LOOP
-                INSERT INTO card_types (unique_card_id, type_name, type_category)
+                INSERT INTO card_catalog.card_types (unique_card_id, type_name, type_category)
                 VALUES (v_unique_card_id, v_type, 'type')
                 ON CONFLICT (unique_card_id, type_name) DO NOTHING;
             END LOOP;
 
             FOR v_type IN SELECT jsonb_array_elements_text(v_face -> 'subtypes') LOOP
-                INSERT INTO card_types (unique_card_id, type_name, type_category)
+                INSERT INTO card_catalog.card_types (unique_card_id, type_name, type_category)
                 VALUES (v_unique_card_id, v_type, 'subtype')
                 ON CONFLICT (unique_card_id, type_name) DO NOTHING;
             END LOOP;
@@ -725,20 +725,20 @@ BEGIN
 
     -- Games
     FOR v_game IN SELECT jsonb_array_elements_text(p_games) LOOP
-        INSERT INTO games_ref (game_description) VALUES (v_game)
+        INSERT INTO card_catalog.games_ref (game_description) VALUES (v_game)
         ON CONFLICT DO NOTHING;
-        SELECT game_id INTO v_game_id FROM games_ref WHERE game_description = v_game;
-        INSERT INTO games_card_version (card_version_id, game_id)
+        SELECT game_id INTO v_game_id FROM card_catalog.games_ref WHERE game_description = v_game;
+        INSERT INTO card_catalog.games_card_version (card_version_id, game_id)
         VALUES (v_card_version_id, v_game_id)
         ON CONFLICT DO NOTHING;
     END LOOP;
 
     -- Colors
     FOR v_color IN SELECT jsonb_array_elements_text(p_colors) LOOP
-        INSERT INTO colors_ref (color_name) VALUES (v_color)
+        INSERT INTO card_catalog.colors_ref (color_name) VALUES (v_color)
         ON CONFLICT DO NOTHING;
-        SELECT color_id INTO v_color_id FROM colors_ref WHERE color_name = v_color;
-        INSERT INTO card_color_identity (unique_card_id, color_id)
+        SELECT color_id INTO v_color_id FROM card_catalog.colors_ref WHERE color_name = v_color;
+        INSERT INTO card_catalog.card_color_identity (unique_card_id, color_id)
         VALUES (v_unique_card_id, v_color_id)
         ON CONFLICT DO NOTHING;
     END LOOP;
@@ -746,17 +746,17 @@ BEGIN
     -- Legalities
     FOR v_format, v_status IN SELECT * FROM jsonb_each_text(p_legalities) LOOP
         IF v_status != 'not_legal' THEN
-            INSERT INTO legal_status_ref (legal_status) VALUES (v_status)
+            INSERT INTO card_catalog.legal_status_ref (legal_status) VALUES (v_status)
             ON CONFLICT DO NOTHING;
 
-            SELECT legality_id INTO v_legality_id FROM legal_status_ref WHERE legal_status = v_status;
+            SELECT legality_id INTO v_legality_id FROM card_catalog.legal_status_ref WHERE legal_status = v_status;
 
-            INSERT INTO formats_ref (format_name) VALUES (v_format)
+            INSERT INTO card_catalog.formats_ref (format_name) VALUES (v_format)
             ON CONFLICT DO NOTHING;
 
-            SELECT format_id INTO v_format_id FROM formats_ref WHERE format_name = v_format;
+            SELECT format_id INTO v_format_id FROM card_catalog.formats_ref WHERE format_name = v_format;
 
-            INSERT INTO legalities (unique_card_id, format_id, legality_id)
+            INSERT INTO card_catalog.legalities (unique_card_id, format_id, legality_id)
             VALUES (v_unique_card_id, v_format_id, v_legality_id)
             ON CONFLICT DO NOTHING;
         END IF;
@@ -766,7 +766,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 ------------------------------------------------
-CREATE OR REPLACE FUNCTION insert_batch_card_versions(
+CREATE OR REPLACE FUNCTION card_catalog.insert_batch_card_versions(
     p_cards JSONB  -- Array of card objects
 )
 RETURNS TABLE (
@@ -793,7 +793,7 @@ BEGIN
         
         BEGIN
             -- Call your existing function
-            SELECT insert_full_card_version(
+            SELECT card_catalog.insert_full_card_version(
                 v_card ->> 'card_name',
                 (v_card ->> 'cmc')::INT,
                 v_card ->> 'mana_cost',
@@ -868,18 +868,18 @@ CREATE INDEX idx_card_types_category ON card_types (type_category);
 CREATE INDEX idx_card_types_name ON card_types (type_name);
 */
 
-CREATE OR REPLACE FUNCTION refresh_card_versions_complete()
+CREATE OR REPLACE FUNCTION card_catalog.refresh_card_versions_complete()
 RETURNS void AS $$
 BEGIN
-    REFRESH MATERIALIZED VIEW CONCURRENTLY mv_card_versions_complete;
+    REFRESH MATERIALIZED VIEW CONCURRENTLY card_catalog.v_card_versions_complete;
     
     -- Log refresh
-    RAISE NOTICE 'Materialized view mv_card_versions_complete refreshed at %', now();
+    RAISE NOTICE 'Materialized view v_card_versions_complete refreshed at %', now();
 END;
 $$ LANGUAGE plpgsql;
 
 -- ✅ AUTO REFRESH: Trigger function to auto-refresh on data changes
-CREATE OR REPLACE FUNCTION trigger_refresh_card_versions()
+CREATE OR REPLACE FUNCTION card_catalog.trigger_refresh_card_versions()
 RETURNS trigger AS $$
 BEGIN
     -- Schedule refresh (you might want to implement a queue system for production)
@@ -889,17 +889,17 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER tr_card_version_refresh 
-    AFTER INSERT OR UPDATE OR DELETE ON card_version
-    FOR EACH ROW EXECUTE FUNCTION trigger_refresh_card_versions();
+    AFTER INSERT OR UPDATE OR DELETE ON card_catalog.card_version
+    FOR EACH ROW EXECUTE FUNCTION card_catalog.trigger_refresh_card_versions();
 
 CREATE TRIGGER tr_unique_cards_refresh 
-    AFTER INSERT OR UPDATE OR DELETE ON unique_cards_ref
-    FOR EACH ROW EXECUTE FUNCTION trigger_refresh_card_versions();
+    AFTER INSERT OR UPDATE OR DELETE ON card_catalog.unique_cards_ref
+    FOR EACH ROW EXECUTE FUNCTION card_catalog.trigger_refresh_card_versions();
 
     -- ✅ HELPER VIEWS: Additional views for common queries
 
 -- Quick card lookup by name
-CREATE OR REPLACE VIEW v_cards_by_name AS
+CREATE OR REPLACE VIEW card_catalog.v_cards_by_name AS
 SELECT 
     card_name,
     COUNT(*) AS version_count,
@@ -907,11 +907,11 @@ SELECT
     MIN(cmc) AS min_cmc,
     MAX(cmc) AS max_cmc,
     array_agg(DISTINCT rarity_name ORDER BY rarity_name) AS rarities
-FROM mv_card_versions_complete
+FROM card_catalog.v_card_versions_complete
 GROUP BY card_name;
 
 -- Latest version of each card
-CREATE OR REPLACE VIEW v_cards_latest_version AS
+CREATE OR REPLACE VIEW card_catalog.v_cards_latest_version AS
 SELECT DISTINCT ON (card_name)
     card_version_id,
     card_name,
@@ -925,11 +925,11 @@ SELECT DISTINCT ON (card_name)
     power,
     toughness,
     loyalty
-FROM mv_card_versions_complete
+FROM card_catalog.v_card_versions_complete
 ORDER BY card_name, materialized_at DESC;
 
 -- Cards by set statistics
-CREATE OR REPLACE VIEW v_set_statistics AS
+CREATE OR REPLACE VIEW card_catalog.v_set_statistics AS
 SELECT 
     set_name,
     set_code,
@@ -942,5 +942,9 @@ SELECT
     AVG(cmc) AS avg_cmc,
     MIN(cmc) AS min_cmc,
     MAX(cmc) AS max_cmc
-FROM mv_card_versions_complete
+FROM card_catalog.v_card_versions_complete
 GROUP BY set_name, set_code;
+
+##############
+-- END OF FILE --
+##############
