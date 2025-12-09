@@ -1,13 +1,15 @@
-CREATE TABLE IF NOT EXISTS set_type_list_ref(
+CREATE SCHEMA IF NOT EXISTS card_catalog;
+
+CREATE TABLE IF NOT EXISTS card_catalog.set_type_list_ref(
     set_type_id SERIAL NOT NULL PRIMARY KEY,
     set_type VARCHAR(20) UNIQUE NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS sets(
+CREATE TABLE IF NOT EXISTS card_catalog.sets(
     set_id UUID NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
     set_name VARCHAR(100) UNIQUE NOT NULL,
     set_code VARCHAR(10) UNIQUE NOT NULL,
-    set_type_id INT NOT NULL REFERENCES set_type_list_ref(set_type_id),
+    set_type_id INT NOT NULL REFERENCES card_catalog.set_type_list_ref(set_type_id),
     released_at DATE NOT NULL,
     digital BOOL DEFAULT FALSE,
     nonfoil_only BOOL DEFAULT FALSE,
@@ -18,14 +20,14 @@ CREATE TABLE IF NOT EXISTS sets(
     updated_at DATE DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS icon_query_ref(
+CREATE TABLE IF NOT EXISTS card_catalog.icon_query_ref(
     icon_query_id SERIAL PRIMARY KEY,
     icon_query_uri VARCHAR(500) UNIQUE NOT NULL
 );
 
-CREATE TABLE  IF NOT EXISTS icon_set(
-    icon_query_id INT REFERENCES icon_query_ref(icon_query_id),
-    set_id UUID REFERENCES sets(set_id) UNIQUE,
+CREATE TABLE  IF NOT EXISTS card_catalog.icon_set(
+    icon_query_id INT REFERENCES card_catalog.icon_query_ref(icon_query_id),
+    set_id UUID REFERENCES card_catalog.sets(set_id) UNIQUE,
     PRIMARY KEY (icon_query_id, set_id)
 );
 
