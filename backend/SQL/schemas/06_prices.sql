@@ -1,4 +1,4 @@
-
+CREATE SCHEMA IF NOT EXISTS pricing;
 CREATE TABLE IF NOT EXISTS price_source (
   source_id   SMALLSERIAL PRIMARY KEY,
   code        TEXT UNIQUE NOT NULL,   -- 'tcgplayer','cardkingdom','ebay','amazon', etc.

@@ -3,7 +3,7 @@ from contextlib import contextmanager
 import os,dotenv, logging
 from pathlib import Path
 
-env_path = Path(__file__).parent.parent / "agentic_workflow" /".env"
+env_path = Path(__file__).parent.parent / "agentic_workflows" /".env"
 dotenv.load_dotenv(env_path)
 
 logging.basicConfig(level=logging.INFO)
