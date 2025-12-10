@@ -1,13 +1,15 @@
-CREATE TABLE IF NOT EXISTS set_type_list_ref(
+CREATE SCHEMA IF NOT EXISTS card_catalog;
+
+CREATE TABLE IF NOT EXISTS card_catalog.set_type_list_ref(
     set_type_id SERIAL NOT NULL PRIMARY KEY,
     set_type VARCHAR(20) UNIQUE NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS sets(
+CREATE TABLE IF NOT EXISTS card_catalog.sets(
     set_id UUID NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
     set_name VARCHAR(100) UNIQUE NOT NULL,
     set_code VARCHAR(10) UNIQUE NOT NULL,
-    set_type_id INT NOT NULL REFERENCES set_type_list_ref(set_type_id),
+    set_type_id INT NOT NULL REFERENCES card_catalog.set_type_list_ref(set_type_id),
     released_at DATE NOT NULL,
     digital BOOL DEFAULT FALSE,
     nonfoil_only BOOL DEFAULT FALSE,
@@ -18,46 +20,47 @@ CREATE TABLE IF NOT EXISTS sets(
     updated_at DATE DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS icon_query_ref(
+CREATE TABLE IF NOT EXISTS card_catalog.icon_query_ref(
     icon_query_id SERIAL PRIMARY KEY,
     icon_query_uri VARCHAR(500) UNIQUE NOT NULL
 );
 
-CREATE TABLE  IF NOT EXISTS icon_set(
-    icon_query_id INT REFERENCES icon_query_ref(icon_query_id),
-    set_id UUID REFERENCES sets(set_id) UNIQUE,
+CREATE TABLE  IF NOT EXISTS card_catalog.icon_set(
+    icon_query_id INT REFERENCES card_catalog.icon_query_ref(icon_query_id),
+    set_id UUID REFERENCES card_catalog.sets(set_id) UNIQUE,
     PRIMARY KEY (icon_query_id, set_id)
 );
 
-DROP VIEW IF EXISTS joined_set;
-CREATE VIEW joined_set (set_id, set_name, set_code, set_type, nonfoil_only, foil_only ,card_count, released_at, digital, parent_set)
+DROP VIEW IF EXISTS v_joined_set;
+
+CREATE VIEW card_catalog.v_joined_set (set_id, set_name, set_code, set_type, nonfoil_only, foil_only ,card_count, released_at, digital, parent_set)
     AS
     SELECT s.set_id, s.set_name, s.set_code, stl.set_type, s.nonfoil_only, s.foil_only, COUNT(cv.set_id) AS card_count,s.released_at, s.digital, ss.set_name 
-    FROM sets s
-    LEFT JOIN sets ss ON s.parent_set = ss.set_id
-    JOIN set_type_list_ref stl ON s.set_type_id = stl.set_type_id
-    JOIN card_version cv ON cv.set_id = s.set_id
+    FROM card_catalog.sets s
+    LEFT JOIN card_catalog.sets ss ON s.parent_set = ss.set_id
+    JOIN card_catalog.set_type_list_ref stl ON s.set_type_id = stl.set_type_id
+    JOIN card_catalog.card_version cv ON cv.set_id = s.set_id
     WHERE s.is_active = TRUE
-    GROUP BY s.set_id,  stl.set_type, s.released_at,  ss.set_id;
+    GROUP BY s.set_id, s.set_name, s.set_code, stl.set_type, s.nonfoil_only, s.foil_only, s.released_at,s.digital,   ss.set_name ;
 
-CREATE  MATERIALIZED VIEW IF NOT EXISTS joined_set_materialized (set_id, set_name, set_code, set_type, card_count, released_at, digital)
+CREATE  MATERIALIZED VIEW IF NOT EXISTS card_catalog.v_joined_set_materialized (set_id, set_name, set_code, set_type, card_count, released_at, digital)
     AS
     SELECT s.set_id, s.set_name, s.set_code, stl.set_type,  COUNT(cv.set_id) AS card_count,s.released_at, s.digital
-    FROM sets s
-    JOIN set_type_list_ref stl ON s.set_type_id = stl.set_type_id
-    JOIN card_version cv ON cv.set_id = s.set_id
-    GROUP BY s.set_id,  stl.set_type, s.released_at;
+    FROM card_catalog.sets s
+    JOIN card_catalog.set_type_list_ref stl ON s.set_type_id = stl.set_type_id
+    JOIN card_catalog.card_version cv ON cv.set_id = s.set_id
+    GROUP BY s.set_id, s.set_name, s.set_code, stl.set_type, s.released_at, s.digital;
 
 -- Speeds up JOIN between sets and set_type_list_ref
-CREATE INDEX idx_sets_set_type_id ON sets(set_type_id);
+CREATE INDEX idx_sets_set_type_id ON card_catalog.sets(set_type_id);
 
 -- Speeds up JOIN between card_version and sets
-CREATE INDEX idx_card_version_set_id ON card_version(set_id);
+CREATE INDEX idx_card_version_set_id ON card_catalog.card_version(set_id);
 
-CREATE INDEX ON joined_set_materialized(set_code); 
+CREATE INDEX ON card_catalog.v_joined_set_materialized(set_code); 
 
 --function to insert a new set
-CREATE OR REPLACE FUNCTION insert_joined_set(
+CREATE OR REPLACE FUNCTION card_catalog.insert_joined_set(
     p_set_id UUID,
     p_set_name TEXT,
     p_set_code TEXT,
@@ -76,23 +79,23 @@ DECLARE
     v_icon_query_id INT;
 BEGIN
     -- Upsert set type
-    INSERT INTO set_type_list_ref (set_type)
+    INSERT INTO card_catalog.set_type_list_ref (set_type)
     VALUES (p_set_type)
     ON CONFLICT (set_type) DO NOTHING;
 
     SELECT set_type_id INTO v_set_type_id
-    FROM set_type_list_ref
+    FROM card_catalog.set_type_list_ref
     WHERE set_type = p_set_type;
 
     RAISE NOTICE 'Set type: %, ID: %', p_set_type, v_set_type_id;
 
     -- Optional: Get parent set ID
     SELECT set_id INTO v_parent_id
-    FROM sets
+    FROM card_catalog.sets
     WHERE set_code = p_parent_set;
 
     -- Insert set
-    INSERT INTO sets (
+    INSERT INTO card_catalog.sets (
         set_id, set_name, set_code, set_type_id, released_at,
         digital, nonfoil_only, foil_only, parent_set
     )
@@ -102,32 +105,32 @@ BEGIN
     )
     ON CONFLICT (set_id) DO NOTHING;
 
-    IF NOT EXISTS (SELECT 1 FROM sets WHERE set_id = p_set_id) THEN
+    IF NOT EXISTS (SELECT 1 FROM card_catalog.sets WHERE set_id = p_set_id) THEN
         RAISE NOTICE 'Set not inserted (conflict or error).';
     ELSE
         RAISE NOTICE 'Set inserted successfully.';
     END IF;
 
     -- add the icon uri
-    INSERT INTO icon_query_ref (icon_query_uri)
+    INSERT INTO card_catalog.icon_query_ref (icon_query_uri)
     VALUES (p_uri)
     ON CONFLICT (icon_query_uri) DO NOTHING;
 
     -- Get icon_query_id
     SELECT icon_query_id INTO v_icon_query_id
-    FROM icon_query_ref
+    FROM card_catalog.icon_query_ref
     WHERE icon_query_uri = p_uri;
 
     RAISE NOTICE 'Icon URI: %, ID: %', p_uri, v_icon_query_id;
 
     -- 5. Link icon to set
     IF v_icon_query_id IS NOT NULL THEN
-        INSERT INTO icon_set (icon_query_id, set_id)
+        INSERT INTO card_catalog.icon_set (icon_query_id, set_id)
         VALUES (v_icon_query_id, p_set_id)
         ON CONFLICT DO NOTHING;
 
         IF NOT EXISTS (
-            SELECT 1 FROM icon_set WHERE icon_query_id = v_icon_query_id AND set_id = p_set_id
+            SELECT 1 FROM card_catalog.icon_set WHERE icon_query_id = v_icon_query_id AND set_id = p_set_id
         ) THEN
             RAISE NOTICE 'Set-icon link not inserted (conflict or error).';
         ELSE
@@ -140,10 +143,10 @@ END;
 $$ LANGUAGE plpgsql;
 
 --a trigger to insert a new set
-CREATE OR REPLACE FUNCTION trigger_insert_on_joined_set()
+CREATE OR REPLACE FUNCTION card_catalog.trigger_insert_on_joined_set()
 RETURNS trigger AS $$
 BEGIN
-    PERFORM insert_joined_set(
+    PERFORM card_catalog.insert_joined_set(
         NEW.set_name,
         NEW.set_code,
         NEW.set_type,
@@ -158,11 +161,11 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trg_insert_joined_set
-INSTEAD OF INSERT ON joined_set
-FOR EACH ROW EXECUTE FUNCTION trigger_insert_on_joined_set();
+INSTEAD OF INSERT ON card_catalog.v_joined_set
+FOR EACH ROW EXECUTE FUNCTION card_catalog.trigger_insert_on_joined_set();
 
 -- ✅ CREATE: Bulk set insert function that accepts JSON
-CREATE OR REPLACE FUNCTION insert_batch_sets(sets_json JSONB)
+CREATE OR REPLACE FUNCTION card_catalog.insert_batch_sets(sets_json JSONB)
 RETURNS TABLE(
     total_sets INTEGER,
     successful_inserts INTEGER,
@@ -202,25 +205,25 @@ BEGIN
             );
             
             -- ✅ UPSERT: Set type
-            INSERT INTO set_type_list_ref (set_type)
+            INSERT INTO card_catalog.set_type_list_ref (set_type)
             VALUES (set_record->>'set_type')
             ON CONFLICT (set_type) DO NOTHING;
             
             -- Get set type ID
             SELECT set_type_id INTO v_set_type_id
-            FROM set_type_list_ref
+            FROM card_catalog.set_type_list_ref
             WHERE set_type = set_record->>'set_type';
             
             -- ✅ HANDLE: Parent set (optional)
             v_parent_id := NULL;
             IF set_record ? 'parent_set_code' AND set_record->>'parent_set_code' IS NOT NULL THEN
                 SELECT set_id INTO v_parent_id
-                FROM sets
+                FROM card_catalog.sets
                 WHERE set_code = set_record->>'parent_set_code';
             END IF;
             
             -- ✅ INSERT: Main set record
-            INSERT INTO sets (
+            INSERT INTO card_catalog.sets (
                 set_id,
                 set_name,
                 set_code,
@@ -256,18 +259,18 @@ BEGIN
             -- ✅ HANDLE: Icon URI (if provided)
             IF set_record ? 'icon_svg_uri' AND set_record->>'icon_svg_uri' IS NOT NULL THEN
                 -- Insert icon query reference
-                INSERT INTO icon_query_ref (icon_query_uri)
+                INSERT INTO card_catalog.icon_query_ref (icon_query_uri)
                 VALUES (set_record->>'icon_svg_uri')
                 ON CONFLICT (icon_query_uri) DO NOTHING;
                 
                 -- Get icon query ID
                 SELECT icon_query_id INTO v_icon_query_id
-                FROM icon_query_ref
+                FROM card_catalog.icon_query_ref
                 WHERE icon_query_uri = set_record->>'icon_svg_uri';
                 
                 -- Link icon to set
                 IF v_icon_query_id IS NOT NULL THEN
-                    INSERT INTO icon_set (icon_query_id, set_id)
+                    INSERT INTO card_catalog.icon_set (icon_query_id, set_id)
                     VALUES (v_icon_query_id, v_set_id)
                     ON CONFLICT DO NOTHING;
                 END IF;
@@ -292,8 +295,8 @@ BEGIN
     
     -- ✅ REFRESH: Materialized view
     BEGIN
-        REFRESH MATERIALIZED VIEW joined_set_materialized;
-        RAISE NOTICE 'Refreshed materialized view joined_set_materialized';
+        REFRESH MATERIALIZED VIEW card_catalog.v_joined_set_materialized;
+        RAISE NOTICE 'Refreshed materialized view card_catalog.v_joined_set_materialized';
     EXCEPTION WHEN OTHERS THEN
         RAISE NOTICE 'Failed to refresh materialized view: %', SQLERRM;
     END;
@@ -315,7 +318,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- ✅ HELPER: Function to process large JSON files (similar to cards)
-CREATE OR REPLACE FUNCTION process_large_sets_json(
+CREATE OR REPLACE FUNCTION card_catalog.process_large_sets_json(
     file_path TEXT,
     batch_size INTEGER DEFAULT 100
 )

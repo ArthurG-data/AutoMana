@@ -70,7 +70,20 @@ class EbayAuthRepository(AbstractRepository):
         row = await self.execute_query(query_2, (app_code,))
         refresh_token = row[0].get('token')
         return refresh_token if refresh_token else None
-   
+    
+    def get_access_from_refresh(self, app_code : str, user_id : UUID):
+        """Get access token from refresh token"""
+        # check if valide session
+        query_2 = """ SELECT et.token
+                    FROM ebay_tokens et
+                    JOIN app_info ai ON et.app_id = ai.app_id
+                    WHERE ai.app_code = $1 AND et.used = false AND et.token_type= 'refresh_token';
+                """
+        #check if access token is valid wirh session
+
+        row = self.execute_query_sync(query_2, (app_code,))
+        refresh_token = row[0].get('token')
+        return refresh_token if refresh_token else None
 
 
     async def get_valid_access_token(self, app_code : str, user_id : Optional[UUID])->str:
@@ -88,6 +101,22 @@ class EbayAuthRepository(AbstractRepository):
                """
         row = await self.execute_query(query_1, (app_code,))
         return row[0].get('token') if row else None
+    
+    def get_valid_access_token_sync(self, app_code : str, user_id : Optional[UUID])->str:
+        """Get the most recent valid access token for a user and app"""
+
+        query_1 = """ SELECT token
+                    FROM ebay_tokens
+                    JOIN app_info ai ON ebay_tokens.app_id = ai.app_id
+                    WHERE ai.app_code = $1
+                    AND expires_on > now()
+                    AND used = false
+                    AND token_type = 'access_token'
+                    ORDER BY acquired_on DESC
+                    LIMIT 1;
+               """
+        row = self.execute_query_sync(query_1, (app_code,))
+        return row[0].get('token') if row else None
 
     async def get_app_settings(self, app_code: str, user_id: UUID):
         query = auth_queries.get_info_login_query()
@@ -95,9 +124,20 @@ class EbayAuthRepository(AbstractRepository):
         settings = await self.execute_query(query, (user_id, app_code, encryption_key))
         return settings[0] if settings else None
 
+    def get_app_settings_sync(self, app_code: str, user_id: UUID):
+        query = auth_queries.get_info_login_query()
+        encryption_key = self._get_encryption_key()
+        settings = self.execute_query_sync(query, (user_id, app_code, encryption_key))
+        return settings[0] if settings else None
+
     async def get_app_scopes(self,app_id: str) -> list:#needs to be changed later to pick up scopes allowed to a user
         query = auth_queries.get_app_scopes_query
         scopes = await self.execute_query(query, (app_id,))
+        return [scope['scope_url'] for scope in scopes] if scopes else []
+
+    def get_app_scopes_sync(self,app_id: str) -> list:#needs to be changed later to pick up scopes allowed to a user
+        query = auth_queries.get_app_scopes_query
+        scopes = self.execute_query_sync(query, (app_id,))
         return [scope['scope_url'] for scope in scopes] if scopes else []
 
     async def get_environment(self, app_code : str, user_id: Optional[UUID]=None) -> str | None:

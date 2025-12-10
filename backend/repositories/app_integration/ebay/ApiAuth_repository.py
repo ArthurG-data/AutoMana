@@ -62,3 +62,10 @@ class EbayAuthAPIRepository(ApiRepository):
         data = ExangeRefreshData(token=refresh_token, scope=scope).to_data()
         access_token = await self._make_post_request(self._get_base_url(self.environment)['token_url'], headers=headers, data=data)
         return access_token
+
+    def exchange_refresh_token_sync(self, refresh_token: str, app_id: str, secret: str, scope: List[str]) -> dict:
+        """Exchange refresh token for a new access token"""
+        headers = AuthHeader(app_id=app_id, secret=secret).to_header()
+        data = ExangeRefreshData(token=refresh_token, scope=scope).to_data()
+        access_token = self._make_post_request_sync(self._get_base_url(self.environment)['token_url'], headers=headers, data=data)
+        return access_token

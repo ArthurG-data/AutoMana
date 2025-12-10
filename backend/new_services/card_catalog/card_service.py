@@ -158,6 +158,7 @@ class ProcessingStats:
 from pathlib import Path
 from typing import Optional, List, Dict, Any, AsyncGenerator, Callable
 from dataclasses import dataclass
+import time
 
 @dataclass
 class ProcessingConfig:
@@ -179,12 +180,13 @@ class EnhancedCardImportService:
         self.stats = ProcessingStats()
         self.failed_cards: List[Dict[str, Any]] = []
 
-    async def process_large_cards_json(
+    def process_large_cards_json(
         self, 
         file_path: str,
         resume_from_batch: int = 0,
         validate_file_first: bool = True
     ) -> ProcessingStats:
+        """Not async anymore"""
         """
         Process large JSON file with enhanced error handling and monitoring
         
@@ -198,21 +200,21 @@ class EnhancedCardImportService:
             self.stats.start_time = datetime.utcnow()
             
             # Validate file exists and is readable
-            if not await self._validate_file(file_path):
+            if not self._validate_file(file_path):
                 raise card_exception.CardInsertError(f"File validation failed: {file_path}")
             
             # Process the file
-            await self._process_file_stream(file_path, resume_from_batch)
-            
+            self._process_file_stream(file_path, resume_from_batch)
+
             self.stats.end_time = datetime.utcnow()
             
             # Save failed cards if any
             if self.failed_cards and self.config.save_failed_cards:
-                await self._save_failed_cards()
+                self._save_failed_cards()
             
             # Final summary
-            await self._log_processing_summary()
-            
+            self._log_processing_summary()
+
             return self.stats
             
         except Exception as e:
@@ -220,7 +222,7 @@ class EnhancedCardImportService:
             logger.error(f"❌ File processing failed: {str(e)}")
             raise card_exception.CardInsertError(f"File processing failed: {str(e)}")
 
-    async def _validate_file(self, file_path: str) -> bool:
+    def _validate_file(self, file_path: str) -> bool:
         """Validate file exists and is accessible"""
         try:
             path = Path(file_path)
@@ -245,7 +247,7 @@ class EnhancedCardImportService:
             return False
 
 
-    async def _process_file_stream(self, file_path: str, resume_from_batch: int = 0):
+    def _process_file_stream(self, file_path: str, resume_from_batch: int = 0):
         """Process file using streaming with enhanced error handling"""
         batch = []
         batch_count = 0
@@ -254,9 +256,8 @@ class EnhancedCardImportService:
             logger.info(f"📁 Opening file for streaming: {file_path}")
             with open(file_path, "rb") as f:
                 cards_iter = ijson.items(f, "item")
-                
-                async for card_json in self._async_json_iter(cards_iter):
-                    
+
+                for card_json in cards_iter:
                     try:
                         # Skip batches if resuming
                         if batch_count < resume_from_batch:
@@ -274,7 +275,7 @@ class EnhancedCardImportService:
                         
                         # Process batch when full
                         if len(batch) >= self.config.batch_size:
-                            await self._process_batch(batch, batch_count + 1)
+                            self._process_batch(batch, batch_count + 1)
                             batch = []
                             batch_count += 1
                             
@@ -298,7 +299,7 @@ class EnhancedCardImportService:
                 
                 # Process remaining cards
                 if batch:
-                    await self._process_batch(batch, batch_count + 1)
+                    self._process_batch(batch, batch_count + 1)
                     
         except Exception as e:
             logger.error(f"❌ Stream processing error: {str(e)}")
@@ -306,12 +307,13 @@ class EnhancedCardImportService:
 
     async def _async_json_iter(self, json_iter) -> AsyncGenerator[Dict[str, Any], None]:
         """Convert synchronous JSON iterator to async"""
+        """DEPRECATED"""
         for item in json_iter:
             yield item
             # Allow other coroutines to run
             await asyncio.sleep(0)
 
-    async def _process_batch(self, batch: List[card_schemas.CreateCard], batch_number: int):
+    def _process_batch(self, batch: List[card_schemas.CreateCard], batch_number: int):
         """Process a batch with retry logic"""
         retry_count = 0
         
@@ -320,7 +322,7 @@ class EnhancedCardImportService:
                 logger.info(f"🔄 Processing batch {batch_number} with {len(batch)} cards (attempt {retry_count + 1})")
 
                 cards_obj = card_schemas.CreateCards(items=batch)
-                result = await self.card_repository.add_many(cards_obj.prepare_for_db())
+                result = self.card_repository.add_many(cards_obj.prepare_for_db())
                 
                 # Update statistics
                 self.stats.successful_inserts += result.successful_inserts
@@ -343,14 +345,14 @@ class EnhancedCardImportService:
                 if retry_count <= self.config.max_retries:
                     wait_time = self.config.retry_delay * retry_count
                     logger.info(f"⏳ Retrying in {wait_time} seconds...")
-                    await asyncio.sleep(wait_time)  # Exponential backoff
+                    time.sleep(wait_time)  # Exponential backoff
                 else:
                     # Save failed batch for manual inspection
-                    await self._save_failed_batch(batch, batch_number, str(e))
+                    self._save_failed_batch(batch, batch_number, str(e))
                     self.stats.failed_inserts += len(batch)
                     raise card_exception.CardInsertError(f"Batch {batch_number} failed after {self.config.max_retries} retries: {str(e)}")
 
-    async def _save_failed_cards(self):
+    def _save_failed_cards(self):
         """Save failed cards to file for analysis"""
         if not self.failed_cards:
             return
@@ -366,7 +368,7 @@ class EnhancedCardImportService:
         except Exception as e:
             logger.error(f"❌ Failed to save failed cards: {str(e)}")
 
-    async def _save_failed_batch(self, batch: List[card_schemas.CreateCard], batch_number: int, error: str):
+    def _save_failed_batch(self, batch: List[card_schemas.CreateCard], batch_number: int, error: str):
         """Save a failed batch for recovery"""
         batch_file = f"failed_batch_{batch_number}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
         
@@ -385,7 +387,7 @@ class EnhancedCardImportService:
         except Exception as e:
             logger.error(f"❌ Failed to save failed batch: {str(e)}")
 
-    async def _log_processing_summary(self):
+    def _log_processing_summary(self):
         """Log comprehensive processing summary"""
         logger.info("=" * 60)
         logger.info("📊 FILE PROCESSING SUMMARY")
@@ -401,7 +403,7 @@ class EnhancedCardImportService:
         logger.info("=" * 60)
 
 # ✅ BACKWARD COMPATIBLE: Keep your original function but enhanced
-async def process_large_cards_json(
+def process_large_cards_json(
     card_repository: CardReferenceRepository, 
     file_path: str,
     batch_size: int = 500,
@@ -427,7 +429,7 @@ async def process_large_cards_json(
     )
     
     service = EnhancedCardImportService(card_repository, config)
-    return await service.process_large_cards_json(
+    return service.process_large_cards_json(
         file_path=file_path,
         resume_from_batch=resume_from_batch
     )

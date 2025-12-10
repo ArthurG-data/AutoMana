@@ -37,8 +37,9 @@ class CardReferenceRepository(AbstractRepository[Any]):
                 else 0
             )
 
-    async def add_many(self, values):
-        result = await self.execute_query(queries.insert_batch_card_query, (values,))
+    def add_many(self, values):
+        #not async anymore
+        result = self.execute_query_sync(queries.insert_batch_card_query, (values,))
         batch_result = result[0] if result else {}
         response = CardReferenceRepository.BatchInsertResponse(
             total_processed=batch_result.get('total_processed', 0),
@@ -160,7 +161,8 @@ class CardReferenceRepository(AbstractRepository[Any]):
         raise NotImplementedError("Method not implemented")
 
 
-    async def bulk_update_mtg_stock_ids(self, ids: dict[str, str]):
+    def bulk_update_mtg_stock_ids(self, ids: dict[str, str]):
+        #not async anymore
         if not ids:
             return 0  # or just return
 
@@ -192,4 +194,4 @@ class CardReferenceRepository(AbstractRepository[Any]):
         """
 
         # Pass TWO params, not one
-        await self.execute_command(query,(scry_ids, stock_ids))
+        self.execute_command(query,(scry_ids, stock_ids))
