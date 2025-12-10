@@ -187,11 +187,8 @@ def introspect_schemas(engine, schemas: List[str]) -> tuple:
 
 if __name__ == "__main__":
     engine = get_engine()
-    schemas = ['ops', 'markets', 'public']
+    schemas = ['ops', 'markets', 'public', 'pricing', 'card_catalog', 'user_collection', 'user_management']  # specify the schemas to introspect
     entities_list, attributes_list, relationships_list = introspect_schemas(engine, schemas)
-    print(entities_list[:5])
-    print(attributes_list[:5])
-    print(relationships_list[:5])
 
     with engine.begin() as conn:
         conn.execute(
