@@ -1,0 +1,20 @@
+name: Feature Request
+description: Add a new feature or improvement
+title: "[Feature]: "
+labels: ["type:feature"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What is the feature?
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: What must be true for this to be complete?
+  - type: textarea
+    id: tasks
+    attributes:
+      label: Subtasks
+      description: Break down work if needed
