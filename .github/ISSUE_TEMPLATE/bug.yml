@@ -1,0 +1,49 @@
+name: Bug Report
+description: Report a reproducible bug or unexpected behavior
+title: "[Bug]: "
+labels: ["type:bug"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: Brief description of the bug
+      placeholder: "The catalog search API returns empty results..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: List the exact steps to reproduce the issue
+      placeholder: |
+        1. Call /cards/search?q=name
+        2. Observe 500 error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      placeholder: "Should return matching cards"
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      placeholder: "Returns empty array / throws error"
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: "Local / Production / Sandbox"
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs or Screenshots
+      render: bash
+      placeholder: "Paste any error logs here"
