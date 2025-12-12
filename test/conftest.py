@@ -4,6 +4,11 @@ import os
 import asyncio
 from dotenv import load_dotenv
 from unittest.mock import patch, MagicMock, AsyncMock
+from pathlib import Path
+import sys
+# Add project root to path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 
 # Load test environment variables
 @pytest.fixture(scope="session", autouse=True)
@@ -87,3 +92,16 @@ async def mock_init_pool(mock_asyncpg_pool):
     with patch("backend.database.get_database.init_async_pool") as mock:
         mock.return_value = pool
         yield mock
+
+
+@pytest.fixture(scope="session")
+def test_data_dir(tmp_path_factory):
+    """Create a temporary directory for test data"""
+    return tmp_path_factory.mktemp("test_data")
+
+
+@pytest.fixture(autouse=True)
+def reset_mocks():
+    """Reset all mocks after each test"""
+    yield
+    # Cleanup code here if needed
