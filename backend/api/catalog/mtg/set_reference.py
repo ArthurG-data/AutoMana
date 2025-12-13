@@ -44,7 +44,7 @@ async def get_set(set_id: UUID
 async def get_sets(
                     limit: Annotated[int, Query(le=100)]=100,
                     offset: int=0,
-                    ids: Annotated[List[str], Query(title='Optional set_ids')]=None,
+                    ids: Annotated[Optional[List[str]], Query(title='Optional set_ids')]=None,
                     service_manager: ServiceManager = Depends(get_service_manager)):
     try:
         result = await service_manager.execute_service("card_catalog.set.get_all"
