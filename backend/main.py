@@ -30,9 +30,6 @@ logger = logging.getLogger(__name__)
 
 logger.debug("Logger initialized")
 
-with open("README.md", "r", encoding="utf-8") as f:
-    readme_content = f.read()
-
 db_pool = None
 query_executor = None
 error_handler = None
@@ -131,7 +128,6 @@ def global_cleanup():
 
 app = FastAPI(
     title='AutoManaApp',
-    description=readme_content,
     summary='Will be a massive app to automanticly manger card collection sale',
     version='0.0.1',
     terms_of_service="http://example.com/terms/",
