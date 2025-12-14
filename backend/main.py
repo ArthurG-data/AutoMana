@@ -1,3 +1,6 @@
+import time
+print(f"🚀 Starting application at {time.time()}")
+
 from fastapi import FastAPI, Request
 import time, logging, sys
 #from backend.modules.ebay import routers as ebay_router

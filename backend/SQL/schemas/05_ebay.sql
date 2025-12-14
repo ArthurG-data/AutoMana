@@ -75,9 +75,5 @@ CREATE TABLE IF NOT EXISTS app_integration.log_oauth_request (
 CREATE INDEX IF NOT EXISTS idx_oauth_session ON log_oauth_request(session_id);
 
 -- VEWS----------------------------------------------------------------------------------------------------------------------------------------------
-CREATE OR REPLACE VIEW app_integration.v_ebay_app AS 
-    SELECT ai.app_id, ai.redirect_uri, ai.response_type,ai.client_secret_encrypted, ue.unique_id AS user_id
-    FROM app_integration.app_info ai
-    JOIN app_integration.app_user au  ON au.app_id = ai.app_id
-    JOIN app_integration.user_ebay ue on ue.dev_id = au.dev_id
+
 --FUNCTIONS----------------------------------------------------------------------------------------------------------------------------------------------

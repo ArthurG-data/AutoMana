@@ -112,22 +112,18 @@ CREATE OR REPLACE VIEW user_management.v_sessions AS
     JOIN user_management.refresh_tokens rt ON rt.session_id = s.id
     JOIN user_management.users u ON u.unique_id = s.user_id;
 
-CREATE OR REPLACE VIEW user_management.v_user_roles_permissions AS
-SELECT 
-    s.unique_id,
-    s.username,
-    s.email,
-    s.fullname,
-    s.created_at,
-    r.role,
-    ur.role_id,
-    p.permission_name,
-    ur.assigned_at
-FROM user_management.users s
-JOIN user_management.user_roles ur ON ur.user_id = s.unique_id
-JOIN user_management.roles r ON ur.role_id = r.unique_id
-JOIN user_management.role_permissions rp on rp.role_id = r.unique_id
-JOIN user_management.permissions p on p.permission_id = rp.permission_id;
+CREATE OR REPLACE VIEW user_management.v_active_sessions AS
+    SELECT u.unique_id AS user_id, u.username, s.created_at, s.expires_at AS session_expires_at, s.ip_address, s.user_agent, rt.refresh_token, rt.refresh_token_expires_at, rt.token_id, s.id AS session_id
+    FROM user_management.sessions s
+    JOIN user_management.refresh_tokens rt ON rt.session_id = s.id
+    JOIN user_management.users u ON u.unique_id = s.user_id
+    WHERE s.active = TRUE AND revoked = FALSE AND s.expires_at > now() AND used = FALSE;
+
+CREATE OR REPLACE VIEW user_management.v_sessions AS
+    SELECT u.unique_id AS user_id, u.username, s.created_at, s.expires_at AS session_expires_at, s.ip_address, s.user_agent, rt.refresh_token, rt.refresh_token_expires_at, rt.token_id, s.id AS session_id
+    FROM user_management.sessions s
+    JOIN user_management.refresh_tokens rt ON rt.session_id = s.id
+    JOIN user_management.users u ON u.unique_id = s.user_id;
 
 
 ----------------------------------------------------------------------------------------------------------------------------------

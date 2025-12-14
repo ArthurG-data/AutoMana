@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS card_catalog.border_color_ref (
     border_color_name VARCHAR(20) NOT NULL UNIQUE
 );
 
+--not as intended, the subtyoes should be ckleand to remove punctuation and have a type name reference table, mismatch in unique_card_id
 CREATE TABLE IF NOT EXISTS card_catalog.card_types (
     unique_card_id UUID NOT NULL REFERENCES card_catalog.unique_cards_ref(unique_card_id) ON DELETE CASCADE,
     type_name VARCHAR(20) NOT NULL,
@@ -49,6 +50,7 @@ CREATE TABLE IF NOT EXISTS card_catalog.keywords_ref (
     keyword_name VARCHAR(50) UNIQUE NOT NULL
 );
 
+--mismatch some unique card id not present, not migrated yet
 CREATE TABLE IF NOT EXISTS card_catalog.card_keyword (
     unique_card_id UUID REFERENCES card_catalog.unique_cards_ref(unique_card_id) ON DELETE CASCADE,
     keyword_id INT NOT NULL REFERENCES card_catalog.keywords_ref(keyword_id) ON DELETE CASCADE,
@@ -66,12 +68,14 @@ CREATE TABLE IF NOT EXISTS card_catalog.color_produced (
     PRIMARY KEY (unique_card_id, color_id)
 );
 
+#same issue with wrin funique card ref id
 CREATE TABLE IF NOT EXISTS card_catalog.card_color_identity (
     unique_card_id UUID REFERENCES card_catalog.unique_cards_ref(unique_card_id) ON DELETE CASCADE,
     color_id int NOT NULL REFERENCES card_catalog.colors_ref(color_id) ON DELETE CASCADE,
     PRIMARY KEY (unique_card_id, color_id)
 );
 
+#same issue with wrin funique card ref id
 CREATE TABLE IF NOT EXISTS card_catalog.formats_ref (
     format_id SERIAL PRIMARY KEY,
     format_name VARCHAR(20) UNIQUE NOT NULL
@@ -81,7 +85,7 @@ CREATE TABLE IF NOT EXISTS card_catalog.legal_status_ref (
     legality_id SERIAL PRIMARY KEY, 
     legal_status VARCHAR(20) NOT NULL UNIQUE
 );
-
+#same issue with wrin funique card ref id
 CREATE TABLE IF NOT EXISTS card_catalog.legalities (
     unique_card_id UUID REFERENCES card_catalog.unique_cards_ref(unique_card_id) ON DELETE CASCADE,
     format_id INT NOT NULL REFERENCES card_catalog.formats_ref(format_id) ON DELETE CASCADE,

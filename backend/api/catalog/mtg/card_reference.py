@@ -36,9 +36,12 @@ async def get_card_info(card_id: UUID
             "card_catalog.card.search",
             card_id=card_id
         )
-        if not result:
-            return ApiResponse(result, message="No Card to retrieve")
-        return ApiResponse(result, message="Card retrieved successfully")
+        #get the card
+        card = result.get("cards", [None])[0] if isinstance(result, dict) else None
+        
+        if not card:
+            return ApiResponse(data=None, message="No Card to retrieve")
+        return ApiResponse(data=card, message="Card retrieved successfully")
     except HTTPException:
         raise
     except Exception as e:
@@ -64,6 +67,9 @@ async def get_cards(
             sort_order=sorting.sort_order,
             **search)
         cards = result.get("cards", []) if isinstance(result, dict) else []
+
+
+
         total_count = result.get("total_count", 0) if isinstance(result, dict) else 0
         if cards:
             return PaginatedResponse[BaseCard](

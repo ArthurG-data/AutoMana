@@ -64,7 +64,7 @@ class SetReferenceRepository(AbstractRepository[Any]):
        
     async def delete(self, set_id: UUID):
         query = """
-        UPDATE sets 
+        UPDATE card_catalog.sets 
         SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP 
         WHERE set_id = $1 AND is_active = TRUE
         RETURNING set_id
@@ -92,7 +92,7 @@ class SetReferenceRepository(AbstractRepository[Any]):
             needs_cte = True
             cte_parts.append(f"""
                 ins_set_type AS (
-                    INSERT INTO set_type_list_ref (set_type)
+                    INSERT INTO card_catalog.set_type_list_ref (set_type)
                     VALUES (${counter})
                     ON CONFLICT DO NOTHING
                     RETURNING set_type_id
@@ -100,7 +100,7 @@ class SetReferenceRepository(AbstractRepository[Any]):
                 get_set_type AS (
                     SELECT set_type_id FROM ins_set_type
                     UNION
-                    SELECT set_type_id FROM set_type_list_ref WHERE set_type = ${counter}
+                    SELECT set_type_id FROM card_catalog.set_type_list_ref WHERE set_type = ${counter}
                 )""")
             params.append(updates['set_type'])
             update_parts.append("set_type_id = (SELECT set_type_id FROM get_set_type)")
@@ -113,7 +113,7 @@ class SetReferenceRepository(AbstractRepository[Any]):
             needs_cte = True
             cte_parts.append(f"""
                 ins_foil_ref AS (
-                    INSERT INTO foil_status_ref (foil_status_desc)
+                    INSERT INTO card_catalog.foil_status_ref (foil_status_desc)
                     VALUES (${counter})
                     ON CONFLICT DO NOTHING
                     RETURNING foil_status_id
@@ -121,7 +121,7 @@ class SetReferenceRepository(AbstractRepository[Any]):
                 get_foil_ref AS (
                     SELECT foil_status_id FROM ins_foil_ref
                     UNION
-                    SELECT foil_status_id FROM foil_status_ref WHERE foil_status_desc = ${counter}
+                    SELECT foil_status_id FROM card_catalog.foil_status_ref WHERE foil_status_desc = ${counter}
                 )""")
             params.append(updates['foil_status_id'])
             update_parts.append("foil_status_id = (SELECT foil_status_id FROM get_foil_ref)")
@@ -133,7 +133,7 @@ class SetReferenceRepository(AbstractRepository[Any]):
             needs_cte = True
             cte_parts.append(f"""
                 get_parent_set AS (
-                    SELECT set_id from sets
+                    SELECT set_id from card_catalog.sets
                     WHERE set_name = ${counter}
                 )""")
             params.append(updates['parent_set'])
@@ -178,13 +178,13 @@ class SetReferenceRepository(AbstractRepository[Any]):
 
     async def get(self, set_id: UUID) -> ApiResponse:
         query = """ 
-                SELECT * FROM joined_set_materialized WHERE set_id = $1
+                SELECT * FROM card_catalog.joined_set_materialized WHERE set_id = $1
         """
         result =  await self.execute_query(query, set_id)
         return result[0] if result else None
     
     async def list(self, limit: int = 100, offset: int = 0, ids: Optional[Sequence[UUID]] = None):
-        query = "SELECT * FROM joined_set_materialized"
+        query = "SELECT * FROM card_catalog.joined_set_materialized"
         counter = 1
         values = []
         if ids:

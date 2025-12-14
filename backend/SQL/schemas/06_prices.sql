@@ -1,5 +1,5 @@
 CREATE SCHEMA IF NOT EXISTS pricing;
-CREATE TABLE IF NOT EXISTS price_source (
+CREATE TABLE IF NOT EXISTS pricing.price_source (
   source_id   SMALLSERIAL PRIMARY KEY,
   code        TEXT UNIQUE NOT NULL,   -- 'tcgplayer','cardkingdom','ebay','amazon', etc.
   name       TEXT NOT NULL,
@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS price_source (
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE price_metric (
+CREATE TABLE IF NOT EXISTS pricing.price_metric (
   metric_id   SMALLSERIAL PRIMARY KEY,
   code        TEXT UNIQUE NOT NULL,   -- 'low','avg','high','market','list','sold','median'
   description TEXT,
@@ -15,7 +15,7 @@ CREATE TABLE price_metric (
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS card_condition (
+CREATE TABLE IF NOT EXISTS pricing.card_condition (
   condition_id SMALLSERIAL PRIMARY KEY,
   code         TEXT UNIQUE default 'NM',  -- 'NM','LP','MP','HP','U' (unknown), 'D'
   description  TEXT,
@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS card_condition (
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE card_finished(
+CREATE TABLE IF NOT EXISTS pricing.card_finished(
     finish_id   SMALLSERIAL PRIMARY KEY,
     code        TEXT UNIQUE NOT NULL,   -- 'nonfoil','foil','etched','gilded'
     description TEXT,
@@ -31,7 +31,7 @@ CREATE TABLE card_finished(
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS card_game (
+CREATE TABLE IF NOT EXISTS pricing.card_game (
   game_id     SMALLSERIAL PRIMARY KEY,
   code        TEXT UNIQUE NOT NULL,   -- 'mtg','yugioh','pokemon', etc.
   name       TEXT NOT NULL,
@@ -40,55 +40,33 @@ CREATE TABLE IF NOT EXISTS card_game (
 );
 
 -- create hypertable
-SELECT create_hypertable('price_observation',
+SELECT create_hypertable('pricing.price_observation',
                          by_range('ts_date'),
                          if_not_exists => TRUE);
 
 -- Add a space (hash) dimension on print_id for parallelism & chunk fan-out:
-SELECT add_dimension('price_observation', 'print_id', number_partitions => 8);
+SELECT add_dimension('pricing.price_observation', 'print_id', number_partitions => 8);
 
 --set chunk time
-SELECT set_chunk_time_interval('price_observation', INTERVAL '90 days');
+SELECT set_chunk_time_interval('pricing.price_observation', INTERVAL '90 days');
 
-CREATE INDEX IF NOT EXISTS idx_price_date ON price_observation(ts_date DESC);
+CREATE INDEX IF NOT EXISTS idx_price_date ON pricing.price_observation(ts_date DESC);
 
 
-ALTER TABLE price_observation
+ALTER TABLE pricing.price_observation
   SET (timescaledb.compress,
-       timescaledb.compress_segmentby = 'card_version_id',
+       timescaledb.compress_segmentby = 'print_id',
        timescaledb.compress_orderby   = 'ts_date DESC');
 
 -- Auto-compress anything older than 180 days:
-SELECT add_compression_policy('mtg_price', INTERVAL '180 days');
-
-CREATE MATERIALIZED VIEW price_weekly
-WITH (timescaledb.continuous) AS
-SELECT time_bucket('1 week', ts_date) AS week,
-       print_id,
-       AVG(price_low)  AS price_low,
-       AVG(price_avg)  AS price_avg,
-       AVG(price_high) AS price_high,
-       AVG(price_foil) AS price_foil
-FROM mtg_price
-GROUP BY week, print_id;
-
-SELECT add_continuous_aggregate_policy('price_weekly',
-  start_offset => INTERVAL '365 days',
-  end_offset   => INTERVAL '1 day',
-  schedule_interval => INTERVAL '1 hour')
+SELECT add_compression_policy('pricing.price_observation', INTERVAL '180 days');
 
 ----------------------------Staging process
 
 --grab the game_id
-CREATE FUNCTION OR REPLACE insert
-WITH 
-    select gameid AS (
-        SELECT game_id 
-        FROM card_game 
-        WHERE code = 
-    )
 
-DROP TABLE IF EXISTS raw_mtg_stock_price;
+
+DROP TABLE IF EXISTS pricing.raw_mtg_stock_price;
 CREATE UNLOGGED TABLE raw_mtg_stock_price(
     ts_date       DATE        NOT NULL,
     game_code     TEXT       NOT NULL, --REFERENCES card_game(game_id),
@@ -102,8 +80,8 @@ CREATE UNLOGGED TABLE raw_mtg_stock_price(
     scraped_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-DROP TABLE IF EXISTS stg_price_observation;
-CREATE UNLOGGED TABLE stg_price_observation (
+DROP TABLE IF EXISTS pricing.stg_price_observation;
+CREATE UNLOGGED TABLE pricing.stg_price_observation (
 ts_date       DATE        NOT NULL,
 game_code     TEXT       NOT NULL, --REFERENCES card_game(game_id),
 print_id      BIGINT      NOT NULL,
@@ -114,8 +92,8 @@ value         NUMERIC(12,4) NOT NULL,
 scraped_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-DROP TABLE IF EXISTS dim_price_observation;
-CREATE UNLOGGED TABLE IF NOT EXISTS dim_price_observation (
+DROP TABLE IF EXISTS pricing.dim_price_observation;
+CREATE UNLOGGED TABLE IF NOT EXISTS pricing.dim_price_observation (
   ts_date       DATE        NOT NULL,
   game_id      SMALLINT    NOT NULL, --REFERENCES card_game(game_id),
   print_id      BIGINT      NOT NULL,
@@ -126,8 +104,8 @@ CREATE UNLOGGED TABLE IF NOT EXISTS dim_price_observation (
   scraped_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-DROP TABLE IF EXISTS price_observation;
-CREATE TABLE IF NOT EXISTS price_observation (
+DROP TABLE IF EXISTS pricing.price_observation;
+CREATE TABLE IF NOT EXISTS pricing.price_observation (
   ts_date       DATE        NOT NULL,
   game_id      SMALLINT    NOT NULL REFERENCES card_game(game_id),
   print_id      BIGINT      NOT NULL,
@@ -150,10 +128,13 @@ SELECT add_dimension('price_observation', 'print_id', number_partitions => 8);
 SELECT set_chunk_time_interval('price_observation', INTERVAL '90 days');
 
 CREATE INDEX IF NOT EXISTS idx_price_date ON price_observation(ts_date DESC);
-
+ALTER TABLE price_observation
+  SET (timescaledb.compress,
+       timescaledb.compress_segmentby = 'print_id',
+       timescaledb.compress_orderby   = 'ts_date DESC');
 
 --translate code to id
-CREATE OR REPLACE PROCEDURE load_staging_prices_batched(batch_days int DEFAULT 30)
+CREATE OR REPLACE PROCEDURE pricing.load_staging_prices_batched(batch_days int DEFAULT 30)
 LANGUAGE plpgsql
 AS $$
 DECLARE
@@ -165,7 +146,7 @@ DECLARE
   total_inserted bigint := 0;
 BEGIN
   -- determine overall date range from raw data
-  SELECT min(ts_date), max(ts_date) INTO v_min, v_max FROM raw_mtg_stock_price;
+  SELECT min(ts_date), max(ts_date) INTO v_min, v_max FROM pricing.raw_mtg_stock_price;
   IF v_min IS NULL THEN
     RAISE NOTICE 'load_staging_prices_batched: no rows in raw_mtg_stock_price';
     RETURN;
@@ -177,7 +158,7 @@ BEGIN
 
     RAISE NOTICE 'Loading raw -> staging for % to %', v_start, v_end;
 
-    INSERT INTO stg_price_observation (
+    INSERT INTO pricing.stg_price_observation (
       ts_date, game_code, print_id, source_code, metric_code, value, scraped_at
     )
     SELECT
@@ -188,7 +169,7 @@ BEGIN
       v.metric_code,
       v.value,
       s.scraped_at
-    FROM raw_mtg_stock_price s
+    FROM pricing.raw_mtg_stock_price s
     CROSS JOIN LATERAL (VALUES
         ('price_low',         s.price_low),
         ('price_avg',         s.price_avg),
@@ -211,13 +192,13 @@ BEGIN
 END;
 $$;
   
-CREATE OR REPLACE PROCEDURE load_dim_from_staging()
+CREATE OR REPLACE PROCEDURE pricing.load_dim_from_staging()
 LANGUAGE plpgsql
 AS $$
 BEGIN
   RAISE NOTICE 'Loading dimension from staging...';
 
-  INSERT INTO dim_price_observation (
+  INSERT INTO pricing.dim_price_observation (
     ts_date, game_id, print_id, source_id, metric_id,
     value, scraped_at
   )
@@ -229,18 +210,18 @@ BEGIN
     pm.metric_id,
     s.value,
     s.scraped_at
-  FROM stg_price_observation s
-  JOIN card_game       cg ON cg.code = s.game_code
-  JOIN price_source    ps ON ps.code = s.source_code
-  JOIN price_metric pm ON pm.code = s.metric_code
+  FROM pricing.stg_price_observation s
+  JOIN pricing.card_game       cg ON cg.code = s.game_code
+  JOIN pricing.price_source    ps ON ps.code = s.source_code
+  JOIN pricing.price_metric pm ON pm.code = s.metric_code
   WHERE s.value IS NOT NULL;
 
   CREATE INDEX IF NOT EXISTS dim_price_obs_ts_idx
-  ON dim_price_observation (ts_date);
+  ON pricing.dim_price_observation (ts_date);
 END;
 $$;
 
-CREATE OR REPLACE PROCEDURE load_prices_from_dim_batched(batch_days int DEFAULT 30)
+CREATE OR REPLACE PROCEDURE pricing.load_prices_from_dim_batched(batch_days int DEFAULT 30)
 LANGUAGE plpgsql
 AS $$
 DECLARE
@@ -263,10 +244,10 @@ BEGIN
     RAISE NOTICE 'No rows in dim_price_observation.';
     RETURN;
   END IF;
-
+  RAISE NOTICE 'Loading prices from dim table for dates % to %', v_min, v_max;
   -- Reduce write-time overhead on target
   DROP INDEX IF EXISTS public.idx_price_date;
-  ALTER TABLE price_observation SET (autovacuum_enabled = off);
+  ALTER TABLE pricing.price_observation SET (autovacuum_enabled = off);
 
   v_start := v_min;
   WHILE v_start <= v_max LOOP
@@ -283,7 +264,7 @@ BEGIN
                PARTITION BY print_id, source_id, metric_id, ts_date
                ORDER BY scraped_at DESC
              ) AS rn
-      FROM dim_price_observation d
+      FROM pricing.dim_price_observation d
       WHERE d.ts_date >= v_start AND d.ts_date <= v_end
     ) x
     WHERE rn = 1;
@@ -291,7 +272,7 @@ BEGIN
     CREATE INDEX ON _dedup (ts_date);
 
     -- Insert in time order to keep inserts chunk-local
-    INSERT INTO price_observation (ts_date, game_id, print_id, source_id, metric_id, value, scraped_at)
+    INSERT INTO pricing.price_observation (ts_date, game_id, print_id, source_id, metric_id, value, scraped_at)
     SELECT ts_date, game_id, print_id, source_id, metric_id, value, scraped_at
     FROM _dedup
     ORDER BY ts_date;
@@ -307,14 +288,13 @@ BEGIN
   END LOOP;
 
   -- Recreate helper index(es) AFTER load
-  CREATE INDEX IF NOT EXISTS idx_price_date ON price_observation(ts_date DESC);
+  CREATE INDEX IF NOT EXISTS idx_price_date ON pricing.price_observation(ts_date DESC);
 
   -- If you want to guarantee uniqueness for future upserts:
   -- CREATE UNIQUE INDEX IF NOT EXISTS price_observation_uniq
-  --   ON price_observation (print_id, source_id, metric_id, ts_date);
-
-  ALTER TABLE price_observation RESET (autovacuum_enabled);
-  ANALYZE price_observation;
+  --   ON pricing.price_observation (print_id, source_id, metric_id, ts_date);
+  ALTER TABLE pricing.price_observation RESET (autovacuum_enabled);
+  ANALYZE pricing.price_observation;
 
   RAISE NOTICE 'Inserted % rows total.', inserted_rows;
 END;
