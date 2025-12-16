@@ -11,6 +11,7 @@ from backend.request_handling.ErrorHandler import Psycopg2ExceptionHandler
 from backend.request_handling.QueryExecutor import AsyncQueryExecutor
 from backend.database.get_database import init_async_pool
 from backend.new_services.service_manager import ServiceManager
+from backend.core.boot_guard import assert_safe_database_url
 
 # Configure root logger to output to console with proper level
 for handler in logging.root.handlers:
@@ -48,6 +49,10 @@ async def lifespan(app: FastAPI):
         global error_handler
         error_handler = Psycopg2ExceptionHandler()
         logger.info("Error handler created")
+        # Ensure safe database URL before proceeding
+        logger.info("Asserting safe database URL...")
+        assert_safe_database_url()
+        logger.info("Database URL is safe")
         # Create database pool
         global db_pool
         try:

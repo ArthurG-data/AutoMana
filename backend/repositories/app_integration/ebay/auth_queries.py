@@ -1,6 +1,5 @@
 import logging
-from backend.schemas.settings import GeneralSettings
-from backend.dependancies.settings import get_general_settings
+from backend.core.settings import Settings, get_settings
 from dotenv import load_dotenv
 import os 
 logger = logging.getLogger(__name__)
@@ -11,7 +10,7 @@ def get_encryption_key() -> str:
     """Get encryption key dynamically"""
     logger.info("Fetching encryption key from settings")
     try:
-        settings = get_general_settings()
+        settings = get_settings()
         key = settings.pgp_secret_key
         
         if not key or key == 'fallback-key-change-in-production':
