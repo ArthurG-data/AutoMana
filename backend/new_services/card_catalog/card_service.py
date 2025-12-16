@@ -70,10 +70,10 @@ async def search_cards(card_repository: CardReferenceRepository
     try:
         if card_id:
             logger.info(f"Fetching card by ID: {card_id}")
-            card = card_repository.get(card_id)
+            card = await card_repository.get(card_id)
             if not card:
-                return {"users": [], "total": 0}
-            return {"users": [BaseCard.model_validate(card)]
+                return {"cards": [], "total": 0}
+            return {"cards": [BaseCard.model_validate(card)]
                     , "total": 1
                     }
 

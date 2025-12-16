@@ -22,9 +22,9 @@ CREATE TABLE IF NOT EXISTS markets.product_ref(
     UNIQUE (market_id, product_id)     -- ensure unique product per market
 );
 
-CREATE TABLE card_products_ref (
+CREATE TABLE markets.card_products_ref (
     tcgplayer_id INT NOT NULL,
-    product_shop_id VARCHAR(64) NOT NULL REFERENCES product_ref(product_shop_id) ON DELETE CASCADE,
+    product_shop_id VARCHAR(64) NOT NULL REFERENCES markets.product_ref(product_shop_id) ON DELETE CASCADE,
     description TEXT,  
     quantity INTEGER DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -32,9 +32,9 @@ CREATE TABLE card_products_ref (
     UNIQUE (tcgplayer_id, product_shop_id) -- ensure unique product per card and market, think about how conditions might be included,maybe modify the card table
 );
 
-CREATE TABLE product_prices (--producy prices, for cards at the moment but can be extended to other products
+CREATE TABLE markets.product_prices (--producy prices, for cards at the moment but can be extended to other products
     time TIMESTAMPTZ NOT NULL,
-    product_shop_id VARCHAR(64) NOT NULL REFERENCES product_ref(product_shop_id) ON DELETE CASCADE,
+    product_shop_id VARCHAR(64) NOT NULL REFERENCES markets.product_ref(product_shop_id) ON DELETE CASCADE,
     price NUMERIC NOT NULL, 
     currency VARCHAR(3) NOT NULL,
     price_usd NUMERIC NOT NULL,      -- e.g., ebay, tcgplayer, etc.
@@ -46,7 +46,7 @@ CREATE TABLE product_prices (--producy prices, for cards at the moment but can b
 
 CREATE TABLE markets.collection_handles (
     handle_id SERIAL PRIMARY KEY,
-    market_id INT  NOT NULL REFERENCES market_ref(market_id) ON DELETE CASCADE,
+    market_id INT  NOT NULL REFERENCES markets.market_ref(market_id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),

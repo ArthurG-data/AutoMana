@@ -63,10 +63,10 @@ class CardReferenceRepository(AbstractRepository[Any]):
         # if a list
     
         query = """ SELECT uc.card_name, r.rarity_name, s.set_name,s.set_code, uc.cmc, cv.oracle_text, s.released_at, s.digital, r.rarity_name
-                FROM unique_cards_ref uc
-                JOIN card_version cv ON uc.unique_card_id = cv.unique_card_id
-                JOIN rarities_ref r ON cv.rarity_id = r.rarity_id
-                JOIN sets s ON cv.set_id = s.set_id 
+                FROM card_catalog.unique_cards_ref uc
+                JOIN card_catalog.card_version cv ON uc.unique_card_id = cv.unique_card_id
+                JOIN card_catalog.rarities_ref r ON cv.rarity_id = r.rarity_id
+                JOIN card_catalog.sets s ON cv.set_id = s.set_id 
                 WHERE cv.card_version_id = $1;"""
 
         result = await self.execute_query(query, (card_id,))
@@ -133,10 +133,10 @@ class CardReferenceRepository(AbstractRepository[Any]):
         order_clause = f"ORDER BY {sort_by} {sort_order.upper()}"
 
         query = f""" SELECT uc.card_name, r.rarity_name, s.set_name,s.set_code, uc.cmc, cv.oracle_text, s.released_at, s.digital, r.rarity_name
-                FROM unique_cards_ref uc
-                JOIN card_version cv ON uc.unique_card_id = cv.unique_card_id
-                JOIN rarities_ref r ON cv.rarity_id = r.rarity_id
-                JOIN sets s ON cv.set_id = s.set_id
+                FROM card_catalog.unique_cards_ref uc
+                JOIN card_catalog.card_version cv ON uc.unique_card_id = cv.unique_card_id
+                JOIN card_catalog.rarities_ref r ON cv.rarity_id = r.rarity_id
+                JOIN card_catalog.sets s ON cv.set_id = s.set_id
                 {where_clause}
                 {order_clause}
                 LIMIT ${counter} OFFSET ${counter + 1}
@@ -144,10 +144,10 @@ class CardReferenceRepository(AbstractRepository[Any]):
         values.extend([limit, offset])
         cards = await self.execute_query(query, tuple(values))
 
-        count_query = f""" SELECT COUNT(*) as total_count FROM unique_cards_ref uc
-                JOIN card_version cv ON uc.unique_card_id = cv.unique_card_id
-                JOIN rarities_ref r ON cv.rarity_id = r.rarity_id
-                JOIN sets s ON cv.set_id = s.set_id
+        count_query = f""" SELECT COUNT(*) as total_count FROM card_catalog.unique_cards_ref uc
+                JOIN card_catalog.card_version cv ON uc.unique_card_id = cv.unique_card_id
+                JOIN card_catalog.rarities_ref r ON cv.rarity_id = r.rarity_id
+                JOIN card_catalog.sets s ON cv.set_id = s.set_id
                 {where_clause}
         """
         count_values = values[:-2]

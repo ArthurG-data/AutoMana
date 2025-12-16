@@ -4,7 +4,7 @@ from backend.repositories.AbstractRepository import AbstractRepository
 from backend.repositories.app_integration.ebay import app_queries
 from typing import Optional
 from backend.repositories.app_integration.ebay import auth_queries
-from backend.dependancies.settings import get_general_settings
+from backend.core.settings import get_settings as get_general_settings
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

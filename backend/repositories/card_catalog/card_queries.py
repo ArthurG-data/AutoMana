@@ -1,6 +1,6 @@
 
 insert_full_card_query = """
-        SELECT insert_full_card_version(
+        SELECT card_catalog.insert_full_card_version(
         -- Basic card info (1-5)
         $1,  -- card_name
         $2,  -- cmc
@@ -56,14 +56,14 @@ insert_full_card_query = """
 """
 
 insert_batch_card_query = """
-    SELECT * FROM insert_batch_card_versions($1::JSONB);
+    SELECT * FROM card_catalog.insert_batch_card_versions($1::JSONB);
 """
 
 delete_card_query = """
                 BEGIN;
                 WITH 
                 delete_card_version AS (
-                DELETE FROM card_version WHERE card_version_id = %s ON CASCADE
+                DELETE FROM card_catalog.card_version WHERE card_version_id = %s ON CASCADE
                 RETURNING unique_card_id AS deleted_card_id
                 ),
                 DELETE FROM unique_card_ref 

@@ -5,6 +5,7 @@ from backend.utils_new.auth import auth
 from backend.repositories.auth.session_repository import SessionRepository
 from uuid import UUID
 from datetime import datetime, timedelta, timezone
+from backend.core.settings import get_settings as get_general_settings
 
 async def validate_session_from_cookie(repository: SessionRepository, cookies: CookiesData):
     session_id = extract_session_id(cookies)
