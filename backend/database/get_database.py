@@ -3,7 +3,7 @@ from psycopg2.extras import RealDictCursor, register_uuid, register_uuid
 from typing import  Any, Generator
 from psycopg2.extensions import connection, cursor
 from psycopg2 import pool
-from backend.dependancies.settings import get_db_settings
+from backend.core.settings import get_settings as get_db_settings
 from fastapi import Depends
 from typing_extensions import Annotated
 from contextlib import contextmanager, asynccontextmanager
@@ -17,17 +17,13 @@ from typing import AsyncGenerator
 import os
 
 async_db_pool = None
-
+#change to just url later
 async def init_async_pool():
     """Initialize the async connection pool"""
     global async_db_pool
     if async_db_pool is None:
         async_db_pool = await asyncpg.create_pool(
-            host=get_db_settings().postgres_host,
-            port=os.getenv("DB_PORT", 5432),
-            user=get_db_settings().postgres_user,
-            password=get_db_settings().postgres_password,
-            database=get_db_settings().postgres_db,
+            dsn=get_db_settings().DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://"),
             min_size=1,
             max_size=10,  # Adjust based on your app's load
             server_settings={'client_encoding': 'UTF8'}
@@ -45,10 +41,7 @@ async def get_async_pool_connection() -> AsyncGenerator[asyncpg.Connection, None
 db_pool = pool.SimpleConnectionPool(
     minconn=1,
     maxconn=10,  # Adjust based on your app's load
-    host=get_db_settings().postgres_host,
-    database=get_db_settings().postgres_db,
-    user=get_db_settings().postgres_user,
-    password=get_db_settings().postgres_password,
+    dsn=get_db_settings().DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://"),
     cursor_factory=RealDictCursor,
     options='-c client_encoding=UTF8'
 )

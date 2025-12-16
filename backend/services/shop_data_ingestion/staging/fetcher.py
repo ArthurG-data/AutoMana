@@ -4,9 +4,10 @@ from urllib.parse import  urlunsplit
 from datetime import datetime
 import os, csv, json, httpx, time
 from tqdm import tqdm
+from backend.dependancies.settings import get_internal_settings
 from backend.schemas.external_marketplace.shopify.shopify_theme import CollectionModel, ProductModel, ResponseModel
 from backend.schemas.external_marketplace.shopify.utils import LogStatus, Status
-from backend.dependancies import get_internal_settings
+from backend.core.settings import get_settings as get_internal_settings
 
 
 def create_url_query(scheme, netloc, path, query=None, fragment=None)->str:

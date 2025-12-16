@@ -6,7 +6,7 @@ from backend.request_handling.StandardisedQueryResponse import ApiResponse
 from datetime import timedelta, datetime, timezone
 from backend.exceptions import session_exceptions
 from backend.schemas.user_management.user import UserInDB
-from backend.dependancies.settings import get_general_settings
+from backend.core.settings import get_settings as get_general_settings
 import logging 
 from typing import Dict, Any
 
