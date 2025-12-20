@@ -3,7 +3,7 @@ from fastapi import Depends, HTTPException, Query, Response
 from typing import List, Union, Optional, Sequence, Annotated, Callable, Any
 from pydantic import BaseModel
 from psycopg2.extensions import connection, cursor
-from backend.database.get_database import get_cursor
+from backend.dependancies.database import get_cursor
 from uuid import UUID
 from backend.database import errors
 from typing import Tuple, Dict

@@ -1,10 +1,10 @@
 
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
-from backend.new_services.service_manager import ServiceManager
 from backend.request_handling.StandardisedQueryResponse import ApiResponse, PaginatedResponse, PaginationInfo
 from backend.schemas.user_management.user import  BaseUser, UserPublic,  UserUpdatePublic, UserInDB
-from backend.dependancies.service_deps import get_current_active_user, get_service_manager
+from backend.dependancies.service_deps import ServiceManagerDep
+from backend.dependancies.auth.users import CurrentUserDep
 from backend.exceptions import session_exceptions
 from backend.schemas.user_management.role import AssignRoleRequest, Role
 from backend.dependancies.query_deps import (sort_params
@@ -23,7 +23,7 @@ router = APIRouter(
 )
 
 @router.get('/me', response_model= UserPublic)
-async def get_me_user(current_user = Depends(get_current_active_user)):
+async def get_me_user(current_user: CurrentUserDep):
     try:
         return ApiResponse(data=current_user)
     except session_exceptions.SessionAccessDeniedError as e:
@@ -36,7 +36,7 @@ async def get_me_user(current_user = Depends(get_current_active_user)):
 
 @router.get('/', response_model=PaginatedResponse[UserInDB])
 async def get_users(
-    service_manager: ServiceManager = Depends(get_service_manager),
+    service_manager: ServiceManagerDep,
     pagination: PaginationParams = Depends(pagination_params),
     sorting: SortParams = Depends(sort_params),
     search: dict = Depends(user_search_params)
@@ -71,7 +71,7 @@ async def get_users(
 
 @router.post('/')
 async def add_user( user: BaseUser
-                   , service_manager : ServiceManager = Depends(get_service_manager) ):
+                   , service_manager : ServiceManagerDep ):
     print(user)
     try:
         result = await service_manager.execute_service("auth.auth.register", user=user)
@@ -84,8 +84,8 @@ async def add_user( user: BaseUser
 
 @router.put('/')
 async def modify_user( user_update: UserUpdatePublic
-                      , service_manager = Depends(get_service_manager)
-                      , current_user = Depends(get_current_active_user)):
+                      , service_manager: ServiceManagerDep
+                      , current_user: CurrentUserDep):
     try:
         result = await service_manager.execute_service("user_management.user.update"
                                                        , user = user_update
@@ -98,7 +98,7 @@ async def modify_user( user_update: UserUpdatePublic
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 @router.delete('/{user_id}', status_code=204)
-async def delete_user(user_id: UUID, service_manager: ServiceManager = Depends(get_service_manager)):
+async def delete_user(user_id: UUID, service_manager: ServiceManagerDep):
     try:
         await service_manager.execute_service("user_management.user.delete_user", user_id=user_id)
         return ApiResponse(data=None)
@@ -111,8 +111,8 @@ async def delete_user(user_id: UUID, service_manager: ServiceManager = Depends(g
 @router.post('/{user_id}/roles', status_code=status.HTTP_201_CREATED)
 async def assign_role(user_id: UUID
                       , role: AssignRoleRequest
-                      , current_user = Depends(get_current_active_user)
-                      , service_manager: ServiceManager = Depends(get_service_manager)):
+                      , current_user: CurrentUserDep
+                      , service_manager: ServiceManagerDep):
     try:
         await service_manager.execute_service("user_management.user.assign_role"
                                               , role=role
@@ -127,8 +127,8 @@ async def assign_role(user_id: UUID
 @router.delete('/{user_id}/roles/{role_name}', status_code=status.HTTP_204_NO_CONTENT)
 async def revoke_role(user_id: UUID
                       , role_name: Role
-                      , current_user = Depends(get_current_active_user)
-                      , service_manager: ServiceManager = Depends(get_service_manager)):
+                      , current_user: CurrentUserDep
+                      , service_manager: ServiceManagerDep):
     try:
         await service_manager.execute_service("user_management.user.revoke_role"
                                               , user_id=user_id

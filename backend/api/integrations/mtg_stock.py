@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List, Optional
-from backend.new_services.service_manager import ServiceManager
-from backend.dependancies.service_deps import get_service_manager
+from backend.dependancies.service_deps import ServiceManagerDep
 import logging
 
 logger = logging.getLogger(__name__)
@@ -10,7 +9,7 @@ router = APIRouter(prefix="/mtg_stock", tags=["mtg_stock"])
 
 
 @router.post("/stage")
-async def stage_data(service_manager: ServiceManager = Depends(get_service_manager)):
+async def stage_data(service_manager: ServiceManagerDep):
     try:
         await service_manager.execute_service("integration.mtg_stock.stage")
 
@@ -19,7 +18,7 @@ async def stage_data(service_manager: ServiceManager = Depends(get_service_manag
         raise HTTPException(status_code=500, detail=f"Error staging data, {e}")
 
 @router.post("/load_ids")
-async def load_ids(service_manager: ServiceManager = Depends(get_service_manager)):
+async def load_ids(service_manager: ServiceManagerDep):
     try:
         await service_manager.execute_service("integration.mtg_stock.load_ids")
 
@@ -28,10 +27,10 @@ async def load_ids(service_manager: ServiceManager = Depends(get_service_manager
         raise HTTPException(status_code=500, detail=f"Error loading IDs, {e}")
 
 @router.get("/load")
-async def get_print_data(print_ids: Optional[List[int]] = Query(None, description="A list of print IDs to fetch"),
+async def get_print_data(  service_manager: ServiceManagerDep, print_ids: Optional[List[int]] = Query(None, description="A list of print IDs to fetch"),
                 range_start: Optional[int] = Query(None, description="Start of the range of print IDs"),
                 range_end: Optional[int] = Query(None, description="End of the range of print IDs"),
-                service_manager: ServiceManager = Depends(get_service_manager)):
+             ):
     # Logic to retrieve print data
     try:
 

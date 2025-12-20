@@ -1,9 +1,8 @@
 from fastapi import APIRouter,  Depends, Query, Request, HTTPException
 from typing import List, Optional
 import logging
-from backend.dependancies.general import get_service_manager
+from backend.dependancies.service_deps import ServiceManagerDep
 from backend.new_services.app_integration.ebay import buying_services
-from backend.new_services.service_manager import ServiceManager
 from backend.schemas.app_integration.ebay import listings as listings_model
 from backend.request_handling.StandardisedQueryResponse import PaginatedResponse, PaginationInfo
 #from backend.modules.ebay.services import auth as authentificate
@@ -14,7 +13,8 @@ logger = logging.getLogger(__name__)
 search_router = APIRouter(prefix='/search')
 #test without dependency first
 @search_router.get('/', response_model=PaginatedResponse)
-async def make_get_request(     
+async def make_get_request(    
+                            service_manager: ServiceManagerDep, 
                             app_code: str = Query(...),
                             q: Optional[str] = Query(None),
                             gtin: Optional[str] = Query(None),
@@ -29,7 +29,7 @@ async def make_get_request(
                             offset: Optional[int] = Query(0),
                             aspect_filter: Optional[str] = Query(None),
                             epid: Optional[str] = Query(None),
-                            service_manager: ServiceManager = Depends(get_service_manager)
+        
 ):
     try:
         if not q:

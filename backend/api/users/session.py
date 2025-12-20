@@ -1,8 +1,7 @@
 from fastapi import APIRouter, Depends,  HTTPException, Request, Response, status
 from uuid import UUID
-from backend.dependancies.service_deps import get_service_manager, get_current_active_user
+from backend.dependancies.service_deps import ServiceManagerDep
 from backend.dependancies.general import ipDep
-from backend.new_services.service_manager import ServiceManager
 from backend.request_handling.StandardisedQueryResponse import ApiResponse, PaginatedResponse,PaginationInfo
 
 from backend.dependancies.query_deps import (
@@ -22,7 +21,7 @@ session_router = APIRouter(
 
 @session_router.get('/{session_id}', response_model= ApiResponse)
 async def get_sessions(session_id : UUID
-                       , service_manager: ServiceManager = Depends(get_service_manager)):
+                       , service_manager: ServiceManagerDep):
     try:
         result =  await service_manager.execute_service(
             "auth.session.read",
@@ -38,11 +37,12 @@ async def get_sessions(session_id : UUID
 
 @session_router.get('/', response_model=PaginatedResponse,status_code=status.HTTP_200_OK)
 async def get_sessions(
+                        service_manager: ServiceManagerDep,
                        search_params: dict = Depends(session_search_params),
                        pagination: PaginationParams = Depends(pagination_params),
                        sorting: SortParams = Depends(sort_params),
                        date_range: DateRangeParams = Depends(date_range_params),
-                       service_manager: ServiceManager = Depends(get_service_manager)
+                       
                        ):
     try:
         results = await service_manager.execute_service(
@@ -73,7 +73,7 @@ async def get_sessions(
 @session_router.delete('/{session_id}/desactivate', status_code=status.HTTP_204_NO_CONTENT)
 async def delete_session( 
                            session_id : UUID
-                         ,service_manager: ServiceManager = Depends(get_service_manager)):
+                         ,service_manager: ServiceManagerDep):
     try:
         await service_manager.execute_service(
             "auth.session.delete",

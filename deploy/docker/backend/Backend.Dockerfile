@@ -17,7 +17,7 @@ COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir --verbose -r requirements.txt
 
 # Copy app
-COPY . /app/backend
+COPY backend /app/backend
 
 # Security: run as non-root
 RUN useradd -m appuser

@@ -1,11 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from backend.new_services.service_manager import ServiceManager
-from backend.dependancies.general import get_service_manager
+from backend.dependancies.service_deps import ServiceManagerDep
 
 data_loading_router = APIRouter(prefix="/data_loading", tags=["Shopify Data Loading"])
 
 @data_loading_router.post("/load_data")
-async def load_data(PATH_TO_JSON: str = Query(...), market_code: str = Query(...), output_path: str = Query(...), service_manager: ServiceManager = Depends(get_service_manager)):
+async def load_data( service_manager: ServiceManagerDep
+    ,PATH_TO_JSON: str = Query(...)
+                    , market_code: str = Query(...)
+                    , output_path: str = Query(...)
+                   ):
     try:
         await service_manager.execute_service(
             "integration.shopify.load_data",
@@ -17,7 +20,11 @@ async def load_data(PATH_TO_JSON: str = Query(...), market_code: str = Query(...
         raise HTTPException(status_code=500, detail=str(e))
     
 @data_loading_router.post("/stage_data")
-async def stage_data(PATH_TO_PARQUET_DIR: str = Query(...),  batch_size: int = Query(10000), service_manager: ServiceManager = Depends(get_service_manager)):
+async def stage_data(
+    service_manager: ServiceManagerDep
+    ,PATH_TO_PARQUET_DIR: str = Query(...)
+                     ,  batch_size: int = Query(10000)
+                      ):
     try:
         test = await service_manager.execute_service(
             "integration.shopify.stage_data",

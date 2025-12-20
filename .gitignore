@@ -16,8 +16,8 @@ celery_app/celery_venv/
 
 #Env files
 config/env
-*/celery/.env
-
+celery_app/.env
+agentic_workflows/.env
 start_env.ps1
 
 # IDE - Personal Settings Only

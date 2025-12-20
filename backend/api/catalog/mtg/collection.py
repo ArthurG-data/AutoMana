@@ -2,10 +2,9 @@ from fastapi import APIRouter, HTTPException, Depends, status, Query
 from typing import List, Optional
 from uuid import UUID
 from backend.schemas.collections.collection import CreateCollection, UpdateCollection, PublicCollection, PublicCollectionEntry, UpdateCollectionEntry, NewCollectionEntry
-from backend.new_services.service_manager import ServiceManager
-from backend.dependancies.service_deps import get_service_manager, get_current_active_user
+from backend.dependancies.service_deps import ServiceManagerDep
 from backend.request_handling.StandardisedQueryResponse import ApiResponse, PaginatedResponse, ErrorResponse, PaginationInfo
-
+from backend.dependancies.auth.users import CurrentUserDep
 
 router = APIRouter(
      prefix='/collection',
@@ -20,8 +19,8 @@ router = APIRouter(
 @router.post('/', response_model=ApiResponse, status_code=status.HTTP_201_CREATED)
 async def add_collection(
     created_collection: CreateCollection, 
-    current_user = Depends(get_current_active_user),
-    service_manager: ServiceManager = Depends(get_service_manager)
+    current_user: CurrentUserDep,
+    service_manager: ServiceManagerDep
 ) -> ApiResponse:
     result = await service_manager.execute_service(
         "card_catalog.collection.add"
@@ -33,8 +32,8 @@ async def add_collection(
 @router.delete('/{collection_id}', status_code=status.HTTP_204_NO_CONTENT)
 async def remove_collection(
     collection_id: UUID, 
-    current_user = Depends(get_current_active_user),
-    service_manager: ServiceManager = Depends(get_service_manager)
+    current_user: CurrentUserDep,
+    service_manager: ServiceManagerDep
 ):
     result = await service_manager.execute_service(
         "card_catalog.collection.delete"
@@ -47,8 +46,8 @@ async def remove_collection(
 @router.get('/{collection_id}', response_model=ApiResponse, status_code=status.HTTP_200_OK)
 async def get_collection(
     collection_id: UUID, 
-    current_user = Depends(get_current_active_user),
-    service_manager: ServiceManager = Depends(get_service_manager)
+    current_user: CurrentUserDep,
+    service_manager: ServiceManagerDep
 ):
     result = await service_manager.execute_service(
         "card_catalog.collection.get"
@@ -60,8 +59,8 @@ async def get_collection(
 
 @router.get('/', response_model=List[PublicCollection])
 async def get_collection(
-    current_user =  Depends(get_current_active_user),
-    service_manager: ServiceManager = Depends(get_service_manager),
+    current_user: CurrentUserDep,
+    service_manager: ServiceManagerDep,
     collection_ids: Optional[List[UUID]] = Query(None, description="Specific collection IDs to retrieve"),
     limit: int = Query(100, le=100, description="Maximum number of collections"),
     offset: int = Query(0, ge=0, description="Number of collections to skip")
@@ -119,8 +118,8 @@ async def get_collection(
 async def change_collection(
     collection_id: str, 
     updated_collection: UpdateCollection, 
-    current_user =  Depends(get_current_active_user),
-    service_manager: ServiceManager = Depends(get_service_manager)
+    current_user: CurrentUserDep,
+    service_manager: ServiceManagerDep
 ):
     return await service_manager.execute_service(
         "card_catalog.collection.update",  collection_id=collection_id, updated_collection=updated_collection, user=current_user)
@@ -130,7 +129,7 @@ async def change_collection(
 async def delete_entry(
     collection_id: str, 
     entry_id: UUID,
-    service_manager: ServiceManager = Depends(get_service_manager)
+    service_manager: ServiceManagerDep
 ):
     return await service_manager.execute_service(
         "card_catalog.collection.delete_entry", collection_id, entry_id)
@@ -139,7 +138,7 @@ async def delete_entry(
 async def get_entry(
     collection_id: str, 
     entry_id: UUID,
-    service_manager: ServiceManager = Depends(get_service_manager)
+    service_manager: ServiceManagerDep
 ):
     return await service_manager.execute_service(
         "card_catalog.collection.get_entry", collection_id, entry_id)
