@@ -38,6 +38,7 @@ DECLARE
   schemas text[] := ARRAY['public','card_catalog','pricing','auth'];
 BEGIN
   FOREACH s IN ARRAY schemas LOOP
+    CREATE SCHEMA IF NOT EXISTS s;
     -- Schema must exist before granting; this is safe even if it doesn't.
     EXECUTE format('GRANT USAGE, CREATE ON SCHEMA %I TO migrator_dev, migrator_test, migrator_prod;', s);
 

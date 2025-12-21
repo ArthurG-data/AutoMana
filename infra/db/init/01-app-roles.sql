@@ -43,7 +43,7 @@ BEGIN
             LOGIN
             NOSUPERUSER
             NOCREATEDB
-            NOCREATEDEROLE
+            NOCREATEROLE
             NOINHERIT;
     END IF;
 END$$;

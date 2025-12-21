@@ -1,5 +1,13 @@
-broker_url='redis://localhost:6379/0'
-result_backend='redis://localhost:6379/1'
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+from celery.schedules import crontab
+
+env_path = Path(__file__).parent.parent.parent / "config" / "env" / ".env.dev"
+load_dotenv(dotenv_path=env_path)
+
+broker_url=os.getenv("BROKER_URL")
+result_backend=os.getenv("RESULT_BACKEND")
 
 imports = (
     'celery_app.tasks.scryfall',
@@ -7,8 +15,8 @@ imports = (
     'celery_app.tasks.ebay',
     )
 
-timezone = "Australia/Brisbane"
-from celery.schedules import crontab
+timezone = os.getenv("CELERY_TIMEZONE", "Australia/Sydney")
+
 beat_schedule = {
     "refresh-scryfall-manifest-nightly": {
         "task": "tasks.scryfall.download_scryfall_bulk_uris",

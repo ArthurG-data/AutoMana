@@ -20,6 +20,7 @@ config/env
 celery_app/.env
 agentic_workflows/.env
 start_env.ps1
+config/nginx/certs/
 
 # IDE - Personal Settings Only
 .vscode/settings.json

@@ -13,8 +13,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
  && rm -rf /var/lib/apt/lists/*
 
  # Install Python deps first for better layer caching
-COPY requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir --verbose -r requirements.txt
+COPY backend/min_requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy app
 COPY backend /app/backend

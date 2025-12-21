@@ -4,10 +4,12 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 import os
+from pathlib import Path
 
 def env_file_path() -> str:
     env = os.getenv("ENV", "dev")
-    return f"backend/.env.{env}"
+    project_root = Path(__file__).parent.parent.parent 
+    return str(project_root / "config" / "env" / f".env.{env}")
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
