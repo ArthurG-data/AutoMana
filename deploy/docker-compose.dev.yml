@@ -29,30 +29,57 @@ services:
       - "8000:8000"
     volumes:
       - ../backend:/app/backend
+      - ../staging:/app/staging
     env_file:
       - ../config/env/.env.dev
     environment:
       - ENV=dev
     networks:
       - backend-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     depends_on:
       postgres:
         condition: service_healthy
-  nginx:
+  proxy:
     build:
       context: ./docker/nginx
       dockerfile: nginx.Dockerfile
-    container_name: automana-nginx-dev
+    container_name: automana-proxy-dev
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - ../config/nginx/certs:/etc/nginx/certs:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:80/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - backend-network
       - frontend-network
     depends_on:
       - backend
+  redis:
+    image: redis:7.0-alpine
+    container_name: automana-redis-dev
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+      - redis-config:/usr/local/etc/redis
+    networks:
+      - backend-network
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 networks:
   frontend-network:  # nginx <-> backend
     driver: bridge
@@ -60,3 +87,5 @@ networks:
     driver: bridge
 volumes:
   pgdata-dev:
+  redis-data:
+  redis-config:
