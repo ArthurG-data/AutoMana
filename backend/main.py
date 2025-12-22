@@ -1,24 +1,14 @@
-import time
-print(f"🚀 Starting application at {time.time()}")
-
 from fastapi import FastAPI, Request
 import time, logging, sys
 #from backend.modules.ebay import routers as ebay_router
 from fastapi.middleware.cors import CORSMiddleware
 #from backend import api 
 from contextlib import asynccontextmanager
-from backend.request_handling.ErrorHandler import Psycopg2ExceptionHandler
-from backend.request_handling.QueryExecutor import AsyncQueryExecutor
-from backend.database.get_database import init_async_pool
-from backend.new_services.service_manager import ServiceManager
-from backend.core.boot_guard import assert_safe_database_url
+from backend.core.settings import get_settings
 
 # Configure root logger to output to console with proper level
-for handler in logging.root.handlers:
-    logging.root.removeHandler(handler)
-    
 logging.basicConfig(
-    level=logging.DEBUG,  # Try DEBUG level for more verbose output
+    level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(sys.stdout)  # Explicitly add console handler
@@ -32,144 +22,85 @@ logging.getLogger("fastapi").setLevel(logging.WARNING)
 logging.getLogger("backend").setLevel(logging.INFO)  # Or even logging.WARNING
 logger = logging.getLogger(__name__)
 
-logger.debug("Logger initialized")
+# ==========================================
+# Application State (FastAPI 0.100+ pattern)
+# ==========================================
 
-db_pool = None
-query_executor = None
-error_handler = None
-service_manager = None
+class AppState:
+    def __init__(self):
+        """Centralized application state"""
+        self.async_db_pool = None
+        self.sync_db_pool = None
+        self.query_executor = None
+        self.error_handler = None
+        self.service_manager = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+
+    logger.info("🚀 Application startup initiated")
+
     try:
-        logger.info("Initializing application resources...")
-        #setup ressources
-
-        #create errorhandler
-        global error_handler
-        error_handler = Psycopg2ExceptionHandler()
-        logger.info("Error handler created")
-        # Ensure safe database URL before proceeding
-        logger.info("Asserting safe database URL...")
+        from backend.core.boot_guard import assert_safe_database_url
+        # Validate environment
         assert_safe_database_url()
-        logger.info("Database URL is safe")
-        # Create database pool
-        global db_pool
-        try:
-            db_pool = await init_async_pool()
-            logger.info("Database pool created successfully")
-        except Exception as e:
-            logger.error(f"Failed to create database pool: {e}")
-            raise
 
-        # Create query executor with pool and error handler
-        global query_executor
-        logger.info("Creating query executor...")
-        query_executor = AsyncQueryExecutor(error_handler)
-        logger.info("Query executor created successfully")
-        # Initialize ServiceManager once when the app starts
-        logger.info("Initializing ServiceManager...")
-        global service_manager
-        try:
-            service_manager = await ServiceManager.initialize(connection_pool=db_pool, query_executor=query_executor)
-            logger.info("ServiceManager initialized successfully")
-            
-            # Verify initialization worked
-            if service_manager.query_executor is None:
-                logger.error("ServiceManager query executor is None after initialization!")
-                # Fix it by setting directly
-                service_manager.query_executor = query_executor
-            if service_manager.connection_pool is None:
-                logger.error("ServiceManager connection pool is None after initialization!")
-                # Fix it by setting directly
-                service_manager.connection_pool = db_pool
-        except Exception as e:
-            logger.error(f"Failed to initialize ServiceManager: {e}")
-            raise
+        from backend.request_handling.ErrorHandler import Psycopg2ExceptionHandler
+        from backend.request_handling.QueryExecutor import AsyncQueryExecutor
+        from backend.core.database import init_async_pool, close_async_pool, init_sync_pool, close_sync_pool    
+        from backend.new_services.service_manager import ServiceManager
 
-        logger.info("Application resources initialized successfully")
-    
+
+        app.state.error_handler = Psycopg2ExceptionHandler()
+        app.state.async_db_pool = await init_async_pool()
+        app.state.sync_db_pool = init_sync_pool()
+        app.state.query_executor = AsyncQueryExecutor(app.state.error_handler)
+        app.state.service_manager = await ServiceManager.initialize(
+            connection_pool=app.state.async_db_pool,
+            query_executor=app.state.query_executor
+        )
         yield
 
-        logger.info("Shutting down application resources...")
-
-        try:
+    finally:
+          # Shutdown (always runs)
+        logger.info("🔄 Application shutdown initiated")
+        
+        if hasattr(app.state, 'service_manager') and app.state.service_manager:
             await ServiceManager.close()
-            logger.info("ServiceManager closed successfully")
-        except Exception as e:
-            logger.error(f"Error closing ServiceManager: {e}")
-
-        if db_pool:
-            try:
-                logger.info("Closing database pool...")
-                import asyncio
-                try:
-            # Wait for pool to close with a timeout
-                    await asyncio.wait_for(db_pool.close(), timeout=1.0)
-                    logger.info("Database pool closed successfully")
-                except asyncio.TimeoutError:
-                    logger.warning("Database pool close operation timed out after 5 seconds")
-                # Force cleanup anyway
-                    db_pool = None
             
-            except Exception as e:
-                logger.error(f"Error closing database pool: {e}")
-                # Force cleanup even if there's an error
-                db_pool = None
+        if hasattr(app.state, 'async_db_pool') and app.state.async_db_pool:
+            await close_async_pool(app.state.async_db_pool)
         
-        # Clean up globals
-        global_cleanup()
-        
-        logger.info("Application resources shutdown complete")
-    except Exception as e:
-        logger.error(f"Error during application lifespan: {e}")
-        yield
+        if hasattr(app.state, 'sync_db_pool') and app.state.sync_db_pool:
+            close_sync_pool(app.state.sync_db_pool)
+            
+        logger.info("✅ Application shutdown complete")
 
-def global_cleanup():
-    """Reset all global instances"""
-    global db_pool, query_executor, error_handler, service_manager
-    db_pool = None
-    query_executor = None
-    error_handler = None
-    service_manager = None
-
-
+# ==========================================
+# FastAPI Application
+# ==========================================
 app = FastAPI(
     title='AutoManaApp',
-    summary='Will be a massive app to automanticly manger card collection sale',
-    version='0.0.1',
-    terms_of_service="http://example.com/terms/",
-    contact={
-        "name": "Arthur Guillaume",
-        "url": "http://x-force.example.com/contact/",
-        "email": "todecide@gmail.com",
-    },
-    license_info={
-        "name": "Apache 2.0",
-        "url": "https://www.apache.org/licenses/LICENSE-2.0.html",
-    },
+    description='Automated card collection management and sales platform',
+    version='0.1.0',
     lifespan=lifespan
-
 )
+# ==========================================
+# Middleware
+# ==========================================
+from fastapi.middleware.cors import CORSMiddleware
 
-from backend.api import api_router
-
-app.include_router(api_router)
-origins =[
-    'http://localhost',
-    'http://localhost:8080'
-]
-
+settings = get_settings()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=settings.ALLOWED_ORIGINS if hasattr(settings, 'ALLOWED_ORIGINS') else ["http://localhost:8080"],
     allow_credentials=True,
     allow_methods=['*'],
     allow_headers=['*']
 )
 
-@app.middleware('http')
+@app.middleware("http")
 async def add_process_time_header(request: Request, call_next):
     start_time = time.perf_counter()
     response = await call_next(request)
@@ -177,12 +108,10 @@ async def add_process_time_header(request: Request, call_next):
     response.headers['X-Process-Time'] = str(process_time)
     return response
 
-app.middleware("http")
+@app.middleware("http")
 async def log_requests(request: Request, call_next):
     """Log all requests and responses"""
     logger.debug(f"Request: {request.method} {request.url}")
-    logger.debug(f"Headers: {request.headers}")
-    
     # Process the request
     try:
         response = await call_next(request)
@@ -191,9 +120,21 @@ async def log_requests(request: Request, call_next):
     except Exception as e:
         logger.error(f"Request failed: {str(e)}")
         raise
+# ==========================================
+# Routes
+# ==========================================
+from backend.api import api_router
 
-@app.get('/')
+app.include_router(api_router)
+
+@app.get('/', tags=['Root'])
 async def root():
-    return {'message' : 'Welcome to the AutoMana API!'}
+    return {
+        "message": "Welcome to AutoMana API",
+        "version": "0.1.0",
+        "docs": "/docs"
+    }
 
-
+@app.get('/health', tags=['Health'])
+async def health_check():
+    return {'status' : 'healthy'}

@@ -5,8 +5,7 @@ from fastapi.responses import JSONResponse
 from backend.dependancies.general import ipDep
 from fastapi.security import OAuth2PasswordRequestForm
 from backend.schemas.auth.token import Token, TokenResponse
-from backend.new_services.service_manager import ServiceManager
-from backend.dependancies.service_deps import get_service_manager
+from backend.dependancies.service_deps import ServiceManagerDep
 import logging
 
 logger = logging.getLogger(__name__)
@@ -21,7 +20,7 @@ authentification_router = APIRouter(
 async def logout(ip_address : ipDep
                 ,response : Response
                  ,request : Request
-                 ,service_manager: ServiceManager = Depends(get_service_manager)
+                 ,service_manager: ServiceManagerDep
                  ):
     session_id = request.cookies.get("session_id")
     if session_id:
@@ -33,13 +32,25 @@ async def logout(ip_address : ipDep
     response.delete_cookie('session_id')
     return None
 
+   
+@authentification_router.post('/token/refresh', description='exanges the refresh token in a cookie for a auth token')
+async def do_read_cookie(ip_address: ipDep, 
+                        response: Response, 
+                        request: Request,
+                        service_manager: ServiceManagerDep):
+    return await service_manager.execute_service('auth.cookie.read_cookie'
+                                                 , ip_address=ip_address
+                                                 , response=response
+                                                 , request=request)
+
 @authentification_router.post('/token'
                               , description='Using an authorization form, authentificate a user against the database and return a bearer token and a cookie with a refresh token'
                               , response_model=TokenResponse)
 async def do_login(ip_address : ipDep
                    , request: Request
-                   , form_data: Annotated[OAuth2PasswordRequestForm, Depends()]
-                   , service_manager: ServiceManager = Depends(get_service_manager)
+                    , service_manager: ServiceManagerDep
+                   , form_data:Annotated[OAuth2PasswordRequestForm, Depends()]
+
                    ) :
     #check if active session exists
     result = await service_manager.execute_service("auth.auth.login"
@@ -80,16 +91,6 @@ async def do_login(ip_address : ipDep
             max_age=3600,  # 1 hour
         )
     return json_response
-   
-@authentification_router.post('/token/refresh', description='exanges the refresh token in a cookie for a auth token')
-async def do_read_cookie(ip_address: ipDep, 
-                        response: Response, 
-                        request: Request,
-                        service_manager: ServiceManager = Depends(get_service_manager)):
-    return await service_manager.execute_service('auth.cookie.read_cookie'
-                                                 , ip_address=ip_address
-                                                 , response=response
-                                                 , request=request)
    
 
 

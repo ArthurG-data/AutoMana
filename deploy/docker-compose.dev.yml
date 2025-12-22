@@ -1,0 +1,91 @@
+services:
+  postgres:
+    build:
+      context: ./docker/postgres
+      dockerfile: Dockerfile
+    #image: timescale-pgvector:pg17
+    container_name: automana-postgres-dev
+    env_file:
+      - ../config/env/.env.dev
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata-dev:/var/lib/postgresql/data
+      - ../infra/db/init/:/docker-entrypoint-initdb.d/:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app_dev -d manaforge_dev"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+            - backend-network
+
+  backend:
+    build:
+      context: ..
+      dockerfile: deploy/docker/backend/Backend.Dockerfile
+    container_name: automana-backend-dev
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../backend:/app/backend
+      - ../staging:/app/staging
+    env_file:
+      - ../config/env/.env.dev
+    environment:
+      - ENV=dev
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      postgres:
+        condition: service_healthy
+  proxy:
+    build:
+      context: ./docker/nginx
+      dockerfile: nginx.Dockerfile
+    container_name: automana-proxy-dev
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ../config/nginx/certs:/etc/nginx/certs:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:80/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend-network
+      - frontend-network
+    depends_on:
+      - backend
+  redis:
+    image: redis:7.0-alpine
+    container_name: automana-redis-dev
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+      - redis-config:/usr/local/etc/redis
+    networks:
+      - backend-network
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+networks:
+  frontend-network:  # nginx <-> backend
+    driver: bridge
+  backend-network:   # backend <-> postgres
+    driver: bridge
+volumes:
+  pgdata-dev:
+  redis-data:
+  redis-config:

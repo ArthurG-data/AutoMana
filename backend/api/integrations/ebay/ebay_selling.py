@@ -2,8 +2,8 @@ import token
 from backend.schemas.app_integration.ebay import  listings as listings_model
 from fastapi import APIRouter, HTTPException, Query, Depends
 from typing import Annotated, List
-from backend.dependancies.service_deps import get_current_active_user, get_service_manager
-from backend.new_services.service_manager import ServiceManager
+from backend.dependancies.service_deps import ServiceManagerDep
+from backend.dependancies.auth.users import CurrentUserDep
 from backend.request_handling.StandardisedQueryResponse import ApiResponse,PaginatedResponse,PaginationInfo
 
 
@@ -30,10 +30,9 @@ async def do_api_call(item_id : str, token = Depends(authentificate.check_validi
 """
 @ebay_listing_router.post("/", description="posting a new listing")
 async def do_api_call(listing : listings_model.ItemModel, 
+                        user: CurrentUserDep,
+                      service_manager : ServiceManagerDep,
                       app_code : str = Query(..., description="The application code for the eBay integration"),
-                      user = Depends(get_current_active_user),
-                      service_manager : ServiceManager = Depends(get_service_manager),
-
                       ):
     try:
         payload = {
@@ -52,11 +51,12 @@ async def do_api_call(listing : listings_model.ItemModel,
         raise HTTPException(status_code=500, detail=str(e))
 
 @ebay_listing_router.get('/active', description='get the active listings of a user'""", response_model=PaginatedResponse""")
-async def do_api_call( limit: Annotated[int, Query(gt=0, le=100)] = 10,
+async def do_api_call(         user: CurrentUserDep,
+                        service_manager: ServiceManagerDep,
+    limit: Annotated[int, Query(gt=0, le=100)] = 10,
                         offset: Annotated[int, Query(ge=0)] = 0,
-                        app_code = str,
-                        user = Depends(get_current_active_user),
-                        service_manager = Depends(get_service_manager)
+                        app_code = str
+                
                         ):
     try:
         env = await service_manager.execute_service(
@@ -93,11 +93,12 @@ async def do_api_call( limit: Annotated[int, Query(gt=0, le=100)] = 10,
         raise HTTPException(status_code=500, detail=str(e))
 
 @ebay_listing_router.get('/history', description='get the history of a listing', response_model=PaginatedResponse)
-async def do_api_call(limit: Annotated[int, Query(gt=0, le=100)] = 10,
+async def do_api_call(
+                        user: CurrentUserDep,
+                        service_manager: ServiceManagerDep,
+    limit: Annotated[int, Query(gt=0, le=100)] = 10,
                         offset: Annotated[int, Query(ge=0)] = 0,
-                        app_code = str,
-                        user = Depends(get_current_active_user),
-                        service_manager = Depends(get_service_manager)):
+                        app_code = str):
     try:
         env = await service_manager.execute_service(
             "integrations.ebay.get_environment",
@@ -133,11 +134,12 @@ async def do_api_call(limit: Annotated[int, Query(gt=0, le=100)] = 10,
         raise HTTPException(status_code=500, detail=str(e))
 
 @ebay_listing_router.put("/{item_id}", description="updates a item")
-async def do_api_call(updatedItem : listings_model.ItemModel
-                      ,item_id : str
-                      , app_code = str,
-                    user = Depends(get_current_active_user),
-                    service_manager = Depends(get_service_manager)):
+async def do_api_call(updatedItem : listings_model.ItemModel,
+                          user: CurrentUserDep,
+                    service_manager: ServiceManagerDep,
+                      item_id : str,
+                      app_code: str
+                ):
     if updatedItem.ItemID != item_id:
         raise HTTPException(status_code=400, detail="Item ID in URL and body must match")
     try:

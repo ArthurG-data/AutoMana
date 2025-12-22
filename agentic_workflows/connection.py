@@ -3,7 +3,7 @@ from contextlib import contextmanager
 import os,dotenv, logging
 from pathlib import Path
 
-env_path = Path(__file__).parent.parent / "agentic_workflows" /".env"
+env_path = Path(__file__).parent.parent / "config" / "env" / ".env.dev"
 dotenv.load_dotenv(env_path)
 
 logging.basicConfig(level=logging.INFO)
@@ -12,9 +12,9 @@ engine = None
 
 def get_engine():
     global engine
-    logging.info("Getting database engine for user: %s", os.getenv('POSTGRES_USER'))
+    logging.info("Getting database engine for user: %s", os.getenv('AGENT_POSTGRES_USER'))
     if engine is None:
-        connection_url = f"postgresql+psycopg2://{os.getenv('POSTGRES_USER')}:{os.getenv('POSTGRES_PASSWORD')}@localhost:5432/{os.getenv('POSTGRES_DB')}"
+        connection_url = f"postgresql+psycopg2://{os.getenv('AGENT_POSTGRES_USER')}:{os.getenv('AGENT_POSTGRES_PASSWORD')}@localhost:5432/{os.getenv('POSTGRES_DB')}"
         engine = create_engine(connection_url)
     return engine
 

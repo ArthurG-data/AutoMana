@@ -1,8 +1,8 @@
 
 
 from fastapi import Cookie, HTTPException, APIRouter, Query, Request, Depends, Response, status
-from backend.new_services.service_manager import ServiceManager
-from backend.dependancies.service_deps import get_service_manager, get_current_active_user
+from backend.dependancies.service_deps import ServiceManagerDep
+from backend.dependancies.auth.users import CurrentUserDep
 from backend.schemas.app_integration.ebay.auth import AppRegistrationRequest, CreateAppRequest
 from backend.request_handling.StandardisedQueryResponse import ApiResponse
 import logging
@@ -16,8 +16,8 @@ ebay_auth_router = APIRouter(prefix='/auth', tags=['auth'])
                        , status_code=status.HTTP_201_CREATED)
 async def regist_app( 
     app_data: CreateAppRequest,
-    user = Depends(get_current_active_user),  # Only admins!
-    service_manager: ServiceManager = Depends(get_service_manager)
+    user: CurrentUserDep,  # Only admins!
+    service_manager: ServiceManagerDep
 ):
     try:
         result =await service_manager.execute_service(
@@ -41,8 +41,8 @@ async def regist_app(
 @ebay_auth_router.post('/app/login')
 async def login( 
                  app_code : str
-                 ,user = Depends(get_current_active_user)
-                 ,service_manager: ServiceManager = Depends(get_service_manager)
+                 ,user: CurrentUserDep
+                 ,service_manager: ServiceManagerDep
                 ):
     try:
 
@@ -68,11 +68,11 @@ async def login(
 
 @ebay_auth_router.get("/callback")
 async def handle_ebay_callback(request: Request,
+                               service_manager: ServiceManagerDep,
                                code : str = Query(None),
                                state : str = Query(None),
                                 error: str = Query(None),
-    error_description: str = Query(None),
-    service_manager: ServiceManager = Depends(get_service_manager)
+    error_description: str = Query(None)
 ):
     logger.info(f"Received eBay callback: code={bool(code)}, state={state}, error={error}")
     try:
@@ -121,8 +121,8 @@ from backend.schemas.auth.cookie import AccessTokenCookie, RefreshTokenResponse
 @ebay_auth_router.post('/exange_token')
 async def do_exange_refresh_token( response: Response
                                   , app_code  :str
-                                  , user = Depends(get_current_active_user)
-                                  , service_manager: ServiceManager = Depends(get_service_manager)
+                                  , user: CurrentUserDep
+                                  , service_manager: ServiceManagerDep
                                 ):
     #check if the has a non expired token for the app
     try:

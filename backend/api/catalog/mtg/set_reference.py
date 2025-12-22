@@ -5,8 +5,7 @@ from typing import Any, Callable, Dict, List, Annotated, Optional
 import tempfile, os, logging
 
 import ijson
-from backend.new_services.service_manager import ServiceManager
-from backend.dependancies.service_deps import get_service_manager
+from backend.dependancies.service_deps import ServiceManagerDep
 from backend.request_handling.StandardisedQueryResponse import (    ApiResponse
                                                                 ,PaginatedResponse
                                                                 ,ErrorResponse
@@ -26,7 +25,7 @@ router = APIRouter(
 
 @router.get('/{set_id}', response_model=ApiResponse)
 async def get_set(set_id: UUID
-                  , service_manager: ServiceManager = Depends(get_service_manager)):
+                  , service_manager: ServiceManagerDep):
     try:
         result = await service_manager.execute_service("card_catalog.set.get", set_id=set_id)
         if result is None:
@@ -42,10 +41,11 @@ async def get_set(set_id: UUID
 
 @router.get('/')
 async def get_sets(
-                    limit: Annotated[int, Query(le=100)]=100,
-                    offset: int=0,
-                    ids: Annotated[Optional[List[str]], Query(title='Optional set_ids')]=None,
-                    service_manager: ServiceManager = Depends(get_service_manager)):
+                    service_manager: ServiceManagerDep,
+                    limit: int = Query(default=100, le=100, ge=1),
+                    offset: int = Query(default=0, ge=0),
+                    ids: Optional[List[str]] = Query(default=None, title='Optional set_ids')
+                    ):
     try:
         result = await service_manager.execute_service("card_catalog.set.get_all"
                                                        , limit=limit
@@ -68,10 +68,12 @@ async def get_sets(
 
 
 
-@router.delete('/{set_id}', status_code=status.HTTP_204_NO_CONTENT, description='Delete a set by its ID')
+@router.delete('/{set_id}'
+               , status_code=status.HTTP_204_NO_CONTENT
+               , description='Delete a set by its ID')
 async def delete_set(
                     set_id : UUID
-                    , service_manager: ServiceManager = Depends(get_service_manager)
+                    , service_manager: ServiceManagerDep
                     ):
     try:
         await service_manager.execute_service(
@@ -85,7 +87,7 @@ async def delete_set(
 
 @router.post('/', description='An endpoint to add a new set', status_code=status.HTTP_201_CREATED)
 async def insert_set(new_set : NewSet
-                     , service_manager: ServiceManager = Depends(get_service_manager)):
+                     , service_manager: ServiceManagerDep):
     try:
         await service_manager.execute_service(
             "card_catalog.set.add",
@@ -98,7 +100,7 @@ async def insert_set(new_set : NewSet
   
 @router.post('/bulk', description='An endpoint to add multiple sets to the database', status_code=status.HTTP_201_CREATED)
 async def insert_sets(sets : NewSets
-                      , service_manager: ServiceManager = Depends(get_service_manager)):
+                      , service_manager: ServiceManagerDep):
     try:
         await service_manager.execute_service(
             "card_catalog.set.create_bulk",
@@ -110,8 +112,8 @@ async def insert_sets(sets : NewSets
         raise
 
 @router.post("/upload-file")
-async def upload_large_sets_json(file: UploadFile = File(...)
-                                 , service_manager: ServiceManager = Depends(get_service_manager)):
+async def upload_large_sets_json(service_manager: ServiceManagerDep
+                                 , file: UploadFile = File(...)):
     try:
         # Validate file type
         if not file.filename.endswith('.json'):
@@ -177,7 +179,7 @@ async def upload_large_sets_json(file: UploadFile = File(...)
 async def update_set(
                     set_id  : UUID, 
                     update_set : UpdatedSet,
-                    service_manager: ServiceManager = Depends(get_service_manager)):
+                    service_manager: ServiceManagerDep):
     try:
         await service_manager.execute_service(
             "card_catalog.set.update",
