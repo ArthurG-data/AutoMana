@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field, model_validator
 from datetime import datetime, timedelta
 from uuid import UUID
 from enum import Enum, auto
-from backend.utils_new.auth import get_hash_password
+from backend.utils.auth import get_hash_password
 import base64
 
 class HeaderApi(BaseModel):

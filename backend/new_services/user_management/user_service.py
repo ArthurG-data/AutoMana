@@ -1,7 +1,7 @@
 from typing import Annotated, Union, Optional
 from fastapi import  Body
 from backend.schemas.user_management.user import  BaseUser, UserUpdatePublic,UserInDB, UserPublic
-from backend.utils_new.auth.get_hash_password import  get_hash_password
+from backend.utils.auth.get_hash_password import  get_hash_password
 from backend.repositories.user_management.user_repository import UserRepository
 from uuid import UUID
 from backend.exceptions.service_layer_exceptions.user_management import user_exceptions

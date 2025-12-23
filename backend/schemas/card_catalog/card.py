@@ -2,8 +2,8 @@ from operator import attrgetter
 from pydantic import Field, model_validator, BaseModel, computed_field, model_serializer
 from uuid import UUID
 from typing import Any, Dict, Optional,  List, Union
-from backend.utils_new.card_catalog.type_parser import process_type_line
-from backend.utils_new.card_catalog.card_face_parser import parse_card_faces
+from backend.utils.card_catalog.type_parser import process_type_line
+from backend.utils.card_catalog.card_face_parser import parse_card_faces
 import json
 
 class BaseCard(BaseModel):

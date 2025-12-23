@@ -5,6 +5,10 @@ from fastapi.middleware.cors import CORSMiddleware
 #from backend import api 
 from contextlib import asynccontextmanager
 from backend.core.settings import get_settings
+#for fasvicon
+from pathlib import Path
+from fastapi import HTTPException
+from fastapi.responses import FileResponse
 
 # Configure root logger to output to console with proper level
 logging.basicConfig(
@@ -138,3 +142,11 @@ async def root():
 @app.get('/health', tags=['Health'])
 async def health_check():
     return {'status' : 'healthy'}
+
+FAVICON_PATH = Path(__file__).resolve().parent / "static" / "favicon.ico"
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    if not FAVICON_PATH.exists():
+        raise HTTPException(status_code=404, detail="favicon not configured")
+    return FileResponse(str(FAVICON_PATH), media_type="image/x-icon")

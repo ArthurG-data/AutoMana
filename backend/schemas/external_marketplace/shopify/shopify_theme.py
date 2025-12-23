@@ -1,4 +1,4 @@
-from backend.services.shop_data_ingestion.upload.utils import get_hashed_product_shop_id,extract_card_tag
+from backend.schemas.external_marketplace.shopify.utils import get_hashed_product_shop_id, extract_card_tag
 from pydantic import BaseModel, model_validator
 from typing import Any, List, Optional, Tuple
 from datetime import datetime

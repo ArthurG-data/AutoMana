@@ -1,6 +1,6 @@
 import hashlib
 import json
-from backend.services.redis_cache import set_to_cache, get_from_cache
+from backend.shared.redis_cache import set_to_cache, get_from_cache
 
 def _hash_query_params(params: dict) -> str:
     """Create a short hash from the query parameters."""

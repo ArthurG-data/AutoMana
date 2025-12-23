@@ -9,7 +9,7 @@ from backend.new_services.user_management.user_service import (
     get_all_users
 )
 from backend.schemas.user_management.user import BaseUser, UserPublic
-from backend.utils_new.auth.auth import get_hash_password
+from backend.utils.auth.auth import get_hash_password
 
 class TestUserService:
     

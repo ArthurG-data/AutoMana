@@ -4,7 +4,7 @@ from typing import List, Any
 from xml.dom.minidom import parseString
 from pydantic import BaseModel
 import xmltodict
-from backend.utils_new.app_integration.ebay import response_utils as listing_utils
+from backend.utils.app_integration.ebay import response_utils as listing_utils
 
 def clean_ebay_data(data):
     def strip_keys(obj):

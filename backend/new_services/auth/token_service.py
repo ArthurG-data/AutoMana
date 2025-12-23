@@ -1,7 +1,7 @@
 from backend.schemas.auth.cookie import CookiesData
 from backend.schemas.auth.token import Token
-from backend.utils_new.auth.cookie_utils import extract_session_id
-from backend.utils_new.auth import auth
+from backend.utils.auth.cookie_utils import extract_session_id
+from backend.utils.auth import auth
 from backend.repositories.auth.session_repository import SessionRepository
 from uuid import UUID
 from datetime import datetime, timedelta, timezone

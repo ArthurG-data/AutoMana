@@ -13,7 +13,7 @@ from backend.schemas.user_management.user import UserInDB
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-from backend.utils_new.auth.auth import (verify_password
+from backend.utils.auth.auth import (verify_password
                                          ,create_access_token
                                          ,decode_access_token)
 

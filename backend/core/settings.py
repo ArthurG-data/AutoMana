@@ -30,13 +30,10 @@ class Settings(BaseSettings):
     encrypt_algorithm: str = "HS256"
     pgp_secret_key: str  = Field(alias="PGP_SECRET_KEY")
 
-    ''' NO NEED BECAUSE url is provided directly
-    # Postgres (runtime)
-    postgres_host: str
-    postgres_db: str
-    postgres_user: str
-    postgres_password: str
-    '''
+    # retry settings
+    DB_CONNECT_MAX_ATTEMPTS: int = 10
+    DB_CONNECT_BASE_DELAY_SECONDS: float = 0.5
+    DB_CONNECT_MAX_DELAY_SECONDS: float = 10.0
 
     # eBay
     ebay_app_id: str | None = None

@@ -1,5 +1,5 @@
 from backend.repositories.ApiRepository import ApiRepository
-from backend.utils_new.app_integration.ebay.xml_utils import generate_add_fixed_price_item_request_xml, generate_end_item_request_xml, generate_get_item_request_xml, generate_revise_item_request_xml, generate_get_my_ebay_selling_request_xml
+from backend.utils.app_integration.ebay.xml_utils import generate_add_fixed_price_item_request_xml, generate_end_item_request_xml, generate_get_item_request_xml, generate_revise_item_request_xml, generate_get_my_ebay_selling_request_xml
 import logging
 from typing import Dict, Any
 import xml.etree.ElementTree as ET 
