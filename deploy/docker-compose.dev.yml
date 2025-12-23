@@ -48,6 +48,8 @@ services:
     build:
       context: ./docker/nginx
       dockerfile: nginx.Dockerfile
+      args:
+        NGINX_CONF: nginx.local.conf
     container_name: automana-proxy-dev
     ports:
       - "80:80"
@@ -70,8 +72,8 @@ services:
     ports:
       - "6379:6379"
     volumes:
-      - redis-data:/data
-      - redis-config:/usr/local/etc/redis
+      - redis-data-dev:/data
+      - redis-config-dev:/usr/local/etc/redis
     networks:
       - backend-network
     command: redis-server --appendonly yes
@@ -87,5 +89,5 @@ networks:
     driver: bridge
 volumes:
   pgdata-dev:
-  redis-data:
-  redis-config:
+  redis-data-dev:
+  redis-config-dev:
