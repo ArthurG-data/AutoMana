@@ -1,7 +1,7 @@
 from backend.repositories.auth.session_repository import SessionRepository
 from uuid import UUID, uuid4
 from backend.schemas.auth.session import CreateSession
-from backend.utils_new.auth.auth import create_access_token, decode_access_token
+from backend.utils.auth.auth import create_access_token, decode_access_token
 from backend.request_handling.StandardisedQueryResponse import ApiResponse
 from datetime import timedelta, datetime, timezone
 from backend.exceptions import session_exceptions

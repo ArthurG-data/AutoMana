@@ -3,7 +3,7 @@ import redis, os, logging
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
 from sqlalchemy import text
-from backend.utils_new.auth.auth import get_hash_password, verify_password, create_access_token
+from backend.utils.auth.auth import get_hash_password, verify_password, create_access_token
 import json
 from backend.schemas.logging.Celery_Logger import  CeleryLogger_instance
 load_dotenv()

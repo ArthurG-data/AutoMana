@@ -5,7 +5,7 @@ import uuid
 from dotenv import load_dotenv
 from connection import get_connection
 from sqlalchemy import text
-from backend.utils_new.auth.auth import get_hash_password
+from backend.utils.auth.auth import get_hash_password
 
 load_dotenv(dotenv_path="../celery_app/.env")
 
