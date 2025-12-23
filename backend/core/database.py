@@ -1,4 +1,8 @@
-import logging, os,asyncpg
+import asyncio
+import logging
+import os
+
+import asyncpg
 from psycopg2.extras import RealDictCursor, register_uuid, register_uuid
 from psycopg2 import pool
 
@@ -7,7 +11,12 @@ from backend.core.settings import get_settings
 logger = logging.getLogger(__name__)
 register_uuid()
 
-#change to just url later
+
+def _compute_backoff_seconds(attempt: int, base_delay: float, max_delay: float) -> float:
+    # attempt is 1-indexed
+    delay = base_delay * (2 ** max(0, attempt - 1))
+    return min(delay, max_delay)
+
 async def init_async_pool() -> asyncpg.Pool:
     """
     Create asyncpg connection pool
@@ -15,17 +24,40 @@ async def init_async_pool() -> asyncpg.Pool:
     """
     settings = get_settings()
     dsn = settings.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
-    
-    logger.info("Creating async database pool")
-    pool = await asyncpg.create_pool(
-        dsn=dsn,
-        min_size=2,
-        max_size=10,
-        command_timeout=60,
-        server_settings={'client_encoding': 'UTF8'}
-    )
-    logger.info("✅ Async pool created")
-    return pool
+
+    max_attempts = settings.DB_CONNECT_MAX_ATTEMPTS
+    base_delay = settings.DB_CONNECT_BASE_DELAY_SECONDS
+    max_delay = settings.DB_CONNECT_MAX_DELAY_SECONDS
+
+    last_exc: Exception | None = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            logger.info("Creating async database pool (attempt %s/%s)", attempt, max_attempts)
+            async_pool = await asyncpg.create_pool(
+                dsn=dsn,
+                min_size=2,
+                max_size=10,
+                command_timeout=60,
+                server_settings={"client_encoding": "UTF8"},
+            )
+            logger.info("✅ Async pool created")
+            return async_pool
+        except Exception as exc:  # asyncpg raises a variety of network/PG exceptions
+            last_exc = exc
+            if attempt >= max_attempts:
+                break
+
+            delay = _compute_backoff_seconds(attempt, base_delay, max_delay)
+            logger.warning(
+                "Async DB pool creation failed (attempt %s/%s): %s. Retrying in %.2fs",
+                attempt,
+                max_attempts,
+                exc,
+                delay,
+            )
+            await asyncio.sleep(delay)
+
+    raise RuntimeError("Failed to create async DB pool after retries") from last_exc
 
 def init_sync_pool() -> pool.SimpleConnectionPool:
     settings = get_settings()
@@ -39,6 +71,41 @@ def init_sync_pool() -> pool.SimpleConnectionPool:
         options='-c client_encoding=UTF8'
     )
     return sync_db_pool
+
+
+async def init_sync_pool_with_retry() -> pool.SimpleConnectionPool:
+    """Initialize the sync psycopg2 pool with retry/backoff.
+
+    Runs the blocking pool creation in a worker thread to avoid blocking the event loop.
+    """
+    settings = get_settings()
+    max_attempts = settings.DB_CONNECT_MAX_ATTEMPTS
+    base_delay = settings.DB_CONNECT_BASE_DELAY_SECONDS
+    max_delay = settings.DB_CONNECT_MAX_DELAY_SECONDS
+
+    last_exc: Exception | None = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            logger.info("Creating sync database pool (attempt %s/%s)", attempt, max_attempts)
+            sync_pool = await asyncio.to_thread(init_sync_pool)
+            logger.info("✅ Sync pool created")
+            return sync_pool
+        except Exception as exc:
+            last_exc = exc
+            if attempt >= max_attempts:
+                break
+
+            delay = _compute_backoff_seconds(attempt, base_delay, max_delay)
+            logger.warning(
+                "Sync DB pool creation failed (attempt %s/%s): %s. Retrying in %.2fs",
+                attempt,
+                max_attempts,
+                exc,
+                delay,
+            )
+            await asyncio.sleep(delay)
+
+    raise RuntimeError("Failed to create sync DB pool after retries") from last_exc
 
 
 async def close_async_pool(pool: asyncpg.Pool) -> None:
