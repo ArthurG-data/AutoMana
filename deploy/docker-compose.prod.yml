@@ -1,0 +1,114 @@
+services:
+  postgres:
+    build:
+      context: ./docker/postgres
+      dockerfile: Dockerfile
+    #image: timescale-pgvector:pg17
+    container_name: automana-postgres-prod
+    env_file:
+      - ../config/env/.env.prod
+    volumes:
+      - pgdata-prod:/var/lib/postgresql/data
+      - ../infra/db/init/:/docker-entrypoint-initdb.d/:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app_prod -d manaforge_prod"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+            - backend-network
+  db-backup-prod:
+    image: postgres:17
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - ../config/env/.env.prod
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGHOST: postgres
+      PGPORT: 5432
+      PGUSER: ${POSTGRES_USER}
+      PGDATABASE: ${POSTGRES_DB}
+      BACKUP_CRON: ${BACKUP_CRON}  # every 24 hours
+    volumes:
+      - ./backups/prod:/backups
+    networks:
+      - backend-network
+    entrypoint: ["/bin/bash","-lc"]
+    command: 
+      - |
+        apt-get update && apt-get install -y --no-install-recommends cron gzip ca-certificates && \
+        mkdir -p /backups && \
+        echo "$$BACKUP_CRON root /bin/bash -c 'set -e; ts=\$$(date +%Y%m%d_%H%M%S); pg_dump -Fc -f /backups/\$${PGDATABASE}_\$${ts}.dump \$${PGDATABASE}; ls -1t /backups/*.dump 2>/dev/null | tail -n +7 | xargs -r rm -f'" > /etc/cron.d/pgbackup && \
+        chmod 0644 /etc/cron.d/pgbackup && \
+        crontab /etc/cron.d/pgbackup && \
+        cron -f
+  backend:
+    build:
+      context: ..
+      dockerfile: deploy/docker/backend/Backend.Dockerfile
+    container_name: automana-backend-prod
+    
+    volumes:
+      - ../backend:/app/backend
+      - ../staging:/app/staging
+    env_file:
+      - ../config/env/.env.prod
+    environment:
+      - ENV=prod
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      postgres:
+        condition: service_healthy
+  proxy:
+    build:
+      context: ./docker/nginx
+      dockerfile: nginx.Dockerfile
+      args:
+        NGINX_CONF: nginx.prod.conf
+    container_name: automana-proxy-prod
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ../config/nginx/certs:/etc/nginx/certs:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:80/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend-network
+      - frontend-network
+    depends_on:
+      - backend
+  redis:
+    image: redis:7.0-alpine
+    container_name: automana-redis-prod
+    volumes:
+      - redis-data:/data
+      - redis-config:/usr/local/etc/redis
+    networks:
+      - backend-network
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+networks:
+  frontend-network:  # nginx <-> backend
+    driver: bridge
+  backend-network:   # backend <-> postgres
+    driver: bridge
+volumes:
+  pgdata-prod:
+  redis-data:
+  redis-config:
