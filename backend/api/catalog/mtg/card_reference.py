@@ -89,8 +89,10 @@ async def insert_card( card : CreateCard
         result =await service_manager.execute_service("card_catalog.card.create"
                                               , card=card)
         
+
         if not result:
             raise HTTPException(status_code=500, detail="Failed to insert card")
+        return ApiResponse(data={"card_id": str(result)}, message="Card inserted successfully")
     except HTTPException:
         raise
     except Exception as e:
@@ -127,72 +129,6 @@ async def insert_cards( cards : List[CreateCard]
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to insert cards: {str(e)}")
-
-
-@card_reference_router.post("/upload-file")
-async def upload_large_cards_json( 
-    service_manager: ServiceManagerDep,
-                                file: UploadFile = File(...)
-                                  ):
-    try:
-        # Validate file type
-        if not file.filename.endswith('.json'):
-            raise HTTPException(
-                status_code=400,
-                detail="Only JSON files are supported"
-            )
-        
-        # Check file size (optional limit)
-        max_size =  1024 * 1024 * 1024  # 1GB default
-        
-        # Save uploaded file temporarily
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.json') as temp_file:
-            content = await file.read()
-            
-            if len(content) > max_size:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"File too large. Maximum size: {max_size / 1024 / 1024:.1f}MB"
-                )
-            
-            temp_file.write(content)
-            temp_file_path = temp_file.name
-        
-        # Process file using enhanced service
-        try:
-            result = await service_manager.execute_service(
-                "card_catalog.card.process_large_json",
-                file_path=temp_file_path,
-            )
-            
-            # Clean up temp file
-            os.unlink(temp_file_path)
-            
-            # Convert result to dict if it's a stats object
-            if hasattr(result, 'to_dict'):
-                result_data = result.to_dict()
-            else:
-                result_data = result
-            
-            return ApiResponse(
-                data={
-                    "filename": file.filename,
-                    "file_size_mb": round(len(content) / 1024 / 1024, 2),
-                    "processing_stats": result_data
-                },
-                message=f"File '{file.filename}' processed successfully"
-            )
-            
-        except Exception as processing_error:
-            # Clean up temp file on error
-            if os.path.exists(temp_file_path):
-                os.unlink(temp_file_path)
-            raise processing_error
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to process file: {str(e)}")
 
 #not tested
 @card_reference_router.delete('/{card_id}')

@@ -9,22 +9,9 @@ from backend.exceptions.service_layer_exceptions.card_catalogue import card_cata
 from backend.core.service_registry import ServiceRegistry
 
 @ServiceRegistry.register(
-    "card_catalog.collection.get_by_id",
+    "card_catalog.collection.add",
     db_repositories=["user_collection"]
 )
-async def get_collection_by_id(user_collection_repository: CollectionRepository
-                               , collection_id: str):
-    try:
-        collection = await user_collection_repository.get(collection_id)
-        if not collection:
-            raise card_catalog_exceptions.CollectionNotFoundError(f"Collection with ID {collection_id} not found")
-        return collection
-    except card_catalog_exceptions.CollectionNotFoundError:
-    # Re-raise not found errors directly
-        raise
-    except Exception as e:
-        raise card_catalog_exceptions.CollectionRetrievalError(f"Failed to retrieve collection: {str(e)}")
-
 async def add_collection(user_collection_repository: CollectionRepository
                          , created_collection: CreateCollection
                          , user: UserInDB
@@ -42,6 +29,11 @@ async def add_collection(user_collection_repository: CollectionRepository
     except Exception as e:
         raise card_catalog_exceptions.CollectionCreationError(f"Failed to create collection: {str(e)}")
 
+
+@ServiceRegistry.register(
+    "card_catalog.collection.get",
+    db_repositories=["user_collection"]
+)
 async def get_collection(user_collection_repository: CollectionRepository, collection_id: str, user : UserInDB) -> PublicCollection:
     try:
         collection = await user_collection_repository.get(collection_id, user.unique_id)
@@ -55,6 +47,11 @@ async def get_collection(user_collection_repository: CollectionRepository, colle
     except Exception as e:
         raise card_catalog_exceptions.CollectionRetrievalError(f"Failed to retrieve collection: {str(e)}")
 
+
+@ServiceRegistry.register(
+    "card_catalog.collection.get_all",
+    db_repositories=["user_collection"]
+)
 async def get_all_collections(user_collection_repository: CollectionRepository, user_id: UUID) -> List[CollectionInDB]:
     """Get all collections for a user"""
     try:
@@ -67,6 +64,11 @@ async def get_all_collections(user_collection_repository: CollectionRepository, 
     except Exception as e:
         raise card_catalog_exceptions.CollectionRetrievalError(f"Failed to retrieve collections: {str(e)}")
 
+
+@ServiceRegistry.register(
+    "card_catalog.collection.get_many",
+    db_repositories=["user_collection"]
+)
 async def get_many(user_collection_repository: CollectionRepository, user_id: UUID, collection_id: List[UUID]) -> List[CollectionInDB]:
     try:
         collections = await user_collection_repository.get_many(user_id, collection_id)
@@ -78,6 +80,11 @@ async def get_many(user_collection_repository: CollectionRepository, user_id: UU
     except Exception as e:
         raise card_catalog_exceptions.CollectionRetrievalError(f"Failed to retrieve collections: {str(e)}")
 
+
+@ServiceRegistry.register(
+    "card_catalog.collection.update",
+    db_repositories=["user_collection"]
+)
 async def update_collection(user_collection_repository: CollectionRepository
                             , collection_id : UUID
                             , updated_collection: UpdateCollection, 
@@ -93,6 +100,11 @@ async def update_collection(user_collection_repository: CollectionRepository
     except Exception as e:
         raise card_catalog_exceptions.CollectionUpdateError(f"Failed to update collection: {str(e)}")
 
+
+@ServiceRegistry.register(
+    "card_catalog.collection.delete",
+    db_repositories=["user_collection"]
+)
 async def delete_collection(user_collection_repository: CollectionRepository
                             , collection_id: UUID
                             , user: UserInDB

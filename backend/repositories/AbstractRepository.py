@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
-import asyncpg
-from typing import Optional,  TypeVar,  Generic
+import asyncpg, psycopg2
+from typing import Optional,  TypeVar,  Generic, Union
 from backend.request_handling.QueryExecutor import QueryExecutor
 
 T =TypeVar('T')
@@ -14,7 +14,7 @@ class AbstractRepository(Generic[T], ABC):
         """Name of the entity this repository manages."""
         pass
 
-    def __init__(self, connection: asyncpg.Connection,  executor: QueryExecutor=None):
+    def __init__(self, connection: Union[asyncpg.Connection, psycopg2.extensions.connection],  executor: QueryExecutor=None):
         """
         Initialize the repository with a database connection.
         """

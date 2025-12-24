@@ -1,17 +1,15 @@
-
-import json
 from uuid import UUID
 from datetime import datetime
 from fastapi import Query
-import ijson, asyncio
+import ijson, asyncio,  time, logging,  json
 from backend.schemas.card_catalog import card as card_schemas
 from backend.repositories.card_catalog.card_repository import CardReferenceRepository
-from typing import  Optional, List, Dict, Any
+from typing import  Optional, List, Dict, Any, AsyncGenerator, Callable
 from backend.schemas.card_catalog.card import BaseCard
 from backend.exceptions.service_layer_exceptions.card_catalogue import card_exception
-import logging
 from dataclasses import dataclass
 from backend.core.service_registry import ServiceRegistry
+from pathlib import Path
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -20,6 +18,49 @@ logger = logging.getLogger(__name__)
 class CardSearchResult:
     cards: List[BaseCard]
     total_count: int
+
+@dataclass
+class ProcessingStats:
+    """Track processing statistics"""
+    total_cards: int = 0
+    successful_inserts: int = 0
+    failed_inserts: int = 0
+    batches_processed: int = 0
+    processing_errors: int = 0
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    
+    @property
+    def success_rate(self) -> float:
+        return (self.successful_inserts / self.total_cards * 100) if self.total_cards > 0 else 0
+    
+    @property
+    def duration_seconds(self) -> float:
+        if self.start_time and self.end_time:
+            return (self.end_time - self.start_time).total_seconds()
+        return 0
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "total_cards": self.total_cards,
+            "successful_inserts": self.successful_inserts,
+            "failed_inserts": self.failed_inserts,
+            "batches_processed": self.batches_processed,
+            "processing_errors": self.processing_errors,
+            "success_rate": round(self.success_rate, 2),
+            "duration_seconds": round(self.duration_seconds, 2),
+            "cards_per_second": round(self.total_cards / max(self.duration_seconds, 1), 1)
+        }
+@dataclass
+class ProcessingConfig:
+    """Configuration for file processing"""
+    batch_size: int = 500
+    max_retries: int = 3
+    retry_delay: float = 1.0
+    skip_validation_errors: bool = True
+    progress_callback: Optional[Callable[[ProcessingStats], None]] = None
+    save_failed_cards: bool = True
+    failed_cards_file: Optional[str] = None
 
 @ServiceRegistry.register(
     "card_catalog.card.create",
@@ -139,54 +180,6 @@ async def get(card_repository: CardReferenceRepository,
     except Exception as e:
         raise card_exception.CardRetrievalError(f"Failed to retrieve card: {str(e)}")
     
-@dataclass
-class ProcessingStats:
-    """Track processing statistics"""
-    total_cards: int = 0
-    successful_inserts: int = 0
-    failed_inserts: int = 0
-    batches_processed: int = 0
-    processing_errors: int = 0
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None
-    
-    @property
-    def success_rate(self) -> float:
-        return (self.successful_inserts / self.total_cards * 100) if self.total_cards > 0 else 0
-    
-    @property
-    def duration_seconds(self) -> float:
-        if self.start_time and self.end_time:
-            return (self.end_time - self.start_time).total_seconds()
-        return 0
-    
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "total_cards": self.total_cards,
-            "successful_inserts": self.successful_inserts,
-            "failed_inserts": self.failed_inserts,
-            "batches_processed": self.batches_processed,
-            "processing_errors": self.processing_errors,
-            "success_rate": round(self.success_rate, 2),
-            "duration_seconds": round(self.duration_seconds, 2),
-            "cards_per_second": round(self.total_cards / max(self.duration_seconds, 1), 1)
-        }
-
-from pathlib import Path
-from typing import Optional, List, Dict, Any, AsyncGenerator, Callable
-from dataclasses import dataclass
-import time
-
-@dataclass
-class ProcessingConfig:
-    """Configuration for file processing"""
-    batch_size: int = 500
-    max_retries: int = 3
-    retry_delay: float = 1.0
-    skip_validation_errors: bool = True
-    progress_callback: Optional[Callable[[ProcessingStats], None]] = None
-    save_failed_cards: bool = True
-    failed_cards_file: Optional[str] = None
 
 class EnhancedCardImportService:
     """Enhanced card import service with better error handling and monitoring"""
@@ -418,39 +411,3 @@ class EnhancedCardImportService:
         logger.info(f"⏱️ Duration: {self.stats.duration_seconds:.2f} seconds")
         logger.info(f"🚀 Processing rate: {self.stats.total_cards / max(self.stats.duration_seconds, 1):.1f} cards/second")
         logger.info("=" * 60)
-
-# ✅ BACKWARD COMPATIBLE: Keep your original function but enhanced
-@ServiceRegistry.register(
-    "card_catalog.card.process_large_json",
-    db_repositories=["card"]
-)
-def process_large_cards_json(
-    card_repository: CardReferenceRepository, 
-    file_path: str,
-    batch_size: int = 500,
-    skip_validation_errors: bool = True,
-    resume_from_batch: int = 0
-) -> ProcessingStats:
-    """
-    Enhanced file processing with better error handling and monitoring
-    
-    Args:
-        card_repository: Repository for database operations
-        file_path: Path to JSON file (local or cloud URL)
-        batch_size: Number of cards per batch
-        skip_validation_errors: Whether to skip invalid cards or fail
-        resume_from_batch: Batch number to resume from (for recovery)
-    """
-    
-    config = ProcessingConfig(
-        batch_size=batch_size,
-        skip_validation_errors=skip_validation_errors,
-        save_failed_cards=True,
-        max_retries=3
-    )
-    
-    service = EnhancedCardImportService(card_repository, config)
-    return service.process_large_cards_json(
-        file_path=file_path,
-        resume_from_batch=resume_from_batch
-    )
