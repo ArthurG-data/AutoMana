@@ -9,6 +9,7 @@ from backend.repositories.auth.auth_repository import AuthRepository
 from backend.repositories.user_management.user_repository import UserRepository
 from backend.repositories.auth.session_repository import SessionRepository
 from backend.schemas.user_management.user import UserInDB
+from backend.core.service_registry import ServiceRegistry
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -57,6 +58,10 @@ async def authenticate_user(repository : UserRepository
         return None
     return UserInDB.model_validate(user)
 
+@ServiceRegistry.register(
+        'auth.auth.logout',
+        db_repositories=['session']
+)
 async def logout(
         session_repository: SessionRepository,
         session_id: UUID,
@@ -74,6 +79,10 @@ async def logout(
         return {"status": "error", "message": "Session not found"}
     return {"status": "success", "message": "Logged out successfully"}
 
+@ServiceRegistry.register(
+        'auth.auth.login',
+        db_repositories=['session']
+)
 async def login( user_repository: UserRepository
                 , session_repository: SessionRepository  
                 , username: str

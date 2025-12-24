@@ -7,16 +7,15 @@ from backend.schemas.app_integration.ebay import listings as listings_model
 from backend.schemas.app_integration.ebay import auth as auth_model
 from backend.repositories.app_integration.ebay.ApiBrowse_repository  import EbayBrowseAPIRepository
 from backend.exceptions.service_layer_exceptions.app_integration.ebay import app_exception
+from backend.core.service_registry import ServiceRegistry
 
 logger = logging.getLogger(__name__)
-"""
-from backend.modules.ebay.models import auth as auth_model, listings as listings_model, errors as errors_model
-from backend.config import EBAY_TRADING_API_URL as trading_endpoint
-from backend.modules.ebay.services import requests
-from backend.modules.ebay.utils import listings
-from backend.services_old import redis_ebay
-"""
 
+@ServiceRegistry.register(
+    path="integrations.ebay.search",
+    db_repositories=[],
+    api_repositories=["ebay_browse_api"]
+)
 async def search_items(
     search_repository: EbayBrowseAPIRepository,
     token: str,

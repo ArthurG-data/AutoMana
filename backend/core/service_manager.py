@@ -38,16 +38,9 @@ class ServiceManager:
             "backend.new_services.card_catalog.card_service",
             "backend.new_services.card_catalog.set_service",
             "backend.new_services.card_catalog.collection_service",
-            "backend.new_services.shop_data_ingestion.market_service",
-            "backend.new_services.shop_data_ingestion.collection_service",
-            "backend.new_services.shop_data_ingestion.theme_service",
-            "backend.new_services.shop_data_ingestion.product_service",
             "backend.new_services.app_integration.ebay.auth_services",
             "backend.new_services.app_integration.ebay.browsing_services",
-            "backend.new_services.app_integration.ebay.selling_services",
-            "backend.new_services.app_integration.mtg_stock.data_loader",
-            "backend.new_services.app_integration.mtg_stock.data_staging",
-            "backend.new_services.app_integration.shopify.data_staging_service",
+            "backend.new_services.app_integration.ebay.selling_services"
         ]
         for module_path in service_modules:
             try:
