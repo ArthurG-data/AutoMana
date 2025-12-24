@@ -11,7 +11,7 @@ from backend.schemas.auth.cookie import RefreshTokenResponse
 import logging
 logger = logging.getLogger(__name__)
 #to removefrom backend.schemas.external_marketplace.ebay.app import NewEbayApp, AssignScope
-
+from backend.core.service_registry import ServiceRegistry
 
 async def request_auth_code(
         auth_repository: EbayAuthRepository,

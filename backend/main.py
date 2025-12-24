@@ -52,7 +52,7 @@ async def lifespan(app: FastAPI):
         from backend.request_handling.ErrorHandler import Psycopg2ExceptionHandler
         from backend.request_handling.QueryExecutor import AsyncQueryExecutor
         from backend.core.database import init_async_pool, close_async_pool, init_sync_pool, close_sync_pool    
-        from backend.new_services.service_manager import ServiceManager
+        from backend.core.service_manager import ServiceManager
 
 
         app.state.error_handler = Psycopg2ExceptionHandler()

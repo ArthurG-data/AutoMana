@@ -29,14 +29,14 @@ async def get_card_info(card_id: UUID
                         ) -> ApiResponse[BaseCard]:
     try:
         result =await service_manager.execute_service(
-            "card_catalog.card.search",
+            "card_catalog.card.get",
             card_id=card_id
         )
         #get the card
-        card = result.get("cards", [None])[0] if isinstance(result, dict) else None
+        card = result.cards[0] if result.cards else None
         
         if not card:
-            return ApiResponse(data=None, message="No Card to retrieve")
+            return ApiResponse(data=[], message="No Card to retrieve")
         return ApiResponse(data=card, message="Card retrieved successfully")
     except HTTPException:
         raise
@@ -61,11 +61,9 @@ async def get_cards(
             sort_by=sorting.sort_by,
             sort_order=sorting.sort_order,
             **search)
-        cards = result.get("cards", []) if isinstance(result, dict) else []
+        cards = result.cards if result else []
 
-
-
-        total_count = result.get("total_count", 0) if isinstance(result, dict) else 0
+        total_count = result.total_count if result else 0
         if cards:
             return PaginatedResponse[BaseCard](
                 data=cards,
@@ -90,6 +88,7 @@ async def insert_card( card : CreateCard
     try:
         result =await service_manager.execute_service("card_catalog.card.create"
                                               , card=card)
+        
         if not result:
             raise HTTPException(status_code=500, detail="Failed to insert card")
     except HTTPException:
@@ -201,6 +200,7 @@ async def delete_card(card_id : UUID
                       , service_manager: ServiceManagerDep):
     try:
         await service_manager.execute_service("card_catalog.card.delete", card_id=card_id)
+        return ApiResponse(data={"card_id": str(card_id)}, message="Card deleted successfully")
     except HTTPException:
         raise
     except Exception as e:

@@ -11,10 +11,20 @@ from backend.schemas.card_catalog.card import BaseCard
 from backend.exceptions.service_layer_exceptions.card_catalogue import card_exception
 import logging
 from dataclasses import dataclass
+from backend.core.service_registry import ServiceRegistry
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+@dataclass
+class CardSearchResult:
+    cards: List[BaseCard]
+    total_count: int
+
+@ServiceRegistry.register(
+    "card_catalog.card.create",
+    db_repositories=["card"]
+)
 async def add(card_repository : CardReferenceRepository
               , card : card_schemas.CreateCard
               ):
@@ -28,7 +38,10 @@ async def add(card_repository : CardReferenceRepository
     except Exception as e:
         raise card_exception.CardInsertError(f"Failed to insert card: {str(e)}")
 
-
+@ServiceRegistry.register(
+    "card_catalog.card.create_many",
+    db_repositories=["card"]
+)
 async def add_many(card_repository : CardReferenceRepository, cards: card_schemas.CreateCards):
     prepared_cards = cards.prepare_for_db()
     try:
@@ -38,6 +51,10 @@ async def add_many(card_repository : CardReferenceRepository, cards: card_schema
     except Exception as e:
         raise card_exception.CardInsertError(f"Failed to insert cards: {str(e)}")
 
+@ServiceRegistry.register(
+    "card_catalog.card.delete",
+    db_repositories=["card"]
+)
 async def delete(card_repository : CardReferenceRepository, card_id: UUID)-> bool:
     try:
         result = await card_repository.delete(card_id)
@@ -48,7 +65,11 @@ async def delete(card_repository : CardReferenceRepository, card_id: UUID)-> boo
         raise
     except Exception as e:
         raise card_exception.CardDeletionError(f"Failed to delete card: {str(e)}")
-
+    
+@ServiceRegistry.register(
+    "card_catalog.card.search",
+    db_repositories=["card"]
+)
 async def search_cards(card_repository: CardReferenceRepository
                    , name: Optional[str] = None
                    , color: Optional[str] = None
@@ -65,17 +86,15 @@ async def search_cards(card_repository: CardReferenceRepository
                    , offset: int = 0
                    , sort_by: str = "name"
                    , sort_order: str = "asc"
-                   ) -> List[BaseCard]:
+                   ) -> CardSearchResult:
     logger.info(f"Searching for cards with: name={name}, color={color}, rarity={rarity}, card_id={card_id}, set_name={set_name}, mana_cost={mana_cost}, digital={digital}")
     try:
         if card_id:
             logger.info(f"Fetching card by ID: {card_id}")
             card = await card_repository.get(card_id)
             if not card:
-                return {"cards": [], "total": 0}
-            return {"cards": [BaseCard.model_validate(card)]
-                    , "total": 1
-                    }
+                return CardSearchResult(cards=[], total_count=0)
+            return CardSearchResult(cards=[BaseCard.model_validate(card)], total_count=1)
 
         result = await card_repository.search(name=name,
                                                color=color,
@@ -94,34 +113,32 @@ async def search_cards(card_repository: CardReferenceRepository
             raise card_exception.CardNotFoundError(f"No cards found for IDs {card_id}")
         cards = result.get("cards", [])
         total_count = result.get("total_count", 0)
-        return  {
-            "cards": cards,
-            "total_count": total_count
-        }
+        return  CardSearchResult(cards=[BaseCard.model_validate(card) for card in cards], total_count=total_count)
 
     except card_exception.CardNotFoundError:
         raise
     except Exception as e:
         raise card_exception.CardRetrievalError(f"Failed to retrieve cards: {str(e)}")
 
-
+@ServiceRegistry.register(
+    "card_catalog.card.get",
+    db_repositories=["card"]
+)
 async def get(card_repository: CardReferenceRepository,
                card_id: UUID,
-                     ) -> BaseCard:
+                     ) -> CardSearchResult:
     try:
         result = await card_repository.get(
             card_id=card_id,
         )
         if not result:
-            raise card_exception.CardNotFoundError(f"Card with ID {card_id} not found")
-        return BaseCard.model_validate(result)
+            raise CardSearchResult(cards=[], total_count=0)
+        return CardSearchResult(cards=[BaseCard.model_validate(result)], total_count=1)
     except card_exception.CardNotFoundError:
         raise
     except Exception as e:
         raise card_exception.CardRetrievalError(f"Failed to retrieve card: {str(e)}")
     
-
-
 @dataclass
 class ProcessingStats:
     """Track processing statistics"""
@@ -403,6 +420,10 @@ class EnhancedCardImportService:
         logger.info("=" * 60)
 
 # ✅ BACKWARD COMPATIBLE: Keep your original function but enhanced
+@ServiceRegistry.register(
+    "card_catalog.card.process_large_json",
+    db_repositories=["card"]
+)
 def process_large_cards_json(
     card_repository: CardReferenceRepository, 
     file_path: str,

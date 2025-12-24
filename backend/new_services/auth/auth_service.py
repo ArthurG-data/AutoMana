@@ -3,7 +3,7 @@ from fastapi import HTTPException, Request,  Security
 from datetime import timedelta, datetime, timezone
 from fastapi.security import OAuth2PasswordBearer
 from uuid import UUID
-from backend.dependancies.settings import get_general_settings
+from backend.core.settings import Settings,  get_settings as get_general_settings
 from backend.new_services.auth.session_service import rotate_session_token, create_new_session
 from backend.repositories.auth.auth_repository import AuthRepository
 from backend.repositories.user_management.user_repository import UserRepository
@@ -83,7 +83,7 @@ async def login( user_repository: UserRepository
                 ) -> dict:
     logger.info(f"User {username} is attempting to log in from IP {ip_address} with user agent {user_agent}")#modify apihandler later, or merge both repo
     # Get settings from configuration
-    settings = get_general_settings()
+    settings = get_general_settings
     access_token_expires = timedelta(minutes=int(settings.access_token_expiry))
     expire_time = datetime.now(timezone.utc) + timedelta(days=7)
  

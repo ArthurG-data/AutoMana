@@ -6,7 +6,12 @@ from typing import  Optional, List
 from uuid import UUID
 from backend.request_handling.StandardisedQueryResponse import ApiResponse
 from backend.exceptions.service_layer_exceptions.card_catalogue import card_catalog_exceptions
+from backend.core.service_registry import ServiceRegistry
 
+@ServiceRegistry.register(
+    "card_catalog.collection.get_by_id",
+    db_repositories=["user_collection"]
+)
 async def get_collection_by_id(user_collection_repository: CollectionRepository
                                , collection_id: str):
     try:
