@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field, model_validator
 from datetime import datetime, timedelta
 from typing import Optional
 from uuid import UUID, uuid4
-from backend.utilis import now_utc
+from backend.utils.common.now_utc import now_utc
 
 class CreateSession(BaseModel):
     session_id :UUID = Field(default_factory=uuid4)

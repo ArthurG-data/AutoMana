@@ -3,9 +3,6 @@ from pathlib import Path
 from dotenv import load_dotenv
 from celery.schedules import crontab
 
-env_path = Path(__file__).parent.parent.parent / "config" / "env" / ".env.dev"
-load_dotenv(dotenv_path=env_path)
-
 broker_url=os.getenv("BROKER_URL")
 result_backend=os.getenv("RESULT_BACKEND")
 
