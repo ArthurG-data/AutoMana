@@ -84,10 +84,8 @@ services:
       retries: 5
   celery-worker:
     build:
-      context: ./docker/celery
-      dockerfile: celery.Dockerfile
-      args:
-        CELERY_CONF : celery.config
+      context: ..
+      dockerfile: deploy/docker/celery/celery.Dockerfile
     container_name: automana-celery-dev
     env_file:
       - ../config/env/.env.dev
@@ -98,18 +96,16 @@ services:
           condition: service_healthy
     networks:
       - backend-network
-    command: celery -A celery_app worker -l INFO
+    command: celery -A main worker -l INFO
     healthcheck:
-      test: ["CMD-SHELL", "celery -A backend.tasks inspect ping || exit 1"]
+      test: ["CMD-SHELL", "celery -A main.tasks inspect ping || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
   celery-beat:
     build:
-      context: ./docker/celery
-      dockerfile: celery.Dockerfile
-      args:
-        CELERY_CONF : celery.config
+      context: ..
+      dockerfile: deploy/docker/celery/celery.Dockerfile
     container_name: automana-celery-beat-dev
     env_file:
       - ../config/env/.env.dev
@@ -120,9 +116,8 @@ services:
           condition: service_healthy
     networks:
       - backend-network
-    command: celery -A celery_app beat -l INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler
     healthcheck:
-      test: ["CMD-SHELL", "celery -A backend.tasks inspect ping || exit 1"]
+      test: ["CMD-SHELL", "pgrep -f 'celery beat' || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5

@@ -1,21 +1,19 @@
 import json, httpx, os, time, ijson, logging, datetime, sys, glob
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from connection import get_connection
 import pathlib, logging
 from sqlalchemy import text
 
 from urllib.parse import urlunsplit
-from celery_main_app import celery_app
+from main import celery_app
 from typing import List, Dict, Optional
 
 
 
 
-from backend.schemas.external_marketplace.shopify import shopify_theme
+#from backend.schemas.external_marketplace.shopify import shopify_theme
 
 #test 
-
+'''
 REQUESTS_PER_SECOND = 2
 DELAY_BETWEEN_REQUESTS = 1 / REQUESTS_PER_SECOND
 
@@ -119,12 +117,12 @@ def download_good_game_data(self, target_path: str):
     WHERE name = 'Good Game Gaming'
     ORDER BY market_id, updated_at DESC
     """
-    from backend.database.get_database import get_connection as async_raw_get_connection
-
+    #from backend.database.get_database import get_connection as async_raw_get_connection
+    """
     with async_raw_get_connection() as conn:
         result = conn.execute(text(query))
         markets = [dict(row._mapping) for row in result.fetchall()]
-    
+    """
     if not markets:
         logging.warning("No Good Game Gaming markets found in database")
         return {"status": "no_markets", "message": "No markets found"}
@@ -266,14 +264,14 @@ def download_good_game_data(self, target_path: str):
 
 
 import asyncio
-from backend.new_services.app_integration.shopify.data_staging_service import (
-    process_json_dir_to_parquet,
-    stage_data_from_parquet,
-    upload_all_json_in_directory,
-    get_market_id
-)
+#from backend.new_services.app_integration.shopify.data_staging_service import (
+#    process_json_dir_to_parquet,
+#    stage_data_from_parquet,
+#    upload_all_json_in_directory,
+#    get_market_id
+#)
 
-
+"""--- IGNORE ---"""
 def sync_get_market_id(market_repository, code: str) -> int:
     """Sync wrapper for get_market_id"""
     return asyncio.run(get_market_id(market_repository, code))
@@ -614,8 +612,6 @@ def complete_shopify_data_pipeline(self, target_path: str, market_code: str, app
             "timestamp": datetime.datetime.utcnow().isoformat()
         }
     
-
-'''testing download task again'''
 @celery_app.task(bind=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=3)
 def download_face2face_data(self, target_path: str):
     """Download Good Game Gaming data with rate limiting (2 requests per second)"""
@@ -776,3 +772,4 @@ def download_face2face_data(self, target_path: str):
     return result
     
 
+'''

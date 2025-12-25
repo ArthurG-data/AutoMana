@@ -1,11 +1,11 @@
-from celery_app.celery_main_app import celery_app
+from main import celery_app
 import redis, os, logging
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
 from sqlalchemy import text
-from backend.utils.auth.auth import get_hash_password, verify_password, create_access_token
+#from backend.utils.auth.auth import get_hash_password, verify_password, create_access_token
 import json
-from backend.schemas.logging.Celery_Logger import  CeleryLogger_instance
+#from backend.schemas.logging.Celery_Logger import  CeleryLogger_instance
 load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
@@ -31,6 +31,7 @@ SERVICE_USER_MAPPING = {
         'password_env': 'CELERY_SERVICE_PASSWORD'
     }
 }
+"""
 @celery_app.task(bind=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=3, name='authenticate_celery_app')
 def authenticate_celery_app(self, service_type: str) -> None:
     logging.info(f"Starting authentication for service type: {service_type}")
@@ -150,4 +151,4 @@ def authenticate_celery_app(self, service_type: str) -> None:
         )
         raise
     
-  
+"""

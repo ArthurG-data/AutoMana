@@ -7,14 +7,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY celery_app/requirements.txt /app/requirements.txt
+COPY celery_app/. /app
+RUN ls -l /app
 RUN pip install --upgrade pip && pip install -r /app/requirements.txt
 
-
-CMD ["celery", "-A", "celery_app.main:celery_app", "worker", "-l", "INFO"]
+CMD ["celery", "-A", "main", "worker", "-l", "INFO"]

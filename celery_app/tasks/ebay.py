@@ -1,18 +1,19 @@
 import json, logging, datetime, redis
 from typing import List, Optional
-from backend.repositories.app_integration.ebay import auth_repository
-from backend.schemas.auth.cookie import RefreshTokenResponse
-from celery_app.celery_main_app import celery_app
-from celery_app.connection import get_connection
-from backend.request_handling.QueryExecutor import SQLAlchemyQueryExecutor
+#from backend.repositories.app_integration.ebay import auth_repository
+#from backend.schemas.auth.cookie import RefreshTokenResponse
+from main import celery_app
+from connection import get_connection
+#from backend.request_handling.QueryExecutor import SQLAlchemyQueryExecutor
 #from backend.new_services.analysis.pricing import enhanced_pricing_analysis
 #to do, create a user for the task manager
 redis_client = redis.Redis(host='localhost', port=6379, db=2, decode_responses=True)
 
 #task to check prices for a card in collection , using ebay browse api
-from backend.schemas.app_integration.ebay.auth import TokenResponse
+#from backend.schemas.app_integration.ebay.auth import TokenResponse
 from datetime import datetime, timedelta
 
+'''
 @celery_app.task(bind=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=3)
 def get_or_refresh_ebay_token(self, app_code, user_id= None) :
     """
@@ -31,7 +32,6 @@ def get_or_refresh_ebay_token(self, app_code, user_id= None) :
             if expires_at > datetime.utcnow():
                 logging.info(f"Using cached eBay token for {cache_key}")
                 return token_data["access_token"]
-    
         from backend.repositories.app_integration.ebay.auth_repository import EbayAuthRepository
         from backend.repositories.app_integration.ebay.ApiAuth_repository import EbayAuthAPIRepository
        
@@ -80,7 +80,7 @@ def get_or_refresh_ebay_token(self, app_code, user_id= None) :
     except Exception as e:
         logging.error(f"❌ Failed to get eBay token for {cache_key}: {str(e)}")
         raise
-"""
+""""""
 @celery_app.task(bind=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=3)
 def ebay_search_price(
                      #app_code: str,
@@ -167,3 +167,4 @@ def analyze_results(self, results):
 
 #task to go through all items in collection
 """
+'''

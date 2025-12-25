@@ -7,8 +7,6 @@ from connection import get_connection
 from sqlalchemy import text
 from backend.utils.auth.auth import get_hash_password
 
-load_dotenv(dotenv_path="../celery_app/.env")
-
 async def create_service_users():
     service_users = [
         {

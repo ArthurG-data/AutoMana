@@ -1,12 +1,8 @@
-import asyncio
-import logging
-import os
-
-import asyncpg
+import asyncio, logging ,os, asyncpg
 from psycopg2.extras import RealDictCursor, register_uuid, register_uuid
 from psycopg2 import pool
 
-from backend.core.settings import get_settings
+from backend.core.settings import Settings
 
 logger = logging.getLogger(__name__)
 register_uuid()
@@ -17,12 +13,11 @@ def _compute_backoff_seconds(attempt: int, base_delay: float, max_delay: float) 
     delay = base_delay * (2 ** max(0, attempt - 1))
     return min(delay, max_delay)
 
-async def init_async_pool() -> asyncpg.Pool:
+async def init_async_pool(settings:Settings) -> asyncpg.Pool:
     """
     Create asyncpg connection pool
     Called once during app startup in lifespan
     """
-    settings = get_settings()
     dsn = settings.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
 
     max_attempts = settings.DB_CONNECT_MAX_ATTEMPTS
@@ -59,8 +54,7 @@ async def init_async_pool() -> asyncpg.Pool:
 
     raise RuntimeError("Failed to create async DB pool after retries") from last_exc
 
-def init_sync_pool() -> pool.SimpleConnectionPool:
-    settings = get_settings()
+def init_sync_pool(settings: Settings) -> pool.SimpleConnectionPool:
     dsn = settings.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
     """Initialize the synchronous connection pool"""
     sync_db_pool = pool.SimpleConnectionPool(
@@ -73,12 +67,11 @@ def init_sync_pool() -> pool.SimpleConnectionPool:
     return sync_db_pool
 
 
-async def init_sync_pool_with_retry() -> pool.SimpleConnectionPool:
+async def init_sync_pool_with_retry(settings: Settings) -> pool.SimpleConnectionPool:
     """Initialize the sync psycopg2 pool with retry/backoff.
 
     Runs the blocking pool creation in a worker thread to avoid blocking the event loop.
     """
-    settings = get_settings()
     max_attempts = settings.DB_CONNECT_MAX_ATTEMPTS
     base_delay = settings.DB_CONNECT_BASE_DELAY_SECONDS
     max_delay = settings.DB_CONNECT_MAX_DELAY_SECONDS
@@ -87,7 +80,7 @@ async def init_sync_pool_with_retry() -> pool.SimpleConnectionPool:
     for attempt in range(1, max_attempts + 1):
         try:
             logger.info("Creating sync database pool (attempt %s/%s)", attempt, max_attempts)
-            sync_pool = await asyncio.to_thread(init_sync_pool)
+            sync_pool = await asyncio.to_thread(init_sync_pool, settings)
             logger.info("✅ Sync pool created")
             return sync_pool
         except Exception as exc:

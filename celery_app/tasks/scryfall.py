@@ -2,14 +2,13 @@ from asyncio.log import logger
 import sys
 import os
 import tempfile
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from celery_main_app import celery_app
+from main import celery_app
 from connection import get_connection
 from http_utils import get
 import pathlib, logging
 from sqlalchemy import text
 
+'''
 @celery_app.task(bind=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=5)
 def download_scryfall_bulk_uris(self):
     #get bulk data uris from database
@@ -407,4 +406,4 @@ def stage_scryfall_card_data(self, file_path):
 @celery_app.task(bind=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=3)
 def complete_scryfall_data_pipeline(self, source_id):
     pass
-    
+'''

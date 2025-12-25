@@ -39,25 +39,27 @@ class AppState:
         self.error_handler = None
         self.service_manager = None
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
 
     logger.info("🚀 Application startup initiated")
 
     try:
+        settings = get_settings()
         from backend.core.boot_guard import assert_safe_database_url
         # Validate environment
         assert_safe_database_url()
 
         from backend.request_handling.ErrorHandler import Psycopg2ExceptionHandler
         from backend.request_handling.QueryExecutor import AsyncQueryExecutor
-        from backend.core.database import init_async_pool, close_async_pool, init_sync_pool, close_sync_pool    
+        from backend.core.database import init_async_pool, close_async_pool, init_sync_pool_with_retry, close_sync_pool    
         from backend.core.service_manager import ServiceManager
 
 
         app.state.error_handler = Psycopg2ExceptionHandler()
-        app.state.async_db_pool = await init_async_pool()
-        app.state.sync_db_pool = init_sync_pool()
+        app.state.async_db_pool = await init_async_pool(settings)
+        app.state.sync_db_pool = await init_sync_pool_with_retry(settings)
         app.state.query_executor = AsyncQueryExecutor(app.state.error_handler)
         app.state.service_manager = await ServiceManager.initialize(
             connection_pool=app.state.async_db_pool,
