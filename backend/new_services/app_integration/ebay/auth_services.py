@@ -9,10 +9,15 @@ from backend.schemas.app_integration.ebay.auth import TokenResponse
 from backend.exceptions.service_layer_exceptions.app_integration.ebay import app_exception
 from backend.schemas.auth.cookie import RefreshTokenResponse
 import logging
+
 logger = logging.getLogger(__name__)
 #to removefrom backend.schemas.external_marketplace.ebay.app import NewEbayApp, AssignScope
+from backend.core.service_registry import ServiceRegistry
 
-
+@ServiceRegistry.register(
+        'integrations.ebay.start_oauth_flow',
+        api_repositories=['auth_oauth']
+)
 async def request_auth_code(
         auth_repository: EbayAuthRepository,
         auth_oauth_repository: EbayAuthAPIRepository,
@@ -40,6 +45,12 @@ async def request_auth_code(
     except httpx.HTTPError as e:
             raise app_exception.EbayAuthRequestException(f"Failed to request eBay auth code: {str(e)}")
 
+
+@ServiceRegistry.register(
+        'integrations.ebay.get_environment_callback',
+        db_repositories=['auth'],
+        api_repositories=['auth_oauth']
+)
 async def get_environment_callback(auth_repository: EbayAuthRepository
                           , state: str
                           , user_id: Optional[UUID]=None) -> str:
@@ -53,7 +64,11 @@ async def get_environment_callback(auth_repository: EbayAuthRepository
     except httpx.HTTPError as e:
         raise app_exception.EbayAuthRequestException(f"Failed to get eBay environment: {str(e)}")
 
-
+@ServiceRegistry.register(
+        'integrations.ebay.Pprocess_callback',
+        db_repositories=['auth'],
+        api_repositories=['auth_oauth']
+)
 async def handle_callback(auth_repository: EbayAuthRepository
                           , auth_oauth_repository: EbayAuthAPIRepository
                           , code: str
@@ -80,6 +95,11 @@ async def handle_callback(auth_repository: EbayAuthRepository
     await auth_repository.save_access_token(token_response, app_id, user_id)
     logger.info(f"Tokens saved for app {app_id} and user {user_id}")
 
+@ServiceRegistry.register(
+        'integrations.ebay.exchange_refresh_token',
+        db_repositories=['auth'],
+        api_repositories=['auth_oauth']
+)
 async def exchange_refresh_token(auth_repository: EbayAuthRepository
                           , auth_oauth_repository: EbayAuthAPIRepository
                           , app_code: str
@@ -123,6 +143,10 @@ async def exchange_refresh_token(auth_repository: EbayAuthRepository
 
 from backend.schemas.app_integration.ebay.auth import CreateAppRequest
 
+@ServiceRegistry.register(
+        'integrations.ebay.register_app',
+        db_repositories=['app']
+)
 async def register_app(app_repository: EbayAppRepository
                        , app_data : CreateAppRequest
                        , created_by:UUID) -> bool:
@@ -159,6 +183,10 @@ async def get_access_token(auth_repository: EbayAuthRepository
     except app_exception.EbayAccessTokenException as e:
         raise app_exception.EbayAccessTokenException(f"Failed to get access token: {str(e)}")
 
+@ServiceRegistry.register(
+        'integrations.ebay.get_environment',
+        db_repositories=['auth']
+)
 async def get_environment(auth_repository: EbayAuthRepository
                           , app_code: str
                           , user_id: Optional[UUID]=None) -> str | None:

@@ -1,7 +1,6 @@
-import asyncio
+import asyncio, json, ijson
 from dataclasses import dataclass
 from datetime import datetime
-import json
 from typing import Any, AsyncGenerator, Callable, Dict, List,  Optional
 from uuid import UUID
 from venv import logger
@@ -10,8 +9,12 @@ from backend.schemas.card_catalog.set import  SetInDB, NewSet, UpdatedSet, NewSe
 from backend.exceptions.service_layer_exceptions.card_catalogue import set_exception
 from backend.shared.utils import decode_json_input
 from pathlib import Path
-import ijson
+from backend.core.service_registry import ServiceRegistry
 
+@ServiceRegistry.register(
+    "card_catalog.set.get",
+    db_repositories=["set_reference"]
+)
 async def get(set_repository: SetReferenceRepository
               , set_id: UUID) -> SetInDB:
     try:
@@ -24,6 +27,10 @@ async def get(set_repository: SetReferenceRepository
     except Exception as e:
         raise set_exception.SetRetrievalError(f"Failed to retrieve set: {str(e)}")
 
+@ServiceRegistry.register(
+    "card_catalog.set.get_all",
+    db_repositories=["set_reference"]
+)
 async def get_all(set_repository: SetReferenceRepository
                   ,limit: Optional[int] = None
                   ,offset: Optional[int] = None
@@ -39,6 +46,10 @@ async def get_all(set_repository: SetReferenceRepository
     except Exception as e:
         raise set_exception.SetRetrievalError(f"Failed to retrieve sets: {str(e)}")
 
+@ServiceRegistry.register(
+    "card_catalog.set.add",
+    db_repositories=["set_reference"]
+)
 async def add_set(set_repository: SetReferenceRepository
                   , new_set: NewSet
                   ) -> bool:
@@ -52,7 +63,10 @@ async def add_set(set_repository: SetReferenceRepository
     except set_exception.SetCreationError:
         raise
     
-
+@ServiceRegistry.register(
+    "card_catalog.set.create_bulk",
+    db_repositories=["set_reference"]
+)
 async def add_sets_bulk(set_repository: SetReferenceRepository, new_sets: NewSets) -> List[SetInDB]:
     """ Adds multiple sets to the database in a single transaction."""
     data = [set.create_values() for set in new_sets]
@@ -66,6 +80,10 @@ async def add_sets_bulk(set_repository: SetReferenceRepository, new_sets: NewSet
     except Exception as e:
         raise set_exception.SetCreationError(f"Failed to create sets: {str(e)}")
 
+@ServiceRegistry.register(
+    "card_catalog.set.update",
+    db_repositories=["set_reference"]
+)
 async def put_set(set_repository: SetReferenceRepository, set_id: UUID, update_set: UpdatedSet):
     try:
         not_nul = {k: v for k, v in update_set.model_dump().items() if v is not None}
@@ -81,6 +99,10 @@ async def put_set(set_repository: SetReferenceRepository, set_id: UUID, update_s
     except Exception as e:
         raise set_exception.SetUpdateError(f"Failed to update set: {str(e)}")
 
+@ServiceRegistry.register(
+    "card_catalog.set.delete",
+    db_repositories=["set_reference"]
+)
 async def delete_set(set_repository: SetReferenceRepository
                      , set_id: UUID) -> bool:
     try:
@@ -372,35 +394,3 @@ class EnhancedSetImportService:
         logger.info(f"⏱️ Duration: {self.stats.duration_seconds:.2f} seconds")
         logger.info(f"🚀 Processing rate: {self.stats.total_sets / max(self.stats.duration_seconds, 1):.1f} sets/second")
         logger.info("=" * 60)
-
-# ✅ BACKWARD COMPATIBLE: Keep your original function but enhanced
-def process_large_sets_json(
-    set_repository: SetReferenceRepository,
-    file_path: str,
-    batch_size: int = 500,
-    skip_validation_errors: bool = True,
-    resume_from_batch: int = 0
-) -> ProcessingStats:
-    """
-    Enhanced file processing with better error handling and monitoring
-    
-    Args:
-        card_repository: Repository for database operations
-        file_path: Path to JSON file (local or cloud URL)
-        batch_size: Number of cards per batch
-        skip_validation_errors: Whether to skip invalid cards or fail
-        resume_from_batch: Batch number to resume from (for recovery)
-    """
-    
-    config = ProcessingConfig(
-        batch_size=batch_size,
-        skip_validation_errors=skip_validation_errors,
-        save_failed_sets=True,
-        max_retries=3
-    )
-
-    service = EnhancedSetImportService(set_repository, config)
-    return service.process_large_sets_json(
-        file_path=file_path,
-        resume_from_batch=resume_from_batch
-    )

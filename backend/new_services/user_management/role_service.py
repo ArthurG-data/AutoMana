@@ -6,8 +6,14 @@ from backend.schemas.user_management import user
 from fastapi import HTTPException, Header
 from backend.exceptions.service_layer_exceptions.user_management import role_exceptions
 from datetime import datetime
+from backend.core.service_registry import ServiceRegistry
 #from backend.dependancies import get_internal_settings
 
+
+@ServiceRegistry.register(
+    "user_management.user.assign_role",
+    db_repositories=["role"]
+)
 async def assign_role(role_repository: RoleRepository
                       , user_id : UUID
                       ,  role : AssignRoleRequest):
@@ -23,6 +29,10 @@ async def assign_role(role_repository: RoleRepository
     except Exception as e:
         raise role_exceptions.RoleAssignmentError(f"Error assigning role: {e}")
 
+@ServiceRegistry.register(
+    "user_management.user.revoke_role",
+    db_repositories=["role"]
+)
 async def revoke_role(role_repository: RoleRepository
                       , user_id: UUID
                       , role_name: Role

@@ -9,6 +9,7 @@ from backend.schemas.user_management.user import UserInDB
 from backend.core.settings import get_settings as get_general_settings
 import logging 
 from typing import Dict, Any
+from backend.core.service_registry import ServiceRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +73,11 @@ async def get_user_from_session(
         logger.error(f"Error getting user from session: {str(e)}")
         raise session_exceptions.SessionNotFoundError("Failed to get user from session")
 
+
+@ServiceRegistry.register(
+    "auth.session.delete",
+    db_repositories=["session"]
+)
 async def delete_session(session_repository: SessionRepository
                          , ip_address: str
                          , user_id: UUID,
@@ -171,7 +177,10 @@ async def validate_token_and_get_session_id(
     except Exception as e:
         raise session_exceptions.InvalidTokenError("Failed to validate token")
 
-
+@ServiceRegistry.register(
+        'auth.session.read',
+        db_repositories=['session']
+)
 async def read_session(session_repository: SessionRepository, session_id: UUID):
     """Reads a session from the database."""
     session = await session_repository.get(session_id)

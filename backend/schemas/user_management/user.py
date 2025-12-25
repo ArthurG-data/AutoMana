@@ -3,7 +3,7 @@ from typing import Optional
 from uuid import UUID, uuid4
 from enum import Enum
 from datetime import datetime, timedelta
-from backend.utilis import now_utc
+from backend.utils.common.now_utc import now_utc
 
 class UserPublic(BaseModel):
     username : str = Field(

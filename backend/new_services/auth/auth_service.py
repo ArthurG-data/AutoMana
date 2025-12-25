@@ -3,12 +3,13 @@ from fastapi import HTTPException, Request,  Security
 from datetime import timedelta, datetime, timezone
 from fastapi.security import OAuth2PasswordBearer
 from uuid import UUID
-from backend.dependancies.settings import get_general_settings
+from backend.core.settings import Settings,  get_settings as get_general_settings
 from backend.new_services.auth.session_service import rotate_session_token, create_new_session
 from backend.repositories.auth.auth_repository import AuthRepository
 from backend.repositories.user_management.user_repository import UserRepository
 from backend.repositories.auth.session_repository import SessionRepository
 from backend.schemas.user_management.user import UserInDB
+from backend.core.service_registry import ServiceRegistry
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -57,6 +58,10 @@ async def authenticate_user(repository : UserRepository
         return None
     return UserInDB.model_validate(user)
 
+@ServiceRegistry.register(
+        'auth.auth.logout',
+        db_repositories=['session']
+)
 async def logout(
         session_repository: SessionRepository,
         session_id: UUID,
@@ -74,6 +79,10 @@ async def logout(
         return {"status": "error", "message": "Session not found"}
     return {"status": "success", "message": "Logged out successfully"}
 
+@ServiceRegistry.register(
+        'auth.auth.login',
+        db_repositories=['session']
+)
 async def login( user_repository: UserRepository
                 , session_repository: SessionRepository  
                 , username: str
@@ -83,7 +92,7 @@ async def login( user_repository: UserRepository
                 ) -> dict:
     logger.info(f"User {username} is attempting to log in from IP {ip_address} with user agent {user_agent}")#modify apihandler later, or merge both repo
     # Get settings from configuration
-    settings = get_general_settings()
+    settings = get_general_settings
     access_token_expires = timedelta(minutes=int(settings.access_token_expiry))
     expire_time = datetime.now(timezone.utc) + timedelta(days=7)
  

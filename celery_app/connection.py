@@ -2,10 +2,6 @@ from sqlalchemy import create_engine
 from contextlib import contextmanager
 import os,dotenv, logging
 
-import dotenv
-
-dotenv.load_dotenv("../backend/.env")
-
 engine = None
 
 def get_engine():

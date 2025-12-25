@@ -1,5 +1,5 @@
 import logging
-from backend.core.settings import Settings, get_settings
+from backend.core.settings import Settings, get_settings as get_general_settings
 from dotenv import load_dotenv
 import os 
 logger = logging.getLogger(__name__)

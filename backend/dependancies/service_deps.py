@@ -1,7 +1,7 @@
 from fastapi import Depends,  Request,Request
 from typing import Annotated, Any
 from backend.request_handling.QueryExecutor import QueryExecutor, AsyncQueryExecutor
-from backend.new_services.service_manager import ServiceManager
+from backend.core.service_manager import ServiceManager
 
 # ==========================================
 # Core Service Dependencies

@@ -1,126 +1,23 @@
-
-import json
 from uuid import UUID
 from datetime import datetime
 from fastapi import Query
-import ijson, asyncio
+import ijson, asyncio,  time, logging,  json
 from backend.schemas.card_catalog import card as card_schemas
 from backend.repositories.card_catalog.card_repository import CardReferenceRepository
-from typing import  Optional, List, Dict, Any
+from typing import  Optional, List, Dict, Any, AsyncGenerator, Callable
 from backend.schemas.card_catalog.card import BaseCard
 from backend.exceptions.service_layer_exceptions.card_catalogue import card_exception
-import logging
 from dataclasses import dataclass
+from backend.core.service_registry import ServiceRegistry
+from pathlib import Path
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-async def add(card_repository : CardReferenceRepository
-              , card : card_schemas.CreateCard
-              ):
-    values =  card.prepare_for_db()
-    logger.info(f"Inserting card with values: {values}, number: {len(values)}")
-    try:
-        result = await card_repository.add(values)
-        if result != "SELECT 1":
-            raise card_exception.CardInsertError("Failed to insert card")
-        return result
-    except Exception as e:
-        raise card_exception.CardInsertError(f"Failed to insert card: {str(e)}")
-
-
-async def add_many(card_repository : CardReferenceRepository, cards: card_schemas.CreateCards):
-    prepared_cards = cards.prepare_for_db()
-    try:
-        result = await card_repository.add_many(prepared_cards)
-
-        return result 
-    except Exception as e:
-        raise card_exception.CardInsertError(f"Failed to insert cards: {str(e)}")
-
-async def delete(card_repository : CardReferenceRepository, card_id: UUID)-> bool:
-    try:
-        result = await card_repository.delete(card_id)
-        if not result:
-            raise card_exception.CardDeletionError(f"Failed to delete card with ID {card_id}")
-        return result
-    except card_exception.CardDeletionError:
-        raise
-    except Exception as e:
-        raise card_exception.CardDeletionError(f"Failed to delete card: {str(e)}")
-
-async def search_cards(card_repository: CardReferenceRepository
-                   , name: Optional[str] = None
-                   , color: Optional[str] = None
-                   , rarity: Optional[str] = None
-                   , card_id: Optional[UUID] = None
-                   , released_after: Optional[datetime] = None
-                   , released_before: Optional[datetime] = None
-                   , set_name: Optional[str] = None
-                   , mana_cost: Optional[int] = None
-                   , digital: Optional[bool] = None
-                   , card_type: Optional[str] = None
-                   # Pagination
-                   , limit: int = 100
-                   , offset: int = 0
-                   , sort_by: str = "name"
-                   , sort_order: str = "asc"
-                   ) -> List[BaseCard]:
-    logger.info(f"Searching for cards with: name={name}, color={color}, rarity={rarity}, card_id={card_id}, set_name={set_name}, mana_cost={mana_cost}, digital={digital}")
-    try:
-        if card_id:
-            logger.info(f"Fetching card by ID: {card_id}")
-            card = await card_repository.get(card_id)
-            if not card:
-                return {"cards": [], "total": 0}
-            return {"cards": [BaseCard.model_validate(card)]
-                    , "total": 1
-                    }
-
-        result = await card_repository.search(name=name,
-                                               color=color,
-                                               rarity=rarity,
-                                               set_name=set_name,
-                                               mana_cost=mana_cost,
-                                               digital=digital,
-                                               released_after=released_after,
-                                               released_before=released_before,
-                                               limit=limit,
-                                               offset=offset,
-                                               sort_by=sort_by,
-                                               card_type=card_type,
-                                               sort_order=sort_order)
-        if not result:
-            raise card_exception.CardNotFoundError(f"No cards found for IDs {card_id}")
-        cards = result.get("cards", [])
-        total_count = result.get("total_count", 0)
-        return  {
-            "cards": cards,
-            "total_count": total_count
-        }
-
-    except card_exception.CardNotFoundError:
-        raise
-    except Exception as e:
-        raise card_exception.CardRetrievalError(f"Failed to retrieve cards: {str(e)}")
-
-
-async def get(card_repository: CardReferenceRepository,
-               card_id: UUID,
-                     ) -> BaseCard:
-    try:
-        result = await card_repository.get(
-            card_id=card_id,
-        )
-        if not result:
-            raise card_exception.CardNotFoundError(f"Card with ID {card_id} not found")
-        return BaseCard.model_validate(result)
-    except card_exception.CardNotFoundError:
-        raise
-    except Exception as e:
-        raise card_exception.CardRetrievalError(f"Failed to retrieve card: {str(e)}")
-    
-
+@dataclass
+class CardSearchResult:
+    cards: List[BaseCard]
+    total_count: int
 
 @dataclass
 class ProcessingStats:
@@ -154,12 +51,6 @@ class ProcessingStats:
             "duration_seconds": round(self.duration_seconds, 2),
             "cards_per_second": round(self.total_cards / max(self.duration_seconds, 1), 1)
         }
-
-from pathlib import Path
-from typing import Optional, List, Dict, Any, AsyncGenerator, Callable
-from dataclasses import dataclass
-import time
-
 @dataclass
 class ProcessingConfig:
     """Configuration for file processing"""
@@ -170,6 +61,125 @@ class ProcessingConfig:
     progress_callback: Optional[Callable[[ProcessingStats], None]] = None
     save_failed_cards: bool = True
     failed_cards_file: Optional[str] = None
+
+@ServiceRegistry.register(
+    "card_catalog.card.create",
+    db_repositories=["card"]
+)
+async def add(card_repository : CardReferenceRepository
+              , card : card_schemas.CreateCard
+              ):
+    values =  card.prepare_for_db()
+    logger.info(f"Inserting card with values: {values}, number: {len(values)}")
+    try:
+        result = await card_repository.add(values)
+        if result != "SELECT 1":
+            raise card_exception.CardInsertError("Failed to insert card")
+        return result
+    except Exception as e:
+        raise card_exception.CardInsertError(f"Failed to insert card: {str(e)}")
+
+@ServiceRegistry.register(
+    "card_catalog.card.create_many",
+    db_repositories=["card"]
+)
+async def add_many(card_repository : CardReferenceRepository, cards: card_schemas.CreateCards):
+    prepared_cards = cards.prepare_for_db()
+    try:
+        result = await card_repository.add_many(prepared_cards)
+
+        return result 
+    except Exception as e:
+        raise card_exception.CardInsertError(f"Failed to insert cards: {str(e)}")
+
+@ServiceRegistry.register(
+    "card_catalog.card.delete",
+    db_repositories=["card"]
+)
+async def delete(card_repository : CardReferenceRepository, card_id: UUID)-> bool:
+    try:
+        result = await card_repository.delete(card_id)
+        if not result:
+            raise card_exception.CardDeletionError(f"Failed to delete card with ID {card_id}")
+        return result
+    except card_exception.CardDeletionError:
+        raise
+    except Exception as e:
+        raise card_exception.CardDeletionError(f"Failed to delete card: {str(e)}")
+    
+@ServiceRegistry.register(
+    "card_catalog.card.search",
+    db_repositories=["card"]
+)
+async def search_cards(card_repository: CardReferenceRepository
+                   , name: Optional[str] = None
+                   , color: Optional[str] = None
+                   , rarity: Optional[str] = None
+                   , card_id: Optional[UUID] = None
+                   , released_after: Optional[datetime] = None
+                   , released_before: Optional[datetime] = None
+                   , set_name: Optional[str] = None
+                   , mana_cost: Optional[int] = None
+                   , digital: Optional[bool] = None
+                   , card_type: Optional[str] = None
+                   # Pagination
+                   , limit: int = 100
+                   , offset: int = 0
+                   , sort_by: str = "name"
+                   , sort_order: str = "asc"
+                   ) -> CardSearchResult:
+    logger.info(f"Searching for cards with: name={name}, color={color}, rarity={rarity}, card_id={card_id}, set_name={set_name}, mana_cost={mana_cost}, digital={digital}")
+    try:
+        if card_id:
+            logger.info(f"Fetching card by ID: {card_id}")
+            card = await card_repository.get(card_id)
+            if not card:
+                return CardSearchResult(cards=[], total_count=0)
+            return CardSearchResult(cards=[BaseCard.model_validate(card)], total_count=1)
+
+        result = await card_repository.search(name=name,
+                                               color=color,
+                                               rarity=rarity,
+                                               set_name=set_name,
+                                               mana_cost=mana_cost,
+                                               digital=digital,
+                                               released_after=released_after,
+                                               released_before=released_before,
+                                               limit=limit,
+                                               offset=offset,
+                                               sort_by=sort_by,
+                                               card_type=card_type,
+                                               sort_order=sort_order)
+        if not result:
+            raise card_exception.CardNotFoundError(f"No cards found for IDs {card_id}")
+        cards = result.get("cards", [])
+        total_count = result.get("total_count", 0)
+        return  CardSearchResult(cards=[BaseCard.model_validate(card) for card in cards], total_count=total_count)
+
+    except card_exception.CardNotFoundError:
+        raise
+    except Exception as e:
+        raise card_exception.CardRetrievalError(f"Failed to retrieve cards: {str(e)}")
+
+@ServiceRegistry.register(
+    "card_catalog.card.get",
+    db_repositories=["card"]
+)
+async def get(card_repository: CardReferenceRepository,
+               card_id: UUID,
+                     ) -> CardSearchResult:
+    try:
+        result = await card_repository.get(
+            card_id=card_id,
+        )
+        if not result:
+            raise CardSearchResult(cards=[], total_count=0)
+        return CardSearchResult(cards=[BaseCard.model_validate(result)], total_count=1)
+    except card_exception.CardNotFoundError:
+        raise
+    except Exception as e:
+        raise card_exception.CardRetrievalError(f"Failed to retrieve card: {str(e)}")
+    
 
 class EnhancedCardImportService:
     """Enhanced card import service with better error handling and monitoring"""
@@ -401,35 +411,3 @@ class EnhancedCardImportService:
         logger.info(f"⏱️ Duration: {self.stats.duration_seconds:.2f} seconds")
         logger.info(f"🚀 Processing rate: {self.stats.total_cards / max(self.stats.duration_seconds, 1):.1f} cards/second")
         logger.info("=" * 60)
-
-# ✅ BACKWARD COMPATIBLE: Keep your original function but enhanced
-def process_large_cards_json(
-    card_repository: CardReferenceRepository, 
-    file_path: str,
-    batch_size: int = 500,
-    skip_validation_errors: bool = True,
-    resume_from_batch: int = 0
-) -> ProcessingStats:
-    """
-    Enhanced file processing with better error handling and monitoring
-    
-    Args:
-        card_repository: Repository for database operations
-        file_path: Path to JSON file (local or cloud URL)
-        batch_size: Number of cards per batch
-        skip_validation_errors: Whether to skip invalid cards or fail
-        resume_from_batch: Batch number to resume from (for recovery)
-    """
-    
-    config = ProcessingConfig(
-        batch_size=batch_size,
-        skip_validation_errors=skip_validation_errors,
-        save_failed_cards=True,
-        max_retries=3
-    )
-    
-    service = EnhancedCardImportService(card_repository, config)
-    return service.process_large_cards_json(
-        file_path=file_path,
-        resume_from_batch=resume_from_batch
-    )

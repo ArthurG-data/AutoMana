@@ -22,7 +22,6 @@ async def get_user_from_cookie(repository: SessionRepository, cookies: CookiesDa
         return None
     return session.user
 
-
 async def refresh_tokens(repository
                          , token_repository
                         , token_id

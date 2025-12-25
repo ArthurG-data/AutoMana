@@ -6,9 +6,15 @@ from backend.repositories.user_management.user_repository import UserRepository
 from uuid import UUID
 from backend.exceptions.service_layer_exceptions.user_management import user_exceptions
 import logging
+from backend.core.service_registry import ServiceRegistry
 
 logger = logging.getLogger(__name__)
 
+
+@ServiceRegistry.register(
+    "auth.auth.register",
+    db_repositories=["auth", "user"]
+)
 async def register(user_repository: UserRepository, user : Annotated[BaseUser, Body(
     examples=[
         {
@@ -29,6 +35,10 @@ async def register(user_repository: UserRepository, user : Annotated[BaseUser, B
     except Exception as e:
         raise user_exceptions.UserError(f"Error creating user: {e}")
 
+@ServiceRegistry.register(
+    "user_management.user.update",
+    db_repositories=["user"]
+)
 async def update(user_repository : UserRepository
                  , user_id: UUID
                  , user : UserUpdatePublic
@@ -42,6 +52,10 @@ async def update(user_repository : UserRepository
     except Exception as e:
         raise user_exceptions.UserError(f"Error updating user: {e}")
 
+@ServiceRegistry.register(
+    "user_management.user.search_users",
+    db_repositories=["user"]
+)
 async def search_users(user_repository : UserRepository,
     # Search parameters
     username: Optional[str] = None,
@@ -105,11 +119,15 @@ async def search_users(user_repository : UserRepository,
         raise user_exceptions.UserSearchError(f"Search failed: {str(e)}")
     
     
-
+@ServiceRegistry.register(
+    "user_management.user.delete",
+    db_repositories=["user"]
+)
 async def delete_user(user_repository  : UserRepository, user_id : UUID) :
 
     await user_repository.delete(user_id)
     return None
+
 
 async def get_user(user_repository: UserRepository, username: str) -> UserInDB:
     user =  await user_repository.get(username)
@@ -117,6 +135,7 @@ async def get_user(user_repository: UserRepository, username: str) -> UserInDB:
         return UserInDB(*user)
     else:
         return None
+
 
 async def get_user_by_session(user_repository: UserRepository, user_id: UUID) -> UserInDB:
     try:
