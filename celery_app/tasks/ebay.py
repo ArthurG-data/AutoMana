@@ -3,7 +3,7 @@ from typing import List, Optional
 #from backend.repositories.app_integration.ebay import auth_repository
 #from backend.schemas.auth.cookie import RefreshTokenResponse
 from main import celery_app
-from connection import get_connection
+from celery_app.ressources import get_connection
 #from backend.request_handling.QueryExecutor import SQLAlchemyQueryExecutor
 #from backend.new_services.analysis.pricing import enhanced_pricing_analysis
 #to do, create a user for the task manager

@@ -3,7 +3,7 @@ import asyncpg
 import os
 import uuid
 from dotenv import load_dotenv
-from connection import get_connection
+from celery_app.ressources import get_connection
 from sqlalchemy import text
 from backend.utils.auth.auth import get_hash_password
 

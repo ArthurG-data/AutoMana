@@ -12,8 +12,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY celery_app/. /app
+COPY celery_app/. /app/celery_app/
+COPY backend/core/database.py /app/backend/core/database.py
+COPY backend/core/settings.py /app/backend/core/settings.py
+
 RUN ls -l /app
-RUN pip install --upgrade pip && pip install -r /app/requirements.txt
+RUN pip install --upgrade pip && pip install -r /app/celery_app/requirements.txt
+
+RUN addgroup --system celery && adduser --system --ingroup celery celery
+USER celery
 
 CMD ["celery", "-A", "main", "worker", "-l", "INFO"]

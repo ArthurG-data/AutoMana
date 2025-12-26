@@ -1,5 +1,5 @@
 import json, httpx, os, time, ijson, logging, datetime, sys, glob
-from connection import get_connection
+from celery_app.ressources import get_connection
 import pathlib, logging
 from sqlalchemy import text
 
