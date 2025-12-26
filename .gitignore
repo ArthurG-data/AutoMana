@@ -78,4 +78,5 @@ celerybeat.pid
 # staging
 
 staging/
+*/secrets
 
