@@ -58,8 +58,8 @@ def init_sync_pool(settings: Settings) -> pool.SimpleConnectionPool:
     dsn = settings.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
     """Initialize the synchronous connection pool"""
     sync_db_pool = pool.SimpleConnectionPool(
-        minconn=1,
-        maxconn=10,  # Adjust based on your app's load
+        minconn=settings.db_pool_min_conn,
+        maxconn=settings.db_pool_max_conn,
         dsn=dsn,
         cursor_factory=RealDictCursor,
         options='-c client_encoding=UTF8'

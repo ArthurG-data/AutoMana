@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     DB_CONNECT_BASE_DELAY_SECONDS: float = 0.5
     DB_CONNECT_MAX_DELAY_SECONDS: float = 10.0
 
+    # Database pool settings
+    db_pool_min_conn: int = Field(default=1, alias="DB_POOL_MIN_CONN")
+    db_pool_max_conn: int = Field(default=4, alias="DB_POOL_MAX_CONN")
+
     # eBay
     ebay_app_id: str | None = None
     ebay_redirect_uri: str | None = None

@@ -3,7 +3,7 @@ import sys
 import os
 import tempfile
 from main import celery_app
-from connection import get_connection
+from celery_app.ressources import get_connection
 from http_utils import get
 import pathlib, logging
 from sqlalchemy import text
