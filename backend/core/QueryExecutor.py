@@ -1,9 +1,5 @@
-from contextlib import contextmanager, asynccontextmanager
-import re
-from typing import  TypeVar, Callable, List, Optional
+from typing import  TypeVar, Callable, List, Optional, Tuple, Any
 from abc import ABC, abstractmethod
-from typing import List, Any, Optional, Tuple
-from fastapi import params
 from psycopg2.extensions import connection
 import asyncpg
 
@@ -103,7 +99,7 @@ class AsyncQueryExecutor(QueryExecutor):
         except Exception as e:
             self.handle_error.handle(e)
             raise
-
+'''
 class SQLAlchemyQueryExecutor(QueryExecutor):
     def __init__(self, error_handler: Any = print):
         self.handle_error = error_handler
@@ -181,3 +177,4 @@ class SQLAlchemyQueryExecutor(QueryExecutor):
         except Exception as e:
             self.handle_error(e)
             raise
+'''

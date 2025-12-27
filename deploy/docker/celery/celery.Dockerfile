@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY celery_app/. /app/celery_app/
 COPY backend/core/database.py /app/backend/core/database.py
-COPY backend/core/settings.py /app/backend/core/settings.py
+COPY backend/core/. /app/backend/core/.
 
 RUN ls -l /app
 RUN pip install --upgrade pip && pip install -r /app/celery_app/requirements.txt

@@ -7,7 +7,7 @@ from fastapi import FastAPI
 
 from backend.main import lifespan, global_cleanup
 from backend.core.service_manager import ServiceManager
-from backend.request_handling.QueryExecutor import AsyncQueryExecutor
+from backend.core.QueryExecutor import AsyncQueryExecutor
 
 @pytest.fixture
 def mock_app():

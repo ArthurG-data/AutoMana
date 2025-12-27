@@ -1,8 +1,4 @@
-import asyncio
-import asyncpg
 import os
-import uuid
-from dotenv import load_dotenv
 from celery_app.ressources import get_connection
 from sqlalchemy import text
 from backend.utils.auth.auth import get_hash_password

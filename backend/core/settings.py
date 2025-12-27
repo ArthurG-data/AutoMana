@@ -1,10 +1,10 @@
-
-from typing_extensions import  Optional, List
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
+from backend.core.secrets import read_secret
 import os
 from pathlib import Path
+from urllib.parse import quote_plus
 
 def env_file_path() -> str:
     env = os.getenv("ENV", "dev")
@@ -21,15 +21,15 @@ class Settings(BaseSettings):
 
     # App env
     env: str = Field(default="dev")  # dev|staging|prod
-    DATABASE_URL: str
+ 
+
     ALLOW_DESTRUCTIVE_ENDPOINTS: bool = False
     # Security / JWT
-    jwt_secret_key: str = Field(alias="JWT_SECRET_KEY")
+    jwt_secret_key: str = Field(default_factory=lambda: read_secret("jwt_secret_key"))
     jwt_algorithm: str = "HS256"
     access_token_expiry: int = 30
     encrypt_algorithm: str = "HS256"
-    pgp_secret_key: str  = Field(alias="PGP_SECRET_KEY")
-
+    pgp_secret_key: str  = Field(default_factory=lambda: read_secret("pgp_secret_key"))
     # retry settings
     DB_CONNECT_MAX_ATTEMPTS: int = 10
     DB_CONNECT_BASE_DELAY_SECONDS: float = 0.5
@@ -50,6 +50,24 @@ class Settings(BaseSettings):
     staging_path: str | None = None
     backend_path: str | None = None
     exchange_app_id: str | None = None
+
+    DB_PASSWORD: str = Field(default_factory=lambda: read_secret("backend_db_password"))
+    DB_PORT : int = Field(default=5432)
+    DB_NAME : str = Field(default="automana", alias="DB_NAME")
+    DB_USER : str = Field(default="backend_app", alias="APP_BACKEND_DB_USER")
+    DB_HOST : str = Field(default="localhost", alias="POSTGRES_HOST")
+
+    DB_PASSWORD: str = Field(
+        default_factory=lambda: read_secret("backend_db_password")
+    )
+
+    @property
+    def DATABASE_URL_ASYNC(self) -> str:
+        password = quote_plus(self.DB_PASSWORD)
+        return (
+        f"postgresql://{self.DB_USER}:{password}"
+        f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+    )
 
 @lru_cache()
 def get_settings():

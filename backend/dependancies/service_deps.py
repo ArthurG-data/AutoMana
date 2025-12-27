@@ -1,6 +1,6 @@
 from fastapi import Depends,  Request,Request
 from typing import Annotated, Any
-from backend.request_handling.QueryExecutor import QueryExecutor, AsyncQueryExecutor
+from backend.core.QueryExecutor import QueryExecutor, AsyncQueryExecutor
 from backend.core.service_manager import ServiceManager
 
 # ==========================================
