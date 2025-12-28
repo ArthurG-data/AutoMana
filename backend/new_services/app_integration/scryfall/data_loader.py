@@ -71,14 +71,19 @@ async def full_scryfall_data_download_process(ops_repository: OpsRepository
     bulk_uri = await get_scryfall_bulk_data_uri(ops_repository)
     manifests = await download_scryfall_bulk_manifests(scryfall_repository, bulk_uri)# should return multuple uris
     #update database with new uris if needed, and check if the file has changed
-    bulk_items_changed =manifests["data"]["data"]
+    bulk_items =manifests["data"]["data"]
+    uri_to_download = await ops_repository.update_bulk_data_uri_return_new(bulk_items, source_id=1)
+    bulk_items_changed = uri_to_download.get("changed", [])
+    if not bulk_items_changed or len(bulk_items_changed) == 0:
+        logger.info("No changes in Scryfall bulk data URIs. No download needed.")
+        return {"status": "no_changes"}
     download_uris = [
         item["download_uri"]
         for item in bulk_items_changed
         if item["type"] in ("all_cards")
         ]
     logger.info(f"Downloading Scryfall data from {download_uris}...")
-    #download sets
+    #download sets, if no new cards, no new sets
     out_path_sets = save_dir / "sets.json"
     set_result = await download_scryfall_from_url(scryfall_repository, "https://api.scryfall.com/sets", out_path_sets)
     card_result = await stream_download_scryfall_json_from_uris(scryfall_repository, download_uris, save_dir)

@@ -1,6 +1,8 @@
 import json
 from backend.repositories.AbstractRepository import AbstractRepository
 from backend.repositories.ops.scryfall_data import update_bulk_scryfall_data_sql
+
+
 class OpsRepository(AbstractRepository):
 
     @property
@@ -18,18 +20,20 @@ class OpsRepository(AbstractRepository):
         result = await self.execute_query(query)
         return result[0].get("uri") if result and len(result) > 0 else None
     
-    async def update_bulk_data_uri(self, items: dict, source_id: int):
+    async def update_bulk_data_uri_return_new(self, items: dict, source_id: int):
         result = await self.execute_query(
             update_bulk_scryfall_data_sql,
-            (json.dumps(items), source_id, source_id),
-            fetch=False
+            json.dumps(items), source_id
         )
-        ressources_upserted = result.get("resources_upserted")
-        versions_inserted = result.get("versions_inserted")
+        record = result[0] if result and len(result) > 0 else None
+        ressources_upserted = record.get("resources_upserted") if record else 0
+        versions_inserted = record.get("versions_inserted") if record else 0
+        changed_items = record.get("changed") if record else []
         return {
         "source_id": source_id,
         "resources_upserted": ressources_upserted,
         "versions_inserted": versions_inserted,
+        "changed": changed_items
     }
     async def get():
         raise NotImplementedError("This method is not implemented yet.")

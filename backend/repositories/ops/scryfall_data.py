@@ -1,6 +1,6 @@
 update_bulk_scryfall_data_sql = """
 WITH payload AS (
-  SELECT %s::jsonb AS j
+  SELECT $1::jsonb AS j
 ),
 items AS (
   SELECT
@@ -24,7 +24,7 @@ upsert_resources AS (
     api_uri, web_uri, metadata, updated_at_source
   )
   SELECT
-    %s::bigint AS source_id,
+    $2::bigint AS source_id,
     i.external_type,
     i.external_id,
     NULL,
@@ -35,7 +35,7 @@ upsert_resources AS (
     i.metadata,
     i.updated_at_source
   FROM items i
-  ON CONFLICT ON CONSTRAINT ops_resources_source_type_external_key_uk  -- see section 2
+  ON CONFLICT (source_id, external_type,  external_id, canonical_key)
   DO UPDATE SET
     name              = EXCLUDED.name,
     description       = EXCLUDED.description,
@@ -43,37 +43,68 @@ upsert_resources AS (
     web_uri           = EXCLUDED.web_uri,
     metadata          = EXCLUDED.metadata,
     updated_at_source = EXCLUDED.updated_at_source
+  WHERE ops.resources.updated_at_source IS NULL
+     OR EXCLUDED.updated_at_source > ops.resources.updated_at_source
   RETURNING id AS resource_id, external_id, external_type
 ),
-ins_versions AS (
-  INSERT INTO ops.resource_versions (
-    resource_id, download_uri, content_type, content_encoding, bytes,
-    last_modified, status, etag, sha256
-  )
+changed AS (
   SELECT
     ur.resource_id,
+    ur.external_id,
+    ur.external_type,
     i.download_uri,
-    i.content_type,
-    i.content_encoding,
-    i.bytes,
     i.updated_at_source,
-    'downloaded',
-    NULL::text,
-    NULL::text
+    i.bytes
   FROM upsert_resources ur
   JOIN items i
     ON i.external_id = ur.external_id
    AND i.external_type = ur.external_type
+),
+ins_versions AS (
+  INSERT INTO ops.resource_versions (
+    resource_id,
+    download_uri,
+    content_type,
+    content_encoding,
+    bytes,
+    last_modified,
+    status,
+    etag,
+    sha256
+  )
+  SELECT
+    c.resource_id,
+    c.download_uri,
+    i.content_type,
+    i.content_encoding,
+    c.bytes,
+    c.updated_at_source,
+    'downloaded',
+    NULL::text,
+    NULL::text
+  FROM changed c
+  JOIN items i
+    ON i.external_id = c.external_id
+   AND i.external_type = c.external_type
   WHERE NOT EXISTS (
     SELECT 1
     FROM ops.resource_versions v
-    WHERE v.resource_id   = ur.resource_id
-      AND v.download_uri  = i.download_uri
-      AND v.last_modified = i.updated_at_source
+    WHERE v.resource_id   = c.resource_id
+      AND v.download_uri  = c.download_uri
+      AND v.last_modified = c.updated_at_source
   )
   RETURNING 1
 )
 SELECT
   (SELECT COUNT(*) FROM upsert_resources) AS resources_upserted,
-  (SELECT COUNT(*) FROM ins_versions)     AS versions_inserted;
+  (SELECT COUNT(*) FROM ins_versions)     AS versions_inserted,
+  COALESCE(
+    (SELECT jsonb_agg(jsonb_build_object(
+        'type', external_type,
+        'external_id', external_id,
+        'download_uri', download_uri,
+        'updated_at', updated_at_source
+    ) ORDER BY external_type) FROM changed),
+    '[]'::jsonb
+  ) AS changed_entries;
 """
