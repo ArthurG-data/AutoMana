@@ -52,8 +52,6 @@ services:
       ENV: dev
       POSTGRES_USER: ${APP_BACKEND_DB_USER}
       POSTGRES_PASSWORD_FILE: /run/secrets/backend_db_password
-      POSTGRES_DB: ${DB_NAME}
-      POSTGRES_PORT: ${POSTGRES_PORT}
     networks:
       - backend-network
     healthcheck:
@@ -106,12 +104,16 @@ services:
     build:
       context: ..
       dockerfile: deploy/docker/celery/celery.Dockerfile
+    volumes:
+      - "G:/data/scryfall:/data/scryfall"
     secrets:
       - celery_db_password
     container_name: automana-celery-dev
     env_file:
       - ../config/env/.env.dev
     environment:
+      POSTGRES_USER: ${APP_CELERY_DB_USER}
+      POSTGRES_PASSWORD_FILE: /run/secrets/celery_db_password
       CELERY_CONCURRENCY: "4"
       CELERY_LOGLEVEL: "INFO"
       CELERY_POOL: "prefork"

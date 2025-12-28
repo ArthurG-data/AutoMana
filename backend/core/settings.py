@@ -1,3 +1,4 @@
+from typing import Optional
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
@@ -10,6 +11,13 @@ def env_file_path() -> str:
     env = os.getenv("ENV", "dev")
     project_root = Path(__file__).parent.parent.parent 
     return str(project_root / "config" / "env" / f".env.{env}")
+
+def read_db_password():
+    password_file = os.getenv("POSTGRES_PASSWORD_FILE")
+    if password_file and os.path.exists(password_file):
+        with open(password_file, "r", encoding="utf-8") as f:
+            return f.read().strip()
+    return None  # Or fallback to another method
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -25,11 +33,11 @@ class Settings(BaseSettings):
 
     ALLOW_DESTRUCTIVE_ENDPOINTS: bool = False
     # Security / JWT
-    jwt_secret_key: str = Field(default_factory=lambda: read_secret("jwt_secret_key"))
+    jwt_secret_key: Optional[str] = Field(default_factory=lambda: read_secret("jwt_secret_key"))
     jwt_algorithm: str = "HS256"
     access_token_expiry: int = 30
     encrypt_algorithm: str = "HS256"
-    pgp_secret_key: str  = Field(default_factory=lambda: read_secret("pgp_secret_key"))
+    pgp_secret_key: Optional[str]  = Field(default_factory=lambda: read_secret("pgp_secret_key"))
     # retry settings
     DB_CONNECT_MAX_ATTEMPTS: int = 10
     DB_CONNECT_BASE_DELAY_SECONDS: float = 0.5
@@ -51,15 +59,11 @@ class Settings(BaseSettings):
     backend_path: str | None = None
     exchange_app_id: str | None = None
 
-    DB_PASSWORD: str = Field(default_factory=lambda: read_secret("backend_db_password"))
+    DB_PASSWORD: str = Field(default_factory=read_db_password)
     DB_PORT : int = Field(default=5432)
     DB_NAME : str = Field(default="automana", alias="DB_NAME")
-    DB_USER : str = Field(default="backend_app", alias="APP_BACKEND_DB_USER")
+    DB_USER : str = Field(default_factory=lambda: os.getenv("POSTGRES_USER", "backend_app"))
     DB_HOST : str = Field(default="localhost", alias="POSTGRES_HOST")
-
-    DB_PASSWORD: str = Field(
-        default_factory=lambda: read_secret("backend_db_password")
-    )
 
     @property
     def DATABASE_URL_ASYNC(self) -> str:

@@ -1,12 +1,17 @@
 from asyncio.log import logger
-import sys
-import os
-import tempfile
+import sys, os, tempfile
 from main import celery_app
-from celery_app.ressources import get_connection
 from http_utils import get
 import pathlib, logging
-from sqlalchemy import text
+from datetime import time
+from celery_app.async_runner import AsyncRunner
+
+async_runner = AsyncRunner()
+#grab service manager
+#grab the function
+#run it in the async runner
+
+
 
 '''
 @celery_app.task(bind=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=5)
@@ -175,9 +180,6 @@ def process_scryfall_bulk_uris(self, result):
 
 }
    
-import os
-from datetime import time
-
 @celery_app.task(bind=True, autoretry_for=(Exception,), retry_backoff=True, max_retries=3)
 def download_scryfall_data(self, external_type, save_path):
     #check if folder exists

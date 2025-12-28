@@ -8,5 +8,6 @@ service_modules = [
             "backend.new_services.card_catalog.collection_service",
             "backend.new_services.app_integration.ebay.auth_services",
             "backend.new_services.app_integration.ebay.browsing_services",
-            "backend.new_services.app_integration.ebay.selling_services"
+            "backend.new_services.app_integration.ebay.selling_services", 
+            "backend.new_services.app_integration.scryfall.data_loader"
         ]
