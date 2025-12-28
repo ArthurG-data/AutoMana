@@ -6,7 +6,7 @@ import asyncpg
 import logging
 from typing import Dict, Any, List, Optional
 
-from backend.request_handling.QueryExecutor import AsyncQueryExecutor
+from backend.core.QueryExecutor import AsyncQueryExecutor
 
 # Disable logging during tests
 logging.basicConfig(level=logging.CRITICAL)

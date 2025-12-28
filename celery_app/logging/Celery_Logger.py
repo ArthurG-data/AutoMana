@@ -1,4 +1,4 @@
-from backend.schemas.logging.log_schemas import LogEntry, LogLevel, TaskStatus
+from logging.log_schemas import LogEntry, LogLevel, TaskStatus
 from datetime import datetime
 from typing import Dict, Any
 from threading import Lock

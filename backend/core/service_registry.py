@@ -138,6 +138,10 @@ ServiceRegistry.register_db_repository(
     "price", "backend.repositories.app_integration.mtg_stock.price_repository", "PriceRepository"
 )
 
+ServiceRegistry.register_db_repository(
+    "ops", "backend.repositories.ops.ops_repository", "OpsRepository"
+)
+
 # API repositories
 ServiceRegistry.register_api_repository(
     "auth_oauth", "backend.repositories.app_integration.ebay.ApiAuth_repository", "EbayAuthAPIRepository"
@@ -150,4 +154,8 @@ ServiceRegistry.register_api_repository(
 )
 ServiceRegistry.register_api_repository(
     "mtg_stock", "backend.repositories.app_integration.mtg_stock.ApiMtgStock_repository", "ApiMtgStockRepository"
+)
+
+ServiceRegistry.register_api_repository(
+    "scryfall", "backend.repositories.app_integration.scryfall.ApiScryfall", "ScryfallAPIRepository"
 )

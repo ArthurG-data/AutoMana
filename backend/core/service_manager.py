@@ -1,8 +1,7 @@
 import importlib, logging
-from typing import List, Optional, Callable
-from fastapi.concurrency import asynccontextmanager
-from backend.request_handling.QueryExecutor import QueryExecutor
-from dataclasses import dataclass, field
+from typing import  Optional, Callable
+from contextlib import asynccontextmanager
+from backend.core.QueryExecutor import QueryExecutor
 from backend.core.service_registry import ServiceRegistry
 
 logger = logging.getLogger(__name__)
@@ -30,18 +29,8 @@ class ServiceManager:
        
     def _discover_services(self):
         """Import all service modules to register them"""
-        service_modules = [
-            "backend.new_services.auth.auth_service",
-            "backend.new_services.auth.session_service",
-            "backend.new_services.user_management.user_service",
-            "backend.new_services.user_management.role_service",
-            "backend.new_services.card_catalog.card_service",
-            "backend.new_services.card_catalog.set_service",
-            "backend.new_services.card_catalog.collection_service",
-            "backend.new_services.app_integration.ebay.auth_services",
-            "backend.new_services.app_integration.ebay.browsing_services",
-            "backend.new_services.app_integration.ebay.selling_services"
-        ]
+        from  backend.core.service_modules import service_modules
+
         for module_path in service_modules:
             try:
                 importlib.import_module(module_path)

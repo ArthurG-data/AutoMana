@@ -1,41 +1,54 @@
 from contextlib import contextmanager
-from backend.core.settings import get_settings, Settings
-from backend.core.database import init_sync_pool, close_sync_pool
-import os
+from backend.core.database import close_async_pool, init_async_pool
+from backend.core.service_manager import ServiceManager
+from celery_app.async_runner import AsyncRunner
+from celery_app.state import CeleryAppState
 
-_sync_pool = None
-_settings: Settings | None = None
+_state: CeleryAppState | None = None
 
-def init_db_pool() -> None:
-    global _sync_pool, _settings
-    if _settings is None:
-        _settings = get_settings()
-    if _sync_pool is None:
-        _sync_pool = init_sync_pool(_settings)
+def get_state() -> CeleryAppState:
+    global _state
+    if _state is None:
+        _state = CeleryAppState()
+    return _state
+
+def init_backend_runtime() -> None:
+    """Called once per Celery worker process."""
+    app_state : CeleryAppState = get_state()
+    if app_state.initialized:
+        return
     
-def shutdown_db_pool() -> None:
-    global _sync_pool
-    if _sync_pool is not None:
-        close_sync_pool(_sync_pool)
-        _sync_pool = None
+    app_state.async_runner = AsyncRunner()
+    # init async services inside the runner
+    async def _init():
+        app_state.async_db_pool = await init_async_pool(app_state.settings)
+        await ServiceManager.initialize(
+            app_state.async_db_pool,  # or async pool if you have one
+            query_executor=None,  # your real executor
+        )
 
-@contextmanager
-def get_connection():
-    global _sync_pool
-    if _sync_pool is None:
-        init_db_pool()
+    app_state.async_runner.run(_init())
+    app_state.mark_initialized()
 
-    # psycopg2-style pool:
-    conn = _sync_pool.getconn()
-    try:
-        yield conn
-        # optional: conn.commit() here if you want auto-commit behavior
-    except Exception:
-        # optional: conn.rollback() to be safe
-        try:
-            conn.rollback()
-        except Exception:
-            pass
-        raise
-    finally:
-        _sync_pool.putconn(conn)
+def shutdown_backend_runtime() -> None:
+    state = get_state()
+    if not state.initialized:
+        return
+
+    async def _shutdown():
+        state = get_state()
+    if not state.initialized:
+        return
+
+    # Close pool on the same loop it was created on
+    if state.async_runner:
+        async def _shutdown():
+            if state.async_db_pool is not None:
+                await close_async_pool(state.async_db_pool)
+                state.async_db_pool = None
+
+        state.async_runner.run(_shutdown())
+        state.async_runner.stop()
+        state.async_runner = None
+
+    state.initialized = False

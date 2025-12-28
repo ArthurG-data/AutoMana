@@ -1,19 +1,29 @@
 services:
   postgres:
     build:
-      context: ./docker/postgres
-      dockerfile: Dockerfile
-    #image: timescale-pgvector:pg17
+      context: ..
+      dockerfile: deploy/docker/postgres/Dockerfile
+    secrets:
+        - admin_db_password
+        - agent_db_password
+        - readonly_db_password
+        - backend_db_password
+        - celery_db_password
+    image: timescale-pgvector:pg17
     container_name: automana-postgres-dev
     env_file:
       - ../config/env/.env.dev
+    environment:
+      POSTGRES_USER: ${APP_ADMIN_DB_USER}
+      POSTGRES_PASSWORD_FILE: /run/secrets/admin_db_password
+      POSTGRES_DB: ${DB_NAME}
     ports:
-      - "5433:5432"
+      - "${POSTGRES_PORT}:5432"
     volumes:
       - pgdata-dev:/var/lib/postgresql/data
       - ../infra/db/init/:/docker-entrypoint-initdb.d/:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U app_dev -d manaforge_dev"]
+      test: ["CMD-SHELL", "pg_isready -U ${APP_ADMIN_DB_USER} -d ${DB_NAME}"]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -24,6 +34,12 @@ services:
     build:
       context: ..
       dockerfile: deploy/docker/backend/Backend.Dockerfile
+    secrets:
+        - backend_db_password
+        - readonly_db_password
+        - encryption_key
+        - jwt_secret_key
+        - pgp_secret_key 
     container_name: automana-backend-dev
     ports:
       - "8000:8000"
@@ -33,7 +49,9 @@ services:
     env_file:
       - ../config/env/.env.dev
     environment:
-      - ENV=dev
+      ENV: dev
+      POSTGRES_USER: ${APP_BACKEND_DB_USER}
+      POSTGRES_PASSWORD_FILE: /run/secrets/backend_db_password
     networks:
       - backend-network
     healthcheck:
@@ -86,10 +104,16 @@ services:
     build:
       context: ..
       dockerfile: deploy/docker/celery/celery.Dockerfile
+    volumes:
+      - "G:/data/scryfall:/data/scryfall"
+    secrets:
+      - celery_db_password
     container_name: automana-celery-dev
     env_file:
       - ../config/env/.env.dev
     environment:
+      POSTGRES_USER: ${APP_CELERY_DB_USER}
+      POSTGRES_PASSWORD_FILE: /run/secrets/celery_db_password
       CELERY_CONCURRENCY: "4"
       CELERY_LOGLEVEL: "INFO"
       CELERY_POOL: "prefork"
@@ -113,6 +137,8 @@ services:
     build:
       context: ..
       dockerfile: deploy/docker/celery/celery.Dockerfile
+    secrets:
+      - celery_db_password
     container_name: automana-celery-beat-dev
     env_file:
       - ../config/env/.env.dev
@@ -136,6 +162,28 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+secrets:
+  backend_db_password:
+    file: ../config/secrets/backend_db_password.txt
+  celery_db_password:
+    file: ../config/secrets/celery_db_password.txt
+  agent_db_password:
+    file: ../config/secrets/agent_db_password.txt
+  readonly_db_password:
+    file: ../config/secrets/readonly_db_password.txt
+  admin_db_password:
+    file: ../config/secrets/admin_db_password.txt
+  openai_api_key:
+    file: ../config/secrets/openai_api_key.txt
+  jwt_secret_key:
+    file: ../config/secrets/jwt_secret_key.txt
+  encryption_key:
+    file: ../config/secrets/encryption_key.txt
+  pgp_secret_key:
+    file: ../config/secrets/pgp_secret_key.txt
+  tavily_api_key:
+    file: ../config/secrets/tavily_api_key.txt
+  
 networks:
   frontend-network:  # nginx <-> backend
     driver: bridge

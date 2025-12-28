@@ -47,12 +47,9 @@ async def lifespan(app: FastAPI):
 
     try:
         settings = get_settings()
-        from backend.core.boot_guard import assert_safe_database_url
-        # Validate environment
-        assert_safe_database_url()
-
+        print(settings.DATABASE_URL_ASYNC)
         from backend.request_handling.ErrorHandler import Psycopg2ExceptionHandler
-        from backend.request_handling.QueryExecutor import AsyncQueryExecutor
+        from backend.core.QueryExecutor import AsyncQueryExecutor
         from backend.core.database import init_async_pool, close_async_pool, init_sync_pool_with_retry, close_sync_pool    
         from backend.core.service_manager import ServiceManager
 

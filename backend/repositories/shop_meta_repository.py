@@ -1,7 +1,6 @@
-from backend.services_old.shop_data_ingestion.models.shopify_models.themes import Theme, InsertTheme, DeleteTheme, UpdateTheme, ThemeWithId, ThemeList
+from backend.schemas.external_marketplace.shopify.shopify_theme import Theme, InsertTheme, DeleteTheme, UpdateTheme, ThemeWithId, ThemeList
 from backend.repositories.AbstractRepository import AbstractRepository
-from typing import Optional, Generic, TypeVar
-
+from typing import Optional
 class ThemeRepository(AbstractRepository[Theme]):
     def __init__(self, connection):
         super().__ini__(connection)
@@ -156,10 +155,10 @@ class ShopMetaDataRepository:
             return result['handle_id'], result['theme_id']
         else:
             raise ValueError(f"No link found between collection '{collection_name}' and theme '{theme_code}'.")
-    
+'''
     async def batch_insert_collections(self, collections: list[shopify_models.InsertCollection]):
         """Insert multiple collections in a single batch"""
         async with self.conn.transaction():
             for collection in collections:
                 await self.add_collection(collection.market_id, collection.name)
-            
+'''            

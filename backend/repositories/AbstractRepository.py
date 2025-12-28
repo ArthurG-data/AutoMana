@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
 import asyncpg, psycopg2
 from typing import Optional,  TypeVar,  Generic, Union
-from backend.request_handling.QueryExecutor import QueryExecutor
+from backend.core.QueryExecutor import QueryExecutor
 
 T =TypeVar('T')
 

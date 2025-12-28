@@ -18,7 +18,7 @@ async def init_async_pool(settings:Settings) -> asyncpg.Pool:
     Create asyncpg connection pool
     Called once during app startup in lifespan
     """
-    dsn = settings.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
+    dsn = settings.DATABASE_URL_ASYNC
 
     max_attempts = settings.DB_CONNECT_MAX_ATTEMPTS
     base_delay = settings.DB_CONNECT_BASE_DELAY_SECONDS
@@ -55,7 +55,7 @@ async def init_async_pool(settings:Settings) -> asyncpg.Pool:
     raise RuntimeError("Failed to create async DB pool after retries") from last_exc
 
 def init_sync_pool(settings: Settings) -> pool.SimpleConnectionPool:
-    dsn = settings.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
+    dsn = settings.DATABASE_URL_ASYNC.replace("postgresql+asyncpg://", "postgresql://")
     """Initialize the synchronous connection pool"""
     sync_db_pool = pool.SimpleConnectionPool(
         minconn=settings.db_pool_min_conn,

@@ -1,5 +1,5 @@
 import importlib, logging
-from backend.request_handling.QueryExecutor import QueryExecutor
+from backend.core.QueryExecutor import QueryExecutor
 from typing import Dict, Any, List, Optional
 
 logging.basicConfig(level=logging.INFO)

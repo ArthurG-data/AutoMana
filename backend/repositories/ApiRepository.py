@@ -3,9 +3,8 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
 import httpx
 import logging
-from pydantic import BaseModel
 from backend.exceptions.repository_layer_exceptions.ebay_integration import ebay_api_exception
-from backend.schemas.app_integration.ebay.trading_api import HeaderApi
+
 import xmltodict
 import xml.etree.ElementTree as ET 
 
