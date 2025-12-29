@@ -45,11 +45,11 @@ class SetReferenceRepository(AbstractRepository[Any]):
                 else 0
             )
 
-    def add_many(self, values) -> BatchInsertResponse:
+    async def add_many(self, values) -> BatchInsertResponse:
         """not async anymaore because using a transaction block"""
-        query =  "SELECT * FROM insert_batch_sets($1::JSONB);"
+        query =  "SELECT * FROM card_catalog.insert_batch_sets($1::JSONB);"
 
-        result = self.execute_query_sync(query, (values,))
+        result = await self.execute_query(query, (values,))
         batch_result = result[0] if result else {}
         response = SetReferenceRepository.BatchInsertResponse(
             total_processed=batch_result.get('total_processed', 0),

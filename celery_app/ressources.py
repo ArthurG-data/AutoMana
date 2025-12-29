@@ -3,7 +3,7 @@ from backend.core.database import close_async_pool, init_async_pool
 from backend.core.service_manager import ServiceManager
 from celery_app.async_runner import AsyncRunner
 from celery_app.state import CeleryAppState
-
+from backend.core.QueryExecutor import AsyncQueryExecutor
 _state: CeleryAppState | None = None
 
 def get_state() -> CeleryAppState:
@@ -24,7 +24,7 @@ def init_backend_runtime() -> None:
         app_state.async_db_pool = await init_async_pool(app_state.settings)
         await ServiceManager.initialize(
             app_state.async_db_pool,  # or async pool if you have one
-            query_executor=None,  # your real executor
+            query_executor=AsyncQueryExecutor(),  # your real executor
         )
 
     app_state.async_runner.run(_init())

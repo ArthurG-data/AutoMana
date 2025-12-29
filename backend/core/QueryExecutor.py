@@ -85,7 +85,7 @@ class AsyncQueryExecutor(QueryExecutor):
             record = await connection.execute(query, *params)
             return record
         except Exception as e:
-            self.handle_error.handle(e)
+            self.handle_error (e)
             raise
     async def execute_query(
         self, 
@@ -95,7 +95,8 @@ class AsyncQueryExecutor(QueryExecutor):
     ) -> List[T]:
         try:
             records = await connection.fetch(query, *params)
+            print(f"Fetched records: {records}")
             return [dict(row) for row in records]
         except Exception as e:
-            self.handle_error.handle(e)
+            self.handle_error (e)
             raise
