@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from backend.request_handling.StandardisedQueryResponse import ApiResponse
 from backend.repositories.AbstractRepository import AbstractRepository
 from typing import Any, Optional, Sequence
 from uuid import UUID
@@ -176,7 +175,7 @@ class SetReferenceRepository(AbstractRepository[Any]):
             logger.error(f"Error updating set {set_id}: {str(e)}")
             raise
 
-    async def get(self, set_id: UUID) -> ApiResponse:
+    async def get(self, set_id: UUID) -> dict[str, Any]|None:
         query = """ 
                 SELECT * FROM card_catalog.joined_set_materialized WHERE set_id = $1
         """

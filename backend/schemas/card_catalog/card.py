@@ -1,5 +1,5 @@
-from operator import attrgetter
-from pydantic import Field, model_validator, BaseModel, computed_field, model_serializer
+
+from pydantic import Field, model_validator, BaseModel
 from uuid import UUID
 from typing import Any, Dict, Optional,  List, Union
 from backend.utils.card_catalog.type_parser import process_type_line

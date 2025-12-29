@@ -2,6 +2,7 @@ import importlib, logging
 from typing import  Optional, Callable
 from contextlib import asynccontextmanager
 from backend.core.QueryExecutor import QueryExecutor
+from backend.core.service_modules import SERVICE_MODULES
 from backend.core.service_registry import ServiceRegistry
 
 logger = logging.getLogger(__name__)
@@ -29,14 +30,16 @@ class ServiceManager:
        
     def _discover_services(self):
         """Import all service modules to register them"""
-        from  backend.core.service_modules import service_modules
-
-        for module_path in service_modules:
-            try:
-                importlib.import_module(module_path)
-            except ImportError as e:
-                logger.warning(f"Could not import service module {module_path}: {e}")
-
+        from backend.core.settings import get_settings
+        from backend.core.data_loader import load_services
+        settings = get_settings()
+        module_namespace = getattr(settings, "modules_namespace")
+        logger.info(f"Loading service modules for namespace: {module_namespace}")
+        modules = SERVICE_MODULES.get(module_namespace, [])
+        try:
+            load_services(modules)
+        except Exception as e:
+            raise RuntimeError(f"Error loading service modules: {e}") from e
 
     @asynccontextmanager
     async def _get_connection(self):

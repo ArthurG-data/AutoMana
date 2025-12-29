@@ -1,15 +1,17 @@
-import asyncio, json, ijson
+import asyncio, json, ijson, logging
+from pathlib import Path
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, AsyncGenerator, Callable, Dict, List,  Optional
 from uuid import UUID
-from venv import logger
+
+from typing import Any, AsyncGenerator, Callable, Dict, List,  Optional
 from backend.repositories.card_catalog.set_repository import SetReferenceRepository
 from backend.schemas.card_catalog.set import  SetInDB, NewSet, UpdatedSet, NewSets
 from backend.exceptions.service_layer_exceptions.card_catalogue import set_exception
 from backend.shared.utils import decode_json_input
-from pathlib import Path
 from backend.core.service_registry import ServiceRegistry
+
+logger = logging.getLogger(__name__)
 
 @ServiceRegistry.register(
     "card_catalog.set.get",
@@ -166,6 +168,23 @@ class ProcessingConfig:
     progress_callback: Optional[Callable[[ProcessingStats], None]] = None
     save_failed_sets: bool = True
     failed_sets_file: Optional[str] = None
+
+@ServiceRegistry.register(
+    "card_catalog.set.process_large_sets_json",
+    db_repositories=["set_reference"]
+)
+async def process_large_sets_json(
+    set_repository: SetReferenceRepository,
+    file_path: str,
+    config: ProcessingConfig = None,
+    resume_from_batch: int = 0
+) -> ProcessingStats:
+    """Process large JSON file containing sets using streaming to minimize memory usage"""
+    processor = EnhancedSetImportService(set_repository, config)
+    return processor.process_large_sets_json(
+        file_path=file_path,
+        resume_from_batch=resume_from_batch
+    )
 
 class EnhancedSetImportService:
     """Enhanced set import service with better error handling and monitoring"""

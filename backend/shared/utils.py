@@ -1,5 +1,4 @@
 import json
-from fastapi import UploadFile
 
 async def decode_json_input(file: bytes) -> dict:
     try:

@@ -1,15 +1,14 @@
 from uuid import UUID
 from datetime import datetime
-from fastapi import Query
+from dataclasses import dataclass
+from pathlib import Path
+from typing import  Optional, List, Dict, Any, AsyncGenerator, Callable
 import ijson, asyncio,  time, logging,  json
 from backend.schemas.card_catalog import card as card_schemas
 from backend.repositories.card_catalog.card_repository import CardReferenceRepository
-from typing import  Optional, List, Dict, Any, AsyncGenerator, Callable
 from backend.schemas.card_catalog.card import BaseCard
 from backend.exceptions.service_layer_exceptions.card_catalogue import card_exception
-from dataclasses import dataclass
 from backend.core.service_registry import ServiceRegistry
-from pathlib import Path
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -179,8 +178,31 @@ async def get(card_repository: CardReferenceRepository,
         raise
     except Exception as e:
         raise card_exception.CardRetrievalError(f"Failed to retrieve card: {str(e)}")
-    
 
+@ServiceRegistry.register(
+    "card_catalog.card.process_large_json",
+    db_repositories=["card"]
+)
+async def process_large_cards_json(
+    card_repository: CardReferenceRepository,
+    file_path: str,
+    resume_from_batch: int = 0,
+    validate_file_first: bool = True
+) -> ProcessingStats:
+    """Process large JSON file with enhanced error handling and monitoring
+    
+    Args:
+        card_repository: Repository for card operations
+        file_path: Path to JSON file (local or cloud)
+        resume_from_batch: Batch number to resume from (for recovery)
+        validate_file_first: Whether to validate JSON structure first
+    """
+    service = EnhancedCardImportService(card_repository)
+    return service.process_large_cards_json(
+        file_path=file_path,
+        resume_from_batch=resume_from_batch,
+        validate_file_first=validate_file_first
+    )
 class EnhancedCardImportService:
     """Enhanced card import service with better error handling and monitoring"""
     
