@@ -36,7 +36,7 @@ class CardFace(BaseModel):
     name: str
     face_index : Optional[int] = 0
     mana_cost: Optional[str] = None
-    type_line: str
+    type_line: Optional[str] = None
     oracle_text: Optional[str] = None
     power: Optional[Union[int, str]] = None
     toughness: Optional[Union[int, str]] = None
@@ -47,6 +47,7 @@ class CardFace(BaseModel):
     supertypes: List[str] = []
     types: List[str] = []
     subtypes: List[str] = []
+    loyalty: Optional[Union[int, str]] = None
 
     @model_validator(mode='after')
     def process_type_line(cls, values):
@@ -166,6 +167,9 @@ class CreateCard(BaseCard):
             "mana_cost": data["mana_cost"],
             "reserved": data["reserved"],
             "oracle_text": data["oracle_text"] or "",
+
+
+            
             "set_name": data["set_name"],
             "collector_number": str(data["collector_number"]),
             "rarity_name": data["rarity_name"],
@@ -203,7 +207,37 @@ class CreateCard(BaseCard):
             "cardmarket_id": data["cardmarket_id"],
         }
     
-    
+    @model_validator(mode="after")
+    def lift_face_fields(self):
+        if not self.card_faces:
+            return self
+
+        first = self.card_faces[0]
+
+        if not self.oracle_text:
+            self.oracle_text = getattr(first, "oracle_text", None)
+
+        if not self.mana_cost:
+            self.mana_cost = getattr(first, "mana_cost", None)
+
+        if not self.type_line:
+            self.type_line = getattr(first, "type_line", None)
+
+        # Stats (only if face has them)
+        if self.power is None:
+            self.power = getattr(first, "power", None)
+
+        if self.toughness is None:
+            self.toughness = getattr(first, "toughness", None)
+
+        if self.loyalty is None:
+            self.loyalty = getattr(first, "loyalty", None)
+
+        if self.defense is None:
+            self.defense = getattr(first, "defense", None)
+
+        return self
+
     @model_validator(mode='before')
     @classmethod
     def parse_and_clean_card_faces(cls, values):
@@ -233,13 +267,19 @@ class CreateCard(BaseCard):
         return values
     
     @model_validator(mode='after')
-    def process_type_line(cls, values):
-    
-        parsed = process_type_line(values.type_line)
-        values.types = parsed["types"]
-        values.supertypes = parsed["supertypes"]
-        values.subtypes = parsed["subtypes"]
-        return values
+    def process_type_line(self):
+        tl = getattr(self, "type_line", None)
+        if (not tl) and self.card_faces:
+            tl = self.card_faces[0].type_line
+        if not tl:
+            self.types, self.supertypes, self.subtypes = [], [], []
+            return self
+        
+        parsed = process_type_line(tl)
+        self.types = parsed.get("types", [])
+        self.supertypes = parsed.get("supertypes", [])
+        self.subtypes = parsed.get("subtypes", [])
+        return self
     
 
 class CreateCards(BaseModel):

@@ -72,7 +72,6 @@ async def add_set(set_repository: SetReferenceRepository
 async def add_sets_bulk(set_repository: SetReferenceRepository, new_sets: NewSets) -> List[SetInDB]:
     """ Adds multiple sets to the database in a single transaction."""
     data = [set.create_values() for set in new_sets]
-    print(data)
     try:
         results = await set_repository.add_many(data)
         if not results or len(results) == 0:
@@ -274,7 +273,6 @@ class EnhancedSetImportService:
                 for set_json in sets_iter:
                     try:
                         # Skip batches if resuming
-                        
                         if batch_count < resume_from_batch:
                             if len(batch) >= self.config.batch_size:
                                 batch = []

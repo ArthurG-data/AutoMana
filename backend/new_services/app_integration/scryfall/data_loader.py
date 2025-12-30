@@ -80,7 +80,7 @@ async def full_scryfall_data_download_process(ops_repository: OpsRepository
     download_uris = [
         item["download_uri"]
         for item in bulk_items_changed
-        if item["type"] in ("all_cards")
+        if item["type"] in ("default_cards")
         ]
     logger.info(f"Downloading Scryfall data from {download_uris}...")
     #download sets, if no new cards, no new sets

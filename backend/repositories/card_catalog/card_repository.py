@@ -35,9 +35,9 @@ class CardReferenceRepository(AbstractRepository[Any]):
                 else 0
             )
 
-    def add_many(self, values):
+    async def add_many(self, values):
         #not async anymore
-        result = self.execute_query_sync(queries.insert_batch_card_query, (values,))
+        result = await self.execute_query(queries.insert_batch_card_query, (values,))
         batch_result = result[0] if result else {}
         response = CardReferenceRepository.BatchInsertResponse(
             total_processed=batch_result.get('total_processed', 0),

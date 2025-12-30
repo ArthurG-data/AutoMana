@@ -95,7 +95,6 @@ class AsyncQueryExecutor(QueryExecutor):
     ) -> List[T]:
         try:
             records = await connection.fetch(query, *params)
-            print(f"Fetched records: {records}")
             return [dict(row) for row in records]
         except Exception as e:
             self.handle_error (e)

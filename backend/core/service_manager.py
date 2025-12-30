@@ -123,11 +123,10 @@ class ServiceManager:
                 repositories[f"{repo_type}_repository"] = repo_class(environment=env)
             
             logger.debug(f"Executing {service_path} with repos: {list(repositories.keys())}")
-            return await service_method(**repositories, **kwargs)
+            result = await service_method(**repositories, **kwargs)
+        return result
     
                 
-
-    
     @classmethod
     async def close(cls):
         """Close all resources held by the manager"""

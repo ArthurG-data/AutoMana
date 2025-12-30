@@ -778,6 +778,7 @@ RETURNS TABLE (
     total_processed INT,
     successful_inserts INT,
     failed_inserts INT,
+    skipped_inserts INT,
     inserted_card_ids UUID[],
     error_details JSONB
 ) AS $$
@@ -787,6 +788,7 @@ DECLARE
     v_total_processed INT := 0;
     v_successful_inserts INT := 0;
     v_failed_inserts INT := 0;
+    v_skipped_inserts INT := 0;
     v_inserted_ids UUID[] := ARRAY[]::UUID[];
     v_error_details JSONB := '[]'::JSONB;
     v_error_info JSONB;
@@ -845,8 +847,21 @@ BEGIN
             v_inserted_ids := array_append(v_inserted_ids, v_result);
             
         EXCEPTION
+            WHEN unique_violation THEN
+                IF SQLERRM LIKE '%card_version_unique_card_id_set_id_collector_number_key%' THEN
+                    -- Skipped (already exists)
+                    v_skipped_inserts := v_skipped_inserts + 1;
+                ELSE
+                    v_failed_inserts := v_failed_inserts + 1;
+                    v_error_info := jsonb_build_object(
+                        'card_name', v_card ->> 'card_name',
+                        'error_code', SQLSTATE,
+                        'error_message', SQLERRM,
+                        'card_index', v_total_processed
+                    );
+                    v_error_details := v_error_details || jsonb_build_array(v_error_info);
+                END IF;
             WHEN OTHERS THEN
-                -- Failure
                 v_failed_inserts := v_failed_inserts + 1;
                 v_error_info := jsonb_build_object(
                     'card_name', v_card ->> 'card_name',
@@ -863,6 +878,7 @@ BEGIN
         v_total_processed::INT,
         v_successful_inserts::INT, 
         v_failed_inserts::INT,
+        v_skipped_inserts::INT,
         v_inserted_ids::UUID[],
         v_error_details::JSONB;
 END;
