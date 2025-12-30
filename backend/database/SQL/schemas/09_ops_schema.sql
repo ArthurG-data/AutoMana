@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS ops.resources (
 
 -- add a UNIQUE INDEX (expressions are allowed in indexes)
 CREATE UNIQUE INDEX IF NOT EXISTS ux_resources_source_type_natkey
-ON ops.resources (source_id, external_type, COALESCE(external_id, canonical_key));
+ON ops.resources (source_id, external_type,  external_id, canonical_key);
 
 CREATE TABLE IF NOT EXISTS ops.resource_versions (
   id                bigserial PRIMARY KEY,

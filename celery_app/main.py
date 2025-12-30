@@ -19,11 +19,21 @@ def _shutdown(**_):
 def ping():
     return "pong"
 
-@celery_app.task(name="run_service")
-def run_service(path: str, **kwargs):
+@celery_app.task(name="run_service"
+                 , bind=True
+                 , autoretry_for=(Exception,)
+                 , retry_kwargs={"max_retries": 3}
+                 , retry_backoff=True
+                 , acks_late=True)
+def run_service(self, path: str, **kwargs):
     state = get_state()
     if not state.initialized:
         init_backend_runtime()
-
-    # execute_service is async; async_runner.run expects a coroutine
-    return state.async_runner.run(ServiceManager.execute_service(path, **kwargs))
+    self.update_state(state="STARTED", meta={"service": path, "attempt": self.request.retries + 1})
+    try:
+        result = state.async_runner.run(ServiceManager.execute_service(path, **kwargs))
+        self.update_state(state="SUCCESS", meta={"service": path, "result": result})
+        return result
+    except Exception as e:
+        self.update_state(state="FAILURE", meta={"service": path, "exc": str(e)})
+        raise

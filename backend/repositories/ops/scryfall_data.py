@@ -45,20 +45,42 @@ upsert_resources AS (
     updated_at_source = EXCLUDED.updated_at_source
   WHERE ops.resources.updated_at_source IS NULL
      OR EXCLUDED.updated_at_source > ops.resources.updated_at_source
-  RETURNING id AS resource_id, external_id, external_type
+  RETURNING 1
+),
+resolved AS (
+  SELECT
+    r.id AS resource_id,
+    i.external_id,
+    i.external_type,
+    i.download_uri,
+    i.content_type,
+    i.content_encoding,
+    i.updated_at_source,
+    i.bytes
+  FROM items i
+  JOIN ops.resources r
+    ON r.source_id = $2::bigint
+   AND r.external_type = i.external_type
+   AND r.external_id = i.external_id
 ),
 changed AS (
   SELECT
-    ur.resource_id,
-    ur.external_id,
-    ur.external_type,
-    i.download_uri,
-    i.updated_at_source,
-    i.bytes
-  FROM upsert_resources ur
-  JOIN items i
-    ON i.external_id = ur.external_id
-   AND i.external_type = ur.external_type
+    r.resource_id,
+    r.external_id,
+    r.external_type,
+    r.download_uri,
+    r.content_type,
+    r.content_encoding,
+    r.updated_at_source,
+    r.bytes
+  FROM resolved r
+  WHERE NOT EXISTS (
+    SELECT 1
+    FROM ops.resource_versions v
+    WHERE v.resource_id   = r.resource_id
+      AND v.download_uri  = r.download_uri
+      AND v.last_modified = r.updated_at_source
+  )
 ),
 ins_versions AS (
   INSERT INTO ops.resource_versions (
@@ -72,39 +94,37 @@ ins_versions AS (
     etag,
     sha256
   )
-  SELECT
-    c.resource_id,
-    c.download_uri,
-    i.content_type,
-    i.content_encoding,
-    c.bytes,
-    c.updated_at_source,
+   SELECT
+    res.resource_id,
+    res.download_uri,
+    res.content_type,
+    res.content_encoding,
+    res.bytes,
+    res.updated_at_source,
     'downloaded',
     NULL::text,
     NULL::text
-  FROM changed c
-  JOIN items i
-    ON i.external_id = c.external_id
-   AND i.external_type = c.external_type
+  FROM resolved res
   WHERE NOT EXISTS (
     SELECT 1
     FROM ops.resource_versions v
-    WHERE v.resource_id   = c.resource_id
-      AND v.download_uri  = c.download_uri
-      AND v.last_modified = c.updated_at_source
+    WHERE v.resource_id   = res.resource_id
+      AND v.download_uri  = res.download_uri
+      AND v.last_modified IS NOT DISTINCT FROM res.updated_at_source
   )
-  RETURNING 1
+  RETURNING resource_id, download_uri, last_modified
 )
+
 SELECT
-  (SELECT COUNT(*) FROM upsert_resources) AS resources_upserted,
-  (SELECT COUNT(*) FROM ins_versions)     AS versions_inserted,
+  (SELECT COUNT(*) FROM items) AS items_seen,
+  (SELECT COUNT(*) FROM upsert_resources) AS resources_upserted_or_updated,
+  (SELECT COUNT(*) FROM ins_versions) AS versions_inserted,
   COALESCE(
     (SELECT jsonb_agg(jsonb_build_object(
-        'type', external_type,
-        'external_id', external_id,
-        'download_uri', download_uri,
-        'updated_at', updated_at_source
-    ) ORDER BY external_type) FROM changed),
+      'resource_id', resource_id,
+      'download_uri', download_uri,
+      'last_modified', last_modified
+    ) ORDER BY resource_id) FROM ins_versions),
     '[]'::jsonb
-  ) AS changed_entries;
-"""
+  ) AS new_versions;
+  """
