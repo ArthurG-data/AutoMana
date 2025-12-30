@@ -29,7 +29,7 @@ class Settings(BaseSettings):
 
     # App env
     env: str = Field(default="dev")  # dev|staging|prod
- 
+    modules_namespace: str = Field(default="backend", alias="MODULES_NAMESPACE")
 
     ALLOW_DESTRUCTIVE_ENDPOINTS: bool = False
     # Security / JWT

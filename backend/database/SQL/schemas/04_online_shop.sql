@@ -19,6 +19,7 @@ CREATE TABLE Customers (
     country VARCHAR(100)
 );
 */
+BEGIN;
 CREATE SCHEMA IF NOT EXISTS user_collection;
 -- Reference: Card Conditions
 CREATE TABLE IF NOT EXISTS user_collection.ref_condition (
@@ -127,3 +128,4 @@ CREATE TABLE Shipment_Items (
     PRIMARY KEY (shipment_id, order_item_id)
 );
 */
+COMMIT;

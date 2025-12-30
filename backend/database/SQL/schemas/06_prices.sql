@@ -1,3 +1,4 @@
+BEGIN;
 CREATE SCHEMA IF NOT EXISTS pricing;
 CREATE TABLE IF NOT EXISTS pricing.price_source (
   source_id   SMALLSERIAL PRIMARY KEY,
@@ -299,7 +300,7 @@ BEGIN
   RAISE NOTICE 'Inserted % rows total.', inserted_rows;
 END;
 $$;
-
+COMMIT;
 ----------The last step should be to add back the references
 
 -

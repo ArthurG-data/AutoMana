@@ -2,12 +2,10 @@ from datetime import datetime
 from typing import  Optional, Any, Sequence
 from uuid import UUID
 from dataclasses import dataclass, field
-from fastapi import Query
 
 from backend.repositories.AbstractRepository import AbstractRepository
 from backend.schemas.card_catalog.card import CreateCard, CreateCards
 from backend.repositories.card_catalog import card_queries as queries 
-from backend.request_handling.StandardisedQueryResponse import ApiResponse
 
 class CardReferenceRepository(AbstractRepository[Any]):
     def __init__(self, connection, executor = None):
@@ -37,9 +35,9 @@ class CardReferenceRepository(AbstractRepository[Any]):
                 else 0
             )
 
-    def add_many(self, values):
+    async def add_many(self, values):
         #not async anymore
-        result = self.execute_query_sync(queries.insert_batch_card_query, (values,))
+        result = await self.execute_query(queries.insert_batch_card_query, (values,))
         batch_result = result[0] if result else {}
         response = CardReferenceRepository.BatchInsertResponse(
             total_processed=batch_result.get('total_processed', 0),
@@ -59,7 +57,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
 
     async def get(self,
                   card_id: UUID,
-                 ) -> ApiResponse:
+                 ) -> dict[str, Any]|None:
         # if a list
     
         query = """ SELECT uc.card_name, r.rarity_name, s.set_name,s.set_code, uc.cmc, cv.oracle_text, s.released_at, s.digital, r.rarity_name
@@ -157,7 +155,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
             "cards": cards,
             "total_count": total_count
         }
-    async def list(self) -> list[ApiResponse]:
+    async def list(self) -> dict[str, Any]:
         raise NotImplementedError("Method not implemented")
 
 

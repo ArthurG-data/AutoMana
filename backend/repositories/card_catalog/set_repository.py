@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from backend.request_handling.StandardisedQueryResponse import ApiResponse
 from backend.repositories.AbstractRepository import AbstractRepository
 from typing import Any, Optional, Sequence
 from uuid import UUID
@@ -46,11 +45,11 @@ class SetReferenceRepository(AbstractRepository[Any]):
                 else 0
             )
 
-    def add_many(self, values) -> BatchInsertResponse:
+    async def add_many(self, values) -> BatchInsertResponse:
         """not async anymaore because using a transaction block"""
-        query =  "SELECT * FROM insert_batch_sets($1::JSONB);"
+        query =  "SELECT * FROM card_catalog.insert_batch_sets($1::JSONB);"
 
-        result = self.execute_query_sync(query, (values,))
+        result = await self.execute_query(query, (values,))
         batch_result = result[0] if result else {}
         response = SetReferenceRepository.BatchInsertResponse(
             total_processed=batch_result.get('total_processed', 0),
@@ -176,7 +175,7 @@ class SetReferenceRepository(AbstractRepository[Any]):
             logger.error(f"Error updating set {set_id}: {str(e)}")
             raise
 
-    async def get(self, set_id: UUID) -> ApiResponse:
+    async def get(self, set_id: UUID) -> dict[str, Any]|None:
         query = """ 
                 SELECT * FROM card_catalog.joined_set_materialized WHERE set_id = $1
         """

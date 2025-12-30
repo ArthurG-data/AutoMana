@@ -2,6 +2,7 @@ import importlib, logging
 from typing import  Optional, Callable
 from contextlib import asynccontextmanager
 from backend.core.QueryExecutor import QueryExecutor
+from backend.core.service_modules import SERVICE_MODULES
 from backend.core.service_registry import ServiceRegistry
 
 logger = logging.getLogger(__name__)
@@ -29,14 +30,16 @@ class ServiceManager:
        
     def _discover_services(self):
         """Import all service modules to register them"""
-        from  backend.core.service_modules import service_modules
-
-        for module_path in service_modules:
-            try:
-                importlib.import_module(module_path)
-            except ImportError as e:
-                logger.warning(f"Could not import service module {module_path}: {e}")
-
+        from backend.core.settings import get_settings
+        from backend.core.data_loader import load_services
+        settings = get_settings()
+        module_namespace = getattr(settings, "modules_namespace")
+        logger.info(f"Loading service modules for namespace: {module_namespace}")
+        modules = SERVICE_MODULES.get(module_namespace, [])
+        try:
+            load_services(modules)
+        except Exception as e:
+            raise RuntimeError(f"Error loading service modules: {e}") from e
 
     @asynccontextmanager
     async def _get_connection(self):
@@ -48,19 +51,14 @@ class ServiceManager:
     async def transaction(self):
         """Execute operations in a transaction"""
         async with self.connection_pool.acquire() as connection:
-            tx = connection.transaction()
             try:
-                await tx.start()
-                logger.debug("Transaction started")
-                yield connection
-                await tx.commit()
+                async with connection.transaction():
+                    logger.debug("Transaction started")
+                    yield connection
                 logger.debug("Transaction committed")
             except Exception as e:
-                await tx.rollback()
                 logger.debug("Transaction rolled back")
                 raise
-            finally:
-                await connection.close()
 
     @classmethod
     async def initialize(cls, connection_pool, query_executor: QueryExecutor = None):
@@ -125,11 +123,10 @@ class ServiceManager:
                 repositories[f"{repo_type}_repository"] = repo_class(environment=env)
             
             logger.debug(f"Executing {service_path} with repos: {list(repositories.keys())}")
-            return await service_method(**repositories, **kwargs)
+            result = await service_method(**repositories, **kwargs)
+        return result
     
                 
-
-    
     @classmethod
     async def close(cls):
         """Close all resources held by the manager"""

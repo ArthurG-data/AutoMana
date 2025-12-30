@@ -1,9 +1,9 @@
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 
 -- TABLES------------------------------------
-
+BEGIN;
 CREATE TABLE IF NOT EXISTS card_catalog.unique_cards_ref (
-    unique_card_id UUID PRIMARY KEY DEFAULT uuid_generate_v4() ON DELETE CASCADE,
+    unique_card_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     card_name TEXT NOT NULL UNIQUE,
     cmc INT,
     mana_cost VARCHAR(50),
@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS card_catalog.border_color_ref (
 
 --not as intended, the subtyoes should be ckleand to remove punctuation and have a type name reference table, mismatch in unique_card_id
 CREATE TABLE IF NOT EXISTS card_catalog.card_types (
-    unique_card_id UUID NOT NULL REFERENCES card_catalog.unique_cards_ref(unique_card_id) ON DELETE CASCADE,
+    unique_card_id UUID NOT NULL REFERENCES card_catalog.unique_cards_ref(unique_card_id),
     type_name VARCHAR(20) NOT NULL,
     type_category TEXT CHECK (type_category IN ('type', 'subtype', 'supertype')),
     PRIMARY KEY (unique_card_id, type_name)
@@ -52,8 +52,8 @@ CREATE TABLE IF NOT EXISTS card_catalog.keywords_ref (
 
 --mismatch some unique card id not present, not migrated yet
 CREATE TABLE IF NOT EXISTS card_catalog.card_keyword (
-    unique_card_id UUID REFERENCES card_catalog.unique_cards_ref(unique_card_id) ON DELETE CASCADE,
-    keyword_id INT NOT NULL REFERENCES card_catalog.keywords_ref(keyword_id) ON DELETE CASCADE,
+    unique_card_id UUID REFERENCES card_catalog.unique_cards_ref(unique_card_id),
+    keyword_id INT NOT NULL REFERENCES card_catalog.keywords_ref(keyword_id),
     PRIMARY KEY (unique_card_id, keyword_id)
 );
 
@@ -63,15 +63,15 @@ CREATE TABLE IF NOT EXISTS card_catalog.colors_ref (
 );
 
 CREATE TABLE IF NOT EXISTS card_catalog.color_produced (
-    unique_card_id UUID REFERENCES card_catalog.unique_cards_ref(unique_card_id) ON DELETE CASCADE,
-    color_id int NOT NULL REFERENCES card_catalog.colors_ref(color_id) ON DELETE CASCADE,
+    unique_card_id UUID REFERENCES card_catalog.unique_cards_ref(unique_card_id),
+    color_id int NOT NULL REFERENCES card_catalog.colors_ref(color_id),
     PRIMARY KEY (unique_card_id, color_id)
 );
 
 #same issue with wrin funique card ref id
 CREATE TABLE IF NOT EXISTS card_catalog.card_color_identity (
-    unique_card_id UUID REFERENCES card_catalog.unique_cards_ref(unique_card_id) ON DELETE CASCADE,
-    color_id int NOT NULL REFERENCES card_catalog.colors_ref(color_id) ON DELETE CASCADE,
+    unique_card_id UUID REFERENCES card_catalog.unique_cards_ref(unique_card_id),
+    color_id int NOT NULL REFERENCES card_catalog.colors_ref(color_id),
     PRIMARY KEY (unique_card_id, color_id)
 );
 
@@ -87,22 +87,22 @@ CREATE TABLE IF NOT EXISTS card_catalog.legal_status_ref (
 );
 #same issue with wrin funique card ref id
 CREATE TABLE IF NOT EXISTS card_catalog.legalities (
-    unique_card_id UUID REFERENCES card_catalog.unique_cards_ref(unique_card_id) ON DELETE CASCADE,
-    format_id INT NOT NULL REFERENCES card_catalog.formats_ref(format_id) ON DELETE CASCADE,
-    legality_id INT NOT NULL REFERENCES card_catalog.legal_status_ref(legality_id) ON DELETE CASCADE,
+    unique_card_id UUID REFERENCES card_catalog.unique_cards_ref(unique_card_id),
+    format_id INT NOT NULL REFERENCES card_catalog.formats_ref(format_id),
+    legality_id INT NOT NULL REFERENCES card_catalog.legal_status_ref(legality_id),
     PRIMARY KEY(unique_card_id, format_id)
 );
 
 CREATE TABLE IF NOT EXISTS card_catalog.card_version (
-    card_version_id UUID PRIMARY KEY DEFAULT uuid_generate_v4() ON DELETE CASCADE,
-    unique_card_id UUID NOT NULL REFERENCES card_catalog.unique_cards_ref(unique_card_id) ON DELETE CASCADE,
+    card_version_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    unique_card_id UUID NOT NULL REFERENCES card_catalog.unique_cards_ref(unique_card_id),
     oracle_text TEXT,
     set_id UUID NOT NULL REFERENCES card_catalog.sets(set_id),
     collector_number VARCHAR(50),
-    rarity_id INT NOT NULL REFERENCES card_catalog.rarities_ref(rarity_id) ON DELETE CASCADE,
-    border_color_id INT NOT NULL REFERENCES card_catalog.border_color_ref(border_color_id) ON DELETE CASCADE,
-    frame_id int NOT NULL REFERENCES card_catalog.frames_ref(frame_id) ON DELETE CASCADE,
-    layout_id INT NOT NULL REFERENCES card_catalog.layouts_ref(layout_id) ON DELETE CASCADE, 
+    rarity_id INT NOT NULL REFERENCES card_catalog.rarities_ref(rarity_id),
+    border_color_id INT NOT NULL REFERENCES card_catalog.border_color_ref(border_color_id),
+    frame_id int NOT NULL REFERENCES card_catalog.frames_ref(frame_id),
+    layout_id INT NOT NULL REFERENCES card_catalog.layouts_ref(layout_id), 
     is_promo BOOL DEFAULT false, 
     is_digital BOOL DEFAULT false,
     is_oversized BOOL DEFAULT false,
@@ -120,12 +120,12 @@ CREATE TABLE IF NOT EXISTS card_catalog.illustrations(
 );
 
 CREATE TABLE IF NOT EXISTS card_catalog.illustration_artist (
-    illustration_id uuid PRIMARY KEY REFERENCES illustrations(illustration_id) ON DELETE CASCADE,
-    artist_id uuid NOT NULL REFERENCES artists_ref(artist_id) ON DELETE CASCADE
+    illustration_id uuid PRIMARY KEY REFERENCES illustrations(illustration_id),
+    artist_id uuid NOT NULL REFERENCES artists_ref(artist_id)
 );
 
 CREATE TABLE IF NOT EXISTS card_catalog.card_version_illustration (
-    card_version_id UUID PRIMARY KEY REFERENCES card_version(card_version_id) ON DELETE CASCADE,
+    card_version_id UUID PRIMARY KEY REFERENCES card_version(card_version_id),
     illustration_id UUID NOT NULL
 );
 
@@ -149,8 +149,8 @@ INSERT INTO card_catalog.card_stats_ref (stat_name, stat_description) VALUES
 
 -- versioned stats table
 CREATE TABLE IF NOT EXISTS card_catalog.card_version_stats (
-    card_version_id UUID NOT NULL REFERENCES card_version(card_version_id) ON DELETE CASCADE,
-    stat_id INT NOT NULL REFERENCES card_stats_ref(stat_id) ON DELETE CASCADE,
+    card_version_id UUID NOT NULL REFERENCES card_version(card_version_id),
+    stat_id INT NOT NULL REFERENCES card_stats_ref(stat_id),
     stat_value TEXT NOT NULL,
     PRIMARY KEY (card_version_id, stat_id)
 );
@@ -186,7 +186,7 @@ CREATE TABLE IF NOT EXISTS card_catalog.card_faces (
 
 CREATE TABLE IF NOT EXISTS card_catalog.card_external_identifier (
     card_identifier_ref_id SMALLINT NOT NULL REFERENCES card_identifier_ref(card_identifier_ref_id),
-    card_version_id UUID NOT NULL REFERENCES card_version(card_version_id) ON DELETE CASCADE,
+    card_version_id UUID NOT NULL REFERENCES card_version(card_version_id),
     value TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now(),
@@ -287,17 +287,23 @@ card_stats_agg AS (
 ),
 -- Illustrations with artists
 illustrations_agg AS (
-    SELECT 
-        cvi.card_version_id,
-        cvi.illustration_id,
-        ar.artist_name,
-        ar.artist_id,
-        i.file_uri,
-        i.added_on AS illustration_added_on
-    FROM card_catalog.card_version_illustration cvi
-    JOIN card_catalog.illustrations i ON cvi.illustration_id = i.illustration_id
-    LEFT JOIN card_catalog.illustration_artist ia ON i.illustration_id = ia.illustration_id
-    LEFT JOIN card_catalog.artists_ref ar ON ia.artist_id = ar.artist_id
+     SELECT
+    cvi.card_version_id,
+    jsonb_agg(
+      jsonb_build_object(
+        'illustration_id', cvi.illustration_id,
+        'file_uri', i.file_uri,
+        'added_on', i.added_on,
+        'artist_id', ar.artist_id,
+        'artist_name', ar.artist_name
+      )
+      ORDER BY i.added_on NULLS LAST, cvi.illustration_id
+    ) AS illustrations
+  FROM card_catalog.card_version_illustration cvi
+  JOIN card_catalog.illustrations i ON cvi.illustration_id = i.illustration_id
+  LEFT JOIN card_catalog.illustration_artist ia ON i.illustration_id = ia.illustration_id
+  LEFT JOIN card_catalog.artists_ref ar ON ia.artist_id = ar.artist_id
+  GROUP BY cvi.card_version_id
 ),
 -- Card faces aggregated
 card_faces_agg AS (
@@ -318,7 +324,6 @@ card_faces_agg AS (
     FROM card_catalog.card_faces cf
     GROUP BY cf.card_version_id
 )
-
 -- ✅ MAIN SELECT: Join everything together
 SELECT 
     -- Primary IDs
@@ -387,11 +392,7 @@ SELECT
     ucr.is_multifaced,
     
     -- Artist and illustration
-    ia.artist_name,
-    ia.artist_id,
-    ia.illustration_id,
-    ia.file_uri AS illustration_uri,
-    ia.illustration_added_on,
+    COALESCE(ia.illustrations, '[]'::jsonb) AS illustrations,
     
     -- Aggregated data
     COALESCE(la.legalities, '{}'::jsonb) AS legalities,
@@ -419,7 +420,7 @@ SELECT
 
 FROM card_catalog.card_version cv
 JOIN card_catalog.unique_cards_ref ucr ON cv.unique_card_id = ucr.unique_card_id
-JOIN sets s ON cv.set_id = s.set_id
+JOIN card_catalog.sets s ON cv.set_id = s.set_id
 JOIN card_catalog.rarities_ref rr ON cv.rarity_id = rr.rarity_id
 JOIN card_catalog.border_color_ref bcr ON cv.border_color_id = bcr.border_color_id
 JOIN card_catalog.frames_ref fr ON cv.frame_id = fr.frame_id
@@ -777,6 +778,7 @@ RETURNS TABLE (
     total_processed INT,
     successful_inserts INT,
     failed_inserts INT,
+    skipped_inserts INT,
     inserted_card_ids UUID[],
     error_details JSONB
 ) AS $$
@@ -786,6 +788,7 @@ DECLARE
     v_total_processed INT := 0;
     v_successful_inserts INT := 0;
     v_failed_inserts INT := 0;
+    v_skipped_inserts INT := 0;
     v_inserted_ids UUID[] := ARRAY[]::UUID[];
     v_error_details JSONB := '[]'::JSONB;
     v_error_info JSONB;
@@ -844,8 +847,21 @@ BEGIN
             v_inserted_ids := array_append(v_inserted_ids, v_result);
             
         EXCEPTION
+            WHEN unique_violation THEN
+                IF SQLERRM LIKE '%card_version_unique_card_id_set_id_collector_number_key%' THEN
+                    -- Skipped (already exists)
+                    v_skipped_inserts := v_skipped_inserts + 1;
+                ELSE
+                    v_failed_inserts := v_failed_inserts + 1;
+                    v_error_info := jsonb_build_object(
+                        'card_name', v_card ->> 'card_name',
+                        'error_code', SQLSTATE,
+                        'error_message', SQLERRM,
+                        'card_index', v_total_processed
+                    );
+                    v_error_details := v_error_details || jsonb_build_array(v_error_info);
+                END IF;
             WHEN OTHERS THEN
-                -- Failure
                 v_failed_inserts := v_failed_inserts + 1;
                 v_error_info := jsonb_build_object(
                     'card_name', v_card ->> 'card_name',
@@ -862,6 +878,7 @@ BEGIN
         v_total_processed::INT,
         v_successful_inserts::INT, 
         v_failed_inserts::INT,
+        v_skipped_inserts::INT,
         v_inserted_ids::UUID[],
         v_error_details::JSONB;
 END;
@@ -947,8 +964,8 @@ SELECT
     MIN(cmc) AS min_cmc,
     MAX(cmc) AS max_cmc
 FROM card_catalog.v_card_versions_complete
-GROUP BY set_name, set_code;
-
+GROUP BY set_name, set_code;    
+COMMIT;
 ##############
 -- END OF FILE --
 ##############

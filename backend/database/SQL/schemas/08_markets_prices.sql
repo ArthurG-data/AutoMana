@@ -1,3 +1,4 @@
+BEGIN;
 CREATE SCHEMA IF NOT EXISTS markets;
 SET search_path TO markets, public;
 
@@ -198,3 +199,4 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+COMMIT;

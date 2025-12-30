@@ -1,5 +1,4 @@
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
+BEGIN;
 CREATE SCHEMA IF NOT EXISTS user_management;
 --TABLES
 CREATE TABLE IF NOT EXISTS user_management.users (
@@ -298,3 +297,4 @@ AFTER DELETE ON user_management.user_roles
 FOR EACH ROW
 EXECUTE FUNCTION user_management.log_user_role_change();
 ----------------------------------------------------------------------------------------------------------------------------
+COMMIT;

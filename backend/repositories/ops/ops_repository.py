@@ -23,8 +23,9 @@ class OpsRepository(AbstractRepository):
     async def update_bulk_data_uri_return_new(self, items: dict, source_id: int):
         result = await self.execute_query(
             update_bulk_scryfall_data_sql,
-            json.dumps(items), source_id
+            (json.dumps(items), source_id)
         )
+        print(result)
         record = result[0] if result and len(result) > 0 else None
         ressources_upserted = record.get("resources_upserted") if record else 0
         versions_inserted = record.get("versions_inserted") if record else 0

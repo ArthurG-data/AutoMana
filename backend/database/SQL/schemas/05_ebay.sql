@@ -1,6 +1,5 @@
+BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
-
-
 CREATE SCHEMA IF NOT EXISTS app_integration;
 --TABLES---------------------------------------------------------------------------------------------
 
@@ -73,7 +72,7 @@ CREATE TABLE IF NOT EXISTS app_integration.log_oauth_request (
     status TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_oauth_session ON log_oauth_request(session_id);
-
+COMMIT;
 -- VEWS----------------------------------------------------------------------------------------------------------------------------------------------
 
 --FUNCTIONS----------------------------------------------------------------------------------------------------------------------------------------------
