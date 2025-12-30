@@ -1,3 +1,6 @@
+
+BEGIN;
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE SCHEMA IF NOT EXISTS card_catalog;
 
 CREATE TABLE IF NOT EXISTS card_catalog.set_type_list_ref(
@@ -413,3 +416,4 @@ BEGIN
         v_processing_time, v_successful_inserts, v_total_sets;
 END;
 $$ LANGUAGE plpgsql;
+COMMIT; 

@@ -1,7 +1,7 @@
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 
 -- TABLES------------------------------------
-
+BEGIN;
 CREATE TABLE IF NOT EXISTS card_catalog.unique_cards_ref (
     unique_card_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     card_name TEXT NOT NULL UNIQUE,
@@ -964,8 +964,8 @@ SELECT
     MIN(cmc) AS min_cmc,
     MAX(cmc) AS max_cmc
 FROM card_catalog.v_card_versions_complete
-GROUP BY set_name, set_code;
-
+GROUP BY set_name, set_code;    
+COMMIT;
 ##############
 -- END OF FILE --
 ##############

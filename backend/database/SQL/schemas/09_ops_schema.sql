@@ -1,3 +1,5 @@
+BEGIN;
+CREATE SCHEMA IF NOT EXISTS ops;
 CREATE TABLE IF NOT EXISTS ops.sources (
   id            bigserial PRIMARY KEY,
   name          text UNIQUE NOT NULL,     -- e.g. 'scryfall', 'tcgplayer'
@@ -52,3 +54,4 @@ CREATE TABLE IF NOT EXISTS ops.ingestion_runs (
   status        text CHECK (status IN ('running','success','partial','failed')),
   notes         text
 );
+COMMIT;

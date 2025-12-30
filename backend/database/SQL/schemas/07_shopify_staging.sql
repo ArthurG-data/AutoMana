@@ -7,6 +7,7 @@
 -- );
 
 -- Staging table for raw Shopify price data
+BEGIN;
 CREATE UNLOGGED TABLE IF NOT EXISTS pricing.shopify_staging_raw (
     product_id BIGINT,
     date DATE,
@@ -192,3 +193,4 @@ BEGIN
     RAISE INFO 'Total procedure time: %', clock_timestamp() - v_start_time;
 END;
 $$;
+COMMIT;
