@@ -13,10 +13,8 @@ logger = logging.getLogger(__name__)
 #download from uris and save to disk
 
 
-async def get_and_update_scryfall_bulk_data_uris(ops_repository: OpsRepository
-                                               , scryfall_repository: ScryfallAPIRepository):
-    pass
-
+@ServiceRegistry.register("staging.scryfall.get_bulk_data_uri",
+                         db_repositories=["ops"])
 async def get_scryfall_bulk_data_uri(ops_repository: OpsRepository) -> str:
     """Retrieve Scryfall bulk data URIs from the database"""
     bulk_uri = await ops_repository.get_bulk_data_uri()
@@ -24,10 +22,14 @@ async def get_scryfall_bulk_data_uri(ops_repository: OpsRepository) -> str:
         raise ValueError("No bulk data URI found in the database.")
     return bulk_uri
 
+@ServiceRegistry.register("staging.scryfall.download_bulk_manifests",
+                         api_repositories=["scryfall"])
 async def download_scryfall_bulk_manifests(repository: ScryfallAPIRepository, bulk_uri: str) -> str:
     """Download the Scryfall bulk data manifest"""
     return await repository.download_data_from_url(bulk_uri)
-    
+
+@ServiceRegistry.register("staging.scryfall.download_data_from_url",
+                         api_repositories=["scryfall"])
 async def download_scryfall_from_url(repository: ScryfallAPIRepository
                                   , url: str
                                   , filename_out: pathlib.Path):
@@ -46,6 +48,8 @@ async def download_scryfall_from_url(repository: ScryfallAPIRepository
     else:
         return {"status": "failed", "reason": "No data returned from Scryfall"}
 
+@ServiceRegistry.register("staging.scryfall.stream_download_json_from_uris",
+                         api_repositories=["scryfall"])
 async def stream_download_scryfall_json_from_uris(repository: ScryfallAPIRepository
                                             ,uris: list[str]
                                            , save_dir: pathlib.Path):
@@ -61,34 +65,51 @@ async def stream_download_scryfall_json_from_uris(repository: ScryfallAPIReposit
 
     return {"status": "success", "files_saved": saved}
 
+
+@ServiceRegistry.register("staging.scryfall.update_data_uri_in_ops_repository",
+                         db_repositories=["ops"])
+async def update_data_uri_in_ops_repository(ops_repository: OpsRepository
+                                            , items: dict
+                                            , source_id: int):
+    """Update the bulk data URIs in the Ops repository"""
+    result = await ops_repository.update_bulk_data_uri_return_new(items, source_id)
+    bulk_items_changed = result.get("changed", [])
+    if not bulk_items_changed or len(bulk_items_changed) == 0:
+        logger.info("No changes in Scryfall bulk data URIs. No download needed.")
+        return {"status": "no_changes"}
+    return result
+
 @ServiceRegistry.register("staging.scryfall.full_data_download_process",
                          db_repositories=["ops"], api_repositories=["scryfall"])
 async def full_scryfall_data_download_process(ops_repository: OpsRepository
                                             , scryfall_repository: ScryfallAPIRepository
                                             , save_dir: str):
     """Full process to download Scryfall bulk data and save to disk , set and cards data"""
-    save_dir = pathlib.Path(save_dir)
-    bulk_uri = await get_scryfall_bulk_data_uri(ops_repository)
-    manifests = await download_scryfall_bulk_manifests(scryfall_repository, bulk_uri)# should return multuple uris
-    #update database with new uris if needed, and check if the file has changed
-    bulk_items =manifests["data"]["data"]
-    uri_to_download = await ops_repository.update_bulk_data_uri_return_new(bulk_items, source_id=1)
-    bulk_items_changed = uri_to_download.get("changed", [])
-    if not bulk_items_changed or len(bulk_items_changed) == 0:
-        logger.info("No changes in Scryfall bulk data URIs. No download needed.")
-        return {"status": "no_changes"}
-    download_uris = [
-        item["download_uri"]
-        for item in bulk_items_changed
-        if item["type"] in ("default_cards")
-        ]
-    logger.info(f"Downloading Scryfall data from {download_uris}...")
-    #download sets, if no new cards, no new sets
-    out_path_sets = save_dir / "sets.json"
-    set_result = await download_scryfall_from_url(scryfall_repository, "https://api.scryfall.com/sets", out_path_sets)
-    card_result = await stream_download_scryfall_json_from_uris(scryfall_repository, download_uris, save_dir)
-    return {
-        "sets_download": set_result,
-        "cards_download": card_result
-    }
-    
+    try:
+        save_dir = pathlib.Path(save_dir)
+        bulk_uri = await get_scryfall_bulk_data_uri(ops_repository)
+        manifests = await download_scryfall_bulk_manifests(scryfall_repository, bulk_uri)# should return multuple uris
+        #update database with new uris if needed, and check if the file has changed
+        bulk_items =manifests["data"]
+        print(f"Bulk items: {bulk_items}")
+        uri_to_download = await update_data_uri_in_ops_repository(ops_repository, bulk_items, source_id=1)
+        bulk_items_changed = uri_to_download.get("changed", [])
+        if not bulk_items_changed or len(bulk_items_changed) == 0:
+            logger.info("No changes in Scryfall bulk data URIs. No download needed.")
+            return {"status": "no_changes"}
+        download_uris = [
+            item["download_uri"]
+            for item in bulk_items_changed
+            if item["type"] in ("default_cards")
+            ]
+        logger.info(f"Downloading Scryfall data from {download_uris}...")
+        #download sets, if no new cards, no new sets
+        out_path_sets = save_dir / "sets.json"
+        set_result = await download_scryfall_from_url(scryfall_repository, "https://api.scryfall.com/sets", out_path_sets)
+        card_result = await stream_download_scryfall_json_from_uris(scryfall_repository, download_uris, save_dir)
+        return {
+            "sets_download": set_result,
+            "cards_download": card_result
+        }
+    except Exception as e:
+        raise e

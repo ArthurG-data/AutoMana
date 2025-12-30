@@ -25,6 +25,8 @@ CREATE TABLE IF NOT EXISTS ops.resources (
   created_at        timestamptz DEFAULT now(),
   CHECK (external_id IS NOT NULL OR canonical_key IS NOT NULL)
 );
+-------------------------
+--select the ressources, select the latest version, then if new version, insert new version
 
 -- add a UNIQUE INDEX (expressions are allowed in indexes)
 CREATE UNIQUE INDEX IF NOT EXISTS ux_resources_source_type_natkey
@@ -46,6 +48,9 @@ CREATE TABLE IF NOT EXISTS ops.resource_versions (
   UNIQUE (resource_id, sha256)
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS ux_resource_versions_natkey
+ON ops.resource_versions(resource_id, download_uri, last_modified);
+
 CREATE TABLE IF NOT EXISTS ops.ingestion_runs (
   id            bigserial PRIMARY KEY,
   source_id     bigint NOT NULL REFERENCES ops.sources(id),
@@ -53,5 +58,13 @@ CREATE TABLE IF NOT EXISTS ops.ingestion_runs (
   ended_at      timestamptz,
   status        text CHECK (status IN ('running','success','partial','failed')),
   notes         text
+);
+CREATE TABLE IF NOT EXISTS ops.ingestion_run_resources (
+  id                bigserial PRIMARY KEY,
+  ingestion_run_id bigint NOT NULL REFERENCES ops.ingestion_runs(id) ON DELETE CASCADE,
+  resource_version_id bigint NOT NULL REFERENCES ops.resource_versions(id) ON DELETE CASCADE,
+  status            text CHECK (status IN ('pending','processed','failed')),
+  notes             text,
+  UNIQUE (ingestion_run_id, resource_version_id)
 );
 COMMIT;

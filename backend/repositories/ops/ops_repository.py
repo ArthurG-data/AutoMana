@@ -1,6 +1,6 @@
 import json
 from backend.repositories.AbstractRepository import AbstractRepository
-from backend.repositories.ops.scryfall_data import update_bulk_scryfall_data_sql
+from backend.repositories.ops.scryfall_data import update_bulk_scryfall_data_sql, test as test_sql
 
 
 class OpsRepository(AbstractRepository):
@@ -9,6 +9,16 @@ class OpsRepository(AbstractRepository):
     def name(self):
         return "OpsRepository"
     
+
+    async def start_pipeline(self):
+        query = """
+        INSERT INTO ops.ingestion_runs (pipeline_name, status)
+        VALUES ('scryfall_data_pipeline', 'started')
+        RETURNING id
+        """
+        result =await self.execute_query(query)
+        return result[0].get("id") if result and len(result) > 0 else None
+
     async def get_bulk_data_uri(self):
         query = """
         SELECT r.api_uri AS uri, r.source_id AS source_id
@@ -20,10 +30,12 @@ class OpsRepository(AbstractRepository):
         result = await self.execute_query(query)
         return result[0].get("uri") if result and len(result) > 0 else None
     
+
     async def update_bulk_data_uri_return_new(self, items: dict, source_id: int):
         result = await self.execute_query(
+            #update_bulk_scryfall_data_sql,
             update_bulk_scryfall_data_sql,
-            (json.dumps(items), source_id)
+            (json.dumps(items), source_id)#source_id
         )
         print(result)
         record = result[0] if result and len(result) > 0 else None

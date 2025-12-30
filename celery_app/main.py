@@ -29,11 +29,11 @@ def run_service(self, path: str, **kwargs):
     state = get_state()
     if not state.initialized:
         init_backend_runtime()
-    self.update_state(state="STARTED", meta={"service": path, "attempt": self.request.retries + 1})
+    #self.update_state(state="STARTED", meta={"service": path, "attempt": self.request.retries + 1})
     try:
         result = state.async_runner.run(ServiceManager.execute_service(path, **kwargs))
-        self.update_state(state="SUCCESS", meta={"service": path, "result": result})
+       # self.update_state(state="SUCCESS", meta={"service": path, "result": result})
         return result
     except Exception as e:
-        self.update_state(state="FAILURE", meta={"service": path, "exc": str(e)})
+       # self.update_state(state="FAILURE", meta={"service": path, "exc": str(e)})
         raise
