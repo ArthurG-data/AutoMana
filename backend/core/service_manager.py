@@ -71,6 +71,21 @@ class ServiceManager:
             logger.error(f"Error initializing ServiceManager: {e}")
             raise
     
+    @staticmethod
+    def get_service_function(path: str):
+        """
+        Given a service path (e.g., "staging.scryfall.get_bulk_data_uri"),
+        return the actual function object registered for that path.
+        """
+        from backend.core.service_registry import ServiceRegistry
+        service_config = ServiceRegistry.get(path)
+        if not service_config:
+            raise ValueError(f"Service not found: {path}")
+        # Dynamically import the module and get the function
+        import importlib
+        module = importlib.import_module(service_config.module)
+        return getattr(module, service_config.function)
+    
     @classmethod
     async def execute_service(cls, service_path: str, **kwargs):
         """Execute a service by path with provided parameters"""

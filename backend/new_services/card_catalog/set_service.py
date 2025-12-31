@@ -6,6 +6,7 @@ from uuid import UUID
 
 from typing import Any, AsyncGenerator, Callable, Dict, List,  Optional
 from backend.repositories.card_catalog.set_repository import SetReferenceRepository
+from backend.repositories.ops.ops_repository import OpsRepository
 from backend.schemas.card_catalog.set import  SetInDB, NewSet, UpdatedSet, NewSets
 from backend.exceptions.service_layer_exceptions.card_catalogue import set_exception
 from backend.shared.utils import decode_json_input
@@ -171,20 +172,42 @@ class ProcessingConfig:
 
 @ServiceRegistry.register(
     "card_catalog.set.process_large_sets_json",
-    db_repositories=["set"]
+    db_repositories=["set", "ops"]
 )
 async def process_large_sets_json(
     set_repository: SetReferenceRepository,
     file_path: str,
+    ingestion_run_id: int = None,
+    ops_repository: OpsRepository = None,
     config: ProcessingConfig = None,
-    resume_from_batch: int = 0
+    resume_from_batch: int = 0,
+    update_run: bool = False
 ) -> dict:
     """Process large JSON file containing sets using streaming to minimize memory usage"""
     processor = EnhancedSetImportService(set_repository, config)
-    result : ProcessingStats =  await processor.process_large_sets_json(
-        file_path=file_path,
-        resume_from_batch=resume_from_batch
-    )
+    try:
+        result : ProcessingStats =  await processor.process_large_sets_json(
+            file_path=file_path,
+            resume_from_batch=resume_from_batch
+        )
+        if update_run and ops_repository:
+            await ops_repository.update_run(
+                run_id=ingestion_run_id,
+                status="success",
+                current_step="process_large_sets_json",
+                progress=75.0,
+                notes=f"Processed {result.total_sets} sets with {result.successful_inserts} successful inserts and {result.failed_inserts} failures."
+            )
+    except Exception as e:
+        if update_run and ops_repository:
+            await ops_repository.update_run(
+                run_id=ingestion_run_id,
+                status="failed",
+                current_step="process_large_sets_json",
+                error_code="processing_failed",
+                error_details={"message": str(e)}
+            )
+        raise e
     return result.to_dict()
 
 class EnhancedSetImportService:

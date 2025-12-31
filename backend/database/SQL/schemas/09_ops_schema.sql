@@ -25,6 +25,8 @@ CREATE TABLE IF NOT EXISTS ops.resources (
   created_at        timestamptz DEFAULT now(),
   CHECK (external_id IS NOT NULL OR canonical_key IS NOT NULL)
 );
+-------------------------
+--select the ressources, select the latest version, then if new version, insert new version
 
 -- add a UNIQUE INDEX (expressions are allowed in indexes)
 CREATE UNIQUE INDEX IF NOT EXISTS ux_resources_source_type_natkey
@@ -46,12 +48,33 @@ CREATE TABLE IF NOT EXISTS ops.resource_versions (
   UNIQUE (resource_id, sha256)
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS ux_resource_versions_natkey
+ON ops.resource_versions(resource_id, download_uri, last_modified);
+
 CREATE TABLE IF NOT EXISTS ops.ingestion_runs (
   id            bigserial PRIMARY KEY,
+  pipeline_name text NOT NULL,
   source_id     bigint NOT NULL REFERENCES ops.sources(id),
+  run_key text UNIQUE,
+  celery_task_id text, --root task_id if using celery
   started_at    timestamptz DEFAULT now(),
   ended_at      timestamptz,
-  status        text CHECK (status IN ('running','success','partial','failed')),
-  notes         text
+  status        text CHECK (status IN ('pending','running','success','partial','failed')),
+  current_step    text,                        -- e.g. 'download_cards'
+  progress        numeric(5,2),                -- 0–100
+  error_code      text,
+  error_details   jsonb,
+  notes           text,
+    -- Audit
+  created_at      timestamptz DEFAULT now(),
+  updated_at      timestamptz DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS ops.ingestion_run_resources (
+  id                bigserial PRIMARY KEY,
+  ingestion_run_id bigint NOT NULL REFERENCES ops.ingestion_runs(id) ON DELETE CASCADE,
+  resource_version_id bigint NOT NULL REFERENCES ops.resource_versions(id) ON DELETE CASCADE,
+  status            text CHECK (status IN ('pending','processed','failed')),
+  notes             text,
+  UNIQUE (ingestion_run_id, resource_version_id)
 );
 COMMIT;

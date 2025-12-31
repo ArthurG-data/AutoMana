@@ -2,6 +2,7 @@ from celery import Celery
 from celery.signals import worker_process_init, worker_process_shutdown
 from backend.core.service_manager import ServiceManager
 from celery_app.ressources import get_state, init_backend_runtime, shutdown_backend_runtime
+import inspect
 
 celery_app = Celery('etl')
 celery_app.config_from_object("celery_app.celeryconfig")
@@ -25,15 +26,40 @@ def ping():
                  , retry_kwargs={"max_retries": 3}
                  , retry_backoff=True
                  , acks_late=True)
-def run_service(self, path: str, **kwargs):
+def run_service(self,prev=None, path: str = None, **kwargs):
     state = get_state()
     if not state.initialized:
         init_backend_runtime()
-    self.update_state(state="STARTED", meta={"service": path, "attempt": self.request.retries + 1})
+
+    if path is None and isinstance(prev, str):
+        path, prev = prev, None
+
+    context = {}
+    if isinstance(prev, dict):
+        context.update(prev)
+
+    context.update(kwargs)
+
+    if isinstance(prev, dict):
+        kwargs = {**prev, **kwargs}
+
+    service_func = ServiceManager.get_service_function(path)
+    sig = inspect.signature(service_func)
+    allowed_keys = set(sig.parameters.keys())
+
+    filtered_context = {k: v for k, v in context.items() if k in allowed_keys}
+    print(f"Running service: {path} kwargs_keys={list(filtered_context.keys())}")
     try:
-        result = state.async_runner.run(ServiceManager.execute_service(path, **kwargs))
-        self.update_state(state="SUCCESS", meta={"service": path, "result": result})
-        return result
+        result = state.async_runner.run(
+            ServiceManager.execute_service(path, **filtered_context)
+        )
+
+        # 🔑 CRITICAL: merge result back into context
+        if isinstance(result, dict):
+            context.update(result)
+
+        return context
+
     except Exception as e:
-        self.update_state(state="FAILURE", meta={"service": path, "exc": str(e)})
+        print(f"Exception in run_service ({path}): {e}")
         raise
