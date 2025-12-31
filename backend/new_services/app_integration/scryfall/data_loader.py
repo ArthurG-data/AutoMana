@@ -35,8 +35,10 @@ async def pipeline_finish(ops_repository: OpsRepository, ingestion_run_id: int, 
 @ServiceRegistry.register("staging.scryfall.get_bulk_data_uri",
                          db_repositories=["ops"])
 async def get_scryfall_bulk_data_uri(ops_repository: OpsRepository
-                                      , ingestion_run_id: int) -> str:
+                                      , ingestion_run_id: int
+                                      , num_sa) -> str:
     """Retrieve Scryfall bulk data URIs from the database"""
+    await ops_repository.update_run(ingestion_run_id, status="running", current_step="get_bulk_data_uri", progress=5.0)
     bulk_uri = await ops_repository.get_bulk_data_uri()
     if not bulk_uri:
         await ops_repository.update_run(ingestion_run_id, status="failed", current_step="get_bulk_data_uri", error_code="no_bulk_uri", error_details={"message": "No bulk data URI found in the database."})
