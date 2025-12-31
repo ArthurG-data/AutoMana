@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import  Optional, List, Dict, Any, AsyncGenerator, Callable
 import ijson, asyncio,  time, logging,  json
+from backend.repositories.ops.ops_repository import OpsRepository
 from backend.schemas.card_catalog import card as card_schemas
 from backend.repositories.card_catalog.card_repository import CardReferenceRepository
 from backend.schemas.card_catalog.card import BaseCard
@@ -183,13 +184,16 @@ async def get(card_repository: CardReferenceRepository,
 
 @ServiceRegistry.register(
     "card_catalog.card.process_large_json",
-    db_repositories=["card"]
+    db_repositories=["card", "ops"]
 )
 async def process_large_cards_json(
     card_repository: CardReferenceRepository,
-    file_path: str,
+    file_path_card: str,
+    ops_repository: OpsRepository = None,
+    ingestion_run_id: int = None,
     resume_from_batch: int = 0,
-    validate_file_first: bool = True
+    validate_file_first: bool = True,
+    update_run: bool =False
 ) -> dict:
     """Process large JSON file with enhanced error handling and monitoring
     
@@ -200,11 +204,41 @@ async def process_large_cards_json(
         validate_file_first: Whether to validate JSON structure first
     """
     service = EnhancedCardImportService(card_repository)
-    result = await service.process_large_cards_json(
-        file_path=file_path,
-        resume_from_batch=resume_from_batch,
-        validate_file_first=validate_file_first
-    )
+    if file_path_card == "NO CHANGES":
+        logger.info("No changes detected in Scryfall data. Skipping processing.")
+        if update_run and ops_repository and ingestion_run_id:
+            await ops_repository.update_run(
+                run_id=ingestion_run_id,
+                status="success",
+                current_step="process_large_cards_json",
+                progress=100,
+                notes="No changes detected in Scryfall data. Processing skipped."
+            )
+        return {"status": "success"}
+    try:
+        result = await service.process_large_cards_json(
+            file_path_card=file_path_card,
+            resume_from_batch=resume_from_batch,
+            validate_file_first=validate_file_first
+        )
+        if update_run and ops_repository and ingestion_run_id:
+            await ops_repository.update_run(
+                run_id=ingestion_run_id,
+                status="success",
+                current_step="process_large_cards_json",
+                progress=100,
+                notes=f"result: {result.to_dict()}"
+            )
+    except Exception as e:
+        if update_run and ops_repository and ingestion_run_id:
+            await ops_repository.update_run(
+                run_id=ingestion_run_id,
+                status="failed",
+                current_step="process_large_cards_json",
+                error_code="processing_failed",
+                error_details={"error": str(e)}
+            )
+        raise e
     return result.to_dict()
 class EnhancedCardImportService:
     """Enhanced card import service with better error handling and monitoring"""

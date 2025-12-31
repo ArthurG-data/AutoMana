@@ -38,17 +38,27 @@ async def full_scryfall_data_download_process(ops_repository: OpsRepository
     
 '''
 
-
+from datetime import datetime
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
 def daily_scryfall_data_pipeline(self):
-    workflow = chain(
-        run_service.s("ops.scryfall.start_pipeline"),
-        run_service.s("staging.scryfall.get_bulk_data_uri"),
-        run_service.s("staging.scryfall.full_data_download_process", save_dir="/data/scryfall/raw_files/"),
-        run_service.s("staging.scryfall.download_bulk_manifests", bulk_uri=[]),
-        run_service.s("staging.scryfall.update_data_uri_in_ops_repository", uris=[], save_dir="/data/scryfall/raw_files/"),
-        run_service.s("staging.scryfall.download_data_from_url", save_dir="/data/scryfall/raw_files/"),
-        run_service.s("staging.scryfall.stream_download_json_from_uris", uris=[], save_dir="/data/scryfall/raw_files/"),
+    run_key = f"scryfall_daily:{datetime.utcnow().date().isoformat()}"
+
+    wf = chain(
+        run_service.s("staging.scryfall.start_pipeline",
+                      pipeline_name="scryfall_daily",
+                      source_name="scryfall",
+                      run_key=run_key,
+                      celery_task_id=self.request.id),
+
+        run_service.s("staging.scryfall.get_bulk_data_uri"),#get the uri for the bulk data manifest
+        run_service.s("staging.scryfall.download_bulk_manifests"),#download the bulk data manifest
+        run_service.s("staging.scryfall.update_data_uri_in_ops_repository"),#from the manifest, update the db and get the list of uris to download
+        # always download sets; or gate on status in the service if you want
+        run_service.s("staging.scryfall.download_sets", save_dir="/data/scryfall/raw_files/"),
+        run_service.s("card_catalog.set.process_large_sets_json", update_run = True), 
+        run_service.s("staging.scryfall.download_cards_bulk", save_dir="/data/scryfall/raw_files/"),
+        run_service.s("card_catalog.card.process_large_json", update_run = True),
+        run_service.s("staging.scryfall.pipeline_finish")
     )
-    return workflow.apply_async().id
+    return wf.apply_async().id
  

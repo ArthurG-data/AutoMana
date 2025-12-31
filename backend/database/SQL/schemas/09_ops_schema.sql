@@ -53,11 +53,21 @@ ON ops.resource_versions(resource_id, download_uri, last_modified);
 
 CREATE TABLE IF NOT EXISTS ops.ingestion_runs (
   id            bigserial PRIMARY KEY,
+  pipeline_name text NOT NULL,
   source_id     bigint NOT NULL REFERENCES ops.sources(id),
+  run_key text UNIQUE,
+  celery_task_id text, --root task_id if using celery
   started_at    timestamptz DEFAULT now(),
   ended_at      timestamptz,
-  status        text CHECK (status IN ('running','success','partial','failed')),
-  notes         text
+  status        text CHECK (status IN ('pending','running','success','partial','failed')),
+  current_step    text,                        -- e.g. 'download_cards'
+  progress        numeric(5,2),                -- 0–100
+  error_code      text,
+  error_details   jsonb,
+  notes           text,
+    -- Audit
+  created_at      timestamptz DEFAULT now(),
+  updated_at      timestamptz DEFAULT now()
 );
 CREATE TABLE IF NOT EXISTS ops.ingestion_run_resources (
   id                bigserial PRIMARY KEY,

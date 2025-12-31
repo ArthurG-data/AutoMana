@@ -1,0 +1,61 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+celery_venv/
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Environment files (use secrets management instead)
+.env
+.env.*
+!.env.example
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+docs/
+
+# Logs
+*.log
+logs/
+
+# Database files (if any local DBs)
+*.db
+*.sqlite
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+*.swp

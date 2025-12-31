@@ -24,7 +24,7 @@ upsert_resources AS (
     api_uri, web_uri, metadata, updated_at_source
   )
   SELECT
-    $2::bigint AS source_id,
+    ir.source_id AS source_id,
     i.external_type,
     i.external_id,
     NULL,
@@ -35,6 +35,7 @@ upsert_resources AS (
     i.metadata,
     i.updated_at_source
   FROM items i
+  JOIN ingestion_runs ir ON ir.id = $2::bigint
   ON CONFLICT (source_id, external_type,  external_id)
   DO UPDATE
   SET
