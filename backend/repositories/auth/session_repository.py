@@ -1,5 +1,5 @@
 from uuid import UUID
-from backend.repositories.AbstractRepository import AbstractRepository
+from backend.repositories.abstract_repositories.AbstractDBRepository import AbstractRepository
 from backend.database.database_utilis import create_select_query
 from datetime import datetime
 

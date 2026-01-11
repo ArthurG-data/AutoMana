@@ -1,4 +1,4 @@
-from backend.repositories.AbstractRepository import AbstractRepository
+from backend.repositories.abstract_repositories.AbstractDBRepository import AbstractRepository
 from typing import List, Optional, Any
 
 class ShopifyPriceRepository(AbstractRepository[shopify_theme.CollectionModel]):

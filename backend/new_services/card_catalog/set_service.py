@@ -192,16 +192,16 @@ async def process_large_sets_json(
         )
         if update_run and ops_repository:
             await ops_repository.update_run(
-                run_id=ingestion_run_id,
+                ingestion_run_id=ingestion_run_id,
                 status="success",
                 current_step="process_large_sets_json",
-                progress=75.0,
+                
                 notes=f"Processed {result.total_sets} sets with {result.successful_inserts} successful inserts and {result.failed_inserts} failures."
             )
     except Exception as e:
         if update_run and ops_repository:
             await ops_repository.update_run(
-                run_id=ingestion_run_id,
+                ingestion_run_id=ingestion_run_id,
                 status="failed",
                 current_step="process_large_sets_json",
                 error_code="processing_failed",

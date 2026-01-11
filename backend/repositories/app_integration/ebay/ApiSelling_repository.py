@@ -1,4 +1,4 @@
-from backend.repositories.ApiRepository import ApiRepository
+from backend.repositories.app_integration.ebay.EbayApiRepository import EbayApiClient
 from backend.utils.app_integration.ebay.xml_utils import generate_add_fixed_price_item_request_xml, generate_end_item_request_xml, generate_get_item_request_xml, generate_revise_item_request_xml, generate_get_my_ebay_selling_request_xml
 import logging
 from typing import Dict, Any
@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class EbaySellingRepository(ApiRepository):
+class EbaySellingRepository(EbayApiClient):
 
     URL_MAPPING = {
         "sandbox": "https://api.sandbox.ebay.com/ws/api.dll",

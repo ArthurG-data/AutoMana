@@ -1,4 +1,4 @@
-from backend.repositories.AbstractRepository import AbstractRepository
+from backend.repositories.abstract_repositories.AbstractDBRepository import AbstractRepository
 import io, logging
 from typing import Optional
 

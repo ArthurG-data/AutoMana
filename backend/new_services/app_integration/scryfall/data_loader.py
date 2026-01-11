@@ -1,15 +1,26 @@
-import aiohttp, logging
+import  logging
 from backend.repositories.app_integration.scryfall.ApiScryfall import ScryfallAPIRepository
 from backend.repositories.ops.ops_repository import OpsRepository
 import pathlib
 
-from datetime import datetime, time
+from datetime import datetime
 from backend.core.service_registry import ServiceRegistry
 
 logger = logging.getLogger(__name__)
+print("✓ data_loader.py imported successfully")
 
-#start pipeline
-@ServiceRegistry.register("staging.scryfall.start_pipeline",
+
+@ServiceRegistry.register("staging.scryfall.pipeline_finish"
+                          , db_repositories=["ops"])
+async def pipeline_finish(ops_repository: OpsRepository
+                          , ingestion_run_id: int
+                          , status: str = "success"
+                          , notes: str | None = None):
+    """Finish the Scryfall data ingestion pipeline by updating the run status in the Ops repository."""
+    await ops_repository.finish_run(ingestion_run_id, status=status, notes=notes)
+    return {"status": status}
+
+@ServiceRegistry.register(path="staging.scryfall.start_pipeline",
                          db_repositories=["ops"])
 async def scryfall_data_pipeline_start(ops_repository: OpsRepository
                                        ,pipeline_name: str="scryfall_daily"
@@ -25,25 +36,20 @@ async def scryfall_data_pipeline_start(ops_repository: OpsRepository
     print(f"Started Scryfall data pipeline with run ID: {run_id}")
     return {'ingestion_run_id': run_id}
 
-@ServiceRegistry.register("staging.scryfall.pipeline_finish", db_repositories=["ops"])
-async def pipeline_finish(ops_repository: OpsRepository, ingestion_run_id: int, status: str = "success", notes: str | None = None):
-    """Finish the Scryfall data ingestion pipeline by updating the run status in the Ops repository."""
-    await ops_repository.finish_run(ingestion_run_id, status=status, notes=notes)
-    return {"status": status}
 
 #get bulk data uri
 @ServiceRegistry.register("staging.scryfall.get_bulk_data_uri",
                          db_repositories=["ops"])
 async def get_scryfall_bulk_data_uri(ops_repository: OpsRepository
                                       , ingestion_run_id: int
-                                      , num_sa) -> str:
+                                     ) -> str:
     """Retrieve Scryfall bulk data URIs from the database"""
-    await ops_repository.update_run(ingestion_run_id, status="running", current_step="get_bulk_data_uri", progress=5.0)
+    await ops_repository.update_run(ingestion_run_id, status="running", current_step="get_bulk_data_uri")
     bulk_uri = await ops_repository.get_bulk_data_uri()
     if not bulk_uri:
         await ops_repository.update_run(ingestion_run_id, status="failed", current_step="get_bulk_data_uri", error_code="no_bulk_uri", error_details={"message": "No bulk data URI found in the database."})
         raise ValueError("No bulk data URI found in the database.")
-    await ops_repository.update_run(ingestion_run_id, status="running", current_step="get_bulk_data_uri", progress=10.0)
+    await ops_repository.update_run(ingestion_run_id, status="success", current_step="get_bulk_data_uri")
     return {"bulk_uri": bulk_uri}
 
 #download bulk manifests
@@ -54,16 +60,27 @@ async def download_scryfall_bulk_manifests( ops_repository: OpsRepository
                                            , bulk_uri: str
                                            , ingestion_run_id: int) -> str:
     """Download the Scryfall bulk data manifest"""
+    await ops_repository.update_run(ingestion_run_id
+                                    , status="running"
+                                    , current_step="download_bulk_manifests")
     try:
         manifests = await scryfall_repository.download_data_from_url(bulk_uri
                                                                 )
     except Exception as e:
-        await ops_repository.update_run(ingestion_run_id, status="failed", current_step="download_bulk_manifests", error_code="download_failed", error_details={"message": str(e)})
+        await ops_repository.update_run(ingestion_run_id
+                                        , status="failed"
+                                        , current_step="download_bulk_manifests"
+                                        , error_code="download_failed", error_details={"message": str(e)})
         raise e
     if not manifests.get("data"):
-        await ops_repository.update_run(ingestion_run_id, status="failed", current_step="download_bulk_manifests", error_code="no_manifest_data", error_details={"message": "Failed to download Scryfall bulk data manifest."})
+        await ops_repository.update_run(ingestion_run_id
+                                        , status="failed"
+                                        , current_step="download_bulk_manifests"
+                                        , error_code="no_manifest_data"
+                                        , error_details={"message": "Failed to download Scryfall bulk data manifest."})
         raise ValueError("Failed to download Scryfall bulk data manifest.")
-    await ops_repository.update_run(ingestion_run_id,status="running", current_step="download_bulk_manifests", progress=30.0)
+    await ops_repository.update_run(ingestion_run_id
+                                    ,status="success", current_step="download_bulk_manifests")
     print(manifests["data"])
     return {"items": manifests["data"]}
 
@@ -106,6 +123,7 @@ async def update_data_uri_in_ops_repository(ops_repository: OpsRepository
                                             , items: dict
                                             , ingestion_run_id: int):
     """Update the bulk data URIs in the Ops repository"""
+    await ops_repository.update_run(ingestion_run_id, status="running", current_step="update_data_uri_in_ops_repository")
     try:
         result = await ops_repository.update_bulk_data_uri_return_new(items, ingestion_run_id)
     except Exception as e:
@@ -114,6 +132,7 @@ async def update_data_uri_in_ops_repository(ops_repository: OpsRepository
     bulk_items_changed = result.get("changed", [])
     if not bulk_items_changed or len(bulk_items_changed) == 0:
         logger.info("No changes in Scryfall bulk data URIs. No download needed.")
+    await ops_repository.update_run(ingestion_run_id, status="success", current_step="update_data_uri_in_ops_repository")
     return {'uris_to_download':bulk_items_changed }
 
 @ServiceRegistry.register("staging.scryfall.download_sets", api_repositories=["scryfall"], db_repositories=["ops"])
@@ -124,7 +143,7 @@ async def download_sets(
     save_dir: str,
 ) -> dict:
     #
-
+    await ops_repository.update_run(ingestion_run_id, status="running", current_step="download_sets")
     try:
         save_dir = pathlib.Path(save_dir)
         out_path = save_dir / str(ingestion_run_id) / "sets.json"
@@ -132,7 +151,7 @@ async def download_sets(
     except Exception as e:
         await ops_repository.update_run(ingestion_run_id, status="failed", current_step="download_sets", error_code="download_failed", error_details={"message": str(e)})
         raise e
-    await ops_repository.update_run(ingestion_run_id, current_step="download_sets", progress=50.0)
+    await ops_repository.update_run(ingestion_run_id, current_step="download_sets")
     return {"file_path": str(out_path)}
 
 @ServiceRegistry.register("staging.scryfall.download_cards_bulk", api_repositories=["scryfall"], db_repositories=["ops"])
@@ -149,46 +168,32 @@ async def download_cards_bulk(
         return {"file_path_card": "NO CHANGES"}
     try:
         result = await stream_download_scryfall_json_from_uris(scryfall_repository, uris_to_download, pathlib.Path(save_dir), ingestion_run_id)
-        await ops_repository.update_run(ingestion_run_id, current_step="download_cards_bulk", progress=87.5)
+        await ops_repository.update_run(ingestion_run_id, current_step="download_cards_bulk")
     except Exception as e:
         await ops_repository.update_run(ingestion_run_id, status="failed", current_step="download_cards_bulk", error_code="download_failed", error_details={"message": str(e)})
         raise e 
     return {"file_path_card" : result["files_saved"][0]}
 
+import os, shutil
+@ServiceRegistry.register("staging.scryfall.delete_old_scryfall_folders",
+                         )
+async def delete_old_scryfall_folders(keep: int
+                               , save_dir: pathlib.Path):
+    """Delete Scryfall raw files older than specified days to keep"""
+    root = pathlib.Path(save_dir)
+    if not root.exists():
+        logger.warning("Base dir %s missing; nothing to clean", root)
+        return {"deleted_runs": []}
 
-'''
-@ServiceRegistry.register("staging.scryfall.full_data_download_process",
-                         db_repositories=["ops"], api_repositories=["scryfall"])
-async def full_scryfall_data_download_process(ops_repository: OpsRepository
-                                            , scryfall_repository: ScryfallAPIRepository
-                                            , save_dir: str):
-    """Full process to download Scryfall bulk data and save to disk , set and cards data"""
-    try:
-        save_dir = pathlib.Path(save_dir)
-        bulk_uri = await get_scryfall_bulk_data_uri(ops_repository)
-        manifests = await download_scryfall_bulk_manifests(scryfall_repository, bulk_uri)# should return multuple uris
-        #update database with new uris if needed, and check if the file has changed
-        bulk_items =manifests["data"]
-        print(f"Bulk items: {bulk_items}")
-        uri_to_download = await update_data_uri_in_ops_repository(ops_repository, bulk_items, source_id=1)
-        bulk_items_changed = uri_to_download.get("changed", [])
-        if not bulk_items_changed or len(bulk_items_changed) == 0:
-            logger.info("No changes in Scryfall bulk data URIs. No download needed.")
-            return {"status": "no_changes"}
-        download_uris = [
-            item["download_uri"]
-            for item in bulk_items_changed
-            if item["type"] in ("default_cards")
-            ]
-        logger.info(f"Downloading Scryfall data from {download_uris}...")
-        #download sets, if no new cards, no new sets
-        out_path_sets = save_dir / "sets.json"
-        set_result = await download_scryfall_from_url(scryfall_repository, "https://api.scryfall.com/sets", out_path_sets)
-        card_result = await stream_download_scryfall_json_from_uris(scryfall_repository, download_uris, save_dir)
-        return {
-            "sets_download": set_result,
-            "cards_download": card_result
-        }
-    except Exception as e:
-        raise e
-'''
+    run_dirs = [d for d in root.iterdir() if d.is_dir()]
+    run_dirs.sort(key=lambda p: p.stat().st_mtime, reverse=True)  # newest first
+    to_delete = run_dirs[keep:]
+
+    deleted = []
+    for d in to_delete:
+        shutil.rmtree(d, ignore_errors=False)
+        deleted.append(str(d))
+        logger.info("Deleted old run folder: %s", d)
+
+    return {"deleted_runs": deleted, "kept": [str(d) for d in run_dirs[:keep]]}
+

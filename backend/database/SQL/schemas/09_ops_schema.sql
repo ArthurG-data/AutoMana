@@ -69,6 +69,63 @@ CREATE TABLE IF NOT EXISTS ops.ingestion_runs (
   created_at      timestamptz DEFAULT now(),
   updated_at      timestamptz DEFAULT now()
 );
+CREATE UNIQUE INDEX IF NOT EXISTS ux_ingestion_runs_key
+ON ops.ingestion_runs (pipeline_name, source_id, run_key);
+
+CREATE TABLE IF NOT EXISTS ops.ingestion_run_steps (
+  id                bigserial PRIMARY KEY,
+  ingestion_run_id bigint NOT NULL REFERENCES ops.ingestion_runs(id) ON DELETE CASCADE,
+  step_name        text NOT NULL,               -- e.g. 'download_cards'
+  started_at       timestamptz DEFAULT now(),
+  ended_at         timestamptz,
+  status           text CHECK (status IN ('pending','running','success','partial','failed')),
+  progress         numeric(5,2),                -- 0–100
+  error_code       text,
+  error_details    jsonb,
+  notes            text,
+  UNIQUE (ingestion_run_id, step_name)
+);
+CREATE INDEX IF NOT EXISTS ix_ingestion_run_steps_run
+ON ops.ingestion_run_steps (ingestion_run_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS ux_run_step_once
+ON ops.ingestion_run_steps (ingestion_run_id, step_name);
+
+CREATE TABLE IF NOT EXISTS ops.ingestion_step_metrics (
+  ingestion_step_metric_id BIGSERIAL PRIMARY KEY,
+  ingestion_run_step_id    BIGINT NOT NULL REFERENCES ops.ingestion_run_steps(id) ON DELETE CASCADE,
+
+  metric_name              TEXT NOT NULL,   -- e.g. items_processed, bytes_downloaded, http_429s
+  metric_type              TEXT NOT NULL DEFAULT 'counter', -- counter/gauge/timer
+  metric_value_num         DOUBLE PRECISION NULL,
+  metric_value_text        TEXT NULL,
+
+  recorded_at              TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ix_step_metrics_step
+ON ops.ingestion_step_metrics (ingestion_run_step_id);
+
+CREATE INDEX IF NOT EXISTS ix_step_metrics_name
+ON ops.ingestion_step_metrics (metric_name);
+
+
+CREATE TABLE ops.ingestion_step_batches (
+  id BIGSERIAL PRIMARY KEY,
+  ingestion_run_step_id BIGINT NOT NULL REFERENCES ops.ingestion_run_steps(id) ON DELETE CASCADE,
+  batch_seq INT NOT NULL,
+  range_start BIGINT,
+  range_end BIGINT,
+  status TEXT CHECK (status IN ('pending','running','success','partial','failed')),
+  items_ok INT,
+  items_failed INT,
+  bytes_processed BIGINT,
+  duration_ms INT,
+  error_code TEXT,
+  error_details JSONB,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE (ingestion_run_step_id, batch_seq)
+);
+CREATE INDEX ON ops.ingestion_step_batches (ingestion_run_step_id, status);
 CREATE TABLE IF NOT EXISTS ops.ingestion_run_resources (
   id                bigserial PRIMARY KEY,
   ingestion_run_id bigint NOT NULL REFERENCES ops.ingestion_runs(id) ON DELETE CASCADE,
@@ -77,4 +134,44 @@ CREATE TABLE IF NOT EXISTS ops.ingestion_run_resources (
   notes             text,
   UNIQUE (ingestion_run_id, resource_version_id)
 );
+
+INSERT INTO ops.sources (name, base_uri, kind, rate_limit_hz)
+VALUES ('mtgStock', 'https://api.mtgstocks.com', 'http', 2.0)
+ON CONFLICT (name) DO UPDATE
+SET base_uri = EXCLUDED.base_uri,
+    kind = EXCLUDED.kind,
+    rate_limit_hz = EXCLUDED.rate_limit_hz;
+
+WITH src AS (
+  SELECT id FROM ops.sources WHERE name = 'mtgStock'
+)
+INSERT INTO ops.resources (
+    source_id, external_type, external_id, canonical_key,
+    name, description, api_uri, web_uri, metadata
+)
+VALUES
+  (
+    (SELECT id FROM src),
+    'print_details', 'prints/{print_id}', 'mtgstock.print.details',
+    'MTGStocks print details',
+    'JSON details for a print',
+    'https://api.mtgstocks.com/prints/{print_id}',
+    'https://www.mtgstocks.com/prints/{print_id}',
+    '{"format":"json"}'::jsonb
+  ),
+  (
+    (SELECT id FROM src),
+    'print_prices', 'prints/{print_id}/prices', 'mtgstock.print.prices',
+    'MTGStocks print prices',
+    'Price history for a print',
+    'https://api.mtgstocks.com/prints/{print_id}/prices',
+    'https://www.mtgstocks.com/prints/{print_id}',
+    '{"format":"json"}'::jsonb
+  )
+ON CONFLICT (source_id, external_type, external_id, canonical_key) DO UPDATE
+SET name = EXCLUDED.name,
+    description = EXCLUDED.description,
+    api_uri = EXCLUDED.api_uri,
+    web_uri = EXCLUDED.web_uri,
+    metadata = EXCLUDED.metadata;
 COMMIT;

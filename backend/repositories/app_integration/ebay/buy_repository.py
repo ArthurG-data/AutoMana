@@ -1,4 +1,4 @@
-from backend.repositories.ApiRepository import ApiRepository
+from backend.repositories.app_integration.ebay.EbayApiRepository import ApiRepository
 from backend.exceptions.repository_layer_exceptions.ebay_integration import ebay_api_exception
 from typing import Dict, Any, Optional, List
 from httpx import AsyncClient, HTTPStatusError

@@ -142,6 +142,14 @@ ServiceRegistry.register_db_repository(
     "ops", "backend.repositories.ops.ops_repository", "OpsRepository"
 )
 
+ServiceRegistry.register_db_repository(
+    "Mtgjson", "backend.repositories.app_integration.mtgjson.mtgjson_repository", "MtgjsonRepository"
+)
+
+# Analytics repositories
+ServiceRegistry.register_db_repository(
+    "analytics", "backend.repositories.analytics_repositories.analytics_repository", "AnalyticsRepository"
+)
 # API repositories
 ServiceRegistry.register_api_repository(
     "auth_oauth", "backend.repositories.app_integration.ebay.ApiAuth_repository", "EbayAuthAPIRepository"
@@ -158,4 +166,8 @@ ServiceRegistry.register_api_repository(
 
 ServiceRegistry.register_api_repository(
     "scryfall", "backend.repositories.app_integration.scryfall.ApiScryfall", "ScryfallAPIRepository"
+)
+
+ServiceRegistry.register_api_repository(
+    "mtgjson", "backend.repositories.app_integration.mtgjson.Apimtgjson_repository", "ApimtgjsonRepository"
 )

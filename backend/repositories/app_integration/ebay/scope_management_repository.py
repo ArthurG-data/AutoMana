@@ -1,4 +1,4 @@
-from backend.repositories.AbstractRepository import AbstractRepository
+from backend.repositories.abstract_repositories.AbstractDBRepository import AbstractRepository
 from backend.repositories.app_integration.ebay.scope_management_repository import scope_queries
 
 class AppIntegrationService(AbstractRepository):

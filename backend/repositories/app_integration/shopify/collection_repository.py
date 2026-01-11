@@ -1,4 +1,4 @@
-from backend.repositories.AbstractRepository import AbstractRepository
+from backend.repositories.abstract_repositories.AbstractDBRepository import AbstractRepository
 from typing import List, Optional, Any
 from backend.schemas.external_marketplace.shopify import shopify_theme
 

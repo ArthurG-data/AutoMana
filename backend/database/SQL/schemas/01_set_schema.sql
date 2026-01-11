@@ -3,6 +3,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE SCHEMA IF NOT EXISTS card_catalog;
 
+
 CREATE TABLE IF NOT EXISTS card_catalog.set_type_list_ref(
     set_type_id SERIAL NOT NULL PRIMARY KEY,
     set_type VARCHAR(20) UNIQUE NOT NULL

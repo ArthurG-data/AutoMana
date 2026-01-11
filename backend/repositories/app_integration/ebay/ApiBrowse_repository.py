@@ -1,4 +1,4 @@
-from backend.repositories.ApiRepository import ApiRepository
+from backend.repositories.app_integration.ebay.EbayApiRepository import EbayApiClient
 from backend.schemas.app_integration.ebay.auth import AuthHeader, ExangeRefreshData, AuthData, TokenResponse, TokenRequestData
 from uuid import UUID, uuid4
 from typing import List, Dict, Any, Optional
@@ -7,7 +7,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-class EbayBrowseAPIRepository(ApiRepository):
+class EbayBrowseAPIRepository(EbayApiClient):
     URL_MAPPING = {
         "sandbox": "https://api.sandbox.ebay.com/buy/browse/v1",
         "production": "https://api.ebay.com/buy/browse/v1"

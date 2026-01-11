@@ -65,6 +65,9 @@ class Settings(BaseSettings):
     DB_USER : str = Field(default_factory=lambda: os.getenv("POSTGRES_USER", "backend_app"))
     DB_HOST : str = Field(default="localhost", alias="POSTGRES_HOST")
 
+    # WEB HOOKS
+    DISCORD_WEBHOOK_URL: str | None = None
+
     @property
     def DATABASE_URL_ASYNC(self) -> str:
         password = quote_plus(self.DB_PASSWORD)

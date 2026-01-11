@@ -1,31 +1,52 @@
 import pathlib
-from backend.repositories.ApiRepository import ApiRepository
+from backend.repositories.abstract_repositories.AbstractAPIRepository import BaseApiClient
 import aiohttp
+from typing import Optional
+import httpx
+import logging
+logger = logging.getLogger(__name__)
 
-class ScryfallAPIRepository(ApiRepository):
+class ScryfallAPIRepository(BaseApiClient):
     BASE_URL = "https://api.scryfall.com"
 
-    def __init__(self, environment: str = "sandbox", timeout: int = 30):
-        super().__init__(environment=environment, timeout=timeout)
-        self.environment = environment
+    def __init__(self, timeout: int = 30, **kwargs):
+        self.client: Optional[httpx.AsyncClient] = None
+        super().__init__(timeout=timeout)
         self.timeout = timeout
+        # persistent client used when entering context
+       
 
     @property
     def name(self):
         return "ScryfallAPIRepository"
     
-    def _get_base_url(self, environment: str) -> str:
+    
+    def default_headers(self):
+        return {
+            "Accept": "application/json",
+            "User-Agent": "AutoMana/1.0"
+        }
+         
+    async def __aenter__(self):
+        """Initialize the persistent HTTP client when entering the context."""
+        self.client = httpx.AsyncClient(http2=True, timeout=self.timeout)
+        return self
+
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        """Close the persistent HTTP client when exiting the context."""
+        if self.client:
+            await self.client.aclose()
+            self.client = None
+
+    def _get_base_url(self) -> str:
         """Return the base URL for the given environment"""
         return self.BASE_URL
 
     async def download_data_from_url(self, url) -> dict:
         """Fetch the Scryfall bulk data manifest"""
         #url = f"{self._get_base_url(self.environment)}/{url.lstrip('/')}" not needed because db stores full url
-        response = await self._make_get_request(url)
-        data = response.json() if hasattr(response, 'json') else response
-        if callable(data):
-            data = await response.json()
-        file_size = len(str(data).encode('utf-8'))
+        data = await self.request("GET", url, headers=self.default_headers())
+        file_size = len(str(data).encode("utf-8"))
         return {"data": data, "file_size": file_size}
     
     async def stream_download(self, url: str, out_path: pathlib.Path, chunk_size: int = 1024 * 1024):

@@ -1,6 +1,6 @@
-from backend.exceptions.repository_layer_exceptions.base_repository_exception import RepositoryError
+from backend.exceptions.repository_layer_exceptions.api_errors import ExternalApiError
 
-class EbayBaseRepositoryError(RepositoryError):
+class EbayBaseRepositoryError(ExternalApiError):
     """Base class for all eBay repository-related exceptions."""
 
     def __init__(self, message: str, error_code: str = None, status_code: int = None, error_data: dict = None):

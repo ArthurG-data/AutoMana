@@ -50,15 +50,23 @@ class ServiceManager:
     @asynccontextmanager
     async def transaction(self):
         """Execute operations in a transaction"""
-        async with self.connection_pool.acquire() as connection:
+        connection = None
+        try:
+            connection = await self.connection_pool.acquire()
+            transaction = connection.transaction()
+            await transaction.start()
             try:
-                async with connection.transaction():
-                    logger.debug("Transaction started")
-                    yield connection
+                yield connection
+                await transaction.commit()
                 logger.debug("Transaction committed")
             except Exception as e:
+                await transaction.rollback()
                 logger.debug("Transaction rolled back")
                 raise
+        finally:
+            if connection is not None:
+                await self.connection_pool.release(connection)
+
 
     @classmethod
     async def initialize(cls, connection_pool, query_executor: QueryExecutor = None):

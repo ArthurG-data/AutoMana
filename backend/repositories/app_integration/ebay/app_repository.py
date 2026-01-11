@@ -1,6 +1,6 @@
 from uuid import UUID
 import logging
-from backend.repositories.AbstractRepository import AbstractRepository
+from backend.repositories.abstract_repositories.AbstractDBRepository import AbstractRepository
 from backend.repositories.app_integration.ebay import app_queries
 from typing import Optional
 from backend.repositories.app_integration.ebay import auth_queries

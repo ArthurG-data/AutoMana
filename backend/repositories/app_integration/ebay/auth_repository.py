@@ -1,12 +1,9 @@
-from asyncio.log import logger
-from multiprocessing import connection
-from backend.repositories.AbstractRepository import AbstractRepository
+
+
+from backend.repositories.abstract_repositories.AbstractDBRepository import AbstractRepository
 from backend.repositories.app_integration.ebay import auth_queries
 from backend.core.settings import Settings, get_settings as get_general_settings
-from typing import Any, Generator
-import urllib, httpx
 from uuid import UUID
-from pydantic import  HttpUrl
 from typing import Optional
 from backend.schemas.app_integration.ebay.auth import   ExangeRefreshData, TokenRequestData, TokenResponse
 

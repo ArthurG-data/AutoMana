@@ -106,7 +106,7 @@ services:
       context: ..
       dockerfile: deploy/docker/celery/celery.Dockerfile
     volumes:
-      - "G:/data/scryfall:/data/scryfall"
+      - "G:/data:/data"
     secrets:
       - celery_db_password
     container_name: automana-celery-dev
@@ -115,8 +115,6 @@ services:
     environment:
       POSTGRES_USER: ${APP_CELERY_DB_USER}
       POSTGRES_PASSWORD_FILE: /run/secrets/celery_db_password
-      CELERY_CONCURRENCY: "4"
-      CELERY_LOGLEVEL: "INFO"
       CELERY_POOL: "prefork"
       MODULES_NAMESPACE: celery
     depends_on:
@@ -126,10 +124,11 @@ services:
           condition: service_healthy
     networks:
       - backend-network
+
     command: >
-      sh -c "celery -A celery_app.main.celery_app worker
-      --loglevel=${CELERY_LOGLEVEL:-INFO}
-      --concurrency=${CELERY_CONCURRENCY:-4}"
+      sh -c "celery -A celery_app.main:celery_app worker -P solo
+      --loglevel=${CELERY_LOGLEVEL:-DEBUG}
+      --concurrency=${CELERY_CONCURRENCY:-1}"
     healthcheck:
       test: ["CMD-SHELL", "celery -A celery_app.main.tasks inspect ping || exit 1"]
       interval: 10s

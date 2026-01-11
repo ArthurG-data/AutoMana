@@ -1,4 +1,4 @@
-from backend.repositories.AbstractRepository import AbstractRepository
+from backend.repositories.abstract_repositories.AbstractDBRepository import AbstractRepository
 
 class AuthRepository(AbstractRepository):
     def __init__(self, connection, queryexecutor):

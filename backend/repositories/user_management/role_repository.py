@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional
-from backend.repositories.AbstractRepository import AbstractRepository
+from backend.repositories.abstract_repositories.AbstractDBRepository import AbstractRepository
 from uuid import UUID
 from typing import Optional
 from backend.schemas.user_management.role import Role

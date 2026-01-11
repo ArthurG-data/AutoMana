@@ -3,8 +3,7 @@ from typing import  Optional, Any, Sequence
 from uuid import UUID
 from dataclasses import dataclass, field
 
-from backend.repositories.AbstractRepository import AbstractRepository
-from backend.schemas.card_catalog.card import CreateCard, CreateCards
+from backend.repositories.abstract_repositories.AbstractDBRepository import AbstractRepository
 from backend.repositories.card_catalog import card_queries as queries 
 
 class CardReferenceRepository(AbstractRepository[Any]):
@@ -37,7 +36,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
 
     async def add_many(self, values):
         #not async anymore
-        result = await self.execute_query(queries.insert_batch_card_query, (values,))
+        result = await self.execute_query("SELECT * FROM card_catalog.insert_batch_card_versions($1::JSONB)", (values,))
         batch_result = result[0] if result else {}
         response = CardReferenceRepository.BatchInsertResponse(
             total_processed=batch_result.get('total_processed', 0),

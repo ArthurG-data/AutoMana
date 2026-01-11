@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from backend.repositories.AbstractRepository import AbstractRepository
+from backend.repositories.abstract_repositories.AbstractDBRepository import AbstractRepository
 from typing import Any, Optional, Sequence
 from uuid import UUID
 from backend.schemas.card_catalog.set import NewSet

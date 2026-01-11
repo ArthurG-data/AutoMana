@@ -70,7 +70,7 @@ def process_type_line(card_type_line : str | None):
         subtype_part = normalize(subtype_part)
         subtypes.extend(subtype_part.split())
     if not types:
-        logger.warning("Unknown card type_line: %r", card_type_line)
+        logger.debug("Unknown card type_line: %r", card_type_line)
     return {
         "supertypes": supertypes,
         "types": types,

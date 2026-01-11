@@ -7,6 +7,7 @@ class CeleryAppState:
         self.async_runner = None
         self.initialized = False
         self.settings = get_settings()
+        self.loop = None
 
     def mark_initialized(self):
         self.initialized = True
