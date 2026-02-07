@@ -80,3 +80,6 @@ celerybeat.pid
 staging/
 **/secrets/
 **/secrets/*
+
+# test
+test_services.ipynb
