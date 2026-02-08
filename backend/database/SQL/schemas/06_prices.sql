@@ -39,6 +39,34 @@ CREATE TABLE IF NOT EXISTS pricing.card_game (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+------------------------------fill references table
+INSERT INTO pricing.card_condition (code, description) VALUES
+  ('NM', 'Near Mint'),
+  ('LP', 'Lightly Played'),
+  ('MP', 'Moderately Played'),
+  ('HP', 'Heavily Played'),
+  ('DMG','Damaged'),
+  ('SP', 'Slightly Played')
+ON CONFLICT (code) DO NOTHING;
+
+-- Price metrics
+INSERT INTO pricing.price_metric (code, description) VALUES
+  ('price_low',    'Price low'),
+  ('price_avg',    'Price average'),
+  ('price_market', 'Market price'),
+  ('price_foil',   'Foil market price')
+ON CONFLICT (code) DO NOTHING;
+
+-- Finishes
+INSERT INTO pricing.card_finished (code, description) VALUES
+  ('NONFOIL', 'Nonfoil'),
+  ('FOIL',    'Foil'),
+  ('ETCHED',  'Etched')
+ON CONFLICT (code) DO NOTHING;
+
+INSERT INTO pricing.price_source (code, name) VALUES  
+  ('mtgstocks', 'MTG Stock')
+ON CONFLICT (code) DO NOTHING;
 
 -- create hypertable
 SELECT create_hypertable('pricing.price_observation',
@@ -68,9 +96,9 @@ SELECT add_compression_policy('pricing.price_observation', INTERVAL '180 days');
 
 
 DROP TABLE IF EXISTS pricing.raw_mtg_stock_price;
-CREATE UNLOGGED TABLE raw_mtg_stock_price(
+CREATE TABLE pricing.raw_mtg_stock_price(
     ts_date       DATE        NOT NULL,
-    game_code     TEXT       NOT NULL, --REFERENCES card_game(game_id),
+    game_code     TEXT       NOT NULL, --REFERENCES card_game_ref(game_id),
     print_id      BIGINT      NOT NULL,
     price_low     NUMERIC(12,4),
     price_avg     NUMERIC(12,4),
@@ -82,9 +110,9 @@ CREATE UNLOGGED TABLE raw_mtg_stock_price(
 );
 
 DROP TABLE IF EXISTS pricing.stg_price_observation;
-CREATE UNLOGGED TABLE pricing.stg_price_observation (
+CREATE TABLE pricing.stg_price_observation (
 ts_date       DATE        NOT NULL,
-game_code     TEXT       NOT NULL, --REFERENCES card_game(game_id),
+game_code     TEXT       NOT NULL, --REFERENCES card_game_ref(game_id),
 print_id      BIGINT      NOT NULL,
 metric_code     TEXT    NOT NULL,-- REFERENCES price_metric(metric_id),
 source_code     TEXT    NOT NULL,-- REFERENCES price_source(source_id),
@@ -94,9 +122,9 @@ scraped_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 DROP TABLE IF EXISTS pricing.dim_price_observation;
-CREATE UNLOGGED TABLE IF NOT EXISTS pricing.dim_price_observation (
+CREATE TABLE IF NOT EXISTS pricing.dim_price_observation (
   ts_date       DATE        NOT NULL,
-  game_id      SMALLINT    NOT NULL, --REFERENCES card_game(game_id),
+  game_id      SMALLINT    NOT NULL, --REFERENCES card_game_ref(game_id),
   print_id      BIGINT      NOT NULL,
   source_id     SMALLINT    NOT NULL,-- REFERENCES price_source(source_id),
   metric_id     SMALLINT    NOT NULL,-- REFERENCES price_metric(metric_id),
@@ -108,7 +136,7 @@ CREATE UNLOGGED TABLE IF NOT EXISTS pricing.dim_price_observation (
 DROP TABLE IF EXISTS pricing.price_observation;
 CREATE TABLE IF NOT EXISTS pricing.price_observation (
   ts_date       DATE        NOT NULL,
-  game_id      SMALLINT    NOT NULL REFERENCES card_game(game_id),
+  game_id      SMALLINT    NOT NULL REFERENCES card_catalog.card_games_ref (game_id),
   print_id      BIGINT      NOT NULL,
   source_id     SMALLINT    NOT NULL  REFERENCES price_source(source_id),
   metric_id     SMALLINT    NOT NULL  REFERENCES price_metric(metric_id),
@@ -192,12 +220,12 @@ BEGIN
   RAISE NOTICE 'load_staging_prices_batched: total inserted % rows', total_inserted;
 END;
 $$;
-  
+DROP INDEX IF EXISTS dim_price_obs_ts_idx;
 CREATE OR REPLACE PROCEDURE pricing.load_dim_from_staging()
 LANGUAGE plpgsql
 AS $$
 BEGIN
-  RAISE NOTICE 'Loading dimension from staging...';
+  RAISE LOG 'Loading dimension from staging...';
 
   INSERT INTO pricing.dim_price_observation (
     ts_date, game_id, print_id, source_id, metric_id,
@@ -212,16 +240,17 @@ BEGIN
     s.value,
     s.scraped_at
   FROM pricing.stg_price_observation s
-  JOIN pricing.card_game       cg ON cg.code = s.game_code
+  JOIN card_catalog.card_games_ref       cg ON cg.code = s.game_code
   JOIN pricing.price_source    ps ON ps.code = s.source_code
   JOIN pricing.price_metric pm ON pm.code = s.metric_code
   WHERE s.value IS NOT NULL;
+  RAISE LOG 'Dimension load complete.';
 
-  CREATE INDEX IF NOT EXISTS dim_price_obs_ts_idx
-  ON pricing.dim_price_observation (ts_date);
 END;
 $$;
 
+CREATE INDEX IF NOT EXISTS dim_price_obs_ts_idx
+  ON pricing.dim_price_observation (ts_date);
 CREATE OR REPLACE PROCEDURE pricing.load_prices_from_dim_batched(batch_days int DEFAULT 30)
 LANGUAGE plpgsql
 AS $$

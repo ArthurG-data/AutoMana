@@ -132,9 +132,9 @@ class BaseApiClient(ABC):
         response_parser: Optional[Callable[[httpx.Response], ParsedResponse]] = None,
     ) -> ParsedResponse:
         url = self.get_full_url(endpoint)
+        print(f"Making {method.upper()} request to {url} with params={params} and json={json}")
         hdrs = dict(headers or {})  # avoid None + accidental mutation
         t = timeout or self.timeout
-
         try:
             async with httpx.AsyncClient(timeout=t) as client:
                 resp = await client.request(
@@ -188,7 +188,9 @@ class BaseApiClient(ABC):
         try:
             if self.client is None:
                 async with httpx.AsyncClient(timeout=t) as c:
+                    print(f"Making {method.upper()} request to {url} with params={params} and json={json}")
                     return await c.request(method.upper(), url, params=params, headers=hdrs, json=json, data=data)
+            print(f"Making {method.upper()} request to {url} with params={params} and json={json}")
             return await self.client.request(method.upper(), url, params=params, headers=hdrs, json=json, data=data)
 
         except httpx.RequestError as e:

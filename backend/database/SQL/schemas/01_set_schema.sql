@@ -184,140 +184,151 @@ DECLARE
     v_set_type_id INT;
     v_parent_id UUID;
     v_icon_query_id INT;
+
     v_total_sets INTEGER := 0;
     v_successful_inserts INTEGER := 0;
     v_failed_inserts INTEGER := 0;
+
     v_inserted_set_ids UUID[] := ARRAY[]::UUID[];
     v_errors TEXT[] := ARRAY[]::TEXT[];
     v_error_msg TEXT;
+
+    v_was_inserted BOOLEAN;
 BEGIN
-    -- Count total sets in JSON
+    -- Validate input is an array
+    IF sets_json IS NULL OR jsonb_typeof(sets_json) <> 'array' THEN
+        RAISE EXCEPTION 'sets_json must be a JSONB array';
+    END IF;
+
     SELECT jsonb_array_length(sets_json) INTO v_total_sets;
-    
-    -- Log start of processing
     RAISE NOTICE 'Starting bulk set insert for % sets', v_total_sets;
-    
-    -- Loop through each set in the JSON array
+
     FOR set_record IN SELECT jsonb_array_elements(sets_json)
     LOOP
         BEGIN
-            -- Extract set_id or generate new one
+            -- Extract/generate set_id
             v_set_id := COALESCE(
-                (set_record->>'id')::UUID,
-                (set_record->>'set_id')::UUID,
+                NULLIF(set_record->>'id','')::UUID,
+                NULLIF(set_record->>'set_id','')::UUID,
                 uuid_generate_v4()
             );
-            
-            -- ✅ UPSERT: Set type
+
+            -- UPSERT set_type and get id (concurrency-safe)
             INSERT INTO card_catalog.set_type_list_ref (set_type)
             VALUES (set_record->>'set_type')
-            ON CONFLICT (set_type) DO NOTHING;
-            
-            -- Get set type ID
-            SELECT set_type_id INTO v_set_type_id
-            FROM card_catalog.set_type_list_ref
-            WHERE set_type = set_record->>'set_type';
-            
-            -- ✅ HANDLE: Parent set (optional)
+            ON CONFLICT (set_type)
+            DO UPDATE SET set_type = EXCLUDED.set_type
+            RETURNING set_type_id
+            INTO v_set_type_id;
+
+            -- Parent set lookup (optional)
             v_parent_id := NULL;
-            IF set_record ? 'parent_set_code' AND set_record->>'parent_set_code' IS NOT NULL THEN
-                SELECT set_id INTO v_parent_id
-                FROM card_catalog.sets
-                WHERE set_code = set_record->>'parent_set_code';
+            IF set_record ? 'parent_set_code'
+               AND NULLIF(set_record->>'parent_set_code','') IS NOT NULL
+            THEN
+                SELECT s.set_id INTO v_parent_id
+                FROM card_catalog.sets s
+                WHERE s.set_code = set_record->>'parent_set_code'
+                LIMIT 1;
             END IF;
-            
-            -- ✅ INSERT: Main set record
-            INSERT INTO card_catalog.sets (
-                set_id,
-                set_name,
-                set_code,
-                set_type_id,
-                released_at,
-                digital,
-                nonfoil_only,
-                foil_only,
-                parent_set
+
+            -- UPSERT main set row
+            WITH upsert AS (
+                INSERT INTO card_catalog.sets (
+                    set_id,
+                    set_name,
+                    set_code,
+                    set_type_id,
+                    released_at,
+                    digital,
+                    nonfoil_only,
+                    foil_only,
+                    parent_set
+                )
+                VALUES (
+                    v_set_id,
+                    set_record->>'name',
+                    set_record->>'code',
+                    v_set_type_id,
+                    NULLIF(set_record->>'released_at','')::DATE,
+                    COALESCE((set_record->>'digital')::BOOLEAN, FALSE),
+                    COALESCE((set_record->>'nonfoil_only')::BOOLEAN, FALSE),
+                    COALESCE((set_record->>'foil_only')::BOOLEAN, FALSE),
+                    v_parent_id
+                )
+                ON CONFLICT (set_id)
+                DO UPDATE SET
+                    set_name     = EXCLUDED.set_name,
+                    set_code     = EXCLUDED.set_code,
+                    set_type_id  = EXCLUDED.set_type_id,
+                    released_at  = EXCLUDED.released_at,
+                    digital      = EXCLUDED.digital,
+                    nonfoil_only = EXCLUDED.nonfoil_only,
+                    foil_only    = EXCLUDED.foil_only,
+                    parent_set   = EXCLUDED.parent_set,
+                    updated_at   = NOW()
+                RETURNING (xmax = 0) AS inserted
             )
-            VALUES (
-                v_set_id,
-                set_record->>'name',
-                set_record->>'code',
-                v_set_type_id,
-                (set_record->>'released_at')::DATE,
-                COALESCE((set_record->>'digital')::BOOLEAN, FALSE),
-                COALESCE((set_record->>'nonfoil_only')::BOOLEAN, FALSE),
-                COALESCE((set_record->>'foil_only')::BOOLEAN, FALSE),
-                v_parent_id
-            )
-            ON CONFLICT (set_id) DO UPDATE SET
-                set_name = EXCLUDED.set_name,
-                set_code = EXCLUDED.set_code,
-                set_type_id = EXCLUDED.set_type_id,
-                released_at = EXCLUDED.released_at,
-                digital = EXCLUDED.digital,
-                nonfoil_only = EXCLUDED.nonfoil_only,
-                foil_only = EXCLUDED.foil_only,
-                parent_set = EXCLUDED.parent_set,
-                updated_at = NOW();
-            
-            -- ✅ HANDLE: Icon URI (if provided)
-            IF set_record ? 'icon_svg_uri' AND set_record->>'icon_svg_uri' IS NOT NULL THEN
-                -- Insert icon query reference
+            SELECT inserted INTO v_was_inserted FROM upsert;
+
+            IF v_was_inserted THEN
+                v_successful_inserts := v_successful_inserts + 1;
+                v_inserted_set_ids := array_append(v_inserted_set_ids, v_set_id);
+            END IF;
+
+            -- Icon URI link (optional)
+            IF set_record ? 'icon_svg_uri'
+               AND NULLIF(set_record->>'icon_svg_uri','') IS NOT NULL
+            THEN
                 INSERT INTO card_catalog.icon_query_ref (icon_query_uri)
                 VALUES (set_record->>'icon_svg_uri')
                 ON CONFLICT (icon_query_uri) DO NOTHING;
-                
-                -- Get icon query ID
-                SELECT icon_query_id INTO v_icon_query_id
-                FROM card_catalog.icon_query_ref
-                WHERE icon_query_uri = set_record->>'icon_svg_uri';
-                
-                -- Link icon to set
+
+                SELECT iqr.icon_query_id INTO v_icon_query_id
+                FROM card_catalog.icon_query_ref iqr
+                WHERE iqr.icon_query_uri = set_record->>'icon_svg_uri'
+                LIMIT 1;
+
                 IF v_icon_query_id IS NOT NULL THEN
                     INSERT INTO card_catalog.icon_set (icon_query_id, set_id)
                     VALUES (v_icon_query_id, v_set_id)
                     ON CONFLICT DO NOTHING;
                 END IF;
             END IF;
-            
-            -- ✅ SUCCESS: Increment counters
-            v_successful_inserts := v_successful_inserts + 1;
-            v_inserted_set_ids := array_append(v_inserted_set_ids, v_set_id);
-            
+
         EXCEPTION WHEN OTHERS THEN
-            -- ✅ ERROR HANDLING: Log error and continue
             v_failed_inserts := v_failed_inserts + 1;
-            v_error_msg := format('Set %s failed: %s', 
-                COALESCE(set_record->>'name', set_record->>'code', 'unknown'), 
+            v_error_msg := format(
+                'Set %s failed: %s',
+                COALESCE(NULLIF(set_record->>'name',''), NULLIF(set_record->>'code',''), 'unknown'),
                 SQLERRM
             );
             v_errors := array_append(v_errors, v_error_msg);
-            
             RAISE NOTICE 'Error inserting set: %', v_error_msg;
-        END;
+        END;  -- <-- IMPORTANT: closes per-record BEGIN/EXCEPTION
     END LOOP;
-    
-    -- ✅ REFRESH: Materialized view
+
+    -- Refresh materialized view (optional)
     BEGIN
         REFRESH MATERIALIZED VIEW card_catalog.v_joined_set_materialized;
         RAISE NOTICE 'Refreshed materialized view card_catalog.v_joined_set_materialized';
     EXCEPTION WHEN OTHERS THEN
         RAISE NOTICE 'Failed to refresh materialized view: %', SQLERRM;
     END;
-    
-    -- ✅ RETURN: Processing statistics
-    RETURN QUERY SELECT 
+
+    RETURN QUERY
+    SELECT
         v_total_sets,
         v_successful_inserts,
         v_failed_inserts,
-        CASE 
+        CASE
             WHEN v_total_sets > 0 THEN ROUND((v_successful_inserts::NUMERIC / v_total_sets::NUMERIC) * 100, 2)
             ELSE 0.00
         END,
         v_inserted_set_ids,
         v_errors;
-    
-    RAISE NOTICE 'Bulk set insert completed: %/% successful', v_successful_inserts, v_total_sets;
+
+    RAISE NOTICE 'Bulk set insert completed: %/% inserted (new)', v_successful_inserts, v_total_sets;
 END;
 $$ LANGUAGE plpgsql;
 

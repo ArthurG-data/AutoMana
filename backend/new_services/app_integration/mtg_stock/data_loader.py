@@ -145,18 +145,10 @@ async def run_mtgstock_pipeline(
     processed = 0 
     errored = 0
     step = 1
-    '''
-    run key ois not a vaild argument here, it is set in the pipeline task
-    await ops_repository.update_run(
-            run_key=run_key,
-            status="running",
-            current_step="mtgStock_data_loader",
-            celery_task_id=celery_task_id
-        )
-    '''
     #first, download all new prices for prints with existing data
     existing_ids = get_existing_ids(destination_folder)
     logger.info(f"Found {len(existing_ids)} existing print IDs to update prices for.")
+    logger.info(f"First index passed: {first_index}")
     start_index = existing_ids.index(first_index) if first_index in existing_ids else 0
     logger.info(f"Starting price updates from index {start_index} (print ID {existing_ids[start_index] if existing_ids else 'N/A'})")
     total_prints = len(existing_ids)
@@ -172,7 +164,6 @@ async def run_mtgstock_pipeline(
             start_index =  end
     except Exception as e:
         logger.error(f"Error updating prices: {e}")
-        return
         processed, errored, step = await end_of_batch_process(ops_repository
                                                                   , ingestion_run_id
                                                                   , step
@@ -187,6 +178,7 @@ async def run_mtgstock_pipeline(
     #then, process all remaining prints in batches
 
     last_existing_id = await get_last_print_id(mtg_stock_repository, max(existing_ids) if existing_ids else 0)
+    logger.info(f"New prints added until {last_existing_id}, starting full load from {max(existing_ids)+1 if existing_ids else 1}")
     total_prints = last_existing_id
     try:
         for start in range(existing_ids[-1] +1, last_existing_id + 1, batch_size):

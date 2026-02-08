@@ -62,6 +62,8 @@ CREATE TABLE IF NOT EXISTS card_catalog.layouts_ref (
 CREATE TABLE IF NOT EXISTS card_catalog.keywords_ref (
     keyword_id SERIAL PRIMARY KEY,
     keyword_name VARCHAR(50) UNIQUE NOT NULL,
+    first_added TIMESTAMPTZ DEFAULT now(),
+    last_used DATE  DEFAULT now(),
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -245,6 +247,17 @@ CREATE TABLE IF NOT EXISTS card_catalog.card_identifier_ref (
     UNIQUE (identifier_name)
 );
 
+
+CREATE TABLE IF NOT EXISTS card_catalog.card_games_ref (
+    game_id SERIAL PRIMARY KEY,
+    code VARCHAR(10) UNIQUE NOT NULL,
+    name VARCHAR(50) UNIQUE NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+INSERT INTO card_catalog.card_games_ref (code, name) VALUES
+('mtg', 'Magic: The Gathering');
 --VIEWS -------------------------------------
 CREATE OR REPLACE VIEW card_catalog.v_card_version_count AS
 SELECT
@@ -1087,6 +1100,9 @@ SELECT
 FROM card_catalog.v_card_versions_complete
 GROUP BY set_name, set_code;    
 COMMIT;
+--------------Insert values
+
+
 ##############
 -- END OF FILE --
 ##############

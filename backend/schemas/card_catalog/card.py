@@ -126,6 +126,7 @@ class CreateCard(BaseCard):
         self.layout,
         self.is_promo,
         self.is_digital,
+        json.dumps(self.keywords),
         json.dumps(self.card_color_identity),        # p_colors
         self.artist,
         self.artist_ids[0] if self.artist_ids else UUID("00000000-0000-0000-0000-000000000000"),
@@ -174,8 +175,6 @@ class CreateCard(BaseCard):
             "reserved": data["reserved"],
             "oracle_text": data["oracle_text"] or "",
 
-
-            
             "set_name": data["set_name"],
             "collector_number": str(data["collector_number"]),
             "rarity_name": data["rarity_name"],
@@ -184,6 +183,7 @@ class CreateCard(BaseCard):
             "layout_name": data["layout"],
             "is_promo": data["promo"],
             "is_digital": data["digital"],
+            "keywords": data["keywords"],
             "colors": data["color_identity"],
             "artist": data["artist"],
             "artist_id": str(data["artist_ids"][0]) if data["artist_ids"] else  "00000000-0000-0000-0000-000000000000",

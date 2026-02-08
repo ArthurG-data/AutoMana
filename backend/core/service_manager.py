@@ -1,9 +1,10 @@
 import importlib, logging
-from typing import  Optional, Callable
+from typing import  Optional
 from contextlib import asynccontextmanager
 from backend.core.QueryExecutor import QueryExecutor
 from backend.core.service_modules import SERVICE_MODULES
 from backend.core.service_registry import ServiceRegistry
+from backend.core.storage import StorageService
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +80,7 @@ class ServiceManager:
             logger.error(f"Error initializing ServiceManager: {e}")
             raise
     
+    '''
     @staticmethod
     def get_service_function(path: str):
         """
@@ -94,6 +96,24 @@ class ServiceManager:
         module = importlib.import_module(service_config.module)
         return getattr(module, service_config.function)
     
+    '''
+
+    @staticmethod
+    def get_storage_service(storage_type_name: str) -> StorageService:
+        """Get the service function for a given path"""
+        from backend.core.storage import StorageService
+        import importlib
+        #get the name of the storage service from the registry
+        storage_backend = ServiceRegistry.get_storage_service(storage_type_name)
+        #load the storage service module
+        module = importlib.import_module(storage_backend[0])
+        class_backend_storage = getattr(module, storage_backend[1])
+        #instanciate the storage service and return it
+        instanciated_storage_backend = class_backend_storage()
+        #load the correct 
+        storage_service = StorageService(instanciated_storage_backend)
+        return storage_service
+
     @classmethod
     async def execute_service(cls, service_path: str, **kwargs):
         """Execute a service by path with provided parameters"""
@@ -118,6 +138,10 @@ class ServiceManager:
             logger.error(f"Error loading service {service_path}: {e}")
             raise ValueError(f"Service {service_path} not found: {str(e)}")
         
+        #storage
+        storage_service = None
+        if len(service_config.storage_services) > 0:
+            storage_service = self.get_storage_service(service_config.storage_services[0])
         # Execute within transaction
         async with self.transaction() as conn:
             repositories = {}
@@ -145,8 +169,9 @@ class ServiceManager:
                 env = kwargs.pop("environment", "sandbox")
                 repositories[f"{repo_type}_repository"] = repo_class(environment=env)
             
+       
             logger.debug(f"Executing {service_path} with repos: {list(repositories.keys())}")
-            result = await service_method(**repositories, **kwargs)
+            result = await service_method(**repositories,storage_service=storage_service, **kwargs)
         return result
     
                 

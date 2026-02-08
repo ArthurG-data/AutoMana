@@ -1,12 +1,13 @@
-from backend.repositories.abstract_repositories.AbstractAPIRepository import AbstractAPIRepository
+from backend.repositories.abstract_repositories.AbstractAPIRepository import BaseApiClient
 from backend.core.settings import Settings
 import logging
 
-class ApimtgjsonRepository(AbstractAPIRepository):
-    def __init__(self, settings: Settings)  :
-        super().__init__( settings)
-
-        
+class ApimtgjsonRepository(BaseApiClient):
+    def __init__(self
+                   , environment: str 
+                 ,  timeout: int = 30
+                 ,settings: Settings = None):
+        super().__init__(timeout=timeout)
 
     def name(self) -> str:
         return "ApimtgjsonRepository"
@@ -20,13 +21,20 @@ class ApimtgjsonRepository(AbstractAPIRepository):
             "User-Agent": "AutoMana/1.0"
         }
     
+
+    async def fetch_all_prices_data(self) -> dict:
+        """Fetch the data from the previous 90 days"""
+        return await self._get("AllPrices.json.xz")
+    
+    def fetch_price_today(self) -> dict:
+        return self._get_sync("AllPrices.json.xz")
     async def fetch_card_data(self, extension) -> dict:
         return await self._get(extension)
     
     async def _get(self, endpoint: str, params: dict | None = None) -> dict:
-        url = f"{self._get_base_url()}/{endpoint}"
+     
+   
         headers = self.default_headers()
-        async with self._session.get(url, headers=headers) as response:
-            response.raise_for_status()
-            return await response.json()
+        result = await self.request(method="GET", endpoint=endpoint, headers=headers) 
+        return result
     

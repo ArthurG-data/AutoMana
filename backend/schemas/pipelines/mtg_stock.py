@@ -5,6 +5,7 @@ import json
 @dataclass
 class MTGStockBatchStep:
     ingestion_run_id: int
+    step_name: str
     batch_seq: int
     range_start: int
     range_end: int
@@ -19,6 +20,7 @@ class MTGStockBatchStep:
     def to_dict(self):
         return {
             "ingestion_run_id": self.ingestion_run_id,
+            "step_name": self.step_name,
             "batch_seq": self.batch_seq,
             "range_start": self.range_start,
             "range_end": self.range_end,
@@ -33,6 +35,7 @@ class MTGStockBatchStep:
     def to_tuple(self):
         return (
             self.ingestion_run_id,
+            self.step_name,
             self.batch_seq,
             self.range_start,
             self.range_end,

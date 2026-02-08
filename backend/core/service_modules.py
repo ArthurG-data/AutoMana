@@ -11,7 +11,9 @@ SERVICE_MODULES : dict[str, list[str]]= {
             "backend.new_services.app_integration.ebay.browsing_services",
             "backend.new_services.app_integration.ebay.selling_services",
             "backend.new_services.ops.pipeline_services",
-            "backend.new_services.app_integration.scryfall.data_loader"
+            "backend.new_services.app_integration.scryfall.data_loader",
+            "backend.new_services.app_integration.mtgjson.data_loader",
+            
         ],
 
     "celery": [
@@ -20,6 +22,7 @@ SERVICE_MODULES : dict[str, list[str]]= {
              "backend.new_services.ops.pipeline_services",
             "backend.new_services.app_integration.scryfall.data_loader",
             "backend.new_services.app_integration.mtg_stock.data_loader",
+            "backend.new_services.app_integration.mtg_stock.data_staging",
             "backend.new_services.app_integration.mtgjson.mtgjson_service",
             "backend.new_services.analytics.reporting_services"
             
@@ -37,6 +40,8 @@ SERVICE_MODULES : dict[str, list[str]]= {
             "backend.new_services.app_integration.ebay.selling_services", 
             "backend.new_services.app_integration.scryfall.data_loader",
             "backend.new_services.ops.pipeline_services",
-            "backend.new_services.analytics.reporting_services"
+            "backend.new_services.app_integration.mtg_stock.data_staging",
+            "backend.new_services.analytics.reporting_services",
+            "backend.new_services.app_integration.mtgjson.data_loader",
     ]
 }

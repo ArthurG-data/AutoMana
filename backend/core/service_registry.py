@@ -12,6 +12,7 @@ class ServiceConfig:
     function: str
     db_repositories: List[str] = field(default_factory=list)
     api_repositories: List[str] = field(default_factory=list)
+    storage_services: List[str] = field(default_factory=list)
 
 
 class ServiceRegistry:
@@ -24,13 +25,15 @@ class ServiceRegistry:
     _services: Dict[str, ServiceConfig] = {}
     _repository_registry: Dict[str, tuple[str, str]] = {}
     _api_repository_registry: Dict[str, tuple[str, str]] = {}
+    _storage_registry: Dict[str, tuple[str, str]] = {}
     
     @classmethod
     def register(
         cls,
         path: str,
         db_repositories: List[str] = None,
-        api_repositories: List[str] = None
+        api_repositories: List[str] = None,
+        storage_services: List[str] = None
     ) -> Callable:
         """
         Decorator to register a service function.
@@ -48,7 +51,8 @@ class ServiceRegistry:
                 module=func.__module__,
                 function=func.__name__,
                 db_repositories=db_repositories or [],
-                api_repositories=api_repositories or []
+                api_repositories=api_repositories or [],
+                storage_services=storage_services or []
             )
             logger.debug(f"Registered service: {path}")
             return func
@@ -75,6 +79,12 @@ class ServiceRegistry:
         """Register an API repository type"""
         cls._api_repository_registry[name] = (module_path, class_name)
         logger.debug(f"Registered API repository: {name}")
+
+    @classmethod
+    def register_storage_service(cls, name: str, module_path: str, class_name: str) -> None:
+        """Register a storage service type"""
+        cls._storage_registry[name] = (module_path, class_name)
+        logger.debug(f"Registered storage service: {name}")
     
     @classmethod
     def get_db_repository(cls, name: str) -> Optional[tuple[str, str]]:
@@ -85,6 +95,11 @@ class ServiceRegistry:
     def get_api_repository(cls, name: str) -> Optional[tuple[str, str]]:
         """Get API repository module path and class name"""
         return cls._api_repository_registry.get(name)
+    
+    @classmethod
+    def get_storage_service(cls, name: str) -> Optional[tuple[str, str]]:
+        """Get storage service module path and class name"""
+        return cls._storage_registry.get(name)
     
     @classmethod
     def list_services(cls) -> List[str]:
@@ -143,7 +158,7 @@ ServiceRegistry.register_db_repository(
 )
 
 ServiceRegistry.register_db_repository(
-    "Mtgjson", "backend.repositories.app_integration.mtgjson.mtgjson_repository", "MtgjsonRepository"
+    "mtgjson", "backend.repositories.app_integration.mtgjson.mtgjson_repository", "MtgjsonRepository"
 )
 
 # Analytics repositories
@@ -170,4 +185,8 @@ ServiceRegistry.register_api_repository(
 
 ServiceRegistry.register_api_repository(
     "mtgjson", "backend.repositories.app_integration.mtgjson.Apimtgjson_repository", "ApimtgjsonRepository"
+)
+
+ServiceRegistry.register_storage_service(
+    "local_storage", "backend.core.storage", "LocalStorageBackend"
 )

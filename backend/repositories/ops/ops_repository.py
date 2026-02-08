@@ -8,27 +8,32 @@ class OpsRepository(AbstractRepository):
     @property
     def name(self):
         return "OpsRepository"
-
     async def insert_batch_step(
             self, 
         batch_step: MTGStockBatchStep
     ):
         query = """
         INSERT INTO ops.ingestion_step_batches (
-            ingestion_run_step_id,
-            batch_seq,
-            range_start,
-            range_end,
-            status,
-            items_ok,
-            items_failed,
-            bytes_processed,
-            duration_ms,
-            error_code,
-            error_details)
-        VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-            ON CONFLICT (ingestion_run_step_id, batch_seq) DO NOTHING;
+        ingestion_run_step_id,
+        batch_seq,
+        range_start,
+        range_end,
+        status,
+        items_ok,
+        items_failed,
+        bytes_processed,
+        duration_ms,
+        error_code,
+        error_details
+    )
+    SELECT
+        st.id,
+        $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+    FROM ops.ingestion_run_steps st
+    WHERE st.ingestion_run_id = $1
+    AND st.step_name = $2
+    LIMIT 1
+    ON CONFLICT (ingestion_run_step_id, batch_seq) DO NOTHING;
         """
         await self.execute_query(
             query,

@@ -1,16 +1,10 @@
 from celery import shared_task, chain
 import logging
 from celery_app.main import run_service
-
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-
-@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
-def daily_summary_report(self):
-    
-    pass
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
 def daily_scryfall_data_pipeline(self):
     run_key = f"scryfall_daily:{datetime.utcnow().date().isoformat()}"
@@ -29,22 +23,28 @@ def daily_scryfall_data_pipeline(self):
         run_service.s("staging.scryfall.download_cards_bulk"),
         run_service.s("card_catalog.card.process_large_json"),
         run_service.s("ops.pipeline_services.finish_run", status="success"),
-        run_service.s("staging.scryfall.delete_old_scryfall_folders", keep=3)
+        run_service.s("staging.scryfall.delete_old_scryfall_folders", keep=3),
     )
     return wf.apply_async().id
  
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
-def mtgStock_data_pipeline(self):
+def mtgStock_download_pipeline(self):
     run_key = f"mtgStock_All:{datetime.utcnow().date().isoformat()}"
     wf = chain(
-        run_service.s("mtg_stock.data_loader.run_full_load",
-                      destination_folder="/data/mtgstocks/raw/prints/",
-                      ingestion_run_id=41,
-                      batch_size=50,
+        run_service.s("ops.pipeline_services.start_run",#new test
+                      pipeline_name="mtg_stock_all",
+                      source_name="mtgStock",
                       run_key=run_key,
-                      celery_task_id=self.request.id,
-                      first_index=90951
-                      )
+                      celery_task_id=self.request.id
+                      ),
+        run_service.s("mtg_stock.data_staging.bulk_load",
+                      root_folder="/data/mtgstocks/raw/prints/",
+                      batch_size=1000
+                      ),
+        run_service.s("mtg_stock.data_staging.from_raw_to_staging"),
+        run_service.s("mtg_stock.data_staging.from_staging_to_dim"),
+        run_service.s("mtg_stock.data_staging.from_dim_to_prices"),
+        run_service.s("ops.pipeline_services.finish_run", status="success" )
     )
     return wf.apply_async().id
 
@@ -79,4 +79,10 @@ def last_90_mtgjson_data_pipeline(self):
                        run_key=run_key,
                       source_name="mtgStock",
                       celery_task_id=self.request.id)
-'''
+'''    '''
+        run_service.s("mtg_stock.data_loader.run_full_load",
+                      destination_folder="/data/mtgstocks/raw/prints/",
+                      batch_size=50,
+                      first_index=131977
+                      ),
+        '''
