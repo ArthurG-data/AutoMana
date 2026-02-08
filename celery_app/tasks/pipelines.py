@@ -50,39 +50,17 @@ def mtgStock_download_pipeline(self):
 
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
-def last_90_mtgjson_data_pipeline(self):
-    run_key = f"mtgjson_All:{datetime.utcnow().date().isoformat()}"
+def daily_mtgjson_data_pipeline(self):
+    run_key = f"mtgjson_daily:{datetime.utcnow().date().isoformat()}"
     logger.info("Starting MTGJSON data pipeline with run key: %s", run_key)
     wf = chain(
         run_service.s("ops.pipeline_services.start_run",
-                       pipeline_name="mtgjson_All",
+                       pipeline_name="mtgjson_daily",
                        run_key=run_key,
                       source_name="mtgjson",
                       celery_task_id=self.request.id
                       ),
-        ''',
-        run_service.s(
-            "mtgjson.data_loader.download_mtgjson_data"
-
-
-        ),
-        run_service.s("mtgjson.data_loader.stage_mtgjson_data",
-                      destination_folder="/data/mtgjson/raw/",
-                      run_key=run_key,
-                      celery_task_id=self.request.id,
-                      )'''
+        run_service.s("mtgjson.data.staging.today"),
+        run_service.s("ops.pipeline_services.finish_run", status="success" )
     )
     return wf.apply_async().id
-'''
-        run_service.s("ops.pipeline_services.start_run",
-                       pipeline_name="mtgStock_All",
-                       run_key=run_key,
-                      source_name="mtgStock",
-                      celery_task_id=self.request.id)
-'''    '''
-        run_service.s("mtg_stock.data_loader.run_full_load",
-                      destination_folder="/data/mtgstocks/raw/prints/",
-                      batch_size=50,
-                      first_index=131977
-                      ),
-        '''

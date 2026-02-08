@@ -26,8 +26,10 @@ class ApimtgjsonRepository(BaseApiClient):
         """Fetch the data from the previous 90 days"""
         return await self._get("AllPrices.json.xz")
     
-    def fetch_price_today(self) -> dict:
-        return self._get_sync("AllPrices.json.xz")
+    async def fetch_price_today(self) -> dict:
+        return await self._get("AllPricesToday.json.xz")
+    
+
     async def fetch_card_data(self, extension) -> dict:
         return await self._get(extension)
     

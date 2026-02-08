@@ -20,6 +20,10 @@ beat_schedule = {
         "task": "celery_app.tasks.pipelines.daily_scryfall_data_pipeline",
         "schedule": crontab(hour=8, minute=8),  # 02:00 AEST
     },
+        "refresh-mtgjson-daily": {
+            "task": "celery_app.tasks.pipelines.daily_mtgjson_data_pipeline",
+            "schedule": crontab(hour=9, minute=8),  # 03:00 AEST
+        },
     "daily-analytics-report": {
         "task": "celery_app.tasks.analytics.daily_summary_analytics_task",
         "schedule": crontab(hour=11, minute=0),  # 03:00 AEST
