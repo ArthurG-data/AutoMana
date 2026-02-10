@@ -85,7 +85,7 @@ staging/
 test_services.ipynb
 
 #sscehmaspy
-docs/db-schema/
+schemaspy/
 
 
 
