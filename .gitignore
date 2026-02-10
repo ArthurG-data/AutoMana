@@ -85,4 +85,6 @@ staging/
 test_services.ipynb
 
 #sscehmaspy
-schemaspy.properties
+schemaspy/
+
+
