@@ -155,15 +155,15 @@ CREATE TABLE IF NOT EXISTS card_catalog.illustrations(
 );
 
 CREATE TABLE IF NOT EXISTS card_catalog.illustration_artist (
-    illustration_id uuid PRIMARY KEY REFERENCES illustrations(illustration_id),
-    artist_id uuid NOT NULL REFERENCES artists_ref(artist_id),
+    illustration_id uuid PRIMARY KEY REFERENCES card_catalog.illustrations(illustration_id),
+    artist_id uuid NOT NULL REFERENCES card_catalog.artists_ref(artist_id),
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS card_catalog.card_version_illustration (
-    card_version_id UUID PRIMARY KEY REFERENCES card_version(card_version_id),
-    illustration_id UUID NOT NULL REFERENCES illustrations(illustration_id),
+    card_version_id UUID PRIMARY KEY REFERENCES card_catalog.card_version(card_version_id),
+    illustration_id UUID NOT NULL REFERENCES card_catalog.illustrations(illustration_id),
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -192,15 +192,15 @@ INSERT INTO card_catalog.card_stats_ref (stat_name, stat_description) VALUES
 
 -- versioned stats table
 CREATE TABLE IF NOT EXISTS card_catalog.card_version_stats (
-    card_version_id UUID NOT NULL REFERENCES card_version(card_version_id),
-    stat_id INT NOT NULL REFERENCES card_stats_ref(stat_id),
+    card_version_id UUID NOT NULL REFERENCES card_catalog.card_version(card_version_id),
+    stat_id INT NOT NULL REFERENCES card_catalog.card_stats_ref(stat_id),
     stat_value TEXT NOT NULL,
     PRIMARY KEY (card_version_id, stat_id)
 );
 
 CREATE TABLE IF NOT EXISTS card_catalog.games_card_version (
-    game_id INT NOT NULL REFERENCES games_ref(game_id),
-    card_version_id UUID NOT NULL REFERENCES card_version(card_version_id),
+    game_id INT NOT NULL REFERENCES card_catalog.games_ref(game_id),
+    card_version_id UUID NOT NULL REFERENCES card_catalog.card_version(card_version_id),
     PRIMARY KEY (game_id, card_version_id)
 );
 CREATE TABLE IF NOT EXISTS card_catalog.promo_types_ref (
@@ -209,14 +209,14 @@ CREATE TABLE IF NOT EXISTS card_catalog.promo_types_ref (
 );
 
 CREATE TABLE IF NOT EXISTS card_catalog.promo_card (
-    promo_id INT NOT NULL REFERENCES promo_types_ref(promo_id),
-    card_version_id UUID NOT NULL REFERENCES card_version(card_version_id),
+    promo_id INT NOT NULL REFERENCES card_catalog.promo_types_ref(promo_id),
+    card_version_id UUID NOT NULL REFERENCES card_catalog.card_version(card_version_id),
 	PRIMARY KEY (promo_id, card_version_id)
 );
 
 CREATE TABLE IF NOT EXISTS card_catalog.card_faces (
     card_faces_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    card_version_id UUID NOT NULL REFERENCES card_version(card_version_id),
+    card_version_id UUID NOT NULL REFERENCES card_catalog.card_version(card_version_id),
     face_index INT,
     name TEXT NOT NULL,
     mana_cost TEXT,
@@ -230,8 +230,8 @@ CREATE TABLE IF NOT EXISTS card_catalog.card_faces (
 );
 
 CREATE TABLE IF NOT EXISTS card_catalog.card_external_identifier (
-    card_identifier_ref_id SMALLINT NOT NULL REFERENCES card_identifier_ref(card_identifier_ref_id),
-    card_version_id UUID NOT NULL REFERENCES card_version(card_version_id),
+    card_identifier_ref_id SMALLINT NOT NULL REFERENCES card_catalog.card_identifier_ref(card_identifier_ref_id),
+    card_version_id UUID NOT NULL REFERENCES card_catalog.card_version(card_version_id),
     value TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now(),

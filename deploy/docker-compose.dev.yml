@@ -162,6 +162,31 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+  schema-spy:
+    build:
+      context: ..
+      dockerfile: deploy/docker/schemaspy/Dockerfile
+    container_name: automana-schemaspy-dev
+    env_file:
+      - ../config/env/.env.dev
+    secrets:
+      - readonly_db_password
+    volumes:
+      - ../schemaspy:/app/schemaspy
+    depends_on:
+      postgres:
+          condition: service_healthy
+    entrypoint:
+    - sh
+    - -c
+    - |
+
+      ls -la /drivers/
+      POSTGRES_PASSWORD=$(cat /run/secrets/readonly_db_password)
+      java -jar /usr/local/lib/schemaspy/schemaspy*.jar -t pgsql -host postgres -port 5432 -db automana -u app_readonly -p "$$POSTGRES_PASSWORD" -all -o /app/schemaspy/docs/db-schema -dp /drivers/postgresql.jar -nologo
+     
+    networks:
+      - backend-network
 secrets:
   backend_db_password:
     file: ../config/secrets/backend_db_password.txt
@@ -183,11 +208,11 @@ secrets:
     file: ../config/secrets/pgp_secret_key.txt
   tavily_api_key:
     file: ../config/secrets/tavily_api_key.txt
-  
+
 networks:
   frontend-network:  # nginx <-> backend
     driver: bridge
-  backend-network:   # backend <-> postgres
+  backend-network:   # backend <-> postgres <-> redis <-> celery <-> schema-spy
     driver: bridge
 volumes:
   pgdata-dev:
