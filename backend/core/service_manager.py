@@ -80,7 +80,7 @@ class ServiceManager:
             logger.error(f"Error initializing ServiceManager: {e}")
             raise
     
-    '''
+
     @staticmethod
     def get_service_function(path: str):
         """
@@ -96,7 +96,7 @@ class ServiceManager:
         module = importlib.import_module(service_config.module)
         return getattr(module, service_config.function)
     
-    '''
+    
 
     @staticmethod
     def get_storage_service(storage_type_name: str) -> StorageService:
@@ -142,6 +142,7 @@ class ServiceManager:
         storage_service = None
         if len(service_config.storage_services) > 0:
             storage_service = self.get_storage_service(service_config.storage_services[0])
+            kwargs["storage_service"] = storage_service
         # Execute within transaction
         async with self.transaction() as conn:
             repositories = {}
@@ -171,7 +172,7 @@ class ServiceManager:
             
        
             logger.debug(f"Executing {service_path} with repos: {list(repositories.keys())}")
-            result = await service_method(**repositories,storage_service=storage_service, **kwargs)
+            result = await service_method(**repositories, **kwargs)
         return result
     
                 

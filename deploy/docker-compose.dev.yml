@@ -106,13 +106,14 @@ services:
       context: ..
       dockerfile: deploy/docker/celery/celery.Dockerfile
     volumes:
-      - "G:/data:/data"
+      - "G:/data:/data:/data/mtgjson"
     secrets:
       - celery_db_password
     container_name: automana-celery-dev
     env_file:
       - ../config/env/.env.dev
     environment:
+      OUTPUT_DIR: /data/mtgjson/raw
       POSTGRES_USER: ${APP_CELERY_DB_USER}
       POSTGRES_PASSWORD_FILE: /run/secrets/celery_db_password
       CELERY_POOL: "prefork"

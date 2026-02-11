@@ -5,6 +5,7 @@ import asyncio
 import logging
 from typing import Any, Optional, Union
 from datetime import datetime
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +40,9 @@ class StorageBackend(ABC):
 class LocalStorageBackend(StorageBackend):
     """Local filesystem storage"""
 
-    def __init__(self, base_path: str = r"G:\data\mtgjson\raw"):
+    def __init__(self, base_path: str = None):
+        if base_path is None:
+            base_path = os.getenv("OUTPUT_DIR", r"G:\data\mtgjson\raw")
         self.base_path = Path(base_path)
         self.base_path.mkdir(parents=True, exist_ok=True)
         logger.info(f"LocalStorageBackend initialized at {self.base_path}")
@@ -187,15 +190,14 @@ class StorageService:
         """Load data as binary"""
         return await self.backend.load(path, file_format="binary")
 
-    async def save_with_timestamp(self, directory: str, filename: str, data: Any, file_format: str = "binary") -> str:
+    async def save_with_timestamp(self, filename: str, data: Any, file_format: str = "binary") -> str:
         """Save data with timestamp in filename"""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         name, ext = filename.rsplit(".", 1) if "." in filename else (filename, "")
         timestamped_filename = f"{name}_{timestamp}.{ext}" if ext else f"{name}_{timestamp}"
-        path = f"{directory}/{timestamped_filename}"
         if file_format == "json":
-            return await self.save_json(path, data)
-        return await self.save_binary(path=path, data=data)
+            return await self.save_json(timestamped_filename, data)
+        return await self.save_binary(path=timestamped_filename, data=data)
 
     async def file_exists(self, path: str) -> bool:
         """Check if file exists"""

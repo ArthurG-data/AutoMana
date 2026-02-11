@@ -12,7 +12,7 @@ import asyncio
 )
 async def download_mtgjson_data_last_90(mtgjson_repository : ApimtgjsonRepository
                                         , storage_service : StorageService
-                                        , directory: str = r"G:\data\mtgjson\raw"):
+                                        ):
     logger = logging.getLogger(__name__)
     logger.info("Starting MTGJSON data download")
 
@@ -23,7 +23,7 @@ async def download_mtgjson_data_last_90(mtgjson_repository : ApimtgjsonRepositor
             raise ValueError("No data returned from MTGJSON repository")
         logger.info("Fetched MTGJSON card data successfully.")
 
-        await storage_service.save_with_timestamp(directory=directory, filename= "AllPrices.json.xz", data=card_data)
+        await storage_service.save_with_timestamp(filename= "AllPrices.json.xz", data=card_data)
         logger.info("Stored MTGJSON card data successfully")
     except Exception as e:
         logger.error("Error during MTGJSON data download: %s", e)
@@ -36,7 +36,7 @@ async def download_mtgjson_data_last_90(mtgjson_repository : ApimtgjsonRepositor
 )
 async def stage_mtgjson_data(mtgjson_repository : ApimtgjsonRepository
                              , storage_service: StorageService, 
-                             directory: str = r"G:\data\mtgjson\raw"):
+                             ):
     logger = logging.getLogger(__name__)
     logger.info("Starting MTGJSON data staging")
 
@@ -47,7 +47,7 @@ async def stage_mtgjson_data(mtgjson_repository : ApimtgjsonRepository
             raise ValueError("No data returned from MTGJSON repository")
         logger.info("Fetched MTGJSON card data successfully.")
 
-        await storage_service.save_with_timestamp(directory=directory, filename= "AllPricesToday.json.xz", data=card_data)
+        await storage_service.save_with_timestamp(filename= "AllPricesToday.json.xz", data=card_data)
         logger.info("Stored MTGJSON card data successfully")
     except Exception as e:
         logger.error("Error during MTGJSON data download: %s", e)

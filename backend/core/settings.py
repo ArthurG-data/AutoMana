@@ -71,7 +71,7 @@ class Settings(BaseSettings):
 
     db_password:  Optional[str] = Field(default=None, exclude=True)
     DB_PASSWORD: str | None = None
-    DB_PORT: int = Field(default=5432, alias="POSTGRES_PORT")
+    DB_PORT: int = Field(default=5432)
     DB_NAME: str = Field(default="automana", alias="DB_NAME")
     DB_USER: str = Field(default_factory=lambda: os.getenv("POSTGRES_USER", "backend_app"))
     DB_HOST: str = Field(default="localhost", alias="POSTGRES_HOST")
