@@ -1,5 +1,5 @@
 from typing import Optional
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 from backend.core.secrets import read_secret
@@ -12,12 +12,22 @@ def env_file_path() -> str:
     project_root = Path(__file__).parent.parent.parent 
     return str(project_root / "config" / "env" / f".env.{env}")
 
-def read_db_password():
+def read_db_password(password :str | None = None) -> str:
+
+    if password:
+        return password
     password_file = os.getenv("POSTGRES_PASSWORD_FILE")
     if password_file and os.path.exists(password_file):
         with open(password_file, "r", encoding="utf-8") as f:
             return f.read().strip()
-    return None  # Or fallback to another method
+    #fallback if local
+    env_password = os.getenv("POSTGRES_PASSWORD")
+    if env_password:
+        return env_password
+    raise ValueError(
+        "Database password not found. Set POSTGRES_PASSWORD_FILE (Docker), "
+        "DB_PASSWORD (env var), or pass db_password parameter"
+    )  # Or fallback to another method
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -59,12 +69,20 @@ class Settings(BaseSettings):
     backend_path: str | None = None
     exchange_app_id: str | None = None
 
-    DB_PASSWORD: str = Field(default_factory=read_db_password)
-    DB_PORT : int = Field(default=5432)
-    DB_NAME : str = Field(default="automana", alias="DB_NAME")
-    DB_USER : str = Field(default_factory=lambda: os.getenv("POSTGRES_USER", "backend_app"))
-    DB_HOST : str = Field(default="localhost", alias="POSTGRES_HOST")
+    db_password:  Optional[str] = Field(default=None, exclude=True)
+    DB_PASSWORD: str | None = None
+    DB_PORT: int = Field(default=5432)
+    DB_NAME: str = Field(default="automana", alias="DB_NAME")
+    DB_USER: str = Field(default_factory=lambda: os.getenv("POSTGRES_USER", "backend_app"))
+    DB_HOST: str = Field(default="localhost", alias="POSTGRES_HOST")
 
+    # WEB HOOKS
+    DISCORD_WEBHOOK_URL: str | None = None
+
+    @model_validator(mode="after")
+    def load_db_password(self):
+        self.DB_PASSWORD = read_db_password(self.db_password)
+        return self
     @property
     def DATABASE_URL_ASYNC(self) -> str:
         password = quote_plus(self.DB_PASSWORD)

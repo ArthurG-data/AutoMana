@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Optional
-from backend.new_services.analysis.pricing import PricingResult
+from backend.new_services.analytics.pricing import PricingResult
 
 class PricingStrategy(ABC):
     """Abstract base class for pricing strategies"""

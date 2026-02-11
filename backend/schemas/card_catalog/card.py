@@ -10,7 +10,7 @@ class BaseCard(BaseModel):
     name: str = Field(alias="card_name", title="The name of the card")
     set_name: str = Field(title="The complete name of the set")
     set: str = Field(alias="set_code", title="The abbreviation of the set")
-    cmc: int
+    cmc: Union[int, float] = Field(title="Converted mana cost of the card")
     rarity: str = Field(alias="rarity_name", title="The rarity of the card")
     oracle_text: Optional[str] = Field(default="", title="The text on the card")
     digital: bool = Field(title="Is the card released only on digital platform")
@@ -51,6 +51,8 @@ class CardFace(BaseModel):
 
     @model_validator(mode='after')
     def process_type_line(cls, values):
+        if not values.type_line:
+            return values
     
         parsed = process_type_line(values.type_line)
         values.types = parsed["types"]
@@ -61,7 +63,7 @@ class CardFace(BaseModel):
 class CreateCard(BaseCard):
     artist: str = Field(max_length=100)
     artist_ids : List[UUID] = []
-    cmc : int=Field(default=0)
+    cmc : Union[int, float] = Field(default=0)
     illustration_id: Optional[UUID] = UUID('00000000-0000-0000-0000-000000000001')
     games : List[str] = []
     mana_cost : Optional[str]=Field(max_length=100, default=None)
@@ -73,6 +75,7 @@ class CreateCard(BaseCard):
     is_digital: bool = Field(alias="digital")
     keywords: Optional[List[str]]=[]
     type_line: Optional[str]=None
+    image_uris : Optional[Dict[str,Any]]= None
     oversized : Optional[bool]=False
     color_produced: Optional[List[str]] = Field(alias="produced_mana", default=None)
     card_color_identity: List[str] = Field(alias="color_identity")
@@ -85,12 +88,12 @@ class CreateCard(BaseCard):
     full_art : Optional[bool]=False
     flavor_text : Optional[str] = None
     textless : Optional[bool]=False
-    power : Optional[int|str] = None
+    power : Optional[Union[int, str]] = None
     lang : Optional[str]='en'
-    loyalty : Optional[int|str]=None
+    loyalty : Optional[Union[int, str]]=None
     promo_types : Optional[List[str]]=[]
-    toughness : Optional[int|str]=[]
-    defense : Optional[int|str]=None
+    toughness : Optional[Union[int, str]]=None
+    defense : Optional[Union[int, str]]=None
     variation : Optional[bool]=False
     reserved : bool=Field(default=False)
     card_faces : Optional[List[CardFace]]=[],
@@ -123,6 +126,7 @@ class CreateCard(BaseCard):
         self.layout,
         self.is_promo,
         self.is_digital,
+        json.dumps(self.keywords),
         json.dumps(self.card_color_identity),        # p_colors
         self.artist,
         self.artist_ids[0] if self.artist_ids else UUID("00000000-0000-0000-0000-000000000000"),
@@ -143,6 +147,9 @@ class CreateCard(BaseCard):
         json.dumps(self.promo_types),
         self.variation,
         self.to_json_safe([f.model_dump() for f in self.card_faces]) if self.card_faces else json.dumps([]),
+
+        json.dumps(self.image_uris) if self.image_uris else json.dumps({}),
+        
         self.id,
         self.oracle_id,
         json.dumps(self.multiverse_ids) if self.multiverse_ids else json.dumps([]),
@@ -168,8 +175,6 @@ class CreateCard(BaseCard):
             "reserved": data["reserved"],
             "oracle_text": data["oracle_text"] or "",
 
-
-            
             "set_name": data["set_name"],
             "collector_number": str(data["collector_number"]),
             "rarity_name": data["rarity_name"],
@@ -178,6 +183,7 @@ class CreateCard(BaseCard):
             "layout_name": data["layout"],
             "is_promo": data["promo"],
             "is_digital": data["digital"],
+            "keywords": data["keywords"],
             "colors": data["color_identity"],
             "artist": data["artist"],
             "artist_id": str(data["artist_ids"][0]) if data["artist_ids"] else  "00000000-0000-0000-0000-000000000000",
@@ -198,6 +204,8 @@ class CreateCard(BaseCard):
             "promo_types": data["promo_types"] or [],
             "variation": data["variation"] or False,
             "card_faces": data["card_faces"] or [],
+
+            "image_uris": data["image_uris"] or [],
 
             "scryfall_id": data["id"],  
             "oracle_id": data["oracle_id"],

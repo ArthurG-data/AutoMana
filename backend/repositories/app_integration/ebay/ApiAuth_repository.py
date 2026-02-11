@@ -1,4 +1,4 @@
-from backend.repositories.ApiRepository import ApiRepository
+from backend.repositories.app_integration.ebay.EbayApiRepository import  EbayApiClient
 from backend.schemas.app_integration.ebay.auth import AuthHeader, ExangeRefreshData, AuthData, TokenResponse, TokenRequestData
 from uuid import UUID, uuid4
 from typing import List, Dict
@@ -7,7 +7,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-class EbayAuthAPIRepository(ApiRepository):
+class EbayAuthAPIRepository(EbayApiClient):
     URL_MAPPING = {
         "sandbox": {
             "auth_url": "https://auth.sandbox.ebay.com/oauth2/authorize",

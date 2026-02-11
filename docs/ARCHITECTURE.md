@@ -9,6 +9,10 @@ If you want the *exact* API surface, use `GET /docs` and `GET /openapi.json`.
 
 AutoMana is a FastAPI application backed by Postgres, with optional background processing via Celery/Redis, and a reverse proxy (nginx) in production.
 
+### Layer Diagram
+
+![Architecture Layers]diagrams/layer_diagramm.jpg
+
 ### Production topology (Docker)
 
 In production, only the reverse proxy should publish ports to the host.

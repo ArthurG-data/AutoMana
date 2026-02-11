@@ -9,12 +9,16 @@ CREATE TABLE IF NOT EXISTS card_catalog.unique_cards_ref (
     mana_cost VARCHAR(50),
     reserved BOOL DEFAULT(false),
     is_multifaced BOOL DEFAULT(false),
-    other_face_id UUID DEFAULT(NULL)
+    other_face_id UUID DEFAULT(NULL),
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS card_catalog.border_color_ref (
     border_color_id SERIAL PRIMARY KEY, 
-    border_color_name VARCHAR(20) NOT NULL UNIQUE
+    border_color_name VARCHAR(20) NOT NULL UNIQUE,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 --not as intended, the subtyoes should be ckleand to remove punctuation and have a type name reference table, mismatch in unique_card_id
@@ -22,49 +26,69 @@ CREATE TABLE IF NOT EXISTS card_catalog.card_types (
     unique_card_id UUID NOT NULL REFERENCES card_catalog.unique_cards_ref(unique_card_id),
     type_name VARCHAR(20) NOT NULL,
     type_category TEXT CHECK (type_category IN ('type', 'subtype', 'supertype')),
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now(),
     PRIMARY KEY (unique_card_id, type_name)
 );
 
 CREATE TABLE IF NOT EXISTS card_catalog.rarities_ref (
     rarity_id SERIAL PRIMARY KEY,
     rarity_name VARCHAR(20) UNIQUE NOT NULL
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS card_catalog.artists_ref (
     artist_id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-    artist_name VARCHAR(50) NOT NULL UNIQUE
+    artist_name VARCHAR(50) NOT NULL UNIQUE,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS card_catalog.frames_ref (
     frame_id SERIAL PRIMARY KEY,
-    frame_year VARCHAR(20) NOT NULL UNIQUE
+    frame_year VARCHAR(20) NOT NULL UNIQUE,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS card_catalog.layouts_ref (
     layout_id SERIAL PRIMARY KEY,
-    layout_name VARCHAR(50) NOT NULL UNIQUE
+    layout_name VARCHAR(50) NOT NULL UNIQUE,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS card_catalog.keywords_ref (
     keyword_id SERIAL PRIMARY KEY,
-    keyword_name VARCHAR(50) UNIQUE NOT NULL
+    keyword_name VARCHAR(50) UNIQUE NOT NULL,
+    first_added TIMESTAMPTZ DEFAULT now(),
+    last_used DATE  DEFAULT now(),
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 --mismatch some unique card id not present, not migrated yet
 CREATE TABLE IF NOT EXISTS card_catalog.card_keyword (
     unique_card_id UUID REFERENCES card_catalog.unique_cards_ref(unique_card_id),
     keyword_id INT NOT NULL REFERENCES card_catalog.keywords_ref(keyword_id),
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now(),
     PRIMARY KEY (unique_card_id, keyword_id)
 );
 
 CREATE TABLE IF NOT EXISTS card_catalog.colors_ref (
     color_id SERIAL PRIMARY KEY,
-    color_name VARCHAR(20) UNIQUE NOT NULL
+    color_name VARCHAR(20) UNIQUE NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS card_catalog.color_produced (
     unique_card_id UUID REFERENCES card_catalog.unique_cards_ref(unique_card_id),
     color_id int NOT NULL REFERENCES card_catalog.colors_ref(color_id),
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now(),
     PRIMARY KEY (unique_card_id, color_id)
 );
 
@@ -72,24 +96,32 @@ CREATE TABLE IF NOT EXISTS card_catalog.color_produced (
 CREATE TABLE IF NOT EXISTS card_catalog.card_color_identity (
     unique_card_id UUID REFERENCES card_catalog.unique_cards_ref(unique_card_id),
     color_id int NOT NULL REFERENCES card_catalog.colors_ref(color_id),
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now(),
     PRIMARY KEY (unique_card_id, color_id)
 );
 
 #same issue with wrin funique card ref id
 CREATE TABLE IF NOT EXISTS card_catalog.formats_ref (
     format_id SERIAL PRIMARY KEY,
-    format_name VARCHAR(20) UNIQUE NOT NULL
+    format_name VARCHAR(20) UNIQUE NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS card_catalog.legal_status_ref (
     legality_id SERIAL PRIMARY KEY, 
-    legal_status VARCHAR(20) NOT NULL UNIQUE
+    legal_status VARCHAR(20) NOT NULL UNIQUE,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
 );
 #same issue with wrin funique card ref id
 CREATE TABLE IF NOT EXISTS card_catalog.legalities (
     unique_card_id UUID REFERENCES card_catalog.unique_cards_ref(unique_card_id),
     format_id INT NOT NULL REFERENCES card_catalog.formats_ref(format_id),
     legality_id INT NOT NULL REFERENCES card_catalog.legal_status_ref(legality_id),
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now(),
     PRIMARY KEY(unique_card_id, format_id)
 );
 
@@ -110,35 +142,46 @@ CREATE TABLE IF NOT EXISTS card_catalog.card_version (
     textless BOOLEAN DEFAULT false,
     booster BOOLEAN DEFAULT true,
     variation BOOLEAN DEFAULT false,    
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now(),
     UNIQUE (unique_card_id, set_id, collector_number)
 );
 
 CREATE TABLE IF NOT EXISTS card_catalog.illustrations(
     illustration_id UUID PRIMARY KEY, 
-    file_uri TEXT,
-    added_on TIMESTAMPTZ DEFAULT now()
+    image_uris jsonb,
+    added_on TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS card_catalog.illustration_artist (
-    illustration_id uuid PRIMARY KEY REFERENCES illustrations(illustration_id),
-    artist_id uuid NOT NULL REFERENCES artists_ref(artist_id)
+    illustration_id uuid PRIMARY KEY REFERENCES card_catalog.illustrations(illustration_id),
+    artist_id uuid NOT NULL REFERENCES card_catalog.artists_ref(artist_id),
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS card_catalog.card_version_illustration (
-    card_version_id UUID PRIMARY KEY REFERENCES card_version(card_version_id),
-    illustration_id UUID NOT NULL
+    card_version_id UUID PRIMARY KEY REFERENCES card_catalog.card_version(card_version_id),
+    illustration_id UUID NOT NULL REFERENCES card_catalog.illustrations(illustration_id),
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 --need to be added
 CREATE TABLE IF NOT EXISTS card_catalog.games_ref (
     game_id SERIAL PRIMARY KEY,
-    game_description  VARCHAR(20) NOT NULL UNIQUE 
+    game_description  VARCHAR(20) NOT NULL UNIQUE ,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
 );
 --new stats table
 CREATE TABLE IF NOT EXISTS card_catalog.card_stats_ref (
     stat_id SERIAL PRIMARY KEY,
     stat_name VARCHAR(20) NOT NULL UNIQUE,
-    stat_description TEXT
+    stat_description TEXT,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
 );
 --reference  newly added
 INSERT INTO card_catalog.card_stats_ref (stat_name, stat_description) VALUES
@@ -149,15 +192,15 @@ INSERT INTO card_catalog.card_stats_ref (stat_name, stat_description) VALUES
 
 -- versioned stats table
 CREATE TABLE IF NOT EXISTS card_catalog.card_version_stats (
-    card_version_id UUID NOT NULL REFERENCES card_version(card_version_id),
-    stat_id INT NOT NULL REFERENCES card_stats_ref(stat_id),
+    card_version_id UUID NOT NULL REFERENCES card_catalog.card_version(card_version_id),
+    stat_id INT NOT NULL REFERENCES card_catalog.card_stats_ref(stat_id),
     stat_value TEXT NOT NULL,
     PRIMARY KEY (card_version_id, stat_id)
 );
 
 CREATE TABLE IF NOT EXISTS card_catalog.games_card_version (
-    game_id INT NOT NULL REFERENCES games_ref(game_id),
-    card_version_id UUID NOT NULL REFERENCES card_version(card_version_id),
+    game_id INT NOT NULL REFERENCES card_catalog.games_ref(game_id),
+    card_version_id UUID NOT NULL REFERENCES card_catalog.card_version(card_version_id),
     PRIMARY KEY (game_id, card_version_id)
 );
 CREATE TABLE IF NOT EXISTS card_catalog.promo_types_ref (
@@ -166,14 +209,14 @@ CREATE TABLE IF NOT EXISTS card_catalog.promo_types_ref (
 );
 
 CREATE TABLE IF NOT EXISTS card_catalog.promo_card (
-    promo_id INT NOT NULL REFERENCES promo_types_ref(promo_id),
-    card_version_id UUID NOT NULL REFERENCES card_version(card_version_id),
+    promo_id INT NOT NULL REFERENCES card_catalog.promo_types_ref(promo_id),
+    card_version_id UUID NOT NULL REFERENCES card_catalog.card_version(card_version_id),
 	PRIMARY KEY (promo_id, card_version_id)
 );
 
 CREATE TABLE IF NOT EXISTS card_catalog.card_faces (
     card_faces_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    card_version_id UUID NOT NULL REFERENCES card_version(card_version_id),
+    card_version_id UUID NOT NULL REFERENCES card_catalog.card_version(card_version_id),
     face_index INT,
     name TEXT NOT NULL,
     mana_cost TEXT,
@@ -181,12 +224,14 @@ CREATE TABLE IF NOT EXISTS card_catalog.card_faces (
     oracle_text TEXT,
     power TEXT,
     toughness TEXT,
-    flavor_text TEXT
+    flavor_text TEXT,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS card_catalog.card_external_identifier (
-    card_identifier_ref_id SMALLINT NOT NULL REFERENCES card_identifier_ref(card_identifier_ref_id),
-    card_version_id UUID NOT NULL REFERENCES card_version(card_version_id),
+    card_identifier_ref_id SMALLINT NOT NULL REFERENCES card_catalog.card_identifier_ref(card_identifier_ref_id),
+    card_version_id UUID NOT NULL REFERENCES card_catalog.card_version(card_version_id),
     value TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now(),
@@ -202,6 +247,17 @@ CREATE TABLE IF NOT EXISTS card_catalog.card_identifier_ref (
     UNIQUE (identifier_name)
 );
 
+
+CREATE TABLE IF NOT EXISTS card_catalog.card_games_ref (
+    game_id SERIAL PRIMARY KEY,
+    code VARCHAR(10) UNIQUE NOT NULL,
+    name VARCHAR(50) UNIQUE NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+INSERT INTO card_catalog.card_games_ref (code, name) VALUES
+('mtg', 'Magic: The Gathering');
 --VIEWS -------------------------------------
 CREATE OR REPLACE VIEW card_catalog.v_card_version_count AS
 SELECT
@@ -292,7 +348,7 @@ illustrations_agg AS (
     jsonb_agg(
       jsonb_build_object(
         'illustration_id', cvi.illustration_id,
-        'file_uri', i.file_uri,
+        'image_uris', i.image_uris,
         'added_on', i.added_on,
         'artist_id', ar.artist_id,
         'artist_name', ar.artist_name
@@ -451,7 +507,7 @@ CREATE INDEX idx_v_card_versions_complete_legalities ON card_catalog.v_card_vers
 --STORED PROCEDURE---------------------------
 CREATE OR REPLACE FUNCTION card_catalog.insert_full_card_version(
     p_card_name TEXT,
-    p_cmc INT,
+    p_cmc NUMERIC,
     p_mana_cost TEXT,
     p_reserved BOOLEAN,
     p_oracle_text TEXT,
@@ -485,6 +541,8 @@ CREATE OR REPLACE FUNCTION card_catalog.insert_full_card_version(
     p_variation BOOLEAN,
     p_card_faces JSONB,
     --new
+    p_image_uris JSONB,
+    --external ids
     p_scryfall_id UUID,
     p_oracle_id UUID,
     p_multiverse_ids JSONB,
@@ -540,40 +598,93 @@ BEGIN
     -- Use your MISSING_SET
         v_set_id := '00000000-0000-0000-0000-000000000002';
     END IF;
+
+
     -- Rarity
-    INSERT INTO card_catalog.rarities_ref (rarity_name) VALUES (p_rarity_name)
-    ON CONFLICT DO NOTHING;
-    SELECT rarity_id INTO v_rarity_id FROM card_catalog.rarities_ref WHERE rarity_name = p_rarity_name;
+    SELECT rarity_id INTO v_rarity_id
+    FROM card_catalog.rarities_ref
+    WHERE rarity_name = p_rarity_name;
+
+    IF v_rarity_id IS NULL THEN
+        INSERT INTO card_catalog.rarities_ref (rarity_name) 
+        VALUES (p_rarity_name)
+        RETURNING rarity_id INTO v_rarity_id;
+    END IF;
 
     -- Border
-    INSERT INTO card_catalog.border_color_ref (border_color_name) VALUES (p_border_color)
-    ON CONFLICT DO NOTHING;
-    SELECT border_color_id INTO v_border_color_id FROM card_catalog.border_color_ref WHERE border_color_name = p_border_color;
+    SELECT border_color_id INTO v_border_color_id
+    FROM card_catalog.border_color_ref
+    WHERE border_color_name = p_border_color;
+
+    IF v_border_color_id IS NULL THEN
+        INSERT INTO card_catalog.border_color_ref (border_color_name) 
+        VALUES (p_border_color)
+        RETURNING border_color_id INTO v_border_color_id;
+    END IF;
 
     -- Frame
-    INSERT INTO card_catalog.frames_ref (frame_year) VALUES (p_frame_year)
-    ON CONFLICT DO NOTHING;
-    SELECT frame_id INTO v_frame_id FROM card_catalog.frames_ref WHERE frame_year = p_frame_year;
+    SELECT frame_id INTO v_frame_id
+    FROM card_catalog.frames_ref
+    WHERE frame_year = p_frame_year;
+
+    IF v_frame_id IS NULL THEN
+        INSERT INTO card_catalog.frames_ref (frame_year) 
+        VALUES (p_frame_year)
+        RETURNING frame_id INTO v_frame_id;
+    END IF;
 
     -- Layout
-    INSERT INTO card_catalog.layouts_ref (layout_name) VALUES (p_layout_name)
-    ON CONFLICT DO NOTHING;
-    SELECT layout_id INTO v_layout_id FROM card_catalog.layouts_ref WHERE layout_name = p_layout_name;
+    SELECT layout_id INTO v_layout_id
+    FROM card_catalog.layouts_ref
+    WHERE layout_name = p_layout_name;
+
+    IF v_layout_id IS NULL THEN
+        INSERT INTO card_catalog.layouts_ref (layout_name) 
+        VALUES (p_layout_name)
+        RETURNING layout_id INTO v_layout_id;
+    END IF;
 
     -- Artist
-    INSERT INTO card_catalog.artists_ref (artist_id, artist_name) VALUES (p_artist_id, p_artist)
-    ON CONFLICT DO NOTHING;
+    SELECT artist_id INTO v_artist_uuid
+    FROM card_catalog.artists_ref
+    WHERE artist_name = p_artist;
 
-    -- Illustration
-    INSERT INTO card_catalog.illustrations (illustration_id)
-    VALUES (p_illustration_id)
-    ON CONFLICT DO NOTHING;
+    IF v_artist_uuid IS NULL THEN
+    INSERT INTO card_catalog.artists_ref (artist_id, artist_name) 
+        VALUES (p_artist_id, p_artist)
+        RETURNING artist_id INTO v_artist_uuid;
+    END IF;
 
-    INSERT INTO card_catalog.illustration_artist (illustration_id, artist_id)
-    VALUES (p_illustration_id, p_artist_id)
-    ON CONFLICT DO NOTHING;
+    -- Illustration ref
+    IF p_illustration_id IS NOT NULL THEN
+        SELECT illustration_id INTO v_illustration_id
+        FROM card_catalog.illustrations
+        WHERE illustration_id = p_illustration_id;
+
+        IF v_illustration_id IS NULL THEN
+            INSERT INTO card_catalog.illustrations (illustration_id, image_uris)
+            VALUES (p_illustration_id, p_image_uris)
+            RETURNING illustration_id INTO v_illustration_id;
+        ELSE
+            -- always update illustration image uris
+            UPDATE card_catalog.illustrations
+            SET image_uris = p_image_uris,
+                updated_at = now()
+            WHERE illustration_id = p_illustration_id;
+        END IF;
+
+        -- Link illustration and artist
+        IF p_artist_id IS NOT NULL THEN
+            INSERT INTO card_catalog.illustration_artist (illustration_id, artist_id)
+            VALUES (p_illustration_id, p_artist_id)
+            ON CONFLICT DO NOTHING;
+        END IF;
+    ELSE
+        RAISE WARNING 'Illustration ID is NULL for card %, skipping illustration processing', p_card_name;
+    END IF;
 
     -- Card version
+
     INSERT INTO card_catalog.card_version (
         unique_card_id, oracle_text, set_id,
         collector_number, rarity_id, border_color_id,
@@ -587,29 +698,33 @@ BEGIN
         p_oversized, p_full_art, p_textless, p_booster,
         p_variation
     )
+    ON CONFLICT (unique_card_id, set_id, collector_number) DO NOTHING
     RETURNING card_version_id INTO v_card_version_id;
+
+    IF v_card_version_id IS NULL THEN
+    SELECT card_version_id
+    INTO v_card_version_id
+    FROM card_catalog.card_version
+    WHERE unique_card_id = v_unique_card_id
+        AND set_id = v_set_id
+        AND collector_number = p_collector_number
+    LIMIT 1;
+    END IF;
     --add the ids
 
-    WITH provided(name, value) AS (
-    SELECT 'scryfall_id',        p_scryfall_id::text UNION ALL
-    SELECT 'oracle_id',          p_oracle_id::text   UNION ALL
-    -- expand JSONB array for multiverse ids (may produce 0..n rows)
-    SELECT 'multiverse_id',      x::text
-      FROM jsonb_array_elements_text(p_multiverse_ids) AS x UNION ALL
-    SELECT 'tcgplayer_id',       p_tcgplayer_id::text UNION ALL
-    SELECT 'tcgplayer_etched_id',p_tcgplayer_etched_id::text UNION ALL
-    SELECT 'cardmarket_id',      p_cardmarket_id::text
-    ),
-    non_null AS (
-        SELECT name, value
-        FROM provided
-        WHERE value IS NOT NULL
-    )
-    INSERT INTO card_catalog.card_external_identifier  (card_identifier_ref_id, card_version_id, value)
-    SELECT r. card_identifier_ref_id, v_card_version_id, n.value
-    FROM non_null n
+    INSERT INTO card_catalog.card_external_identifier (card_identifier_ref_id, card_version_id, value)
+    SELECT r.card_identifier_ref_id, v_card_version_id, n.value
+    FROM (
+        SELECT 'scryfall_id'        AS name, p_scryfall_id::text          AS value
+        UNION ALL SELECT 'oracle_id',          p_oracle_id::text
+        UNION ALL SELECT 'multiverse_id',      x::text FROM jsonb_array_elements_text(COALESCE(p_multiverse_ids, '[]'::jsonb)) AS x
+        UNION ALL SELECT 'tcgplayer_id',       p_tcgplayer_id::text
+        UNION ALL SELECT 'tcgplayer_etched_id',p_tcgplayer_etched_id::text
+        UNION ALL SELECT 'cardmarket_id',      p_cardmarket_id::text
+    ) AS n
     JOIN card_catalog.card_identifier_ref r
     ON r.identifier_name = n.name
+    WHERE n.value IS NOT NULL
     ON CONFLICT DO NOTHING;
 
 
@@ -627,17 +742,35 @@ BEGIN
     ON CONFLICT DO NOTHING;
 
     --card illustrations
+    WITH exists AS (
+        SELECT card_version_id, illustration_id
+        FROM card_catalog.card_version_illustration
+        WHERE card_version_id = v_card_version_id
+            AND illustration_id = p_illustration_id
+    )
     INSERT INTO card_catalog.card_version_illustration (card_version_id, illustration_id)
-    VALUES (v_card_version_id, p_illustration_id)
-    ON CONFLICT DO NOTHING;
-
+    SELECT v_card_version_id, p_illustration_id
+    WHERE NOT EXISTS (SELECT 1 FROM exists);
     -- Promo types
-    FOR v_promo_type IN SELECT jsonb_array_elements_text(p_promo_types)
-    LOOP
-        INSERT INTO card_catalog.promo_types_ref (promo_type_desc) VALUES (v_promo_type)
-        ON CONFLICT DO NOTHING;
-        SELECT promo_id INTO v_promo_id FROM card_catalog.promo_types_ref WHERE promo_type_desc = v_promo_type;
-        INSERT INTO card_catalog.promo_card(promo_id, card_version_id)
+
+
+    FOR v_promo_type IN SELECT jsonb_array_elements_text(p_promo_types) LOOP
+        WITH existing AS (
+            SELECT promo_id FROM card_catalog.promo_types_ref WHERE promo_type_desc = v_promo_type
+        ),
+        ins AS (
+            INSERT INTO card_catalog.promo_types_ref (promo_type_desc)
+            SELECT v_promo_type
+            WHERE NOT EXISTS (SELECT 1 FROM existing)
+            RETURNING promo_id
+        )
+        SELECT promo_id INTO v_promo_id
+        FROM ins
+        UNION ALL
+        SELECT promo_id FROM existing
+        LIMIT 1;
+
+        INSERT INTO card_catalog.promo_card (promo_id, card_version_id)
         VALUES (v_promo_id, v_card_version_id)
         ON CONFLICT DO NOTHING;
     END LOOP;
@@ -802,7 +935,7 @@ BEGIN
             -- Call your existing function
             SELECT card_catalog.insert_full_card_version(
                 v_card ->> 'card_name',
-                (v_card ->> 'cmc')::INT,
+                (v_card ->> 'cmc')::NUMERIC::INT,
                 v_card ->> 'mana_cost',
                 (v_card ->> 'reserved')::BOOLEAN,
                 v_card ->> 'oracle_text',
@@ -834,6 +967,7 @@ BEGIN
                 v_card -> 'promo_types',
                 (v_card ->> 'variation')::BOOLEAN,
                 v_card -> 'card_faces',
+                v_card -> 'image_uris',
                 (v_card ->> 'scryfall_id')::UUID,
                 (v_card ->> 'oracle_id')::UUID,
                 v_card -> 'multiverse_ids',
@@ -966,6 +1100,9 @@ SELECT
 FROM card_catalog.v_card_versions_complete
 GROUP BY set_name, set_code;    
 COMMIT;
+--------------Insert values
+
+
 ##############
 -- END OF FILE --
 ##############

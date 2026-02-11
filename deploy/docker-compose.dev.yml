@@ -106,17 +106,16 @@ services:
       context: ..
       dockerfile: deploy/docker/celery/celery.Dockerfile
     volumes:
-      - "G:/data/scryfall:/data/scryfall"
+      - "G:/data:/data:/data/mtgjson"
     secrets:
       - celery_db_password
     container_name: automana-celery-dev
     env_file:
       - ../config/env/.env.dev
     environment:
+      OUTPUT_DIR: /data/mtgjson/raw
       POSTGRES_USER: ${APP_CELERY_DB_USER}
       POSTGRES_PASSWORD_FILE: /run/secrets/celery_db_password
-      CELERY_CONCURRENCY: "4"
-      CELERY_LOGLEVEL: "INFO"
       CELERY_POOL: "prefork"
       MODULES_NAMESPACE: celery
     depends_on:
@@ -126,10 +125,11 @@ services:
           condition: service_healthy
     networks:
       - backend-network
+
     command: >
-      sh -c "celery -A celery_app.main.celery_app worker
-      --loglevel=${CELERY_LOGLEVEL:-INFO}
-      --concurrency=${CELERY_CONCURRENCY:-4}"
+      sh -c "celery -A celery_app.main:celery_app worker -P solo
+      --loglevel=${CELERY_LOGLEVEL:-DEBUG}
+      --concurrency=${CELERY_CONCURRENCY:-1}"
     healthcheck:
       test: ["CMD-SHELL", "celery -A celery_app.main.tasks inspect ping || exit 1"]
       interval: 10s
@@ -163,6 +163,31 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+  schema-spy:
+    build:
+      context: ..
+      dockerfile: deploy/docker/schemaspy/Dockerfile
+    container_name: automana-schemaspy-dev
+    env_file:
+      - ../config/env/.env.dev
+    secrets:
+      - readonly_db_password
+    volumes:
+      - ../schemaspy:/app/schemaspy
+    depends_on:
+      postgres:
+          condition: service_healthy
+    entrypoint:
+    - sh
+    - -c
+    - |
+
+      ls -la /drivers/
+      POSTGRES_PASSWORD=$(cat /run/secrets/readonly_db_password)
+      java -jar /usr/local/lib/schemaspy/schemaspy*.jar -t pgsql -host postgres -port 5432 -db automana -u app_readonly -p "$$POSTGRES_PASSWORD" -all -o /app/schemaspy/docs/db-schema -dp /drivers/postgresql.jar -nologo
+     
+    networks:
+      - backend-network
 secrets:
   backend_db_password:
     file: ../config/secrets/backend_db_password.txt
@@ -184,11 +209,11 @@ secrets:
     file: ../config/secrets/pgp_secret_key.txt
   tavily_api_key:
     file: ../config/secrets/tavily_api_key.txt
-  
+
 networks:
   frontend-network:  # nginx <-> backend
     driver: bridge
-  backend-network:   # backend <-> postgres
+  backend-network:   # backend <-> postgres <-> redis <-> celery <-> schema-spy
     driver: bridge
 volumes:
   pgdata-dev:

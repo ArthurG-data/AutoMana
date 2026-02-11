@@ -6,6 +6,8 @@ import inspect
 
 celery_app = Celery('etl')
 celery_app.config_from_object("celery_app.celeryconfig")
+celery_app.conf.timezone = "Australia/Sydney"
+celery_app.conf.enable_utc = False
 
 @worker_process_init.connect
 def _init(**_):
@@ -50,7 +52,7 @@ def run_service(self,prev=None, path: str = None, **kwargs):
     filtered_context = {k: v for k, v in context.items() if k in allowed_keys}
     print(f"Running service: {path} kwargs_keys={list(filtered_context.keys())}")
     try:
-        result = state.async_runner.run(
+        result = state.loop.run_until_complete(
             ServiceManager.execute_service(path, **filtered_context)
         )
 

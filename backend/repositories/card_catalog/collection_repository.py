@@ -1,6 +1,6 @@
 from typing import Optional, List
 from uuid import UUID
-from backend.repositories.AbstractRepository import AbstractRepository
+from backend.repositories.abstract_repositories.AbstractDBRepository import AbstractRepository
 from backend.schemas.collections.collection import CreateCollection
 from backend.schemas.user_management.user import UserInDB
 

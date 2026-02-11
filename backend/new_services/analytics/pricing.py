@@ -1,7 +1,7 @@
 from typing import Optional, Dict
 from dataclasses import dataclass
-from backend.new_services.analysis.strategies import PricingStrategy, PricingStrategyManager
-from backend.new_services.analysis.utils import parse_title_for_condition, parsed_description_for_condition
+from backend.new_services.analytics.strategies import PricingStrategy, PricingStrategyManager
+from backend.new_services.analytics.utils import parse_title_for_condition, parsed_description_for_condition
 from backend.core.service_registry import ServiceRegistry
 import numpy as np
 import statistics

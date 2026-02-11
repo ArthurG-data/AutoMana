@@ -1,5 +1,5 @@
 from backend.schemas.external_marketplace.shopify.shopify_theme import Theme, InsertTheme, DeleteTheme, UpdateTheme, ThemeWithId, ThemeList
-from backend.repositories.AbstractRepository import AbstractRepository
+from backend.repositories.abstract_repositories.AbstractDBRepository import AbstractRepository
 from typing import Optional
 class ThemeRepository(AbstractRepository[Theme]):
     def __init__(self, connection):

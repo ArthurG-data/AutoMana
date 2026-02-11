@@ -2,14 +2,15 @@ from uuid import UUID
 from datetime import datetime
 from dataclasses import dataclass
 from pathlib import Path
-from typing import  Optional, List, Dict, Any, AsyncGenerator, Callable
-import ijson, asyncio,  time, logging,  json
+from typing import  Optional, List, Dict, Any, Callable
+import ijson, asyncio, logging, json
 from backend.repositories.ops.ops_repository import OpsRepository
 from backend.schemas.card_catalog import card as card_schemas
 from backend.repositories.card_catalog.card_repository import CardReferenceRepository
 from backend.schemas.card_catalog.card import BaseCard
 from backend.exceptions.service_layer_exceptions.card_catalogue import card_exception
 from backend.core.service_registry import ServiceRegistry
+from backend.schemas.pipelines.mtg_stock import  MTGStockBatchStep
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -203,15 +204,15 @@ async def process_large_cards_json(
         resume_from_batch: Batch number to resume from (for recovery)
         validate_file_first: Whether to validate JSON structure first
     """
+    await ops_repository.update_run(ingestion_run_id, status="running", current_step="process_large_cards_json")
     service = EnhancedCardImportService(card_repository)
     if file_path_card == "NO CHANGES":
         logger.info("No changes detected in Scryfall data. Skipping processing.")
         if update_run and ops_repository and ingestion_run_id:
             await ops_repository.update_run(
-                run_id=ingestion_run_id,
+                ingestion_run_id=ingestion_run_id,
                 status="success",
                 current_step="process_large_cards_json",
-                progress=100,
                 notes="No changes detected in Scryfall data. Processing skipped."
             )
         return {"status": "success"}
@@ -219,20 +220,14 @@ async def process_large_cards_json(
         result = await service.process_large_cards_json(
             file_path_card=file_path_card,
             resume_from_batch=resume_from_batch,
-            validate_file_first=validate_file_first
+            validate_file_first=validate_file_first,
+            ops_repository=ops_repository,
+            ingestion_run_id=ingestion_run_id
         )
-        if update_run and ops_repository and ingestion_run_id:
-            await ops_repository.update_run(
-                run_id=ingestion_run_id,
-                status="success",
-                current_step="process_large_cards_json",
-                progress=100,
-                notes=f"result: {result.to_dict()}"
-            )
     except Exception as e:
         if update_run and ops_repository and ingestion_run_id:
             await ops_repository.update_run(
-                run_id=ingestion_run_id,
+                ingestion_run_id=ingestion_run_id,
                 status="failed",
                 current_step="process_large_cards_json",
                 error_code="processing_failed",
@@ -251,9 +246,11 @@ class EnhancedCardImportService:
 
     async def process_large_cards_json(
         self, 
-        file_path: str,
+        file_path_card: str,
         resume_from_batch: int = 0,
-        validate_file_first: bool = True
+        validate_file_first: bool = True,
+        ops_repository: OpsRepository = None,
+        ingestion_run_id: int = None
     ) -> ProcessingStats:
         """Not async anymore"""
         """
@@ -263,20 +260,22 @@ class EnhancedCardImportService:
             file_path: Path to JSON file (local or cloud)
             resume_from_batch: Batch number to resume from (for recovery)
             validate_file_first: Whether to validate JSON structure first
+            ops_repository: Repository for operations logging
+            ingestion_run_id: ID for the current ingestion run
         """
         try:
-            logger.info(f"🚀 Starting enhanced file processing: {file_path}")
+            logger.info(f"🚀 Starting enhanced file processing: {file_path_card}")
             self.stats.start_time = datetime.utcnow()
             
             # Validate file exists and is readable
-            if not self._validate_file(file_path):
-                raise card_exception.CardInsertError(f"File validation failed: {file_path}")
+            if not self._validate_file(file_path_card):
+                raise card_exception.CardInsertError(f"File validation failed: {file_path_card}")
             #create the failed card file
             failed_dir = Path(self.config.failed_cards_folder or "/tmp/failed_cards")
             failed_dir.mkdir(parents=True, exist_ok=True)
             self.failed_cards_file = failed_dir / f"failed_cards_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.jsonl"
             # Process the file
-            await self._process_file_stream(file_path, resume_from_batch)
+            await self._process_file_stream(file_path_card, resume_from_batch)
 
             self.stats.end_time = datetime.utcnow()
             # Final summary
@@ -288,16 +287,16 @@ class EnhancedCardImportService:
             logger.error(f"❌ File processing failed: {str(e)}")
             raise card_exception.CardInsertError(f"File processing failed: {str(e)}")
 
-    def _validate_file(self, file_path: str) -> bool:
+    def _validate_file(self, file_path_card: str) -> bool:
         """Validate file exists and is accessible"""
         try:
-            path = Path(file_path)
+            path = Path(file_path_card)
             if not path.exists():
-                logger.error(f"❌ File does not exist: {file_path}")
+                logger.error(f"❌ File does not exist: {file_path_card}")
                 return False
             
             if not path.is_file():
-                logger.error(f"❌ Path is not a file: {file_path}")
+                logger.error(f"❌ Path is not a file: {file_path_card}")
                 return False
             
             # Check file size (warn if very large)
@@ -313,14 +312,14 @@ class EnhancedCardImportService:
             return False
 
 
-    async def _process_file_stream(self, file_path: str, resume_from_batch: int = 0):
+    async def _process_file_stream(self, file_path_card: str, resume_from_batch: int = 0, ops_repository: OpsRepository = None, ingestion_run_id: int = None ):
         """Process file using streaming with enhanced error handling"""
         batch = []
         batch_count = 0
         
         try:
-            logger.info(f"📁 Opening file for streaming: {file_path}")
-            with open(file_path, "rb") as f:
+            logger.info(f"📁 Opening file for streaming: {file_path_card}")
+            with open(file_path_card, "rb") as f:
                 cards_iter = ijson.items(f, "item")
 
                 for card_json in cards_iter:
@@ -331,6 +330,7 @@ class EnhancedCardImportService:
                                 batch = []
                                 batch_count += 1
                                 logger.info(f"⏭️ Skipped batch {batch_count} (resuming from {resume_from_batch})")
+                
                             continue
                         
                         # Validate and create card
@@ -341,14 +341,15 @@ class EnhancedCardImportService:
                         
                         # Process batch when full
                         if len(batch) >= self.config.batch_size:
-                            await self._process_batch(batch, batch_count + 1)
+
+                            await self._process_batch(batch, batch_count + 1, ops_repository=ops_repository, ingestion_run_id=ingestion_run_id)
                             batch = []
                             batch_count += 1
                             self._save_failed_cards()
                             # Progress callback,  test with one bacth
                             if self.config.progress_callback:
                                 self.config.progress_callback(self.stats)
-                        
+                           
                     except Exception as e:
                         self.stats.processing_errors += 1
                         logger.error(f"❌ Error processing card at position {self.stats.total_cards}: {str(e)}")
@@ -365,22 +366,45 @@ class EnhancedCardImportService:
                 
                 # Process remaining cards
                 if batch:
-                    await self._process_batch(batch, batch_count + 1)
+                    await self._process_batch(batch, batch_count + 1, ops_repository=ops_repository, ingestion_run_id=ingestion_run_id)
                     
         except Exception as e:
             logger.error(f"❌ Stream processing error: {str(e)}")
             raise
 
-    async def _process_batch(self, batch: List[card_schemas.CreateCard], batch_number: int):
+    async def _process_batch(self, batch: List[card_schemas.CreateCard]
+                             , batch_number: int
+                             , ops_repository: OpsRepository = None
+                             , ingestion_run_id: int = None):
         """Process a batch with retry logic"""
         retry_count = 0
         while retry_count <= self.config.max_retries:
+
             try:
                 logger.info(f"🔄 Processing batch {batch_number} with {len(batch)} cards (attempt {retry_count + 1})")
 
                 cards_obj = card_schemas.CreateCards(items=batch)
+
+                print(f"Prepared {len(cards_obj.items)} cards for DB insertion.")
+
+                  # Print first 2 for inspection
                 result = await self.card_repository.add_many(cards_obj.prepare_for_db())
-                
+                '''
+                batch_step = MTGStockBatchStep(
+                    ingestion_run_id=ingestion_run_id,
+                    batch_seq=batch_number,
+                    range_start=(batch_number - 1) * self.config.batch_size + 1,
+                    range_end=(batch_number - 1) * self.config.batch_size + len(batch),
+                    status="completed",
+                    items_ok=result.successful_inserts,
+                    items_failed=result.failed_inserts,
+                    bytes_processed=0,
+                )
+                if ops_repository and ingestion_run_id:
+                    await ops_repository.insert_batch_step(
+                       batch_step.to_tuple()
+                    )
+                '''
                 # Update statistics
                 self.stats.successful_inserts += result.successful_inserts
                 self.stats.failed_inserts += result.failed_inserts
