@@ -44,14 +44,15 @@ class BaseApiClient(ABC):
     
     def _parse_response(self, response: httpx.Response) -> ParsedResponse:
         content_type = (response.headers.get("content-type") or "").lower()
-
+        print(f"Parsing response with content-type: {content_type}")
         if "application/json" in content_type:
             return response.json()
 
         if "xml" in content_type or response.text.strip().startswith("<"):
             parsed = xmltodict.parse(response.text)
             return self._clean_xml_dict(parsed)
-
+        if any(ext in content_type for ext in ["xz", "gzip", "zip", "octet-stream"]):
+            return response.content
         return response.text
     
     def _clean_xml_dict(self, obj: Any) -> Any:

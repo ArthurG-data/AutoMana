@@ -34,9 +34,7 @@ class ApimtgjsonRepository(BaseApiClient):
         return await self._get(extension)
     
     async def _get(self, endpoint: str, params: dict | None = None) -> dict:
-     
-   
         headers = self.default_headers()
-        result = await self.request(method="GET", endpoint=endpoint, headers=headers) 
+        result = await self.request(method="GET", endpoint=endpoint, headers=headers)
         return result
     

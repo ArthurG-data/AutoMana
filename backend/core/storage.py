@@ -68,21 +68,14 @@ class LocalStorageBackend(StorageBackend):
                         lambda: full_path.write_text(json.dumps(data, indent=2))
                     )
                 await _write_json()
-            else:
-                # For binary or text data
-                if isinstance(data, (dict, list)):
-                    data = json.dumps(data)
-                if isinstance(data, str):
-                    data = data.encode()
-                
+            if file_format == "xz":
                 async def _write_binary():
                     loop = asyncio.get_event_loop()
                     return await loop.run_in_executor(
                         None,
                         lambda: full_path.write_bytes(data)
                     )
-                await _write_binary()
-
+                await _write_binary()   
             logger.info(f"Saved data to {full_path}")
             return str(full_path)
 
@@ -182,22 +175,32 @@ class StorageService:
         """Load data from JSON file"""
         return await self.backend.load(path, file_format="json")
 
-    async def save_binary(self, path: str, data: Union[bytes, str]) -> str:
+    async def save_binary(self, path: str, data: Union[bytes, str], file_format: str = "binary") -> str:
         """Save data as binary"""
-        return await self.backend.save(path, data, file_format="binary")
+        return await self.backend.save(path, data, file_format=file_format)
 
     async def load_binary(self, path: str) -> bytes:
         """Load data as binary"""
         return await self.backend.load(path, file_format="binary")
 
-    async def save_with_timestamp(self, filename: str, data: Any, file_format: str = "binary") -> str:
+
+    def build_timestamped_name(self, filename: str, ts: str) -> str:
+        if filename.endswith(".json.xz"):
+            base = filename[:-len(".json.xz")]
+            return f"{base}_{ts}.json.xz"
+        name, ext = filename.rsplit(".", 1) if "." in filename else (filename, "")
+        return f"{name}_{ts}.{ext}" if ext else f"{name}_{ts}"
+    
+    async def save_with_timestamp(self, filename: str, data: Any, file_format: str = "xz") -> str:
         """Save data with timestamp in filename"""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        name, ext = filename.rsplit(".", 1) if "." in filename else (filename, "")
-        timestamped_filename = f"{name}_{timestamp}.{ext}" if ext else f"{name}_{timestamp}"
+        timestamped_filename = self.build_timestamped_name(filename, timestamp)
         if file_format == "json":
             return await self.save_json(timestamped_filename, data)
-        return await self.save_binary(path=timestamped_filename, data=data)
+        if file_format == "xz":
+            return await self.save_binary(timestamped_filename, data, file_format="xz")
+        else:
+            raise ValueError(f"Unsupported file format: {file_format}")
 
     async def file_exists(self, path: str) -> bool:
         """Check if file exists"""
