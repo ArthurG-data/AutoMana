@@ -20,7 +20,6 @@ class ApimtgjsonRepository(BaseApiClient):
             "Accept": "application/json",
             "User-Agent": "AutoMana/1.0"
         }
-    
 
     async def fetch_all_prices_data(self) -> dict:
         """Fetch the data from the previous 90 days"""

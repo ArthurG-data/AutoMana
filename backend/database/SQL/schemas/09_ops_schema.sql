@@ -135,6 +135,20 @@ CREATE TABLE IF NOT EXISTS ops.ingestion_run_resources (
   UNIQUE (ingestion_run_id, resource_version_id)
 );
 
+CREATE TABLE IF NOT EXISTS ops.ingestion_ids_mapping (
+    id SERIAL PRIMARY KEY,
+    ingestion_run_id INT NOT NULL REFERENCES ops.ingestion_runs(id) ON DELETE CASCADE,
+    mtgstock_id BIGINT NOT NULL,
+    scryfall_id UUID,
+    multiverse_id BIGINT,
+    tcg_id BIGINT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE (ingestion_run_id, mtgstock_id)
+);
+
+CREATE INDEX idx_ingestion_ids_mapping_run ON ops.ingestion_ids_mapping(ingestion_run_id);
+CREATE INDEX idx_ingestion_ids_mapping_scryfall ON ops.ingestion_ids_mapping(scryfall_id);
+
 INSERT INTO ops.sources (name, base_uri, kind, rate_limit_hz)
 VALUES ('mtgStock', 'https://api.mtgstocks.com', 'http', 2.0)
 ON CONFLICT (name) DO UPDATE

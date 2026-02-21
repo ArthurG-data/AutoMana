@@ -1,4 +1,4 @@
-from backend.repositories.app_integration.ebay.EbayApiRepository import ApiRepository
+from backend.repositories.abstract_repositories.AbstractAPIRepository import  BaseApiClient                    #abstract_re . Abstract APIRepository import ApiRepository
 from backend.exceptions.repository_layer_exceptions.ebay_integration import ebay_api_exception
 from typing import Dict, Any, Optional, List
 from httpx import AsyncClient, HTTPStatusError
@@ -6,7 +6,7 @@ from backend.schemas.external_marketplace.ebay import EbayXmlBuilder
 from backend.schemas.app_integration.ebay.listings import ItemModel
 from backend.schemas.app_integration.ebay.trading_api import HeaderApi
 
-class EbayBuyRepository(ApiRepository):
+class EbayBuyRepository( BaseApiClient):
     """Repository for eBay Buy API operations"""
 
     API_URL = "https://api.ebay.com/buy/browse/v1"  # Base URL for eBay Buy API, use a factory later to create the repos, and have the url in a db

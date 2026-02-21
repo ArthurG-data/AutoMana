@@ -48,22 +48,30 @@ async def process_prices_file(path, id_dict):
     path="mtg_stock.data_staging.bulk_load",
     db_repositories = ["price", "ops"],
 )
-async def bulk_load(price_repository: PriceRepository, ops_repository: OpsRepository, root_folder, batch_size=10000, ingestion_run_id: int = None):
+async def bulk_load(price_repository: PriceRepository
+                    , ops_repository: OpsRepository
+                    , root_folder
+                    , batch_size=10000
+                    , ingestion_run_id: int = None):
     step_name = "bulk_load"
     price_rows = []
     batch_start = 0
     batch_end = 0
     batch_number = 1
+    ids_master_dict = {}
     try:
-        await ops_repository.update_run(ingestion_run_id=ingestion_run_id,current_step=step_name ,status="running")
+        if ingestion_run_id is not None:
+            await ops_repository.update_run(ingestion_run_id=ingestion_run_id,current_step=step_name ,status="running")
         for i, folder in tqdm(enumerate(os.listdir(root_folder), 1), desc="Processing MTG Stock folders", total=len(os.listdir(root_folder))):
 
             try:
+                
                 batch_end +=1
                 pdir = os.path.join(root_folder,folder)
-                info_path = os.path.join(pdir, "info.json")
+                info_path = os.path.join(pdir, "info.json") # i need to s
                 price_path = os.path.join(pdir, "prices.parquet")
                 id_dict = await process_info_file(info_path)
+                ids_master_dict[id_dict["mtgstock"]] = {k: v for k, v in id_dict.items() if k != "mtgstock"}
                 price_df = await process_prices_file(price_path, id_dict)
                 price_rows.append(price_df)
             except Exception as e:
@@ -72,7 +80,13 @@ async def bulk_load(price_repository: PriceRepository, ops_repository: OpsReposi
                 big_price_df = pd.concat(price_rows, ignore_index=True)
                 start = time.perf_counter()
                 #add update ingestion run status
+                if ingestion_run_id is not None:
+                    await ops_repository.update_run(ingestion_run_id=ingestion_run_id,current_step=step_name ,status="running")
                 await price_repository.copy_prices_mtgstock(big_price_df)
+                #finally, add the ids_master_dict to the ops_repository or handle it as needed
+                if ingestion_run_id is not None:
+                    await ops_repository.update_ids_master_dict(ingestion_run_id=ingestion_run_id, ids_master_dict=ids_master_dict)# new
+                ids_master_dict = {}
                 batch_start = batch_end
                 elapsed = time.perf_counter() - start
 
@@ -96,10 +110,14 @@ async def bulk_load(price_repository: PriceRepository, ops_repository: OpsReposi
         if price_rows:
             big_price_df = pd.concat(price_rows, ignore_index=True)
             await price_repository.copy_prices_mtgstock(big_price_df)
+            ids_master_dict.clear()
+    
     except Exception as e:
-        await ops_repository.update_run(ingestion_run_id=ingestion_run_id,current_step=step_name ,status="failed", error_details={"error": str(e)})
+        if ingestion_run_id is not None:
+            await ops_repository.update_run(ingestion_run_id=ingestion_run_id,current_step=step_name ,status="failed", error_details={"error": str(e)})
         raise e
-    await ops_repository.update_run(ingestion_run_id=ingestion_run_id,current_step=step_name ,status="success")
+    if ingestion_run_id is not None:
+        await ops_repository.update_run(ingestion_run_id=ingestion_run_id,current_step=step_name ,status="success")
 
 @ServiceRegistry.register(
     path="mtg_stock.data_staging.from_raw_to_staging",
@@ -149,33 +167,3 @@ async def from_dim_to_prices(price_repository: PriceRepository
         await ops_repository.update_run(ingestion_run_id=ingestion_run_id,current_step=step_name ,status="failed", error_details={"error": str(e)})
         raise e
 
-async def insert_card_identifiers(card_repository, folder_path):
-    try:
-        ids = {}
-        for i, folder in tqdm(enumerate(os.listdir(folder_path), 1), desc="Processing MTG Stock folders", total=len(os.listdir(folder_path))):
-            try:
-                pdir = os.path.join(folder_path, folder)
-                info_path = os.path.join(pdir, "info.json")
-                logger.info("Processing: %s", info_path)
-                id_dict = await process_info_file(info_path)
-                scry_id = id_dict.get("scryfallId", None)
-                stock_id = id_dict.get("mtgstock", None)
-                if scry_id and stock_id:
-                    ids[scry_id] = stock_id
-                else:
-                    logger.warning(f"Missing scryfallId or mtgstock id in {info_path}")
-                    continue
-                # insert into dim_card_identifier if not exists
-                # this is a bit tricky as we have multiple possible identifiers
-                # we will use upsert with conflict on unique constraint
-                # assuming you have a unique constraint on (source, source_id)
-                # you may need to adjust this based on your actual schema
-
-
-            except Exception as e:
-                logger.warning(f"Error processing folder: {folder} Error: {e}")
-            ids = {str(k): str(v) for k, v in ids.items() if k and v}  # filter out None values
-        await card_repository.bulk_update_mtg_stock_ids(ids)
-    finally:
-        pass
-        #await price_repository.rollback_transaction()

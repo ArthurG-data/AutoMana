@@ -8,7 +8,6 @@ CREATE TABLE IF NOT EXISTS card_catalog.unique_cards_ref (
     cmc INT,
     mana_cost VARCHAR(50),
     reserved BOOL DEFAULT(false),
-    is_multifaced BOOL DEFAULT(false),
     other_face_id UUID DEFAULT(NULL),
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
@@ -40,11 +39,12 @@ CREATE TABLE IF NOT EXISTS card_catalog.rarities_ref (
 
 CREATE TABLE IF NOT EXISTS card_catalog.artists_ref (
     artist_id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-    artist_name VARCHAR(50) NOT NULL UNIQUE,
+    artist_name VARCHAR(50) NOT NULL,
     created_at TIMESTAMPTZ DEFAULT now(),
-    updated_at TIMESTAMPTZ DEFAULT now()
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE (artist_name, artist_id)
 );
-
+CREATE INDEX idx_artists_name ON card_catalog.artists_ref(artist_name);
 CREATE TABLE IF NOT EXISTS card_catalog.frames_ref (
     frame_id SERIAL PRIMARY KEY,
     frame_year VARCHAR(20) NOT NULL UNIQUE,
@@ -141,7 +141,8 @@ CREATE TABLE IF NOT EXISTS card_catalog.card_version (
     full_art BOOLEAN DEFAULT false,
     textless BOOLEAN DEFAULT false,
     booster BOOLEAN DEFAULT true,
-    variation BOOLEAN DEFAULT false,    
+    variation BOOLEAN DEFAULT false,   
+    is_multifaced BOOLEAN DEFAULT false, 
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now(),
     UNIQUE (unique_card_id, set_id, collector_number)
@@ -155,10 +156,11 @@ CREATE TABLE IF NOT EXISTS card_catalog.illustrations(
 );
 
 CREATE TABLE IF NOT EXISTS card_catalog.illustration_artist (
-    illustration_id uuid PRIMARY KEY REFERENCES card_catalog.illustrations(illustration_id),
+    illustration_id uuid NOT NULL REFERENCES card_catalog.illustrations(illustration_id),
     artist_id uuid NOT NULL REFERENCES card_catalog.artists_ref(artist_id),
     created_at TIMESTAMPTZ DEFAULT now(),
-    updated_at TIMESTAMPTZ DEFAULT now()
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE (illustration_id, artist_id)
 );
 
 CREATE TABLE IF NOT EXISTS card_catalog.card_version_illustration (
@@ -226,9 +228,16 @@ CREATE TABLE IF NOT EXISTS card_catalog.card_faces (
     toughness TEXT,
     flavor_text TEXT,
     created_at TIMESTAMPTZ DEFAULT now(),
-    updated_at TIMESTAMPTZ DEFAULT now()
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE (card_version_id, face_index)
 );
 
+CREATE TABLE card_catalog.face_illustration (
+  face_id uuid NOT NULL REFERENCES card_catalog.card_faces(card_faces_id),
+  illustration_id uuid NOT NULL REFERENCES card_catalog.illustrations(illustration_id),
+  created_at timestamptz DEFAULT now(),
+  PRIMARY KEY (face_id, illustration_id)
+);
 CREATE TABLE IF NOT EXISTS card_catalog.card_external_identifier (
     card_identifier_ref_id SMALLINT NOT NULL REFERENCES card_catalog.card_identifier_ref(card_identifier_ref_id),
     card_version_id UUID NOT NULL REFERENCES card_catalog.card_version(card_version_id),
@@ -258,6 +267,20 @@ CREATE TABLE IF NOT EXISTS card_catalog.card_games_ref (
 
 INSERT INTO card_catalog.card_games_ref (code, name) VALUES
 ('mtg', 'Magic: The Gathering');
+
+
+
+CREATE TABLE IF NOT EXISTS card_catalog.scryfall_migration(
+    id uuid PRIMARY KEY NOT NULL,
+    uri TEXT NOT NULL,
+    performed_at DATE NOT NULL DEFAULT CURRENT_DATE,
+    migration_strategy TEXT NOT NULL,
+    old_scryfall_id UUID NOT NULL,
+    new_scryfall_id UUID,
+    note TEXT,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
 --VIEWS -------------------------------------
 CREATE OR REPLACE VIEW card_catalog.v_card_version_count AS
 SELECT
@@ -445,7 +468,7 @@ SELECT
     cv.textless,
     cv.booster,
     cv.variation,
-    ucr.is_multifaced,
+    cv.is_multifaced,
     
     -- Artist and illustration
     COALESCE(ia.illustrations, '[]'::jsonb) AS illustrations,
@@ -458,7 +481,7 @@ SELECT
     
     -- Face count for quick reference
     CASE 
-        WHEN ucr.is_multifaced THEN jsonb_array_length(COALESCE(cfa.card_faces, '[]'::jsonb))
+        WHEN cv.is_multifaced THEN jsonb_array_length(COALESCE(cfa.card_faces, '[]'::jsonb))--change the reference
         ELSE 1
     END AS face_count,
     
@@ -507,7 +530,7 @@ CREATE INDEX idx_v_card_versions_complete_legalities ON card_catalog.v_card_vers
 --STORED PROCEDURE---------------------------
 CREATE OR REPLACE FUNCTION card_catalog.insert_full_card_version(
     p_card_name TEXT,
-    p_cmc NUMERIC,
+    p_cmc INT,
     p_mana_cost TEXT,
     p_reserved BOOLEAN,
     p_oracle_text TEXT,
@@ -520,9 +543,10 @@ CREATE OR REPLACE FUNCTION card_catalog.insert_full_card_version(
     p_is_promo BOOLEAN,
 
     p_is_digital BOOLEAN,
+    p_keywords JSONB,
     p_colors JSONB,
-    p_artist TEXT,
-    p_artist_id UUID,
+    p_artist JSONB,
+    p_artist_id JSONB,
     p_legalities JSONB,
     p_illustration_id UUID,
     p_types JSONB,
@@ -580,6 +604,9 @@ DECLARE
     v_tcgplayer_id INT;
     v_tcgplayer_etched_id INT;
     v_cardmarket_id INT;
+    v_keyword TEXT;
+    v_keyword_id INT;
+    v_card_faces_id UUID;
 BEGIN
     -- Insert or retrieve unique card
     INSERT INTO card_catalog.unique_cards_ref (card_name, cmc, mana_cost, reserved)
@@ -643,45 +670,8 @@ BEGIN
         VALUES (p_layout_name)
         RETURNING layout_id INTO v_layout_id;
     END IF;
-
-    -- Artist
-    SELECT artist_id INTO v_artist_uuid
-    FROM card_catalog.artists_ref
-    WHERE artist_name = p_artist;
-
-    IF v_artist_uuid IS NULL THEN
-    INSERT INTO card_catalog.artists_ref (artist_id, artist_name) 
-        VALUES (p_artist_id, p_artist)
-        RETURNING artist_id INTO v_artist_uuid;
-    END IF;
-
-    -- Illustration ref
-    IF p_illustration_id IS NOT NULL THEN
-        SELECT illustration_id INTO v_illustration_id
-        FROM card_catalog.illustrations
-        WHERE illustration_id = p_illustration_id;
-
-        IF v_illustration_id IS NULL THEN
-            INSERT INTO card_catalog.illustrations (illustration_id, image_uris)
-            VALUES (p_illustration_id, p_image_uris)
-            RETURNING illustration_id INTO v_illustration_id;
-        ELSE
-            -- always update illustration image uris
-            UPDATE card_catalog.illustrations
-            SET image_uris = p_image_uris,
-                updated_at = now()
-            WHERE illustration_id = p_illustration_id;
-        END IF;
-
-        -- Link illustration and artist
-        IF p_artist_id IS NOT NULL THEN
-            INSERT INTO card_catalog.illustration_artist (illustration_id, artist_id)
-            VALUES (p_illustration_id, p_artist_id)
-            ON CONFLICT DO NOTHING;
-        END IF;
-    ELSE
-        RAISE WARNING 'Illustration ID is NULL for card %, skipping illustration processing', p_card_name;
-    END IF;
+    --zip the arrays and insert types
+   
 
     -- Card version
 
@@ -741,16 +731,6 @@ BEGIN
     WHERE stat_value IS NOT NULL
     ON CONFLICT DO NOTHING;
 
-    --card illustrations
-    WITH exists AS (
-        SELECT card_version_id, illustration_id
-        FROM card_catalog.card_version_illustration
-        WHERE card_version_id = v_card_version_id
-            AND illustration_id = p_illustration_id
-    )
-    INSERT INTO card_catalog.card_version_illustration (card_version_id, illustration_id)
-    SELECT v_card_version_id, p_illustration_id
-    WHERE NOT EXISTS (SELECT 1 FROM exists);
     -- Promo types
 
 
@@ -775,6 +755,7 @@ BEGIN
         ON CONFLICT DO NOTHING;
     END LOOP;
 
+ 
     -- Type line handling
     IF p_card_faces IS NULL
     OR jsonb_typeof(p_card_faces) <> 'array'
@@ -796,11 +777,78 @@ BEGIN
             VALUES (v_unique_card_id, v_type, 'subtype')
             ON CONFLICT (unique_card_id, type_name) DO NOTHING;
         END LOOP;
+
+        -- Handle artists for single-faced cards
+        SELECT artist_id INTO v_artist_uuid
+        FROM card_catalog.artists_ref
+        WHERE artist_name = v_artist_name;
+
+        IF v_artist_uuid IS NULL THEN
+        INSERT INTO card_catalog.artists_ref (artist_id, artist_name) 
+            VALUES (v_artist_uuid, v_artist_name)
+            RETURNING artist_id INTO v_artist_uuid;
+        END IF;
+        -- Link illustration and artist for single-faced card
+        INSERT INTO card_catalog.illustrations (illustration_id, image_uris)
+        VALUES (p_illustration_id, p_image_uris)
+        ON CONFLICT (illustration_id)
+        DO UPDATE SET
+            image_uris = EXCLUDED.image_uris,
+            updated_at = now()
+        RETURNING illustration_id INTO v_illustration_id;
+
+        INSERT INTO card_catalog.illustration_artist (illustration_id, artist_id)
+        VALUES (p_illustration_id, v_artist_uuid::uuid)  -- change cast as needed
+        ON CONFLICT DO NOTHING;
+
+        
+        --card illustrations
+        WITH exists AS (
+            SELECT card_version_id, illustration_id
+            FROM card_catalog.card_version_illustration
+            WHERE card_version_id = v_card_version_id
+                AND illustration_id = p_illustration_id
+        )
+        INSERT INTO card_catalog.card_version_illustration (card_version_id, illustration_id)
+        SELECT v_card_version_id, p_illustration_id
+        WHERE NOT EXISTS (SELECT 1 FROM exists);
+
     ELSE
+        UPDATE card_catalog.card_version
+        SET is_multifaced = true
+        WHERE card_version_id = v_card_version_id;
         FOR v_face IN SELECT * FROM jsonb_array_elements(p_card_faces) LOOP
             v_artist_uuid := NULL;
             v_illustration_id := NULL;
             v_artist_name := NULL;
+            v_card_faces_id := NULL;
+
+            --insert the face
+               -- Insert card face
+            INSERT INTO card_catalog.card_faces (
+                card_version_id, face_index, name, mana_cost,
+                type_line, oracle_text, power, toughness, flavor_text
+            ) VALUES (
+                v_card_version_id,
+                (v_face ->> 'face_index')::INT,
+                v_face ->> 'name',
+                v_face ->> 'mana_cost',
+                v_face ->> 'type_line',
+                v_face ->> 'oracle_text',
+                v_face ->> 'power',
+                v_face ->> 'toughness',
+                v_face ->> 'flavor_text'
+            )
+            ON CONFLICT DO NOTHING--check whqat the conflict is 
+            RETURNING card_faces_id INTO v_card_faces_id;
+
+            if v_card_faces_id IS NULL THEN
+                SELECT card_faces_id INTO v_card_faces_id
+                FROM card_catalog.card_faces
+                WHERE card_version_id = v_card_version_id
+                    AND face_index = (v_face ->> 'face_index')::INT
+                LIMIT 1;
+            END IF;
 
             IF v_face ->> 'illustration_id' IS NOT NULL AND v_face ->> 'artist_id' IS NOT NULL THEN
                 v_illustration_id := (v_face ->> 'illustration_id')::UUID;
@@ -819,26 +867,13 @@ BEGIN
                 VALUES (v_illustration_id, v_artist_uuid)
                 ON CONFLICT DO NOTHING;
 
-                INSERT INTO card_catalog.card_version_illustration (card_version_id, illustration_id)
-                VALUES (v_card_version_id, v_illustration_id)
+                --INSERT INTO card_catalog.card_version_illustration (card_version_id, illustration_id)
+                --VALUES (v_card_version_id, v_illustration_id)
+                INSERT INTO card_catalog.face_illustration (face_id, illustration_id)
+                VALUES  (v_card_faces_id , v_illustration_id)
                 ON CONFLICT DO NOTHING;
             END IF;
 
-            -- Insert card face
-            INSERT INTO card_catalog.card_faces (
-                card_version_id, face_index, name, mana_cost,
-                type_line, oracle_text, power, toughness, flavor_text
-            ) VALUES (
-                v_card_version_id,
-                (v_face ->> 'face_index')::INT,
-                v_face ->> 'name',
-                v_face ->> 'mana_cost',
-                v_face ->> 'type_line',
-                v_face ->> 'oracle_text',
-                v_face ->> 'power',
-                v_face ->> 'toughness',
-                v_face ->> 'flavor_text'
-            );
 
             -- Face-level types
             FOR v_type IN SELECT jsonb_array_elements_text(v_face -> 'supertypes') LOOP
@@ -879,6 +914,26 @@ BEGIN
         INSERT INTO card_catalog.card_color_identity (unique_card_id, color_id)
         VALUES (v_unique_card_id, v_color_id)
         ON CONFLICT DO NOTHING;
+    END LOOP;
+    -- Keywords
+    FOR v_keyword IN SELECT jsonb_array_elements_text(p_keywords) LOOP
+            -- Insert keyword if not exists
+            INSERT INTO card_catalog.keywords_ref (keyword_name)
+            VALUES (v_keyword)
+            ON CONFLICT (keyword_name) DO NOTHING
+            RETURNING keyword_id INTO v_keyword_id;
+
+            -- If keyword already existed, get its ID
+            IF v_keyword_id IS NULL THEN
+                SELECT keyword_id INTO v_keyword_id 
+                FROM card_catalog.keywords_ref 
+            WHERE keyword_name = v_keyword;
+        END IF;
+
+        -- Link keyword to unique card
+        INSERT INTO card_catalog.card_keyword (unique_card_id, keyword_id)
+        VALUES (v_unique_card_id, v_keyword_id)
+        ON CONFLICT (unique_card_id, keyword_id) DO NOTHING;
     END LOOP;
 
     -- Legalities
@@ -947,9 +1002,10 @@ BEGIN
                 v_card ->> 'layout_name',
                 (v_card ->> 'is_promo')::BOOLEAN,
                 (v_card ->> 'is_digital')::BOOLEAN,
+                v_card -> 'keywords',
                 v_card -> 'colors',
-                v_card ->> 'artist',
-                (v_card ->> 'artist_id')::UUID,
+                v_card -> 'artist',
+                v_card -> 'artist_id',
                 v_card -> 'legalities',
                 (v_card ->> 'illustration_id')::UUID,
                 v_card -> 'types',

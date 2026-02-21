@@ -1,10 +1,10 @@
-from datetime import datetime
-from typing import  Optional, Any, Sequence
+import io
+from typing import  Optional, Any
 from uuid import UUID
 from dataclasses import dataclass, field
 
 from backend.repositories.abstract_repositories.AbstractDBRepository import AbstractRepository
-from backend.repositories.card_catalog import card_queries as queries 
+from backend.repositories.card_catalog import card_queries as queries
 
 class CardReferenceRepository(AbstractRepository[Any]):
     def __init__(self, connection, executor = None):
@@ -34,6 +34,22 @@ class CardReferenceRepository(AbstractRepository[Any]):
                 else 0
             )
 
+    async def _copy_csv_to_table(self, buffer :bytes, schema_name, table_name):
+        data = buffer.getvalue()  # convert BytesIO → bytes
+        data_mv = memoryview(data)
+        assert isinstance(data, (bytes, bytearray)), type(data_mv)
+        status =await self.connection.copy_to_table(
+            table_name=table_name,
+            schema_name=schema_name,
+            source=data_mv,
+            format='csv',
+            null='',
+            delimiter='\t',
+            header=False
+        )
+        return status
+
+        
     async def add_many(self, values):
         #not async anymore
         result = await self.execute_query("SELECT * FROM card_catalog.insert_batch_card_versions($1::JSONB)", (values,))
@@ -192,3 +208,8 @@ class CardReferenceRepository(AbstractRepository[Any]):
 
         # Pass TWO params, not one
         self.execute_command(query,(scry_ids, stock_ids))
+    
+    
+    async def copy_migrations(self, buffer):
+        status = await self._copy_csv_to_table(buffer, schema_name="card_catalog", table_name="scryfall_migration")
+        return status

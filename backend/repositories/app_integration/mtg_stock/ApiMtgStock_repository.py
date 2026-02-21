@@ -8,7 +8,7 @@ from backend.utils.rate_limits import AsyncTokenBucket
 
 class ApiMtgStockRepository(BaseApiClient):
     def __init__(self
-                 , timeout: Optional[int] = 30
+                 , timeout: Optional[float] = 30.0
                  , rate_per_sec: float = 1.0
                  , burst: int = 1
                  , delay_base: Optional[int] = 180
@@ -42,8 +42,6 @@ class ApiMtgStockRepository(BaseApiClient):
         self.SEM = asyncio.Semaphore(max_concurrency)
 
         # persistent client used when entering context
-        self.client: Optional[httpx.AsyncClient] = None
-
         super().__init__(timeout=timeout)
         # ETag cache: url -> {etag, body, expires_at}
         self._etag_cache: Dict[str, Dict[str, Any]] = {}
@@ -76,16 +74,6 @@ class ApiMtgStockRepository(BaseApiClient):
     def _get_base_url(self) -> str:
         return "https://api.mtgstocks.com"
 
-    async def __aenter__(self):
-        """Initialize the persistent HTTP client when entering the context."""
-        self.client = httpx.AsyncClient(http2=True, timeout=self.timeout)
-        return self
-
-    async def __aexit__(self, exc_type, exc_value, traceback):
-        """Close the persistent HTTP client when exiting the context."""
-        if self.client:
-            await self.client.aclose()
-            self.client = None
 
     async def _get_bytes_or_none(self, endpoint: str) -> Optional[bytes]:
         # We need 404 => None, so we call send() once to inspect status,
@@ -98,80 +86,6 @@ class ApiMtgStockRepository(BaseApiClient):
         resp.raise_for_status()
         logger.debug("GET %s len=%d", endpoint, len(resp.content))
         return resp.content
-    
-    async def request_bytes(
-        self,
-        method: str,
-        endpoint: str,
-        *,
-        params: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = None,
-        timeout: Optional[int] = None,
-    ) -> Optional[bytes]:
-        """
-        MTGStocks-specific request wrapper:
-        - returns bytes (resp.content)
-        - 404 -> None
-        - 429 -> backoff + retry
-        - uses persistent client if available
-        """
-        backoff = self.DELAY_BASE
-        url = self.get_full_url(endpoint)
-
-        merged_headers = dict(self._headers)
-        if headers:
-            merged_headers.update(headers)
-
-        t = timeout or self.timeout
-
-        for attempt in range(self.MAX_ATTEMPTS):
-            try:
-                if self.client is None:
-                    # Fallback: create a short-lived client if not used in a context manager
-                    async with httpx.AsyncClient(http2=True, timeout=t) as client:
-                        resp = await client.request(method.upper(), url, params=params, headers=merged_headers)
-                else:
-                    resp = await self.client.request(method.upper(), url, params=params, headers=merged_headers)
-
-                if resp.status_code == 404:
-                    logger.warning("MTGStocks resource not found: %s", url)
-                    return None
-
-                if resp.status_code == 429:
-                    logger.warning("MTGStocks rate limited (429): %s. Sleeping %ss", url, backoff)
-                    await asyncio.sleep(backoff)
-                    backoff = min(backoff * 2, 30)
-                    continue
-
-                resp.raise_for_status()
-                return resp.content
-
-            except httpx.HTTPStatusError as e:
-                # Let the base mapping turn this into a RepositoryError (generic),
-                # OR override map_http_error in a subclass if you want MTGStocks-specific exceptions.
-                raise self.map_http_error(e)
-            
-            except httpx.RequestError as e:
-                # Network errors -> repository-level error
-                raise ExternalApiConnectionError(
-                    message=f"Failed to connect to {self.name}: {e}",
-                    error_code="EXTERNAL_API_CONNECTION_ERROR",
-                    error_data={"url": url},
-                    source_exception=e,
-                ) from e
-
-            except RepositoryError:
-                raise
-
-            except Exception as e:
-                # last attempt => raise; otherwise retry with backoff
-                if attempt >= self.MAX_ATTEMPTS - 1:
-                    raise
-                logger.warning("Unexpected error calling MTGStocks (%s). Retrying in %ss", e, backoff)
-                await asyncio.sleep(backoff)
-                backoff = min(backoff * 2, 30)
-
-        return None
     
     async def fetch_card_prices(self, card_id: int):
         return await self._get_bytes_or_none( f"/prints/{card_id}/prices")
@@ -188,7 +102,7 @@ class ApiMtgStockRepository(BaseApiClient):
         headers: Optional[Dict[str, str]] = None,
         json: Optional[Dict[str, Any]] = None,
         data: Optional[Union[str, bytes, Dict[str, Any]]] = None,
-        timeout: Optional[int] = None,
+        timeout: Optional[float] = None,
     ) -> httpx.Response:
         url = self.get_full_url(endpoint)
         backoff = self.DELAY_BASE
@@ -204,17 +118,15 @@ class ApiMtgStockRepository(BaseApiClient):
             cache_entry = self._etag_cache.get(url)
             if cache_entry and cache_entry.get("etag"):
                 hdrs["If-None-Match"] = cache_entry["etag"]
-
             resp = await super().send(
                 method,
                 endpoint,
                 params=params,
-                headers=hdrs,
+                headers=hdrs,#base will handle if header is passed
                 json=json,
                 data=data,
                 timeout=timeout,
             )
-
             # 🟢 304 Not Modified → reuse cached body
             if resp.status_code == 304:
                 cached = self._get_cached(url)
@@ -226,7 +138,6 @@ class ApiMtgStockRepository(BaseApiClient):
                         headers=resp.headers,
                         request=resp.request,
                     )
-
             # 🔁 Rate limited
             if resp.status_code == 429:
                 retry_after = resp.headers.get("Retry-After")
@@ -318,3 +229,4 @@ class ApiMtgStockRepository(BaseApiClient):
                 data = r.get("data", {})
                 bytes_processed += len(data.get("details", b"")) + len(data.get("prices", b""))
         return {"data": processed, "items_ok": item_ok, "items_failed": item_failed, "bytes_processed": bytes_processed}
+    

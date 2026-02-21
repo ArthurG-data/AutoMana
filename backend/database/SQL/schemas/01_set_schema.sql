@@ -3,6 +3,22 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE SCHEMA IF NOT EXISTS card_catalog;
 
+CREATE TABLE IF NOT EXISTS card_catalog.language_ref(
+    language_id SERIAL PRIMARY KEY,
+    language_code VARCHAR(10) UNIQUE NOT NULL,
+    language_name VARCHAR(50) NOT NULL
+);
+INSERT INTO card_catalog.language_ref (language_code, language_name) VALUES 
+('en', 'English'),
+('fr', 'French'),
+('de', 'German'),
+('es', 'Spanish'),
+('it', 'Italian'),
+('pt', 'Portuguese'),
+('jp', 'Japanese'),
+('ko', 'Korean'),
+('ru', 'Russian'),
+('zh', 'Chinese');
 
 CREATE TABLE IF NOT EXISTS card_catalog.set_type_list_ref(
     set_type_id SERIAL NOT NULL PRIMARY KEY,

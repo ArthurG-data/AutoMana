@@ -84,6 +84,7 @@ class PriceRepository(AbstractRepository):
 
     async def copy_prices_mtgstock(self, df):
         await self._copy_to_table(df, "pricing", "raw_mtg_stock_price")
+        await self.connection.execute('COMMIT;')
 
     def add(self):
         raise NotImplementedError("Method not implemented")

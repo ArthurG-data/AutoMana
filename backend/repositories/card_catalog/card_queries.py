@@ -19,39 +19,41 @@ insert_full_card_query = """
 
         -- Display properties (13-16)
         $13, -- is_digital
-        $14, -- colors
-        $15, -- artist
-        $16, -- artist_id
+        $14, --keywords
+        $15, -- colors
+        $16, -- artist
+        $17, -- artist_id
 
         -- Game properties (17-22)
-        $17, -- legalities
-        $18, -- illustration_id
-        $19, -- types
-        $20, -- supertypes
-        $21, -- subtypes
-        $22, -- games
+        $18, -- legalities
+        $19, -- illustration_id
+        $20, -- types
+        $21, -- supertypes
+        $22, -- subtypes
+        $23, -- games
         
-        -- Print properties (23-28)
-        $23, -- oversized
-        $24, -- booster
-        $25, -- full_art
-        $26, -- textless
-        $27, -- power
-        $28, -- toughness
-        $29, -- loyalty
-        $30, -- defense
+        -- Print properties (24-29)
+        $24, -- oversized
+        $25, -- booster
+        $26, -- full_art
+        $27, -- textless
+        $28, -- power
+        $29, -- toughness
+        $30, -- loyalty
+        $31, -- defense
 
-        -- Additional data (29-33)
-        $31, -- promo_types
-        $32, -- variation
-        $33, -- card_faces
+        -- Additional data (32-36)
+        $32, -- promo_types
+        $33, -- variation
+        $34, -- card_faces
 
-        $34, -- scryfall_id
-        $35, -- oracle_id
-        $36, -- multiverse_ids
-        $37, -- tcgplayer_id
-        $38, -- tcgplayer_etched_id
-        $39 -- cardmarket_id        
+        $35, --p_image_uris
+        $36, -- scryfall_id
+        $37, -- oracle_id
+        $38, -- multiverse_ids
+        $39, -- tcgplayer_id
+        $40, -- tcgplayer_etched_id
+        $41 -- cardmarket_id        
     );
 """
 

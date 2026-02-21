@@ -18,3 +18,7 @@ class MtgjsonRepository(AbstractDBRepository):
         COPY mtgjson_card_data FROM $1 WITH (FORMAT parquet, PARQUET_COMPRESSION 'SNAPPY')
         """
         await self.execute(query, filepath)
+
+    async def copy_migrations(self, buffer):
+        query = """COPY card_catalog.scryfall_migration FROM $1 WITH (FORMAT csv, DELIMITER E'\t', NULL '')"""
+        await self.execute(query, buffer)  

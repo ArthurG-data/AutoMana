@@ -1,5 +1,5 @@
 
-from pydantic import Field, model_validator, BaseModel
+from pydantic import Field, field_validator, model_validator, BaseModel
 from uuid import UUID
 from typing import Any, Dict, Optional,  List, Union
 from backend.utils.card_catalog.type_parser import process_type_line
@@ -15,7 +15,7 @@ class BaseCard(BaseModel):
     oracle_text: Optional[str] = Field(default="", title="The text on the card")
     digital: bool = Field(title="Is the card released only on digital platform")
     
-    
+    @staticmethod
     def to_json_safe(data):
         def clean(obj):
             if isinstance(obj, dict):
@@ -59,12 +59,19 @@ class CardFace(BaseModel):
         values.supertypes = parsed["supertypes"]
         values.subtypes = parsed["subtypes"]
         return values
+    
+    @field_validator("artist", mode="after")
+    @classmethod
+    def parse_artist(cls, v):
+        if isinstance(v, str) and "&" in v:
+            return [a.strip() for a in v.split("&")]
+        return v
 
 class CreateCard(BaseCard):
-    artist: str = Field(max_length=100)
-    artist_ids : List[UUID] = []
+    artist: Union[str, list[str]]
+    artist_ids : Union[UUID, List[UUID]] = []
     cmc : Union[int, float] = Field(default=0)
-    illustration_id: Optional[UUID] = UUID('00000000-0000-0000-0000-000000000001')
+    illustration_id: Optional[UUID | list[UUID]] = UUID('00000000-0000-0000-0000-000000000001')
     games : List[str] = []
     mana_cost : Optional[str]=Field(max_length=100, default=None)
     collector_number: Union[int, str] 
@@ -96,7 +103,7 @@ class CreateCard(BaseCard):
     defense : Optional[Union[int, str]]=None
     variation : Optional[bool]=False
     reserved : bool=Field(default=False)
-    card_faces : Optional[List[CardFace]]=[],
+    card_faces : Optional[List[CardFace]]=[]
     set_name : str=Field('MISSING_SET')
     set : str
     set_id : UUID
@@ -107,6 +114,13 @@ class CreateCard(BaseCard):
     tcgplayer_etched_id: Optional[int]=None
     cardmarket_id: Optional[int]=None
 
+    @field_validator("artist", mode="after")
+    @classmethod
+    def parse_artist(cls, v):
+        if isinstance(v, str) and "&" in v:
+            return [a.strip() for a in v.split("&")]
+        return v
+
     def prepare_for_db(self):
         """
         Prepare the card for database insertion by converting types and ensuring all fields are set.
@@ -114,7 +128,7 @@ class CreateCard(BaseCard):
         
         return (
         self.name,
-        self.cmc,
+        int(self.cmc) if self.cmc is not None else 0,
         self.mana_cost,
         self.reserved,
         self.oracle_text,
@@ -128,8 +142,8 @@ class CreateCard(BaseCard):
         self.is_digital,
         json.dumps(self.keywords),
         json.dumps(self.card_color_identity),        # p_colors
-        self.artist,
-        self.artist_ids[0] if self.artist_ids else UUID("00000000-0000-0000-0000-000000000000"),
+        json.dumps(self.artist) if isinstance(self.artist, list) else json.dumps([self.artist]),
+        self.to_json_safe(self.artist_ids) if isinstance(self.artist_ids, list) else json.dumps([self.artist_ids]),
         json.dumps(self.legalities),
         self.illustration_id if self.illustration_id else UUID("00000000-0000-0000-0000-000000000001"),
         json.dumps(self.types),
@@ -144,7 +158,7 @@ class CreateCard(BaseCard):
         str(self.toughness) if self.toughness is not None else None,
         str(self.loyalty) if self.loyalty is not None else None,
         str(self.defense) if self.defense is not None else None,
-        json.dumps(self.promo_types),
+        self.to_json_safe(self.promo_types) if isinstance(self.promo_types, list) else json.dumps([self.promo_types]),
         self.variation,
         self.to_json_safe([f.model_dump() for f in self.card_faces]) if self.card_faces else json.dumps([]),
 
@@ -170,7 +184,7 @@ class CreateCard(BaseCard):
 
         return {
             "card_name": data["card_name"],
-            "cmc": data["cmc"],
+            "cmc": int(data["cmc"]) if data["cmc"] is not None else 0,
             "mana_cost": data["mana_cost"],
             "reserved": data["reserved"],
             "oracle_text": data["oracle_text"] or "",
@@ -214,38 +228,7 @@ class CreateCard(BaseCard):
             "tcgplayer_etched_id": data["tcgplayer_etched_id"],
             "cardmarket_id": data["cardmarket_id"],
         }
-    
-    @model_validator(mode="after")
-    def lift_face_fields(self):
-        if not self.card_faces:
-            return self
-
-        first = self.card_faces[0]
-
-        if not self.oracle_text:
-            self.oracle_text = getattr(first, "oracle_text", None)
-
-        if not self.mana_cost:
-            self.mana_cost = getattr(first, "mana_cost", None)
-
-        if not self.type_line:
-            self.type_line = getattr(first, "type_line", None)
-
-        # Stats (only if face has them)
-        if self.power is None:
-            self.power = getattr(first, "power", None)
-
-        if self.toughness is None:
-            self.toughness = getattr(first, "toughness", None)
-
-        if self.loyalty is None:
-            self.loyalty = getattr(first, "loyalty", None)
-
-        if self.defense is None:
-            self.defense = getattr(first, "defense", None)
-
-        return self
-
+   
     @model_validator(mode='before')
     @classmethod
     def parse_and_clean_card_faces(cls, values):
@@ -255,8 +238,7 @@ class CreateCard(BaseCard):
             values["card_faces"] = []
         else:
             # If faces is a dict → call your parse_card_faces() function
-            if isinstance(faces, dict):
-                faces = parse_card_faces(faces)  # returns List[CardFace]
+            faces = parse_card_faces(faces)  # returns List[CardFace]
 
             # Now clean the list
             clean_faces = []
@@ -277,16 +259,28 @@ class CreateCard(BaseCard):
     @model_validator(mode='after')
     def process_type_line(self):
         tl = getattr(self, "type_line", None)
+        
+        # For double-faced cards, get type_line from first face
         if (not tl) and self.card_faces:
             tl = self.card_faces[0].type_line
+        
         if not tl:
             self.types, self.supertypes, self.subtypes = [], [], []
             return self
         
+        # Handle double-faced cards: "type1 // type2" -> use only first face
+        if '//' in tl:
+            tl = tl.split('//')[0].strip()
+        
         parsed = process_type_line(tl)
-        self.types = parsed.get("types", [])
-        self.supertypes = parsed.get("supertypes", [])
-        self.subtypes = parsed.get("subtypes", [])
+        
+        # Filter out common words that aren't types
+        stopwords = {'of', 'and', 'or', 'the', 'a', 'an', 'in', 'on', 'at', 'to', 'for', 'with'}
+        
+        self.types = [t for t in parsed.get("types", []) if t.lower() not in stopwords]
+        self.supertypes = [t for t in parsed.get("supertypes", []) if t.lower() not in stopwords]
+        self.subtypes = [t for t in parsed.get("subtypes", []) if t.lower() not in stopwords]
+        
         return self
     
 

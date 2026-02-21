@@ -1,7 +1,11 @@
+from datetime import datetime
 import pathlib
+
+import io
+
 from backend.repositories.abstract_repositories.AbstractAPIRepository import BaseApiClient
 import aiohttp
-from typing import Optional
+from typing import AsyncGenerator, Dict, Any
 import httpx
 import logging
 logger = logging.getLogger(__name__)
@@ -10,7 +14,6 @@ class ScryfallAPIRepository(BaseApiClient):
     BASE_URL = "https://api.scryfall.com"
 
     def __init__(self, timeout: int = 30, **kwargs):
-        self.client: Optional[httpx.AsyncClient] = None
         super().__init__(timeout=timeout)
         self.timeout = timeout
         # persistent client used when entering context
@@ -26,28 +29,45 @@ class ScryfallAPIRepository(BaseApiClient):
             "Accept": "application/json",
             "User-Agent": "AutoMana/1.0"
         }
-         
-    async def __aenter__(self):
-        """Initialize the persistent HTTP client when entering the context."""
-        self.client = httpx.AsyncClient(http2=True, timeout=self.timeout)
-        return self
-
-    async def __aexit__(self, exc_type, exc_value, traceback):
-        """Close the persistent HTTP client when exiting the context."""
-        if self.client:
-            await self.client.aclose()
-            self.client = None
 
     def _get_base_url(self) -> str:
         """Return the base URL for the given environment"""
         return self.BASE_URL
+    
+    async def migrations_to_bytes_buffer(self) -> io.BytesIO:
+        buffer = io.BytesIO()
+        
+        async for m in self._fetch_migrations():
+            line = "\t".join([
+                m.get("id", ""),
+                m.get("uri", ""),
+                m.get("performed_at", ""),
+                m.get("migration_strategy", ""),
+                m.get("old_scryfall_id", ""),
+                m.get("new_scryfall_id", ""),
+                (m.get("note") or "").replace("\t", " ").replace("\n", " "),
+                datetime.utcnow().isoformat(),
+                datetime.utcnow().isoformat(),
+            ]) + "\n"
 
-    async def download_data_from_url(self, url) -> dict:
-        """Fetch the Scryfall bulk data manifest"""
-        #url = f"{self._get_base_url(self.environment)}/{url.lstrip('/')}" not needed because db stores full url
-        data = await self.request("GET", url, headers=self.default_headers())
-        file_size = len(str(data).encode("utf-8"))
-        return {"data": data, "file_size": file_size}
+            buffer.write(line.encode("utf-8"))  # ✅ bytes
+
+        buffer.seek(0)
+        return buffer
+
+    
+    async def _fetch_migrations(self) -> AsyncGenerator[Dict[str, Any], None]:
+        endpoint = "/migrations?page=1"
+        full_url = self.get_full_url(endpoint) 
+        async with self._get_client() as client:
+            while full_url:
+                response = await self._get(full_url)
+                data = response.json()
+                for m in data.get("data", []):
+                    yield m
+
+                full_url = data.get("next_page")
+
     
     async def stream_download(self, url: str, out_path: pathlib.Path, chunk_size: int = 1024 * 1024):
         """
@@ -65,8 +85,10 @@ class ScryfallAPIRepository(BaseApiClient):
 
         tmp.replace(out_path)
     
-    async def get():
-        raise NotImplementedError("Use specific methods for Scryfall API interactions")
+    async def _get(self, endpoint: str, params: dict | None = None) -> dict:
+        result = await self.send(method="GET", endpoint=endpoint)
+        return result
+    
     async def add():
         raise NotImplementedError("Use specific methods for Scryfall API interactions")
     async def update():

@@ -298,6 +298,33 @@ class OpsRepository(AbstractRepository):
         "versions_inserted": versions_inserted,
         "changed": changed_items
     }
+    async def update_ids_master_dict(self, ingestion_run_id: int, ids_master_dict: dict):
+        query = """
+        INSERT INTO ops.ingestion_ids_mapping (
+            ingestion_run_id,
+            mtgstock_id,
+            scryfall_id,
+            multiverse_id,
+            tcg_id
+        )
+        SELECT
+            $1,
+            (key::BIGINT),
+            (value->>'scryfall_id')::UUID,
+            (value->>'multiverse_id')::BIGINT,
+            (value->>'tcg_id')::BIGINT
+        FROM jsonb_each($2::jsonb)
+        ON CONFLICT (ingestion_run_id, mtgstock_id) DO UPDATE
+        SET
+            scryfall_id = EXCLUDED.scryfall_id,
+            multiverse_id = EXCLUDED.multiverse_id,
+            tcg_id = EXCLUDED.tcg_id,
+            created_at = NOW()
+        RETURNING COUNT(*) as rows_inserted;
+        """
+        rows = await self.execute_query(query, (ingestion_run_id, json.dumps(ids_master_dict)))
+        return rows[0]["rows_inserted"] if rows else 0
+
     async def get():
         raise NotImplementedError("This method is not implemented yet.")
     

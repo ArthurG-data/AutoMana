@@ -197,3 +197,16 @@ async def delete_old_scryfall_folders(keep: int
 
     return {"deleted_runs": deleted, "kept": [str(d) for d in run_dirs[:keep]]}
 
+@ServiceRegistry.register("staging.scryfall.download_and_load_migrations",
+                         api_repositories=["scryfall"], db_repositories=["card_catalog"])
+async def download_scryfall_migrations(
+        scryfall_repository: ScryfallAPIRepository,
+        card_repository
+):
+    """Download Scryfall card migrations and load into the database"""
+    buffer = await scryfall_repository.migrations_to_bytes_buffer()
+    status = await card_repository.copy_migrations(buffer)
+    logger.info("Loaded Scryfall migrations into database with status: %s", status)
+    return {"migration_load_status": status}
+    
+
