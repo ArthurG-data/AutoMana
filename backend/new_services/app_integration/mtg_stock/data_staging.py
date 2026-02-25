@@ -13,8 +13,12 @@ logger = logging.getLogger(__name__)
 async def process_info_file(path):
     with open(path, "r") as f:
         obj = json.load(f)
+        card_set = obj.get("card_set", None)
     return {
         "mtgstock": obj["id"],
+        "card_name": obj.get("name", None),
+        "set_abbr": card_set.get("abbreviation", None) if card_set else None,
+        "collector_number": obj.get("collector_number", None),
         "cardtrader": obj.get("cardtrader", None),
         "scryfallId": obj.get("scryfallId", None),
         "multiverse_ids": obj.get("multiverse_ids", None),
@@ -53,6 +57,7 @@ async def bulk_load(price_repository: PriceRepository
                     , root_folder
                     , batch_size=10000
                     , ingestion_run_id: int = None):
+    """"TO DO: INCLUDE THE SCYFALL IDS, CARD NAME< SET NAME,COLLECTOR ID IN THE STAGING TABLE TO SIMPLIFY THE LOAD IN THE DIMENSION AND FACT TABLES, AND AVOID HAVING TO CALL SCRYFALL API AGAIN IN THE DIMENSION LOAD STEP"""
     step_name = "bulk_load"
     price_rows = []
     batch_start = 0
@@ -73,6 +78,13 @@ async def bulk_load(price_repository: PriceRepository
                 id_dict = await process_info_file(info_path)
                 ids_master_dict[id_dict["mtgstock"]] = {k: v for k, v in id_dict.items() if k != "mtgstock"}
                 price_df = await process_prices_file(price_path, id_dict)
+                #add the metadata to the price_df
+                price_df["card_name"] = id_dict.get("card_name", None) #new
+                price_df["set_abbr"] = id_dict.get("set_abbr", None)
+                price_df["collector_number"] = id_dict.get("collector_number", None)#new
+                price_df["scryfall_id"] = id_dict.get("scryfallId", None)#new 
+                price_df["tcg_id"] = id_dict.get("tcg_id", None)#new
+                price_df["cardtrader_id"] = id_dict.get("cardtrader_id", None)#new
                 price_rows.append(price_df)
             except Exception as e:
                 logger.warning(f"Error processing folder: {folder} Error: {e}")

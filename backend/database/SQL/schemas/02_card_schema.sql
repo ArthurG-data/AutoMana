@@ -779,10 +779,25 @@ BEGIN
         END LOOP;
 
         -- Handle artists for single-faced cards
-        SELECT artist_id INTO v_artist_uuid
+        v_artist_uuid := (p_artist_id ->>0)::UUID;
+        v_artist_name := p_artist ->>0;
+
+        PERFORM 1
+        FROM card_catalog.artists_ref
+        WHERE artist_id = v_artist_uuid;
+
+        IF NOT FOUND THEN
+        -- optionally try by name, or insert, or leave as-is
+        PERFORM 1
         FROM card_catalog.artists_ref
         WHERE artist_name = v_artist_name;
+        END IF;
 
+        IF FOUND THEN
+            RAISE NOTICE 'Matched existing artist -> UUID: %', v_artist_uuid;
+        ELSE
+            RAISE NOTICE 'No match found for artist -> UUID: %', v_artist_uuid;
+        END IF;
         IF v_artist_uuid IS NULL THEN
         INSERT INTO card_catalog.artists_ref (artist_id, artist_name) 
             VALUES (v_artist_uuid, v_artist_name)
@@ -1005,7 +1020,7 @@ BEGIN
                 v_card -> 'keywords',
                 v_card -> 'colors',
                 v_card -> 'artist',
-                v_card -> 'artist_id',
+                v_card -> 'artist_ids',
                 v_card -> 'legalities',
                 (v_card ->> 'illustration_id')::UUID,
                 v_card -> 'types',

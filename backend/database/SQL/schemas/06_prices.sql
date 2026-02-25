@@ -112,28 +112,89 @@ ON CONFLICT (code) DO NOTHING;
 INSERT INTO pricing.price_source (code, name) VALUES  
   ('mtgstocks', 'MTG Stock')
 ON CONFLICT (code) DO NOTHING;
+-------------------------------------------------------------------------------price observation table and staging tables for the ETL process
+-- Finish default: NONFOIL
+CREATE OR REPLACE FUNCTION pricing.default_finish_id()
+RETURNS SMALLINT
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT finish_id
+  FROM pricing.card_finished
+  WHERE code = 'NONFOIL'
+  LIMIT 1;
+$$;
 
--- create hypertable
+-- Condition default: NM
+CREATE OR REPLACE FUNCTION pricing.default_condition_id()
+RETURNS SMALLINT
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT condition_id
+  FROM pricing.card_condition
+  WHERE code = 'NM'
+  LIMIT 1;
+$$;
+
+-- Language default: en
+CREATE OR REPLACE FUNCTION card_catalog.default_language_id()
+RETURNS SMALLINT
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT language_id
+  FROM card_catalog.language_ref
+  WHERE language_code = 'en'
+  LIMIT 1;
+$$;
+CREATE TABLE IF NOT EXISTS pricing.price_observation (
+    ts_date DATE NOT NULL,
+    metric_id SMALLINT NOT NULL REFERENCES pricing.price_metric(metric_id),
+    price_type_id INTEGER NOT NULL REFERENCES pricing.transaction_type(transaction_type_id),
+
+    finish_id SMALLINT NOT NULL
+        REFERENCES pricing.card_finished(finish_id)
+        DEFAULT pricing.default_finish_id(),
+
+    condition_id SMALLINT
+        REFERENCES pricing.card_condition(condition_id)
+        DEFAULT pricing.default_condition_id(),
+
+    language_id SMALLINT
+        REFERENCES card_catalog.language_ref(language_id)
+        DEFAULT card_catalog.default_language_id(),
+
+    scraped_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    source_product_id BIGINT NOT NULL REFERENCES pricing.source_product(source_product_id),
+    value NUMERIC(12,4) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (ts_date, source_product_id, metric_id, price_type_id, finish_id, condition_id, language_id)
+);
+-- -------------------------------------------create hypertable
 SELECT create_hypertable('pricing.price_observation',
                          by_range('ts_date'),
                          if_not_exists => TRUE);
 
--- Add a space (hash) dimension on print_id for parallelism & chunk fan-out:
-SELECT add_dimension('pricing.price_observation', 'print_id', number_partitions => 8);
+-- Add a space (hash) dimension on source_product_id for parallelism & chunk fan-out:
+--not good for one diskSELECT add_dimension('pricing.price_observation', 'source_product_id', number_partitions => 8);
 
 --set chunk time
-SELECT set_chunk_time_interval('pricing.price_observation', INTERVAL '90 days');
+SELECT set_chunk_time_interval('pricing.price_observation', INTERVAL '30 days');
 
-CREATE INDEX IF NOT EXISTS idx_price_date ON pricing.price_observation(ts_date DESC);
+CREATE INDEX IF NOT EXISTS idx_price_date ON pricing.price_observation(source_product_id, ts_date DESC);
 
 
 ALTER TABLE pricing.price_observation
   SET (timescaledb.compress,
-       timescaledb.compress_segmentby = 'print_id',
+       timescaledb.compress_segmentby = 'source_product_id',
        timescaledb.compress_orderby   = 'ts_date DESC');
 
 -- Auto-compress anything older than 180 days:
 SELECT add_compression_policy('pricing.price_observation', INTERVAL '180 days');
+
+
 
 ----------------------------Staging process
 
@@ -148,19 +209,35 @@ CREATE TABLE pricing.raw_mtg_stock_price(
     price_market NUMERIC(12,4),
     price_market_foil NUMERIC(12,4),
     source_code     TEXT    NOT NULL,
-    scraped_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    scraped_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    card_name TEXT,
+    set_abbr TEXT,
+    collector_number TEXT,
+    scryfall_id TEXT,
+    tcg_id TEXT,
+    cardtrader_id TEXT
 );
+ADD COMMENT ON TABLE pricing.raw_mtg_stock_price IS 'Raw price data ingested from MTG Stocks, with one row per print_id and date, and multiple price metrics as columns. This is the landing table before transformation and loading into the dimensional model.';
+CREATE INDEX idx_raw_price_date ON pricing.raw_mtg_stock_price(print_id, ts_date);
 DROP TABLE IF EXISTS pricing.stg_price_observation;
-CREATE TABLE pricing.stg_price_observation (--make it a product already by linking to the card_version and product_ref, and translating the source and metric code to id in the same table to simplify the load in the dimension and fact table
-ts_date       DATE        NOT NULL,
+CREATE TABLE pricing.stg_price_observation (
 game_code     TEXT       NOT NULL,
 print_id      BIGINT      NOT NULL,
 metric_code     TEXT    NOT NULL,
+is_foil       BOOLEAN    NOT NULL,
 source_code     TEXT    NOT NULL,
 value         NUMERIC(12,4) NOT NULL,
-scraped_at    TIMESTAMPTZ NOT NULL DEFAULT now().
+product_id TEXT NOT NULL,
+card_version_id TEXT,
+source_product_id BIGINT, --new
+set_abbr TEXT,
+collector_number TEXT,
+card_name TEXT,
+scryfall_id TEXT,
+tcg_id TEXT,
+scraped_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
+---------------------------------------------------------------------------------------------new
 DROP TABLE IF EXISTS pricing.dim_price_observation;--need rerok
 CREATE TABLE IF NOT EXISTS pricing.dim_price_observation (
   ts_date       DATE        NOT NULL,
@@ -178,26 +255,49 @@ CREATE TABLE IF NOT EXISTS pricing.orphan_price_observation (
   scraped_at    TIMESTAMPTZ NOT NULL DEFAULT now()
   COMMENT "This table capture the price observation not linked to any card in card_version, to be used for debugging and data quality checks"
 );
-DROP TABLE IF EXISTS pricing.price_observation;
 
 
--- create hypertable
-SELECT create_hypertable('price_observation',
-                         by_range('ts_date'),
-                         if_not_exists => TRUE);
 
--- Add a space (hash) dimension on print_id for parallelism & chunk fan-out:
-SELECT add_dimension('price_observation', 'print_id', number_partitions => 8);
 
---set chunk time
-SELECT set_chunk_time_interval('price_observation', INTERVAL '90 days');
 
-CREATE INDEX IF NOT EXISTS idx_price_date ON price_observation(ts_date DESC);
-ALTER TABLE price_observation
-  SET (timescaledb.compress,
-       timescaledb.compress_segmentby = 'print_id',
-       timescaledb.compress_orderby   = 'ts_date DESC');
 
+
+
+
+
+
+
+
+
+
+
+
+------------------------------------------------------------------
+  CREATE INDEX IF NOT EXISTS raw_mtg_stock_price_ts_date_idx
+  ON pricing.raw_mtg_stock_price (ts_date);
+
+  -- identifier lookup accelerators
+  CREATE INDEX IF NOT EXISTS card_identifier_ref_name_idx
+  ON card_catalog.card_identifier_ref (identifier_name, card_identifier_ref_id);
+
+  CREATE INDEX IF NOT EXISTS card_external_identifier_ref_value_idx
+  ON card_catalog.card_external_identifier (card_identifier_ref_id, value);
+
+  -- fallback
+  CREATE INDEX IF NOT EXISTS sets_set_code_idx
+  ON card_catalog.sets (set_code);
+
+  CREATE INDEX IF NOT EXISTS card_version_set_coll_idx
+  ON card_catalog.card_version (set_id, collector_number);
+
+  -- product lookup
+  CREATE INDEX IF NOT EXISTS mtg_card_products_cvid_idx
+  ON pricing.mtg_card_products (card_version_id);
+
+  CREATE INDEX IF NOT EXISTS source_product_prod_source_idx
+  ON pricing.source_product (product_id, source_id);
+  
+------------------------------------------------------------------
 --translate code to id
 CREATE OR REPLACE PROCEDURE pricing.load_staging_prices_batched(batch_days int DEFAULT 30)
 LANGUAGE plpgsql
@@ -207,6 +307,8 @@ DECLARE
   v_max date;
   v_start date;
   v_end   date;
+  v_source_id SMALLINT;
+  v_mtg_game_id SMALLINT;
   cur_rows bigint;
   total_inserted bigint := 0;
 BEGIN
@@ -217,38 +319,306 @@ BEGIN
     RETURN;
   END IF;
 
+  --will need to add the foil code translation in the same way as the metric code and source code translation
+  SELECT ps.source_id INTO v_source_id
+  FROM pricing.price_source ps
+  WHERE ps.code = 'mtgstocks';
+
+  IF v_source_id IS NULL THEN
+    RAISE EXCEPTION 'Missing source_code=mtgstocks in pricing.price_source';
+  END IF;
+
+  SELECT cg.game_id INTO v_mtg_game_id
+  FROM card_catalog.card_games_ref cg
+  WHERE lower(cg.code) IN ('mtg', 'magic', 'magic_the_gathering')
+  ORDER BY CASE lower(cg.code) WHEN 'mtg' THEN 1 ELSE 2 END
+  LIMIT 1;
+
+
+
+
+  EXECUTE $sql$
+    CREATE TABLE IF NOT EXISTS pricing.stg_price_observation_reject (
+      ts_date date NOT NULL,
+      game_code text NOT NULL,
+      print_id bigint NOT NULL,
+      source_code text NOT NULL,
+      scraped_at timestamptz NOT NULL,
+      metric_code text NOT NULL,
+      is_foil boolean NOT NULL,
+      value numeric(12,4),
+
+      card_name text,
+      set_abbr text,
+      collector_number text,
+      scryfall_id text,
+      tcg_id text,
+      cardtrader_id text,
+
+      is_terminal boolean NOT NULL DEFAULT false,
+      terminal_reason text,
+
+      resolution_attempted_at timestamptz NOT NULL DEFAULT now(),
+      reject_reason text NOT NULL,
+      resolved_at timestamptz,
+      resolved_source_product_id bigint,
+       resolved_product_id uuid,
+       resolved_card_version_id uuid,
+resolved_method text
+    );
+  $sql$;
+
   v_start := v_min;
   WHILE v_start <= v_max LOOP
     v_end := LEAST(v_start + (batch_days - 1), v_max);
 
     RAISE NOTICE 'Loading raw -> staging for % to %', v_start, v_end;
-
-    INSERT INTO pricing.stg_price_observation (
-      ts_date, game_code, print_id, source_code, metric_code, value, scraped_at
-    )
+    
+    -- -------------------------------------------------------------------------
+    -- 1) Temp raw slice for this batch
+    -- -------------------------------------------------------------------------
+    DROP TABLE IF EXISTS tmp_raw_batch;
+    CREATE TEMP TABLE tmp_raw_batch ON COMMIT DROP AS
     SELECT
       s.ts_date,
       s.game_code,
       s.print_id,
+      s.price_low,
+      s.price_avg,
+      s.price_foil,
+      s.price_market,
+      s.price_market_foil,
       s.source_code,
-      v.metric_code,
-      v.value,
-      s.scraped_at
+      s.scraped_at,
+      s.card_name,
+      s.set_abbr,
+      s.collector_number,
+      s.scryfall_id,
+      s.tcg_id,
+      s.cardtrader_id
     FROM pricing.raw_mtg_stock_price s
+    WHERE s.ts_date >= v_start
+      AND s.ts_date <= v_end;
+
+    DROP TABLE IF EXISTS tmp_unpivot;
+    CREATE TEMP TABLE tmp_unpivot ON COMMIT DROP AS
+    SELECT
+      r.ts_date,
+      r.game_code,
+      r.print_id,
+      r.source_code,
+      r.scraped_at,
+      r.card_name,
+      r.set_abbr,
+      r.collector_number,
+      r.scryfall_id,
+      r.tcg_id,
+      r.cardtrader_id,
+
+      v.metric_code,
+      v.is_foil,
+      v.value
+    FROM tmp_raw_batch r
     CROSS JOIN LATERAL (VALUES
-        ('price_low',         s.price_low),
-        ('price_avg',         s.price_avg),
-        ('price_foil',        s.price_foil),
-        ('price_market',      s.price_market),
-        ('price_market_foil', s.price_market_foil)
-    ) AS v(metric_code, value)
-    WHERE s.ts_date >= v_start AND s.ts_date <= v_end
-      AND v.value IS NOT NULL;
+      ('price_low',          false, r.price_low),
+      ('price_avg',          false, r.price_avg),
+      ('price_avg',           true, r.price_foil),
+      ('price_market',       false, r.price_market),
+      ('price_market',        true, r.price_market_foil)
+    ) AS v(metric_code, is_foil, value)
+    WHERE v.value IS NOT NULL;
+
+    -- -------------------------------------------------------------------------
+    -- 3) Resolve card_version_id with priority:
+    --    (1) print map -> (2) external ids -> (3) set+collector (+name)
+    -- -------------------------------------------------------------------------
+    DROP TABLE IF EXISTS tmp_map_print;
+CREATE TEMP TABLE tmp_map_print ON COMMIT DROP AS
+SELECT DISTINCT
+  u.print_id,
+  cei.card_version_id
+FROM tmp_unpivot u
+JOIN card_catalog.card_identifier_ref cir
+  ON cir.identifier_name = 'mtgstock_id'
+JOIN card_catalog.card_external_identifier cei
+  ON cei.card_identifier_ref_id = cir.card_identifier_ref_id
+ AND cei.value = u.print_id::text
+WHERE u.print_id IS NOT NULL;
+
+-- (2) external ids mapping (prefer scryfall > tcgplayer > cardtrader), keyed by print_id
+DROP TABLE IF EXISTS tmp_map_external;
+CREATE TEMP TABLE tmp_map_external ON COMMIT DROP AS
+WITH candidates AS (
+  SELECT u.print_id, 'scryfall_id'::text   AS identifier_name, u.scryfall_id   AS identifier_value, 1 AS prio
+  FROM tmp_unpivot u WHERE u.scryfall_id IS NOT NULL
+
+  UNION ALL
+  SELECT u.print_id, 'tcgplayer_id'::text  AS identifier_name, u.tcg_id        AS identifier_value, 2 AS prio
+  FROM tmp_unpivot u WHERE u.tcg_id IS NOT NULL
+
+  UNION ALL
+  SELECT u.print_id, 'cardtrader_id'::text AS identifier_name, u.cardtrader_id AS identifier_value, 3 AS prio
+  FROM tmp_unpivot u WHERE u.cardtrader_id IS NOT NULL
+),
+joined AS (
+  SELECT c.print_id, c.prio, cei.card_version_id
+  FROM candidates c
+  JOIN card_catalog.card_identifier_ref cir
+    ON cir.identifier_name = c.identifier_name
+  JOIN card_catalog.card_external_identifier cei
+    ON cei.card_identifier_ref_id = cir.card_identifier_ref_id
+   AND cei.value = c.identifier_value
+),
+ranked AS (
+  SELECT *, row_number() OVER (PARTITION BY print_id ORDER BY prio) rn
+  FROM joined
+)
+SELECT print_id, card_version_id
+FROM ranked
+WHERE rn = 1;
+
+-- (3) fallback by set + collector (+ optional name match)
+DROP TABLE IF EXISTS tmp_map_fallback;
+CREATE TEMP TABLE tmp_map_fallback ON COMMIT DROP AS
+SELECT DISTINCT
+  u.set_abbr,
+  u.collector_number,
+  cv.card_version_id
+FROM tmp_unpivot u
+JOIN card_catalog.sets sr
+  ON sr.set_code = u.set_abbr
+JOIN card_catalog.card_version cv
+  ON cv.set_id = sr.set_id
+ AND cv.collector_number::text = u.collector_number
+LEFT JOIN card_catalog.unique_cards_ref uc
+  ON uc.unique_card_id = cv.unique_card_id
+WHERE u.set_abbr IS NOT NULL
+  AND u.collector_number IS NOT NULL
+  AND (u.card_name IS NULL OR uc.card_name IS NULL OR lower(uc.card_name) = lower(u.card_name));
+
+-- 3d) Final resolved rows
+DROP TABLE IF EXISTS tmp_resolved;
+CREATE TEMP TABLE tmp_resolved ON COMMIT DROP AS
+SELECT
+  u.*,
+  COALESCE(mp.card_version_id, me.card_version_id, mf.card_version_id) AS card_version_id,
+  CASE
+    WHEN mp.card_version_id IS NOT NULL THEN 'PRINT_ID'
+    WHEN me.card_version_id IS NOT NULL THEN 'EXTERNAL_ID'
+    WHEN mf.card_version_id IS NOT NULL THEN 'SET_COLLECTOR'
+    ELSE 'UNRESOLVED'
+  END AS resolution_method
+FROM tmp_unpivot u
+LEFT JOIN tmp_map_print mp
+  ON mp.print_id = u.print_id
+LEFT JOIN tmp_map_external me
+  ON me.print_id = u.print_id
+LEFT JOIN tmp_map_fallback mf
+  ON mf.set_abbr = u.set_abbr
+ AND mf.collector_number = u.collector_number;
+
+    -- -------------------------------------------------------------------------
+    -- 4) Send unresolved rows to reject table (so you can inspect/repair mappings)
+    -- -------------------------------------------------------------------------
+    INSERT INTO pricing.stg_price_observation_reject (
+      ts_date, game_code, print_id, source_code, scraped_at,
+      metric_code, is_foil, value,
+      card_name, set_abbr, collector_number, scryfall_id, tcg_id, cardtrader_id,
+      reject_reason
+    )
+    SELECT
+      r.ts_date, r.game_code, r.print_id, r.source_code, r.scraped_at,
+      r.metric_code, r.is_foil, r.value,
+      r.card_name, r.set_abbr, r.collector_number, r.scryfall_id, r.tcg_id, r.cardtrader_id,
+      'Could not resolve card_version_id via print_id/external_id/set+collector'
+    FROM tmp_resolved r
+    WHERE r.card_version_id IS NULL;
+
+    -- -------------------------------------------------------------------------
+    -- 5) Ensure mtg_products exist for resolved card_version_id
+    -- -------------------------------------------------------------------------
+    WITH need AS (
+  SELECT DISTINCT r.card_version_id
+  FROM tmp_resolved r
+  LEFT JOIN pricing.mtg_card_products mcp
+    ON mcp.card_version_id = r.card_version_id
+  WHERE r.card_version_id IS NOT NULL
+    AND mcp.product_id IS NULL
+),
+gen AS (
+  SELECT card_version_id, uuid_generate_v4() AS product_id
+  FROM need
+),
+ins_prod AS (
+  INSERT INTO pricing.product_ref (product_id, game_id)
+  SELECT product_id, v_mtg_game_id
+  FROM gen
+  ON CONFLICT (product_id) DO NOTHING
+)
+  INSERT INTO pricing.mtg_card_products (product_id, card_version_id)
+  SELECT product_id, card_version_id
+  FROM gen
+  ON CONFLICT (card_version_id) DO NOTHING;
+
+
+  
+
+    -- -------------------------------------------------------------------------
+    -- 7) Build lookup: card_version_id -> product_id -> source_product_id
+    -- -------------------------------------------------------------------------
+    DROP TABLE IF EXISTS tmp_product_lookup;
+    CREATE TEMP TABLE tmp_product_lookup ON COMMIT DROP AS
+    SELECT mcp.card_version_id, mcp.product_id
+    FROM pricing.mtg_card_products mcp
+    WHERE mcp.card_version_id IN (SELECT DISTINCT card_version_id FROM tmp_resolved WHERE card_version_id IS NOT NULL);
+
+    INSERT INTO pricing.source_product (product_id, source_id)
+    SELECT DISTINCT pl.product_id, v_source_id
+    FROM tmp_product_lookup pl
+    LEFT JOIN pricing.source_product sp
+      ON sp.product_id = pl.product_id
+     AND sp.source_id = v_source_id
+    WHERE sp.source_product_id IS NULL
+    ON CONFLICT (product_id, source_id) DO NOTHING;
+
+    DROP TABLE IF EXISTS tmp_sp_lookup;
+    CREATE TEMP TABLE tmp_sp_lookup ON COMMIT DROP AS
+    SELECT
+      pl.card_version_id,
+      pl.product_id,
+      sp.source_product_id
+    FROM tmp_product_lookup pl
+    JOIN pricing.source_product sp
+      ON sp.product_id = pl.product_id
+     AND sp.source_id = v_source_id;
+    -- -------------------------------------------------------------------------
+    -- 8) Insert resolved rows into staging
+    -- -------------------------------------------------------------------------
+    INSERT INTO pricing.stg_price_observation (
+      game_code, print_id, metric_code, is_foil, source_code, value,
+      product_id, source_product_id, scraped_at
+    )
+    SELECT
+      r.game_code,
+      r.print_id,
+      r.metric_code,
+      r.is_foil,
+      r.source_code,
+      r.value,
+      l.product_id::text,
+      l.source_product_id,
+      r.scraped_at
+    FROM tmp_resolved r
+    JOIN tmp_sp_lookup l
+      ON l.card_version_id = r.card_version_id
+    WHERE r.card_version_id IS NOT NULL;
 
     GET DIAGNOSTICS cur_rows = ROW_COUNT;
     total_inserted := total_inserted + cur_rows;
+
     RAISE NOTICE 'Inserted % rows for batch', cur_rows;
 
+  
     -- advance to next batch
     v_start := v_end + 1;
   END LOOP;
@@ -256,213 +626,8 @@ BEGIN
   RAISE NOTICE 'load_staging_prices_batched: total inserted % rows', total_inserted;
 END;
 $$;
-DROP INDEX IF EXISTS dim_price_obs_ts_idx;
-CREATE OR REPLACE PROCEDURE pricing.load_dim_from_staging( --to test
-    p_ingestion_run_id INT DEFAULT NULL
-)
-LANGUAGE plpgsql
-AS $$
-DECLARE
-    v_source_id           pricing.price_source.source_id%TYPE;
-    v_card_game_id        card_catalog.card_games_ref.game_id%TYPE;
-    v_game_id             card_catalog.games_ref.game_id%TYPE;
-    v_rows_inserted       BIGINT := 0;
-    v_rows_missing_ids    BIGINT := 0;
-    v_rows_missing_products BIGINT := 0;
-BEGIN
-    RAISE NOTICE 'Starting load_dim_from_staging with ingestion_run_id=%', p_ingestion_run_id;
 
-    -- Create temp table to track unresolved IDs
-    CREATE TEMP TABLE temp_missing_ids (
-        print_id BIGINT,
-        scryfall_id UUID,
-        multiverse_id BIGINT,
-        tcg_id BIGINT,
-        error_reason TEXT,
-        created_at TIMESTAMPTZ DEFAULT NOW()
-    ) ON COMMIT PRESERVE ROWS;
-
-    -- Fetch source_id once (MTGStocks)
-    SELECT ps.source_id INTO v_source_id
-    FROM pricing.price_source ps
-    WHERE ps.code = 'mtgstocks';
-
-    IF v_source_id IS NULL THEN
-        RAISE EXCEPTION 'price_source with code=mtgstocks not found';
-    END IF;
-
-    -- Fetch game IDs
-    SELECT game_id INTO v_card_game_id
-    FROM card_catalog.card_games_ref
-    WHERE code = 'mtg';
-
-    SELECT game_id INTO v_game_id
-    FROM card_catalog.games_ref
-    WHERE game_description = 'paper';
-
-    IF v_card_game_id IS NULL OR v_game_id IS NULL THEN
-        RAISE EXCEPTION 'Could not resolve MTG game IDs';
-    END IF;
-
-    -- Insert into dim_price_observation with product creation workflow
-    INSERT INTO pricing.dim_price_observation (
-        ts_date, game_id, print_id, source_id, metric_id,
-        product_source_id, value, scraped_at
-    )
-    WITH id_resolved AS (
-        -- Link staging prices with external identifiers from ingestion mapping
-        SELECT
-            s.ts_date,
-            v_card_game_id as game_id,
-            s.print_id,
-            ps.source_id,
-            pm.metric_id,
-            s.value,
-            s.scraped_at,
-            iim.scryfall_id,
-            iim.multiverse_id,
-            iim.tcg_id
-        FROM pricing.stg_price_observation s
-        JOIN card_catalog.card_games_ref cg ON cg.code = s.game_code
-        JOIN pricing.price_source ps ON ps.code = s.source_code
-        JOIN pricing.price_metric pm ON pm.code = s.metric_code
-        LEFT JOIN ops.ingestion_ids_mapping iim 
-            ON iim.mtgstock_id = s.print_id
-            AND (p_ingestion_run_id IS NULL OR iim.ingestion_run_id = p_ingestion_run_id)
-        WHERE s.value IS NOT NULL
-    ),
-    card_versions AS (
-        -- Resolve card_version_id using external identifiers (priority: scryfall > tcg > multiverse)
-        SELECT
-            ir.ts_date, ir.game_id, ir.print_id, ir.source_id, ir.metric_id,
-            ir.value, ir.scraped_at,
-            COALESCE(
-                -- Try scryfall_id
-                (SELECT cei.card_version_id 
-                 FROM card_catalog.card_external_identifier cei
-                 JOIN card_catalog.card_identifier_ref cir
-                   ON cei.card_identifier_ref_id = cir.card_identifier_ref_id
-                 WHERE cir.identifier_name = 'scryfall_id'
-                   AND ir.scryfall_id IS NOT NULL
-                   AND cei.value = ir.scryfall_id::text
-                 LIMIT 1),
-                -- Try tcg_id
-                (SELECT cei.card_version_id 
-                 FROM card_catalog.card_external_identifier cei
-                 JOIN card_catalog.card_identifier_ref cir
-                   ON cei.card_identifier_ref_id = cir.card_identifier_ref_id
-                 WHERE cir.identifier_name = 'tcgplayer_id'
-                   AND ir.tcg_id IS NOT NULL
-                   AND cei.value = ir.tcg_id::text
-                 LIMIT 1),
-                -- Try multiverse_id
-                (SELECT cei.card_version_id 
-                 FROM card_catalog.card_external_identifier cei
-                 JOIN card_catalog.card_identifier_ref cir
-                   ON cei.card_identifier_ref_id = cir.card_identifier_ref_id
-                 WHERE cir.identifier_name = 'multiverse_id'
-                   AND ir.multiverse_id IS NOT NULL
-                   AND cei.value = ir.multiverse_id::text
-                 LIMIT 1)
-            ) AS card_version_id
-        FROM id_resolved ir
-    ),
-    products_created AS (
-        -- Get or create product_id and source_product_id
-        SELECT
-            cv.ts_date, cv.game_id, cv.print_id, cv.source_id, cv.metric_id,
-            cv.value, cv.scraped_at,
-            COALESCE(
-                -- Try to get existing product_id
-                (SELECT mcp.product_id
-                 FROM pricing.mtg_card_products mcp
-                 WHERE mcp.card_version_id = cv.card_version_id
-                 LIMIT 1),
-                -- Or create new product_id
-                (SELECT uuid_generate_v4())
-            ) AS product_id,
-            cv.card_version_id
-        FROM card_versions cv
-        WHERE cv.card_version_id IS NOT NULL
-    ),
-    insert_products AS (
-        -- Insert missing product_ref and mtg_card_products entries
-        INSERT INTO pricing.product_ref (game_id)
-        SELECT DISTINCT v_card_game_id
-        FROM products_created pc
-        WHERE NOT EXISTS (
-            SELECT 1 FROM pricing.mtg_card_products mcp
-            WHERE mcp.product_id = pc.product_id
-        )
-        GROUP BY game_id
-        ON CONFLICT DO NOTHING
-        RETURNING product_id
-    ),
-    insert_mtg_products AS (
-        -- Link card_version to product
-        INSERT INTO pricing.mtg_card_products (product_id, game_version_id, card_version_id)
-        SELECT DISTINCT pc.product_id, v_game_id, pc.card_version_id
-        FROM products_created pc
-        WHERE NOT EXISTS (
-            SELECT 1 FROM pricing.mtg_card_products mcp
-            WHERE mcp.card_version_id = pc.card_version_id
-        )
-        ON CONFLICT (card_version_id) DO NOTHING
-        RETURNING product_id
-    ),
-    source_products AS (
-        -- Get or create source_product_id
-        SELECT
-            pc.ts_date, pc.game_id, pc.print_id, pc.source_id, pc.metric_id,
-            pc.value, pc.scraped_at,
-            COALESCE(
-                (SELECT sp.source_product_id
-                 FROM pricing.source_product sp
-                 WHERE sp.product_id = pc.product_id AND sp.source_id = pc.source_id
-                 LIMIT 1),
-                (SELECT sp.source_product_id
-                 FROM pricing.source_product sp
-                 WHERE sp.product_id = pc.product_id AND sp.source_id = pc.source_id
-                 LIMIT 1)
-            ) AS source_product_id
-        FROM products_created pc
-    )
-    SELECT
-        sp.ts_date,
-        sp.game_id,
-        sp.print_id,
-        sp.source_id,
-        sp.metric_id,
-        COALESCE(sp.source_product_id,
-            (INSERT INTO pricing.source_product (product_id, source_id)
-             VALUES (
-                (SELECT product_id FROM products_created WHERE print_id = sp.print_id LIMIT 1),
-                sp.source_id
-             )
-             ON CONFLICT (product_id, source_id) DO NOTHING
-             RETURNING source_product_id)
-        ) AS source_product_id,
-        sp.value,
-        sp.scraped_at
-    FROM source_products sp
-    ON CONFLICT DO NOTHING;
-
-    GET DIAGNOSTICS v_rows_inserted = ROW_COUNT;
-
-    -- Check for missing IDs
-    SELECT COUNT(*) INTO v_rows_missing_ids
-    FROM pricing.stg_price_observation s
-    WHERE NOT EXISTS (
-        SELECT 1 FROM ops.ingestion_ids_mapping iim
-        WHERE iim.mtgstock_id = s.print_id
-        AND (p_ingestion_run_id IS NULL OR iim.ingestion_run_id = p_ingestion_run_id)
-    );
-
-    RAISE NOTICE 'load_dim_from_staging complete: Inserted=%, MissingIDs=%',
-        v_rows_inserted, v_rows_missing_ids;
-
-END;
-$$;
+-----------------------------------------------------------------good until here 
 
 CREATE INDEX IF NOT EXISTS dim_price_obs_ts_idx
   ON pricing.dim_price_observation (ts_date);
@@ -917,5 +1082,231 @@ BEGIN
         RAISE NOTICE 'Missing IDs stored in temp_missing_ids table. Query with: SELECT * FROM temp_missing_ids;';
     END IF;
 
+END;
+$$;
+
+
+
+------------------------Resolve the price_observation rows with the new product_source_id reference, and clean up orphan records that can't be resolved (should be very few if any after the dim_price_observation -> staging load procedure is fixed to populate product_source_id directly)
+
+
+CREATE OR REPLACE FUNCTION pricing.resolve_price_rejects(
+    p_limit int DEFAULT 50000,
+    p_only_unresolved boolean DEFAULT true
+)
+RETURNS bigint
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_source_id smallint;
+  v_mtg_game_id smallint;
+  v_inserted bigint := 0;
+BEGIN
+  -- mtgstock source
+  SELECT ps.source_id INTO v_source_id
+  FROM pricing.price_source ps
+  WHERE ps.code = 'mtgstocks';
+
+  IF v_source_id IS NULL THEN
+    RAISE EXCEPTION 'Missing source_code=mtgstocks in pricing.price_source';
+  END IF;
+
+  -- MTG game id
+  SELECT cg.game_id INTO v_mtg_game_id
+  FROM card_catalog.card_games_ref cg
+  WHERE lower(cg.code) IN ('mtg', 'magic', 'magic_the_gathering')
+  ORDER BY CASE lower(cg.code) WHEN 'mtg' THEN 1 ELSE 2 END
+  LIMIT 1;
+
+  IF v_mtg_game_id IS NULL THEN
+    RAISE EXCEPTION 'Could not resolve MTG game_id';
+  END IF;
+
+  -- pick a working set
+  DROP TABLE IF EXISTS tmp_rejects;
+  CREATE TEMP TABLE tmp_rejects ON COMMIT DROP AS
+  SELECT *
+  FROM pricing.stg_price_observation_reject r
+  WHERE (NOT p_only_unresolved) OR r.resolved_at IS NULL AND is_terminal IS FALSE
+  ORDER BY r.resolution_attempted_at
+  LIMIT p_limit;
+
+  --check first if the id is marked as migrated or merged in the migration tables (in case the reject was from a previous run and the dim_price_observation load procedure was fixed in the meantime to populate product_source_id directly)
+
+  -- 1) resolve card_version_id (print_id, external ids, fallback)
+  DROP TABLE IF EXISTS tmp_resolved;
+  CREATE TEMP TABLE tmp_resolved ON COMMIT DROP AS
+  WITH map_print AS (
+    SELECT DISTINCT r.print_id, cei.card_version_id
+    FROM tmp_rejects r
+    JOIN card_catalog.card_identifier_ref cir
+      ON cir.identifier_name = 'mtgstock_id'
+    JOIN card_catalog.card_external_identifier cei
+      ON cei.card_identifier_ref_id = cir.card_identifier_ref_id
+     AND cei.value = r.print_id::text
+  ),
+
+  map_ext AS (
+    WITH candidates AS (
+      SELECT r.print_id
+      , 'scryfall_id'::text AS identifier_name
+      , COALESCE(m.new_scryfall_id::text, r.scryfall_id) AS identifier_value
+      , 1 AS prio
+      FROM tmp_rejects r
+      LEFT JOIN card_catalog.scryfall_migration m
+        ON NULLIF(r.scryfall_id,'')::uuid = m.old_scryfall_id
+        AND m.migration_strategy IN ('merge', 'move')   -- add other “redirect” strategies you store
+        AND m.new_scryfall_id IS NOT NULL
+        
+      WHERE r.scryfall_id IS NOT NULL AND r.scryfall_id <> ''
+      UNION ALL
+      SELECT r.print_id, 'tcgplayer_id', r.tcg_id, 2
+      FROM tmp_rejects r WHERE r.tcg_id IS NOT NULL AND r.tcg_id <> ''
+      UNION ALL
+      SELECT r.print_id, 'cardtrader_id', r.cardtrader_id, 3
+      FROM tmp_rejects r WHERE r.cardtrader_id IS NOT NULL AND r.cardtrader_id <> ''
+    ),
+    joined AS (
+      SELECT c.print_id, c.prio, cei.card_version_id
+      FROM candidates c
+      JOIN card_catalog.card_identifier_ref cir
+        ON cir.identifier_name = c.identifier_name
+      JOIN card_catalog.card_external_identifier cei
+        ON cei.card_identifier_ref_id = cir.card_identifier_ref_id
+       AND cei.value = c.identifier_value
+    ),
+    ranked AS (
+      SELECT *, row_number() OVER (PARTITION BY print_id ORDER BY prio) rn
+      FROM joined
+    )
+    SELECT print_id, card_version_id
+    FROM ranked
+    WHERE rn = 1
+  ),
+  map_fb AS (
+    SELECT DISTINCT r.set_abbr, r.collector_number, cv.card_version_id
+    FROM tmp_rejects r
+    JOIN card_catalog.sets s
+      ON s.set_code = r.set_abbr
+    JOIN card_catalog.card_version cv
+      ON cv.set_id = s.set_id
+     AND cv.collector_number::text = r.collector_number
+    LEFT JOIN card_catalog.unique_cards_ref uc
+      ON uc.unique_card_id = cv.unique_card_id
+    WHERE r.set_abbr IS NOT NULL
+      AND r.collector_number IS NOT NULL
+      AND (r.card_name IS NULL OR uc.card_name IS NULL OR lower(uc.card_name) = lower(r.card_name))
+  )
+  SELECT
+    r.*,
+    COALESCE(mp.card_version_id, me.card_version_id, mf.card_version_id) AS card_version_id,
+    CASE
+      WHEN mp.card_version_id IS NOT NULL THEN 'PRINT_ID'
+      WHEN me.card_version_id IS NOT NULL THEN 'EXTERNAL_ID'
+      WHEN mf.card_version_id IS NOT NULL THEN 'SET_COLLECTOR'
+      ELSE 'UNRESOLVED'
+    END AS resolution_method
+  FROM tmp_rejects r
+  LEFT JOIN map_print mp ON mp.print_id = r.print_id
+  LEFT JOIN map_ext   me ON me.print_id = r.print_id
+  LEFT JOIN map_fb    mf ON mf.set_abbr = r.set_abbr AND mf.collector_number = r.collector_number;
+
+  -- 2) ensure product_ref + mtg_card_products for newly resolved card_version_id
+  WITH need AS (
+    SELECT DISTINCT card_version_id
+    FROM tmp_resolved
+    WHERE card_version_id IS NOT NULL
+    EXCEPT
+    SELECT card_version_id FROM pricing.mtg_card_products
+  ),
+  gen AS (
+    SELECT card_version_id, uuid_generate_v4() AS product_id
+    FROM need
+  ),
+  ins_prod AS (
+    INSERT INTO pricing.product_ref (product_id, game_id)
+    SELECT product_id, v_mtg_game_id
+    FROM gen
+    ON CONFLICT (product_id) DO NOTHING
+  )
+  INSERT INTO pricing.mtg_card_products (product_id, card_version_id)
+  SELECT product_id, card_version_id
+  FROM gen
+  ON CONFLICT (card_version_id) DO NOTHING;
+
+  -- 3) ensure source_product
+  INSERT INTO pricing.source_product (product_id, source_id)
+  SELECT DISTINCT mcp.product_id, v_source_id
+  FROM tmp_resolved r
+  JOIN pricing.mtg_card_products mcp
+    ON mcp.card_version_id = r.card_version_id
+  LEFT JOIN pricing.source_product sp
+    ON sp.product_id = mcp.product_id
+   AND sp.source_id = v_source_id
+  WHERE r.card_version_id IS NOT NULL
+    AND sp.source_product_id IS NULL
+  ON CONFLICT (product_id, source_id) DO NOTHING;
+
+  -- 4) insert into stg_price_observation
+  INSERT INTO pricing.stg_price_observation (
+    game_code, print_id, metric_code, is_foil, source_code, value,
+    product_id, source_product_id, scraped_at
+  )
+  SELECT
+    r.game_code,
+    r.print_id,
+    r.metric_code,
+    r.is_foil,
+    r.source_code,
+    r.value,
+    mcp.product_id::text,
+    sp.source_product_id,
+    r.scraped_at
+  FROM tmp_resolved r
+  JOIN pricing.mtg_card_products mcp
+    ON mcp.card_version_id = r.card_version_id
+  JOIN pricing.source_product sp
+    ON sp.product_id = mcp.product_id
+   AND sp.source_id = v_source_id
+  WHERE r.card_version_id IS NOT NULL;
+
+  GET DIAGNOSTICS v_inserted = ROW_COUNT;
+
+  -- 5) mark rejects as resolved (for those we resolved)
+  UPDATE pricing.stg_price_observation_reject rej
+  SET
+    resolved_at = now(),
+    resolved_card_version_id = r.card_version_id,
+    resolved_method = r.resolution_method,
+    resolved_product_id = mcp.product_id,
+    resolved_source_product_id = sp.source_product_id,
+    is_terminal = TRUE,
+    terminal_reason = 'Resolved via ' || r.resolution_method || ' mapping'
+  FROM tmp_resolved r
+  JOIN pricing.mtg_card_products mcp
+    ON mcp.card_version_id = r.card_version_id
+  JOIN pricing.source_product sp
+    ON sp.product_id = mcp.product_id
+   AND sp.source_id = v_source_id
+  WHERE rej.ts_date = r.ts_date
+    AND rej.print_id = r.print_id
+    AND rej.metric_code = r.metric_code
+    AND rej.is_foil = r.is_foil
+    AND rej.source_code = r.source_code
+    AND rej.scraped_at = r.scraped_at
+    AND r.card_version_id IS NOT NULL;
+
+  UPDATE pricing.stg_price_observation_reject r
+  SET
+  resolved_at = now(),
+  is_terminal = TRUE,
+  terminal_reason = 'Scryfall migration delete and no alternative identifiers'
+  FROM card_catalog.scryfall_migration m
+  WHERE m.migration_strategy = 'delete'
+  AND m.old_scryfall_id::text = r.scryfall_id;
+
+
+
+  RETURN v_inserted;
 END;
 $$;
