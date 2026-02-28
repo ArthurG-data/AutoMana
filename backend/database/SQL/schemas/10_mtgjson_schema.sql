@@ -106,10 +106,10 @@ BEGIN
         END IF; 
   END LOOP;
   --find the mertric
-  
-
-
-
-
 END;
 $$;
+
+CREATE OR REPLACE PROCEDURE pricing.load_mtgjson_prices()
+LANGUAGE plpgsql
+AS $$
+BEGIN
