@@ -6,6 +6,8 @@ from backend.core.service_modules import SERVICE_MODULES
 from backend.core.service_registry import ServiceRegistry
 from backend.core.storage import StorageService
 
+from backend.core.logging_context import set_service_path
+
 logger = logging.getLogger(__name__)
 
 
@@ -125,56 +127,61 @@ class ServiceManager:
     
     async def _execute_service(self, service_path: str, **kwargs):
         """Execute a service with its required repositories"""
-        # Get service configuration from registry
-        service_config = ServiceRegistry.get(service_path)
-        if not service_config:
-            raise ValueError(f"Service not found: {service_path}")
-        
-        # Import service module and get function
+        set_service_path(service_path)
         try:
-            module = importlib.import_module(service_config.module)
-            service_method = getattr(module, service_config.function)
-        except (ImportError, AttributeError) as e:
-            logger.error(f"Error loading service {service_path}: {e}")
-            raise ValueError(f"Service {service_path} not found: {str(e)}")
+        # Get service configuration from registry
+            service_config = ServiceRegistry.get(service_path)
+            if not service_config:
+                raise ValueError(f"Service not found: {service_path}")
+        
+            # Import service module and get function
+            try:
+                module = importlib.import_module(service_config.module)
+                service_method = getattr(module, service_config.function)
+            except (ImportError, AttributeError) as e:
+                raise ValueError(
+                f"Service {service_path} could not be loaded "
+                f"({service_config.module}.{service_config.function})"
+            ) from e
         
         #storage
-        storage_service = None
-        if len(service_config.storage_services) > 0:
-            storage_service = self.get_storage_service(service_config.storage_services[0])
-            kwargs["storage_service"] = storage_service
+            storage_service = None
+            if len(service_config.storage_services) > 0:
+                storage_service = self.get_storage_service(service_config.storage_services[0])
+                kwargs["storage_service"] = storage_service
         # Execute within transaction
-        async with self.transaction() as conn:
-            repositories = {}
-            
-            # Create DB repositories
-            for repo_type in service_config.db_repositories:
-                repo_info = ServiceRegistry.get_db_repository(repo_type)
-                if not repo_info:
-                    raise ValueError(f"Unknown DB repository type: {repo_type}")
+            async with self.transaction() as conn:
+                repositories = {}
                 
-                module_path, class_name = repo_info
-                repo_module = importlib.import_module(module_path)
-                repo_class = getattr(repo_module, class_name)
-                repositories[f"{repo_type}_repository"] = repo_class(conn, self.query_executor)
-            
-            # Create API repositories
-            for repo_type in service_config.api_repositories:
-                repo_info = ServiceRegistry.get_api_repository(repo_type)
-                if not repo_info:
-                    raise ValueError(f"Unknown API repository type: {repo_type}")
+                # Create DB repositories
+                for repo_type in service_config.db_repositories:
+                    repo_info = ServiceRegistry.get_db_repository(repo_type)
+                    if not repo_info:
+                        raise ValueError(f"Unknown DB repository type: {repo_type}")
+                    
+                    module_path, class_name = repo_info
+                    repo_module = importlib.import_module(module_path)
+                    repo_class = getattr(repo_module, class_name)
+                    repositories[f"{repo_type}_repository"] = repo_class(conn, self.query_executor)
                 
-                module_path, class_name = repo_info
-                repo_module = importlib.import_module(module_path)
-                repo_class = getattr(repo_module, class_name)
+                # Create API repositories
                 env = kwargs.pop("environment", "sandbox")
-                repositories[f"{repo_type}_repository"] = repo_class(environment=env)
-            
-       
-            logger.debug(f"Executing {service_path} with repos: {list(repositories.keys())}")
-            result = await service_method(**repositories, **kwargs)
-        return result
-    
+                for repo_type in service_config.api_repositories:
+                    repo_info = ServiceRegistry.get_api_repository(repo_type)
+                    if not repo_info:
+                        raise ValueError(f"Unknown API repository type: {repo_type}")
+                    
+                    module_path, class_name = repo_info
+                    repo_module = importlib.import_module(module_path)
+                    repo_class = getattr(repo_module, class_name)
+                    repositories[f"{repo_type}_repository"] = repo_class(environment=env)
+                
+        
+                logger.debug("Executing %s with repos=%s", service_path, list(repositories.keys()))
+                result = await service_method(**repositories, **kwargs)
+            return result
+        finally:
+            set_service_path(None)
                 
     @classmethod
     async def close(cls):

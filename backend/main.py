@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request
-import time, logging, sys
+import time, logging, sys, uuid
 #from backend.modules.ebay import routers as ebay_router
 from fastapi.middleware.cors import CORSMiddleware
 #from backend import api 
@@ -10,22 +10,12 @@ from pathlib import Path
 from fastapi import HTTPException
 from fastapi.responses import FileResponse
 
-# Configure root logger to output to console with proper level
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout)  # Explicitly add console handler
-    ]
-)
+from backend.core.logging_config import configure_logging
+from backend.core.logging_context import set_request_id
 
-logging.getLogger("uvicorn").setLevel(logging.WARNING)
-logging.getLogger("fastapi").setLevel(logging.WARNING)
 
-# For your own loggers
-logging.getLogger("backend").setLevel(logging.INFO)  # Or even logging.WARNING
+configure_logging()
 logger = logging.getLogger(__name__)
-
 # ==========================================
 # Application State (FastAPI 0.100+ pattern)
 # ==========================================
@@ -47,7 +37,6 @@ async def lifespan(app: FastAPI):
 
     try:
         settings = get_settings()
-        print(settings.DATABASE_URL_ASYNC)
         from backend.request_handling.ErrorHandler import Psycopg2ExceptionHandler
         from backend.core.QueryExecutor import AsyncQueryExecutor
         from backend.core.database import init_async_pool, close_async_pool, init_sync_pool_with_retry, close_sync_pool    
@@ -104,24 +93,36 @@ app.add_middleware(
 )
 
 @app.middleware("http")
-async def add_process_time_header(request: Request, call_next):
-    start_time = time.perf_counter()
+async def request_id_middleware(request: Request, call_next):
+    request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+    set_request_id(request_id)
     response = await call_next(request)
-    process_time = time.perf_counter() - start_time
-    response.headers['X-Process-Time'] = str(process_time)
+    response.headers["X-Request-ID"] = request_id
     return response
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     """Log all requests and responses"""
-    logger.debug(f"Request: {request.method} {request.url}")
-    # Process the request
+    start = time.perf_counter()
     try:
         response = await call_next(request)
-        logger.debug(f"Response status: {response.status_code}")
+        elapsed = time.perf_counter() - start
+        logger.info(
+            "http_request",
+            extra={
+                "method": request.method,
+                "path": request.url.path,
+                "status_code": response.status_code,
+                "elapsed_ms": int(elapsed * 1000),
+            },
+        )
         return response
-    except Exception as e:
-        logger.error(f"Request failed: {str(e)}")
+    except Exception:
+        elapsed = time.perf_counter() - start
+        logger.exception(
+            "http_request_failed",
+            extra={"method": request.method, "path": request.url.path, "elapsed_ms": int(elapsed * 1000)},
+        )
         raise
 # ==========================================
 # Routes

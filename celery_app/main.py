@@ -2,7 +2,13 @@ from celery import Celery
 from celery.signals import worker_process_init, worker_process_shutdown
 from backend.core.service_manager import ServiceManager
 from celery_app.ressources import get_state, init_backend_runtime, shutdown_backend_runtime
-import inspect
+from backend.core.logging_config import configure_logging
+from backend.core.logging_context import set_task_id, set_request_id, set_service_path
+import inspect, logging
+
+
+configure_logging()
+logger = logging.getLogger(__name__)
 
 celery_app = Celery('etl')
 celery_app.config_from_object("celery_app.celeryconfig")
@@ -11,6 +17,7 @@ celery_app.conf.enable_utc = False
 
 @worker_process_init.connect
 def _init(**_):
+    configure_logging()
     init_backend_runtime()
 
 @worker_process_shutdown.connect
@@ -30,9 +37,13 @@ def ping():
                  , acks_late=True)
 def run_service(self,prev=None, path: str = None, **kwargs):
     state = get_state()
+    set_task_id(self.request.id)
+    if path:
+        set_service_path(path)
+
     if not state.initialized:
         init_backend_runtime()
-
+    
     if path is None and isinstance(prev, str):
         path, prev = prev, None
 
@@ -50,7 +61,10 @@ def run_service(self,prev=None, path: str = None, **kwargs):
     allowed_keys = set(sig.parameters.keys())
 
     filtered_context = {k: v for k, v in context.items() if k in allowed_keys}
-    print(f"Running service: {path} kwargs_keys={list(filtered_context.keys())}")
+    logger.info(
+    "run_service_start",
+    extra={"service_path": path, "kwargs_keys": list(filtered_context.keys())}
+)
     try:
         result = state.loop.run_until_complete(
             ServiceManager.execute_service(path, **filtered_context)
@@ -63,5 +77,9 @@ def run_service(self,prev=None, path: str = None, **kwargs):
         return context
 
     except Exception as e:
-        print(f"Exception in run_service ({path}): {e}")
+        logger.exception("run_service_failed", extra={"service_path": path})
         raise
+    finally:
+        set_service_path(None)
+        set_request_id(None)
+        set_task_id(None)
