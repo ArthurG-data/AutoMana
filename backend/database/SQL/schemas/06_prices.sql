@@ -86,7 +86,6 @@ CREATE TABLE pricing.source_product (
     source_product_id BIGSERIAL PRIMARY KEY,
     product_id UUID NOT NULL REFERENCES pricing.product_ref(product_id) ON DELETE CASCADE,
     source_id SMALLINT NOT NULL REFERENCES pricing.price_source(source_id) ON DELETE CASCADE,
-    data_provider_id SMALLINT NOT NULL REFERENCES pricing.data_provider(provider_iSELECT d) ON DELETE CASCADE,
      -- additional fields like source_product_code, url, etc. can be added here
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
@@ -116,8 +115,13 @@ INSERT INTO pricing.card_finished (code, description) VALUES
   ('ETCHED',  'Etched')
 ON CONFLICT (code) DO NOTHING;
 
-INSERT INTO pricing.price_source (code, name) VALUES  
-  ('mtgstocks', 'MTG Stock')
+INSERT INTO pricing.price_source (code, name, currency_code) VALUES  
+  ('tcg', 'tcgplayer', 'USD'),
+  ('cardkingdom', 'Card Kingdom', 'USD'),
+  ('cardmarket', 'Cardmarket', 'EUR'),
+  ('starcitygames', 'Star City Games', 'USD'),
+  ('ebay', 'eBay', 'USD'),
+  ('amazon', 'Amazon', 'USD')
 ON CONFLICT (code) DO NOTHING;
 -------------------------------------------------------------------------------price observation table and staging tables for the ETL process
 -- Finish default: NONFOIL
@@ -155,21 +159,10 @@ AS $$
   WHERE language_code = 'en'
   LIMIT 1;
 $$;
-
-
-------------------------------------------------------------------------------------------
---backfill procedure for mtgjson data, to be called after the initial load of raw payloads into the staging table, and after the resolution of product ids, etc.
-
---this procedure will calculate daily price metrics for each card_version_id + transaction_type + dimensions, by aggregating the underlying price_observation data across all sources, and insert into the print_price_daily table. You can run this procedure repeatedly as you backfill more historical data into price_observation, since it uses an upsert pattern to update existing rows if they already exist for a given date/card/type/dims.
---It will grab all the relevant price for a given day/card/type/dims, and calculate min, max, avg, and count of sources. You can easily extend it to calculate median and percentiles if you want, but that can be more expensive so I left it out for now.
--- the logic will be: keep all individual prices for the last year, keep aggregated daily metrics for the last 3-5 years, and then maybe older than that just keep monthly or weekly metrics, depending on how much data you have and how far back you want to go. You can implement that logic in the same procedure by adding a date filter on the price_observation table and adjusting the price_date accordingly (e.g., for monthly metrics, you would group by year+month and set price_date to the first day of the month).
-
-
-  --neext, remove avg, max and min from proce obseraton
 ------------------------------------------------------------------------------------------
 --Tier 1: All prices from all sources
 --take 2:
-CREATE TABLE IF NOT EXISTS pricing.price_observation_new (
+CREATE TABLE IF NOT EXISTS pricing.price_observation_v2(
     ts_date DATE NOT NULL,
     price_type_id INTEGER NOT NULL REFERENCES pricing.transaction_type(transaction_type_id),
     finish_id SMALLINT NOT NULL
@@ -191,12 +184,14 @@ CREATE TABLE IF NOT EXISTS pricing.price_observation_new (
     list_count INTEGER,
     sold_count INTEGER,
 
-    scraped_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     source_product_id BIGINT NOT NULL REFERENCES pricing.source_product(source_product_id),
-    value INTEGER NOT NULL,
+    data_provider_id BIGINT NOT NULL REFERENCES pricing.data_provider(data_provider_id),
+
+    scraped_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    PRIMARY KEY (ts_date, source_product_id,  price_type_id, finish_id, condition_id, language_id)
+    
+    PRIMARY KEY (ts_date, source_product_id,  price_type_id, finish_id, condition_id, language_id, data_provider_id),--changed
 
     CONSTRAINT chk_nonneg_prices CHECK (
     (list_low_cents IS NULL OR list_low_cents >= 0) AND
@@ -207,51 +202,27 @@ CREATE TABLE IF NOT EXISTS pricing.price_observation_new (
     list_low_cents IS NULL OR list_avg_cents IS NULL OR list_low_cents <= list_avg_cents
   )
 );
-CREATE TABLE IF NOT EXISTS pricing.price_observation (
-    ts_date DATE NOT NULL,
-    metric_id SMALLINT NOT NULL REFERENCES pricing.price_metric(metric_id),
-    price_type_id INTEGER NOT NULL REFERENCES pricing.transaction_type(transaction_type_id),
-
-    finish_id SMALLINT NOT NULL
-        REFERENCES pricing.card_finished(finish_id)
-        DEFAULT pricing.default_finish_id(),
-
-    condition_id SMALLINT
-        REFERENCES pricing.card_condition(condition_id)
-        DEFAULT pricing.default_condition_id(),
-
-    language_id SMALLINT
-        REFERENCES card_catalog.language_ref(language_id)
-        DEFAULT card_catalog.default_language_id(),
-
-    scraped_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    source_product_id BIGINT NOT NULL REFERENCES pricing.source_product(source_product_id),
-    value NUMERIC(12,4) NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    PRIMARY KEY (ts_date, source_product_id, metric_id, price_type_id, finish_id, condition_id, language_id)
-);
--- -------------------------------------------create hypertable
-SELECT create_hypertable('pricing.price_observation',
+SELECT create_hypertable('pricing.price_observation_v2',
                          by_range('ts_date'),
                          if_not_exists => TRUE);
 
 -- Add a space (hash) dimension on source_product_id for parallelism & chunk fan-out:
---not good for one diskSELECT add_dimension('pricing.price_observation', 'source_product_id', number_partitions => 8);
+--not good for one diskSELECT add_dimension('pricing.price_observation_v2', 'source_product_id', number_partitions => 8);
 
 --set chunk time
-SELECT set_chunk_time_interval('pricing.price_observation', INTERVAL '30 days');
+SELECT set_chunk_time_interval('pricing.price_observation_v2', INTERVAL '30 days');
 
-CREATE INDEX IF NOT EXISTS idx_price_date ON pricing.price_observation(source_product_id, ts_date DESC);
+CREATE INDEX IF NOT EXISTS idx_price_date_v2 ON pricing.price_observation_v2(source_product_id, ts_date DESC);
 
 
-ALTER TABLE pricing.price_observation
+ALTER TABLE pricing.price_observation_v2
   SET (timescaledb.compress,
-       timescaledb.compress_segmentby = 'source_product_id',
+       timescaledb.compress_segmentby = 'source_product_id, price_type_id, finish_id',
        timescaledb.compress_orderby   = 'ts_date DESC');
 
 -- Auto-compress anything older than 180 days:
-SELECT add_compression_policy('pricing.price_observation', INTERVAL '180 days');
+SELECT add_compression_policy('pricing.price_observation_v2', INTERVAL '180 days');
+-------------------------------------------------------------------------
 
 --TIer 2: daily -> 5 years
 
@@ -377,64 +348,10 @@ ON pricing.print_price_weekly (card_version_id, transaction_type_id, finish_id, 
 --migration
 -------------------------------------------------------------------------------
 --from tier 1 to tier 2
-INSERT INTO pricing.print_price_daily ( --for mtgstocks, the avg price is the average between max and min on tcg, market is the price it sold for
-  card_version_id,
-  transaction_type_id,
-  condition_id,
-  language_id,
-  finish_id,
-  price_date,
-  min_price,
-  max_price,
-  avg_price,
-  n_sources,
-  created_at,
-  updated_at
-)
-SELECT
-  sp.card_version_id,
-  po.price_type_id AS transaction_type_id,
-  po.condition_id,
-  po.language_id,
-  po.finish_id,
-  po.ts_date AS price_date,
 
-  -- across sources: pick the min metric value for that day/card/type/dims
-  MIN((po.value * 100)::int) FILTER (WHERE pm.metric_code IN ('price_low','min','price_min')) AS min_price,
-
-  MAX((po.value * 100)::int) FILTER (WHERE pm.metric_code IN ('max','price_max'))              AS max_price,
-
-  ROUND(AVG((po.value * 100)))::int FILTER (WHERE pm.metric_code IN ('price_avg','avg'))       AS avg_price,
-
-  COUNT(DISTINCT po.source_product_id)::smallint AS n_sources,
-
-  NOW(), NOW()
-FROM pricing.price_observation po
-JOIN pricing.price_metric pm
-  ON pm.metric_id = po.metric_id
-JOIN pricing.source_product sp
-  ON sp.source_product_id = po.source_product_id
-GROUP BY
-  sp.card_version_id,
-  po.price_type_id,
-  po.condition_id,
-  po.language_id,
-  po.finish_id,
-  po.ts_date
-ON CONFLICT (card_version_id, price_date, transaction_type_id, finish_id, condition_id, language_id)
-DO UPDATE SET
-  min_price  = EXCLUDED.min_price,
-  max_price  = EXCLUDED.max_price,
-  avg_price  = EXCLUDED.avg_price,
-  n_sources  = EXCLUDED.n_sources,
-  updated_at = NOW();
-
-  --------------------------------
 
 --Tier 3: weekly aggre for older than 5 years
-
 ----------------------------Staging process
-
 DROP TABLE IF EXISTS pricing.raw_mtg_stock_price;--nedd to add the ids to link to the card_version and product_ref
 CREATE TABLE pricing.raw_mtg_stock_price(
     ts_date       DATE        NOT NULL,
@@ -458,10 +375,14 @@ ADD COMMENT ON TABLE pricing.raw_mtg_stock_price IS 'Raw price data ingested fro
 CREATE INDEX idx_raw_price_date ON pricing.raw_mtg_stock_price(print_id, ts_date);
 DROP TABLE IF EXISTS pricing.stg_price_observation;
 CREATE TABLE pricing.stg_price_observation (
-ts_date       DATE        NOT NULL, --newALTER
+ts_date       DATE        NOT NULL, 
 game_code     TEXT       NOT NULL,
 print_id      BIGINT      NOT NULL,
-metric_code     TEXT    NOT NULL,
+list_low_cents INTEGER,
+list_avg_cents INTEGER,
+sold_avg_cents INTEGER,
+
+
 is_foil       BOOLEAN    NOT NULL,
 source_code     TEXT    NOT NULL,
 value         NUMERIC(12,4) NOT NULL,
@@ -504,7 +425,7 @@ scraped_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 ------------------------------------------------------------------
 --Step 1: Load raw data into staging with resolution of product_source_id, and capture rejects for later inspection
 ------------------------------------------------------------------
-CREATE OR REPLACE PROCEDURE pricing.load_staging_prices_batched(batch_days int DEFAULT 30)
+CREATE OR REPLACE PROCEDURE pricing.load_staging_prices_batched(source_name VARCHAR(20), batch_days int DEFAULT 30)--drop first
 LANGUAGE plpgsql
 AS $$
 DECLARE
@@ -515,6 +436,7 @@ DECLARE
   v_source_id SMALLINT;
   v_ok boolean;
   v_mtg_game_id SMALLINT;
+  v_data_provider_id TEXT;--new
   cur_rows bigint;
   total_inserted bigint := 0;
 
@@ -534,12 +456,16 @@ BEGIN
   --will need to add the foil code translation in the same way as the metric code and source code translation
   SELECT ps.source_id INTO v_source_id
   FROM pricing.price_source ps
-  WHERE ps.code = 'mtgstocks';
+  WHERE ps.code = source_name;
 
   IF v_source_id IS NULL THEN
-    RAISE EXCEPTION 'Missing source_code=mtgstocks in pricing.price_source';
+    RAISE EXCEPTION 'Missing source_code=% in pricing.price_source', source_name;
   END IF;
 
+  SELECT dp.data_provider_id INTO v_data_provider_id
+  FROM pricing.data_provider dp
+  WHERE dp.code = 'mtgstocks';
+-----------------------------------------------
   SELECT cg.game_id INTO v_mtg_game_id
   FROM card_catalog.card_games_ref cg
   WHERE lower(cg.code) IN ('mtg', 'magic', 'magic_the_gathering')
@@ -552,8 +478,13 @@ BEGIN
       game_code text NOT NULL,
       print_id bigint NOT NULL,
       source_code text NOT NULL,
+      data_provider_id SMALLINT NOT NULL,
       scraped_at timestamptz NOT NULL,
-      metric_code text NOT NULL,
+
+      list_low_cents INTEGER,
+      list_avg_cents INTEGER,
+      sold_avg_cents INTEGER,
+
       is_foil boolean NOT NULL,
       value numeric(12,4),
 
@@ -605,14 +536,14 @@ resolved_method text
         s.collector_number,
         s.scryfall_id,
         s.tcg_id,
-        s.cardtrader_id
+        s.cardtrader_id,
+        v_data_provider_id AS data_provider_id
       FROM pricing.raw_mtg_stock_price s
       WHERE s.ts_date >= v_start
         AND s.ts_date <= v_end;
 
-      
-      DROP TABLE IF EXISTS tmp_unpivot;
-      CREATE TEMP TABLE tmp_unpivot ON COMMIT DROP AS
+      DROP TABLE IF EXISTS tmp_batch_foil_split;
+      CREATE TEMP TABLE tmp_batch_foil_split ON COMMIT DROP AS
       SELECT
         r.ts_date,
         r.game_code,
@@ -625,18 +556,20 @@ resolved_method text
         r.scryfall_id,
         r.tcg_id,
         r.cardtrader_id,
-
-        v.metric_code,
+        (v.list_low_cents * 100)::int AS list_low_cents,
+        (v.list_avg_cents * 100)::int AS list_avg_cents,
+        (v.sold_avg_cents * 100)::int AS sold_avg_cents,
         v.is_foil,
-        v.value
+        v.value,
+        v.data_provider_id
       FROM tmp_raw_batch r
       CROSS JOIN LATERAL (VALUES
-        ('price_low',          false, r.price_low),
-        ('price_avg',          false, r.price_avg),
-        ('price_avg',           true, r.price_foil),
-        ('price_market',       false, r.price_market),
-        ('price_market',        true, r.price_market_foil)
-      ) AS v(metric_code, is_foil, value)
+        (r.price_low,          false, r.price_low),
+        (r.price_avg,          false, r.price_avg),
+        (r.price_avg,           true, r.price_foil),
+        (r.price_market,       false, r.price_market),
+        (r.price_market,        true, r.price_market_foil)
+      ) AS v(list_low_cents, list_avg_cents, sold_avg_cents, is_foil, value)
       WHERE v.value IS NOT NULL;
 
       -- -------------------------------------------------------------------------
@@ -648,7 +581,7 @@ resolved_method text
   SELECT DISTINCT
     u.print_id,
     cei.card_version_id
-  FROM tmp_unpivot u
+  FROM tmp_batch_foil_split u
   JOIN card_catalog.card_identifier_ref cir
     ON cir.identifier_name = 'mtgstock_id'
   JOIN card_catalog.card_external_identifier cei
@@ -663,7 +596,7 @@ resolved_method text
     SELECT u.print_id
       , 'scryfall_id'::text   AS identifier_name
       , COALESCE(m.new_scryfall_id::text, u.scryfall_id) AS identifier_value, 1 AS prio
-    FROM tmp_unpivot u
+    FROM tmp_raw_batch u
     LEFT JOIN card_catalog.scryfall_migration m
       ON NULLIF(u.scryfall_id,'')::uuid = m.old_scryfall_id
     AND m.migration_strategy IN ('merge','move')
@@ -672,11 +605,11 @@ resolved_method text
 
     UNION ALL
     SELECT u.print_id, 'tcgplayer_id'::text  AS identifier_name, u.tcg_id        AS identifier_value, 2 AS prio
-    FROM tmp_unpivot u WHERE u.tcg_id IS NOT NULL
+    FROM tmp_raw_batch u WHERE u.tcg_id IS NOT NULL
 
     UNION ALL
     SELECT u.print_id, 'cardtrader_id'::text AS identifier_name, u.cardtrader_id AS identifier_value, 3 AS prio
-    FROM tmp_unpivot u WHERE u.cardtrader_id IS NOT NULL
+    FROM tmp_raw_batch u WHERE u.cardtrader_id IS NOT NULL
   ),
   joined AS (
     SELECT c.print_id, c.prio, cei.card_version_id
@@ -702,7 +635,7 @@ resolved_method text
     u.set_abbr,
     u.collector_number,
     cv.card_version_id
-  FROM tmp_unpivot u
+  FROM tmp_raw_batch u
   JOIN card_catalog.sets sr
     ON sr.set_code = u.set_abbr
   JOIN card_catalog.card_version cv
@@ -726,7 +659,7 @@ resolved_method text
       WHEN mf.card_version_id IS NOT NULL THEN 'SET_COLLECTOR'
       ELSE 'UNRESOLVED'
     END AS resolution_method
-  FROM tmp_unpivot u
+  FROM tmp_raw_batch u
   LEFT JOIN tmp_map_print mp
     ON mp.print_id = u.print_id
   LEFT JOIN tmp_map_external me
@@ -789,14 +722,14 @@ resolved_method text
       -- 4) Send unresolved rows to reject table (so you can inspect/repair mappings)
       -- -------------------------------------------------------------------------
       INSERT INTO pricing.stg_price_observation_reject (
-        ts_date, game_code, print_id, source_code, scraped_at,
-        metric_code, is_foil, value,
+        ts_date, game_code, print_id, source_code, data_provider_id,scraped_at,
+        list_low_cents, list_avg_cents, sold_avg_cents, is_foil, value,
         card_name, set_abbr, collector_number, scryfall_id, tcg_id, cardtrader_id,
         reject_reason
       )
       SELECT
-        r.ts_date, r.game_code, r.print_id, r.source_code, r.scraped_at,
-        r.metric_code, r.is_foil, r.value,
+        r.ts_date, r.game_code, r.print_id, r.source_code, r.data_provider_id, r.scraped_at,
+        r.list_low_cents, r.list_avg_cents, r.sold_avg_cents, r.is_foil, r.value,
         r.card_name, r.set_abbr, r.collector_number, r.scryfall_id, r.tcg_id, r.cardtrader_id,
         'Could not resolve card_version_id via print_id/external_id/set+collector'
       FROM tmp_resolved r
@@ -859,7 +792,7 @@ resolved_method text
       -- 8) Insert resolved rows into staging
       -- -------------------------------------------------------------------------
       INSERT INTO pricing.stg_price_observation ( --addinf ts date
-        ts_date, game_code, print_id, metric_code, is_foil, source_code, value,
+        ts_date, game_code, print_id, list_low_cents, list_avg_cents, sold_avg_cents, is_foil, source_code, data_provider_id,  value,
         product_id, card_version_id, source_product_id,
         set_abbr, collector_number, card_name, scryfall_id, tcg_id,
         scraped_at
@@ -868,9 +801,12 @@ resolved_method text
         r.ts_date,
           r.game_code,
           r.print_id,
-          r.metric_code,
+          r.list_low_cents,
+          r.list_avg_cents,
+          r.sold_avg_cents,
           r.is_foil,
           r.source_code,
+          r.data_provider_id,
           r.value,
           l.product_id::text,
           r.card_version_id::text,
@@ -909,55 +845,6 @@ resolved_method text
   RAISE NOTICE 'load_staging_prices_batched: total inserted % rows', total_inserted;
 END;
 $$;
-
-
-CREATE OR REPLACE VIEW pricing.vw_staging_kpis AS
-WITH bounds AS (
-  SELECT
-    min(s.scraped_at) AS min_scraped_at,
-    max(s.scraped_at) AS max_scraped_at
-  FROM pricing.stg_price_observation s
-),
-stg AS (
-  SELECT
-    count(*) AS stg_rows,
-    count(*) FILTER (WHERE card_version_id IS NOT NULL AND card_version_id <> '') AS stg_rows_with_card_version_id,
-    count(*) FILTER (WHERE source_product_id IS NOT NULL) AS stg_rows_with_source_product_id,
-    count(DISTINCT NULLIF(card_version_id,'')) AS stg_distinct_card_version_ids,
-    count(DISTINCT NULLIF(product_id,'')) AS stg_distinct_product_ids,
-    count(DISTINCT print_id) AS stg_distinct_mtgstock_ids,
-    count(DISTINCT NULLIF(scryfall_id,'')) AS stg_distinct_scryfall_ids
-  FROM pricing.stg_price_observation
-),
-rej AS (
-  SELECT
-    count(*) AS rejected_rows,
-    count(DISTINCT print_id) AS rejected_distinct_mtgstock_ids,
-    count(DISTINCT NULLIF(scryfall_id,'')) AS rejected_distinct_scryfall_ids
-  FROM pricing.stg_price_observation_reject
-),
-prod_created AS (
-  -- "products created" = products whose ids appear in staging AND were created within the staging scraped_at window
-  SELECT
-    count(DISTINCT pr.product_id) AS products_created_in_window
-  FROM bounds b
-  JOIN pricing.product_ref pr
-    ON pr.created_at >= b.min_scraped_at
-   AND pr.created_at <= b.max_scraped_at
-  JOIN pricing.stg_price_observation s
-    ON s.product_id::uuid = pr.product_id
-)
-SELECT
-  stg.stg_rows,
-  stg.stg_rows_with_card_version_id      AS stg_rows_with_id,
-  stg.stg_rows_with_source_product_id    AS stg_rows_with_source_product_id,
-  prod_created.products_created_in_window,
-  rej.rejected_rows,
-  rej.rejected_distinct_mtgstock_ids     AS rejected_unique_mtgstock_ids,
-  rej.rejected_distinct_scryfall_ids     AS rejected_unique_scryfall_ids
-FROM stg
-CROSS JOIN rej
-CROSS JOIN prod_created;
 
 ------------------------------------------------------------------
 --Step 2: Move from staging to dimensional model (price_observation), with any necessary transformations
@@ -1140,7 +1027,6 @@ END;
 $$;
 
 COMMIT;
-
 ------------------------Resolve the price_observation rows with the new product_source_id reference, and clean up orphan records that can't be resolved (should be very few if any after the dim_price_observation -> staging load procedure is fixed to populate product_source_id directly)
 
 CREATE OR REPLACE FUNCTION pricing.resolve_price_rejects(

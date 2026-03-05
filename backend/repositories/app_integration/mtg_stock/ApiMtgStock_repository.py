@@ -36,7 +36,12 @@ class ApiMtgStockRepository(BaseApiClient):
             "Sec-Fetch-User": "?1",
             }
 
-
+        self.market_path_mapping = {
+            "tcg": "tcgplayer",
+            "cardkingdom": "cardkingdom",
+            "cardmarket": "cardmarket",
+            "starcity": "starcitygames",
+        }
         self.DELAY_BASE = delay_base
         self.MAX_ATTEMPTS = max_attempts
         self.SEM = asyncio.Semaphore(max_concurrency)
@@ -87,8 +92,9 @@ class ApiMtgStockRepository(BaseApiClient):
         logger.debug("GET %s len=%d", endpoint, len(resp.content))
         return resp.content
     
-    async def fetch_card_prices(self, card_id: int):
-        return await self._get_bytes_or_none( f"/prints/{card_id}/prices")
+    async def fetch_card_prices(self, card_id: int, market: str = "tcg"):
+        path = self.market_path_mapping.get(market, "tcgplayer")
+        return await self._get_bytes_or_none(f"/prints/{card_id}/prices/{path}")
     
     async def fetch_card_details(self, card_id: int):
         return await self._get_bytes_or_none(f"/prints/{card_id}")
@@ -171,9 +177,9 @@ class ApiMtgStockRepository(BaseApiClient):
         return resp
     
 
-    async def fetch_card_price_data_batch(self, card_ids: List[int]):
+    async def fetch_card_price_data_batch(self, card_ids: List[int], market: str = "tcg") -> Dict[str, Any]:
         logger.debug(f"Fetching price data for {len(card_ids)} cards")
-        tasks = [self.fetch_card_prices(card_id) for card_id in card_ids]
+        tasks = [self.fetch_card_prices(card_id, market=market) for card_id in card_ids]
         result =  await asyncio.gather(*tasks, return_exceptions=True)
         logger.debug(f"Completed fetching price data for {len(card_ids)} cards")
         processed: List[Dict[str, Any]] = []
@@ -189,7 +195,7 @@ class ApiMtgStockRepository(BaseApiClient):
                 processed.append({"card_id": cid, "error": "Data not found"})
                 item_failed += 1
             else:
-                processed.append({"card_id": cid, "prices": r})
+                processed.append({"card_id": cid, "data": {"prices": r}})
                 item_ok += 1
                 bytes_processed +=  len(r)
         return {"data": processed
@@ -197,16 +203,16 @@ class ApiMtgStockRepository(BaseApiClient):
                 , "items_failed": item_failed
                 , "bytes_processed": bytes_processed}
     
-    async def fetch_card_data_batches(self, card_ids: List[int]) -> List[Dict[str, Any]]:
+    async def fetch_card_data_batches(self, card_ids: List[int], market: str = "tcg") -> List[Dict[str, Any]]:
         async def fetch_data(card_id: int) -> Dict[str, Any]:
             try:
                 details, prices = await asyncio.gather(self.fetch_card_details(card_id)
-                                                        , self.fetch_card_prices(card_id))
+                                                        , self.fetch_card_prices(card_id, market=market))
 
                 if details is None and prices is None:
                     return {"card_id": card_id, "error": "Data not found"}
 
-                return {"card_id": card_id, "data": {"details": details, "prices": prices}}
+                return {"card_id": card_id, "data": {"details": details, "prices": prices.get("data").get("prices") if prices else None}}
 
             except RepositoryError as e:
                 return {"card_id": card_id, "error": str(e), "error_data": getattr(e, "error_data", {})}

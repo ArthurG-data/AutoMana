@@ -9,6 +9,7 @@ class MTGStockBatchStep:
     batch_seq: int
     range_start: int
     range_end: int
+    total_in_batch: int
     status: str
     items_ok: int
     items_failed: int
@@ -23,6 +24,7 @@ class MTGStockBatchStep:
             "step_name": self.step_name,
             "batch_seq": self.batch_seq,
             "range_start": self.range_start,
+            "total_in_batch": self.total_in_batch,
             "range_end": self.range_end,
             "status": self.status,
             "items_ok": self.items_ok,
@@ -39,6 +41,7 @@ class MTGStockBatchStep:
             self.batch_seq,
             self.range_start,
             self.range_end,
+            self.total_in_batch,
             self.status,
             self.items_ok,
             self.items_failed,

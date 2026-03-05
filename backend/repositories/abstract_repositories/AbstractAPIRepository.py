@@ -66,7 +66,7 @@ class BaseApiClient(ABC):
     
     def _parse_response(self, response: httpx.Response) -> ParsedResponse:
         content_type = (response.headers.get("content-type") or "").lower()
-        print(f"Parsing response with content-type: {content_type}")
+        logger.info(f"Parsing response with content-type: {content_type}")
         if "application/json" in content_type:
             return response.json()
 
@@ -161,7 +161,7 @@ class BaseApiClient(ABC):
             merged_headers.update(headers)
         client = self._get_client()
         
-        print(f"Making {method.upper()} request to {url}")
+        logger.info(f"Making {method.upper()} request to {url}")
         try:
             return await client.request(method.upper(), url, params=params, headers=merged_headers, json=json, data=data, timeout=timeout)
         except httpx.HTTPStatusError as e:
