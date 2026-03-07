@@ -12,12 +12,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
  && rm -rf /var/lib/apt/lists/*
 
- # Install Python deps first for better layer caching
-COPY backend/min_requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy app
-COPY backend /app/backend
+# Install Python deps first for better layer caching
+COPY pyproject.toml /app/pyproject.toml
+COPY src /app/src
+RUN pip install --no-cache-dir -e .
 
 # Security: run as non-root
 RUN useradd -m appuser
@@ -28,4 +26,4 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["uvicorn", "automana.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
