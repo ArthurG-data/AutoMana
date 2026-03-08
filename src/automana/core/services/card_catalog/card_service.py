@@ -1,0 +1,486 @@
+﻿from uuid import UUID
+from datetime import datetime
+from dataclasses import dataclass
+from pathlib import Path
+from typing import  Optional, List, Dict, Any, Callable
+import ijson, asyncio, logging, json
+from automana.core.repositories.ops.ops_repository import OpsRepository
+from automana.core.models.card_catalog import card as card_schemas
+from automana.core.repositories.card_catalog.card_repository import CardReferenceRepository
+from automana.core.models.card_catalog.card import BaseCard
+from automana.core.exceptions.service_layer_exceptions.card_catalogue import card_exception
+from automana.core.service_registry import ServiceRegistry
+from automana.core.models.pipelines.mtg_stock import  MTGStockBatchStep
+
+logger = logging.getLogger(__name__)
+
+@dataclass
+class CardSearchResult:
+    cards: List[BaseCard]
+    total_count: int
+
+@dataclass
+class ProcessingStats:
+    """Track processing statistics"""
+    total_cards: int = 0
+    successful_inserts: int = 0
+    failed_inserts: int = 0
+    batches_processed: int = 0
+    processing_errors: int = 0
+    skipped_inserts: int = 0
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    
+    @property
+    def success_rate(self) -> float:
+        return (self.successful_inserts / self.total_cards * 100) if self.total_cards > 0 else 0
+    
+    @property
+    def duration_seconds(self) -> float:
+        if self.start_time and self.end_time:
+            return (self.end_time - self.start_time).total_seconds()
+        return 0
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "total_cards": self.total_cards,
+            "successful_inserts": self.successful_inserts,
+            "failed_inserts": self.failed_inserts,
+            "skipped_inserts": self.skipped_inserts,
+            "batches_processed": self.batches_processed,
+            "processing_errors": self.processing_errors,
+            "success_rate": round(self.success_rate, 2),
+            "duration_seconds": round(self.duration_seconds, 2),
+            "cards_per_second": round(self.total_cards / max(self.duration_seconds, 1), 1)
+        }
+@dataclass
+class ProcessingConfig:
+    """Configuration for file processing"""
+    batch_size: int = 500
+    max_retries: int = 3
+    retry_delay: float = 1.0
+    skip_validation_errors: bool = True
+    progress_callback: Optional[Callable[[ProcessingStats], None]] = None
+    save_failed_cards: bool = True
+    failed_cards_folder: Optional[str] = "/data/scryfall/failed_cards"
+    
+@ServiceRegistry.register(
+    "card_catalog.card.create",
+    db_repositories=["card"]
+)
+async def add(card_repository : CardReferenceRepository
+              , card : card_schemas.CreateCard
+              ):
+    values =  card.prepare_for_db()
+    logger.info(f"Inserting card with values: {values}, number: {len(values)}")
+    try:
+        result = await card_repository.add(values)
+        if result != "SELECT 1":
+            raise card_exception.CardInsertError("Failed to insert card")
+        return result
+    except Exception as e:
+        raise card_exception.CardInsertError(f"Failed to insert card: {str(e)}")
+
+@ServiceRegistry.register(
+    "card_catalog.card.create_many",
+    db_repositories=["card"]
+)
+async def add_many(card_repository : CardReferenceRepository, cards: card_schemas.CreateCards):
+    prepared_cards = cards.prepare_for_db()
+    try:
+        result = await card_repository.add_many(prepared_cards)
+
+        return result 
+    except Exception as e:
+        raise card_exception.CardInsertError(f"Failed to insert cards: {str(e)}")
+
+@ServiceRegistry.register(
+    "card_catalog.card.delete",
+    db_repositories=["card"]
+)
+async def delete(card_repository : CardReferenceRepository, card_id: UUID)-> bool:
+    try:
+        result = await card_repository.delete(card_id)
+        if not result:
+            raise card_exception.CardDeletionError(f"Failed to delete card with ID {card_id}")
+        return result
+    except card_exception.CardDeletionError:
+        raise
+    except Exception as e:
+        raise card_exception.CardDeletionError(f"Failed to delete card: {str(e)}")
+    
+@ServiceRegistry.register(
+    "card_catalog.card.search",
+    db_repositories=["card"]
+)
+async def search_cards(card_repository: CardReferenceRepository
+                   , name: Optional[str] = None
+                   , color: Optional[str] = None
+                   , rarity: Optional[str] = None
+                   , card_id: Optional[UUID] = None
+                   , released_after: Optional[datetime] = None
+                   , released_before: Optional[datetime] = None
+                   , set_name: Optional[str] = None
+                   , mana_cost: Optional[int] = None
+                   , digital: Optional[bool] = None
+                   , card_type: Optional[str] = None
+                   # Pagination
+                   , limit: int = 100
+                   , offset: int = 0
+                   , sort_by: str = "name"
+                   , sort_order: str = "asc"
+                   ) -> CardSearchResult:
+    logger.info(f"Searching for cards with: name={name}, color={color}, rarity={rarity}, card_id={card_id}, set_name={set_name}, mana_cost={mana_cost}, digital={digital}")
+    try:
+        if card_id:
+            logger.info(f"Fetching card by ID: {card_id}")
+            card = await card_repository.get(card_id)
+            if not card:
+                return CardSearchResult(cards=[], total_count=0)
+            return CardSearchResult(cards=[BaseCard.model_validate(card)], total_count=1)
+
+        result = await card_repository.search(name=name,
+                                               color=color,
+                                               rarity=rarity,
+                                               set_name=set_name,
+                                               mana_cost=mana_cost,
+                                               digital=digital,
+                                               released_after=released_after,
+                                               released_before=released_before,
+                                               limit=limit,
+                                               offset=offset,
+                                               sort_by=sort_by,
+                                               card_type=card_type,
+                                               sort_order=sort_order)
+        if not result:
+            raise card_exception.CardNotFoundError(f"No cards found for IDs {card_id}")
+        cards = result.get("cards", [])
+        total_count = result.get("total_count", 0)
+        return  CardSearchResult(cards=[BaseCard.model_validate(card) for card in cards], total_count=total_count)
+
+    except card_exception.CardNotFoundError:
+        raise
+    except Exception as e:
+        raise card_exception.CardRetrievalError(f"Failed to retrieve cards: {str(e)}")
+
+@ServiceRegistry.register(
+    "card_catalog.card.get",
+    db_repositories=["card"]
+)
+async def get(card_repository: CardReferenceRepository,
+               card_id: UUID,
+                     ) -> CardSearchResult:
+    try:
+        result = await card_repository.get(
+            card_id=card_id,
+        )
+        if not result:
+            raise CardSearchResult(cards=[], total_count=0)
+        return CardSearchResult(cards=[BaseCard.model_validate(result)], total_count=1)
+    except card_exception.CardNotFoundError:
+        raise
+    except Exception as e:
+        raise card_exception.CardRetrievalError(f"Failed to retrieve card: {str(e)}")
+
+@ServiceRegistry.register(
+    "card_catalog.card.process_large_json",
+    db_repositories=["card", "ops"]
+)
+async def process_large_cards_json(
+    card_repository: CardReferenceRepository,
+    file_path_card: str,
+    ops_repository: OpsRepository = None,
+    ingestion_run_id: int = None,
+    resume_from_batch: int = 0,
+    validate_file_first: bool = True,
+    update_run: bool =False
+) -> dict:
+    """Process large JSON file with enhanced error handling and monitoring
+    
+    Args:
+        card_repository: Repository for card operations
+        file_path: Path to JSON file (local or cloud)
+        resume_from_batch: Batch number to resume from (for recovery)
+        validate_file_first: Whether to validate JSON structure first
+    """
+    await ops_repository.update_run(ingestion_run_id, status="running", current_step="process_large_cards_json")
+    service = EnhancedCardImportService(card_repository)
+    if file_path_card == "NO CHANGES":
+        logger.info("No changes detected in Scryfall data. Skipping processing.")
+        if update_run and ops_repository and ingestion_run_id:
+            await ops_repository.update_run(
+                ingestion_run_id=ingestion_run_id,
+                status="success",
+                current_step="process_large_cards_json",
+                notes="No changes detected in Scryfall data. Processing skipped."
+            )
+        return {"status": "success"}
+    try:
+        result = await service.process_large_cards_json(
+            file_path_card=file_path_card,
+            resume_from_batch=resume_from_batch,
+            validate_file_first=validate_file_first,
+            ops_repository=ops_repository,
+            ingestion_run_id=ingestion_run_id
+        )
+    except Exception as e:
+        if update_run and ops_repository and ingestion_run_id:
+            await ops_repository.update_run(
+                ingestion_run_id=ingestion_run_id,
+                status="failed",
+                current_step="process_large_cards_json",
+                error_code="processing_failed",
+                error_details={"error": str(e)}
+            )
+        raise e
+    return result.to_dict()
+
+
+class EnhancedCardImportService:
+    """Enhanced card import service with better error handling and monitoring"""
+    
+    def __init__(self, card_repository: CardReferenceRepository, config: ProcessingConfig = None):
+        self.card_repository = card_repository
+        self.config = config or ProcessingConfig()
+        self.stats = ProcessingStats()
+        self.failed_cards: List[Dict[str, Any]] = []
+
+    async def process_large_cards_json(
+        self, 
+        file_path_card: str,
+        resume_from_batch: int = 0,
+        validate_file_first: bool = True,
+        ops_repository: OpsRepository = None,
+        ingestion_run_id: int = None
+    ) -> ProcessingStats:
+        """Not async anymore"""
+        """
+        Process large JSON file with enhanced error handling and monitoring
+        
+        Args:
+            file_path: Path to JSON file (local or cloud)
+            resume_from_batch: Batch number to resume from (for recovery)
+            validate_file_first: Whether to validate JSON structure first
+            ops_repository: Repository for operations logging
+            ingestion_run_id: ID for the current ingestion run
+        """
+        try:
+            logger.info(f"ðŸš€ Starting enhanced file processing: {file_path_card}")
+            self.stats.start_time = datetime.utcnow()
+            
+            # Validate file exists and is readable
+            if not self._validate_file(file_path_card):
+                raise card_exception.CardInsertError(f"File validation failed: {file_path_card}")
+            #create the failed card file
+            failed_dir = Path(self.config.failed_cards_folder or "/tmp/failed_cards")
+            failed_dir.mkdir(parents=True, exist_ok=True)
+            self.failed_cards_file = failed_dir / f"failed_cards_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.jsonl"
+            # Process the file
+            await self._process_file_stream(file_path_card, resume_from_batch)
+
+            self.stats.end_time = datetime.utcnow()
+            # Final summary
+            self._log_processing_summary()
+            return self.stats
+            
+        except Exception as e:
+            self.stats.end_time = datetime.utcnow()
+            logger.error(f"âŒ File processing failed: {str(e)}")
+            raise card_exception.CardInsertError(f"File processing failed: {str(e)}")
+
+    def _validate_file(self, file_path_card: str) -> bool:
+        """Validate file exists and is accessible"""
+        try:
+            path = Path(file_path_card)
+            if not path.exists():
+                logger.error(f"âŒ File does not exist: {file_path_card}")
+                return False
+            
+            if not path.is_file():
+                logger.error(f"âŒ Path is not a file: {file_path_card}")
+                return False
+            
+            # Check file size (warn if very large)
+            file_size = path.stat().st_size
+            if file_size > 500 * 1024 * 1024:  # 500MB
+                logger.warning(f"âš ï¸ Large file detected: {file_size / 1024 / 1024:.1f}MB")
+            
+            logger.info(f"âœ… File validation passed: {file_size / 1024 / 1024:.1f}MB")
+            return True
+            
+        except Exception as e:
+            logger.error(f"âŒ File validation error: {str(e)}")
+            return False
+
+
+    async def _process_file_stream(self, file_path_card: str, resume_from_batch: int = 0, ops_repository: OpsRepository = None, ingestion_run_id: int = None ):
+        """Process file using streaming with enhanced error handling"""
+        batch = []
+        batch_count = 0
+        
+        try:
+            logger.info(f"ðŸ“ Opening file for streaming: {file_path_card}")
+            with open(file_path_card, "rb") as f:
+                cards_iter = ijson.items(f, "item")
+
+                for card_json in cards_iter:
+                    try:
+                        # Skip batches if resuming
+                        if batch_count < resume_from_batch:
+                            if len(batch) >= self.config.batch_size:
+                                batch = []
+                                batch_count += 1
+                                logger.info(f"â­ï¸ Skipped batch {batch_count} (resuming from {resume_from_batch})")
+                
+                            continue
+                        
+                        # Validate and create card
+                        card = card_schemas.CreateCard.model_validate(card_json)
+                        if card:
+                            batch.append(card)
+                            self.stats.total_cards += 1
+                        
+                        # Process batch when full
+                        if len(batch) >= self.config.batch_size:
+
+                            await self._process_batch(batch, batch_count + 1, ops_repository=ops_repository, ingestion_run_id=ingestion_run_id)
+                            batch = []
+                            batch_count += 1
+                            self._save_failed_cards()
+                            # Progress callback,  test with one bacth
+                            if self.config.progress_callback:
+                                self.config.progress_callback(self.stats)
+                           
+                    except Exception as e:
+                        self.stats.processing_errors += 1
+                        logger.error(f"âŒ Error processing card at position {self.stats.total_cards}: {str(e)}")
+                        
+                        # Save failed card for analysis
+                        self.failed_cards.append({
+                            "position": self.stats.total_cards,
+                            "data": card_json,
+                            "error": str(e)
+                        })
+                       
+                        if not self.config.skip_validation_errors:
+                            raise
+                
+                # Process remaining cards
+                if batch:
+                    await self._process_batch(batch, batch_count + 1, ops_repository=ops_repository, ingestion_run_id=ingestion_run_id)
+                    
+        except Exception as e:
+            logger.error(f"âŒ Stream processing error: {str(e)}")
+            raise
+
+    async def _process_batch(self, batch: List[card_schemas.CreateCard]
+                             , batch_number: int
+                             , ops_repository: OpsRepository = None
+                             , ingestion_run_id: int = None):
+        """Process a batch with retry logic"""
+        retry_count = 0
+        while retry_count <= self.config.max_retries:
+
+            try:
+                logger.info(f"ðŸ”„ Processing batch {batch_number} with {len(batch)} cards (attempt {retry_count + 1})")
+
+                cards_obj = card_schemas.CreateCards(items=batch)
+
+                print(f"Prepared {len(cards_obj.items)} cards for DB insertion.")
+
+                  # Print first 2 for inspection
+                result = await self.card_repository.add_many(cards_obj.prepare_for_db())
+                '''
+                batch_step = MTGStockBatchStep(
+                    ingestion_run_id=ingestion_run_id,
+                    batch_seq=batch_number,
+                    range_start=(batch_number - 1) * self.config.batch_size + 1,
+                    range_end=(batch_number - 1) * self.config.batch_size + len(batch),
+                    status="completed",
+                    items_ok=result.successful_inserts,
+                    items_failed=result.failed_inserts,
+                    bytes_processed=0,
+                )
+                if ops_repository and ingestion_run_id:
+                    await ops_repository.insert_batch_step(
+                       batch_step.to_tuple()
+                    )
+                '''
+                # Update statistics
+                self.stats.successful_inserts += result.successful_inserts
+                self.stats.failed_inserts += result.failed_inserts
+                self.stats.batches_processed += 1
+
+                logger.info(f"âœ… Batch {batch_number} completed: {result.successful_inserts}/{len(batch)} cards inserted")
+
+                # Log any errors from this batch
+                if result.errors:
+                    for error in result.errors[:3]:  # Log first 3 errors
+                        logger.warning(f"âš ï¸ Batch {batch_number} error: {error}")
+                
+                return result
+                
+            except Exception as e:
+                retry_count += 1
+                logger.error(f"âŒ Batch {batch_number} failed (attempt {retry_count}): {str(e)}")
+                
+                if retry_count <= self.config.max_retries:
+                    wait_time = self.config.retry_delay * retry_count
+                    logger.info(f"â³ Retrying in {wait_time} seconds...")
+                    await asyncio.sleep(wait_time)  # Exponential backoff
+                else:
+                    # Save failed batch for manual inspection
+                    self._save_failed_batch(batch, batch_number, str(e))
+                    self.stats.failed_inserts += len(batch)
+                    raise card_exception.CardInsertError(f"Batch {batch_number} failed after {self.config.max_retries} retries: {str(e)}")
+
+    def _save_failed_cards(self):
+        """Save failed cards to file for analysis"""
+        if not self.failed_cards:
+            return
+        try:
+            with open(self.failed_cards_file, "a") as f:
+                for card in self.failed_cards:
+                    f.write(json.dumps(card, default=str) + "\n")
+            
+            logger.info(f"ðŸ’¾ Saved {len(self.failed_cards)} failed cards to {self.failed_cards_file}")
+            self.failed_cards = []  # Clear after saving
+            
+        except Exception as e:
+            logger.error(f"âŒ Failed to save failed cards: {str(e)}")
+
+    def _save_failed_batch(self, batch: List[card_schemas.CreateCard], batch_number: int, error: str):
+        """Save a failed batch for recovery"""
+        failed_dir = Path("/tmp/failed_batches")
+        failed_dir.mkdir(parents=True, exist_ok=True)
+        batch_file = failed_dir / f"failed_batch_{batch_number}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
+        
+        try:
+            batch_data = {
+                "batch_number": batch_number,
+                "error": error,
+                "cards": [card.model_dump() for card in batch]
+            }
+            
+            with open(batch_file, 'w') as f:
+                json.dump(batch_data, f, indent=2, default=str)
+            
+            logger.info(f"ðŸ’¾ Saved failed batch {batch_number} to {batch_file}")
+            
+        except Exception as e:
+            logger.error(f"âŒ Failed to save failed batch: {str(e)}")
+
+    def _log_processing_summary(self):
+        """Log comprehensive processing summary"""
+        logger.info("=" * 60)
+        logger.info("ðŸ“Š FILE PROCESSING SUMMARY")
+        logger.info("=" * 60)
+        logger.info(f"ðŸ“ Total cards processed: {self.stats.total_cards}")
+        logger.info(f"âœ… Successful inserts: {self.stats.successful_inserts}")
+        logger.info(f"âŒ Failed inserts: {self.stats.failed_inserts}")
+        logger.info(f"Unique violation constraints encountered: {self.stats.skipped_inserts}")
+        logger.info(f"ðŸ“¦ Batches processed: {self.stats.batches_processed}")
+        logger.info(f"ðŸ“ˆ Success rate: {self.stats.success_rate:.2f}%")
+        logger.info(f"â±ï¸ Duration: {self.stats.duration_seconds:.2f} seconds")
+        logger.info(f"ðŸš€ Processing rate: {self.stats.total_cards / max(self.stats.duration_seconds, 1):.1f} cards/second")
+        logger.info("=" * 60)
