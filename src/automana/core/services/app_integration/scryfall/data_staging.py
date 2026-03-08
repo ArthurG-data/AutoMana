@@ -1,0 +1,1 @@
+#insert the sets and cards data into the staging tables

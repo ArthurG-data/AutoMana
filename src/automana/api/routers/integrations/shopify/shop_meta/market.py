@@ -1,0 +1,28 @@
+﻿from fastapi import APIRouter, Depends
+from automana.core.models.shopify import Market
+from automana.api.dependancies.service_deps import ServiceManagerDep
+
+market_router = APIRouter(prefix="/market", tags=["Market"])
+
+@market_router.post("/")
+async def post_market(
+    values: Market.InsertMarket,
+    service_manager: ServiceManagerDep
+):
+    return await service_manager.execute_service("shop_meta.market.add", values=values)
+
+@market_router.get("/{market_id}")
+async def get_market(
+    market_id: int,
+    service_manager: ServiceManagerDep
+):
+    return await service_manager.execute_service("shop_meta.market.get", id=market_id)
+
+@market_router.get("/")
+async def get_all_markets(
+    service_manager: ServiceManagerDep
+):
+    return await service_manager.execute_service("shop_meta.market.get")
+
+
+
