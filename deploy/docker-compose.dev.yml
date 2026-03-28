@@ -20,7 +20,8 @@ services:
     ports:
       - "${POSTGRES_PORT}:5432"
     volumes:
-      - pgdata-dev:/var/lib/postgresql/data
+      - /data/postgres:/var/lib/postgresql/data
+      - /data/pg_restore:/restore:ro
       - ../infra/db/init/:/docker-entrypoint-initdb.d/:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${APP_ADMIN_DB_USER} -d ${DB_NAME}"]
@@ -105,7 +106,7 @@ services:
       context: ..
       dockerfile: deploy/docker/celery/celery.Dockerfile
     volumes:
-      - "G:/data:/data:/data/mtgjson"
+      - "/data:/data:/data/mtgjson"
     secrets:
       - celery_db_password
     container_name: automana-celery-dev
