@@ -74,6 +74,9 @@ dependencies = [
     "websockets==15.0.1",
 ]
 
+[project.scripts]
+automana-run = "automana.tools.run_service:main"
+
 [tool.setuptools]
 package-dir = {"" = "src"}
 
