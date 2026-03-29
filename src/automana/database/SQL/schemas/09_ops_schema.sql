@@ -1,11 +1,22 @@
 BEGIN;
 CREATE SCHEMA IF NOT EXISTS ops;
+
+-- ============================================================
+-- GROUP 1: SOURCE REGISTRY
+-- Static(ish) configuration describing external data sources
+-- and the named resources they expose.
+--
+--   sources          → one row per external system (scryfall, mtgstock, …)
+--   resources        → named endpoints/files within a source
+--   resource_versions→ each distinct download of a resource (tracks URI + hash)
+-- ============================================================
+
 CREATE TABLE IF NOT EXISTS ops.sources (
   id            bigserial PRIMARY KEY,
   name          text UNIQUE NOT NULL,     -- e.g. 'scryfall', 'tcgplayer'
   base_uri      text,
   kind          text,                     -- 'http', 's3', 'ftp', etc.
-  rate_limit_hz numeric,                  -- optional governance
+  rate_limit_hz numeric,                  -- optional request-rate governance
   created_at    timestamptz DEFAULT now(),
   updated_at    timestamptz DEFAULT now()
 );
@@ -13,35 +24,33 @@ CREATE TABLE IF NOT EXISTS ops.sources (
 CREATE TABLE IF NOT EXISTS ops.resources (
   id                bigserial PRIMARY KEY,
   source_id         bigint NOT NULL REFERENCES ops.sources(id),
-  external_type     text NOT NULL,
-  external_id       text,
-  canonical_key     text,
+  external_type     text NOT NULL,        -- e.g. 'bulk_data', 'sets', 'prices'
+  external_id       text,                 -- provider's own identifier
+  canonical_key     text,                 -- internal stable key
   name              text,
   description       text,
-  api_uri           text,
+  api_uri           text,                 -- current endpoint URI
   web_uri           text,
   metadata          jsonb,
   updated_at_source timestamptz,
   created_at        timestamptz DEFAULT now(),
   CHECK (external_id IS NOT NULL OR canonical_key IS NOT NULL)
 );
--------------------------
---select the ressources, select the latest version, then if new version, insert new version
 
--- add a UNIQUE INDEX (expressions are allowed in indexes)
+-- Natural key: a resource is unique per (source, type, external_id, canonical_key)
 CREATE UNIQUE INDEX IF NOT EXISTS ux_resources_source_type_natkey
-ON ops.resources (source_id, external_type,  external_id, canonical_key);
+ON ops.resources (source_id, external_type, external_id, canonical_key);
 
 CREATE TABLE IF NOT EXISTS ops.resource_versions (
   id                bigserial PRIMARY KEY,
   resource_id       bigint NOT NULL REFERENCES ops.resources(id) ON DELETE CASCADE,
-  download_uri      text NOT NULL,        -- the ephemeral file URL you fetched
+  download_uri      text NOT NULL,        -- ephemeral URL for this specific download
   content_type      text,
   content_encoding  text,
   bytes             bigint,
   etag              text,
   last_modified     timestamptz,
-  sha256            text,                 -- optional but great for integrity/dedup
+  sha256            text,                 -- integrity check / dedup key
   status            text NOT NULL CHECK (status IN ('downloaded','processed','failed')),
   error             text,
   created_at        timestamptz DEFAULT now(),
@@ -51,103 +60,155 @@ CREATE TABLE IF NOT EXISTS ops.resource_versions (
 CREATE UNIQUE INDEX IF NOT EXISTS ux_resource_versions_natkey
 ON ops.resource_versions(resource_id, download_uri, last_modified);
 
+
+-- ============================================================
+-- GROUP 2: PIPELINE EXECUTION LOG
+-- High-write tables that track every pipeline run, its steps,
+-- per-run summary metrics, per-step detail metrics, and
+-- per-step batch-level counters.
+--
+--   ingestion_runs         → one row per pipeline execution
+--   ingestion_run_steps    → one row per named step within a run
+--   ingestion_run_metrics  → summary key/value metrics at run level
+--   ingestion_step_metrics → fine-grained metrics at step level
+--   ingestion_step_batches → batch counters for chunked steps (e.g. card import)
+--   ingestion_run_resources→ links a run to the resource_versions it consumed
+-- ============================================================
+
 CREATE TABLE IF NOT EXISTS ops.ingestion_runs (
-  id            bigserial PRIMARY KEY,
-  pipeline_name text NOT NULL,
-  source_id     bigint NOT NULL REFERENCES ops.sources(id),
-  run_key text UNIQUE,
-  celery_task_id text, --root task_id if using celery
-  started_at    timestamptz DEFAULT now(),
-  ended_at      timestamptz,
-  status        text CHECK (status IN ('pending','running','success','partial','failed')),
-  current_step    text,                        -- e.g. 'download_cards'
-  progress        numeric(5,2),                -- 0–100
-  error_code      text,
-  error_details   jsonb,
-  notes           text,
-    -- Audit
-  created_at      timestamptz DEFAULT now(),
-  updated_at      timestamptz DEFAULT now()
+  id             bigserial PRIMARY KEY,
+  pipeline_name  text NOT NULL,
+  source_id      bigint NOT NULL REFERENCES ops.sources(id),
+  run_key        text UNIQUE,            -- idempotency key, e.g. 'scryfall_daily:2026-03-29'
+  celery_task_id text,                   -- root Celery task id for correlation
+  started_at     timestamptz DEFAULT now(),
+  ended_at       timestamptz,
+  status         text CHECK (status IN ('pending','running','success','partial','failed')),
+  current_step   text,                   -- last active step name
+  progress       numeric(5,2),           -- 0–100 overall progress
+  error_code     text,
+  error_details  jsonb,
+  notes          text,
+  created_at     timestamptz DEFAULT now(),
+  updated_at     timestamptz DEFAULT now()
 );
+
 CREATE UNIQUE INDEX IF NOT EXISTS ux_ingestion_runs_key
 ON ops.ingestion_runs (pipeline_name, source_id, run_key);
 
 CREATE TABLE IF NOT EXISTS ops.ingestion_run_steps (
-  id                bigserial PRIMARY KEY,
+  id               bigserial PRIMARY KEY,
   ingestion_run_id bigint NOT NULL REFERENCES ops.ingestion_runs(id) ON DELETE CASCADE,
-  step_name        text NOT NULL,               -- e.g. 'download_cards'
+  step_name        text NOT NULL,        -- e.g. 'download_sets', 'process_large_cards_json'
   started_at       timestamptz DEFAULT now(),
   ended_at         timestamptz,
   status           text CHECK (status IN ('pending','running','success','partial','failed')),
-  progress         numeric(5,2),                -- 0–100
+  progress         numeric(5,2),         -- 0–100 step-level progress
   error_code       text,
   error_details    jsonb,
   notes            text,
   UNIQUE (ingestion_run_id, step_name)
 );
+
 CREATE INDEX IF NOT EXISTS ix_ingestion_run_steps_run
 ON ops.ingestion_run_steps (ingestion_run_id);
 
-CREATE UNIQUE INDEX IF NOT EXISTS ux_run_step_once
-ON ops.ingestion_run_steps (ingestion_run_id, step_name);
-
-CREATE TABLE IF NOT EXISTS ops.ingestion_step_metrics (
-  ingestion_step_metric_id BIGSERIAL PRIMARY KEY,
-  ingestion_run_step_id    BIGINT NOT NULL REFERENCES ops.ingestion_run_steps(id) ON DELETE CASCADE,
-
-  metric_name              TEXT NOT NULL,   -- e.g. items_processed, bytes_downloaded, http_429s
-  metric_type              TEXT NOT NULL DEFAULT 'counter', -- counter/gauge/timer
-  metric_value_num         DOUBLE PRECISION NULL,
-  metric_value_text        TEXT NULL,
-
-  recorded_at              TIMESTAMPTZ NOT NULL DEFAULT now()
+-- Run-level summary metrics (one value per metric name per run).
+-- Written by OpsRepository.add_metric().
+-- Use for totals you want to query across runs (e.g. total cards ingested today).
+CREATE TABLE IF NOT EXISTS ops.ingestion_run_metrics (
+  id                 bigserial PRIMARY KEY,
+  ingestion_run_id   bigint NOT NULL REFERENCES ops.ingestion_runs(id) ON DELETE CASCADE,
+  metric_name        text NOT NULL,      -- e.g. 'total_cards', 'total_sets', 'bytes_downloaded'
+  metric_value_num   double precision,
+  metric_value_text  text,
+  recorded_at        timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (ingestion_run_id, metric_name)
 );
+
+CREATE INDEX IF NOT EXISTS ix_run_metrics_run
+ON ops.ingestion_run_metrics (ingestion_run_id);
+
+CREATE INDEX IF NOT EXISTS ix_run_metrics_name
+ON ops.ingestion_run_metrics (metric_name);
+
+-- Step-level fine-grained metrics (multiple values per metric name per step).
+-- Use for time-series counters within a step (e.g. items_processed per batch tick).
+CREATE TABLE IF NOT EXISTS ops.ingestion_step_metrics (
+  id                    bigserial PRIMARY KEY,
+  ingestion_run_step_id bigint NOT NULL REFERENCES ops.ingestion_run_steps(id) ON DELETE CASCADE,
+  metric_name           text NOT NULL,   -- e.g. 'items_processed', 'bytes_downloaded', 'http_429s'
+  metric_type           text NOT NULL DEFAULT 'counter', -- counter / gauge / timer
+  metric_value_num      double precision,
+  metric_value_text     text,
+  recorded_at           timestamptz NOT NULL DEFAULT now()
+);
+
 CREATE INDEX IF NOT EXISTS ix_step_metrics_step
 ON ops.ingestion_step_metrics (ingestion_run_step_id);
 
 CREATE INDEX IF NOT EXISTS ix_step_metrics_name
 ON ops.ingestion_step_metrics (metric_name);
 
-
-CREATE TABLE ops.ingestion_step_batches (
-  id BIGSERIAL PRIMARY KEY,
-  ingestion_run_step_id BIGINT NOT NULL REFERENCES ops.ingestion_run_steps(id) ON DELETE CASCADE,
-  batch_seq INT NOT NULL,
-  range_start BIGINT,
-  range_end BIGINT,
-  status TEXT CHECK (status IN ('pending','running','success','partial','failed')),
-  items_ok INT,
-  items_failed INT,
-  bytes_processed BIGINT,
-  duration_ms INT,
-  error_code TEXT,
-  error_details JSONB,
-  created_at TIMESTAMPTZ DEFAULT now(),
+-- Batch-level counters for steps that process data in chunks (e.g. card import).
+-- Each row is one batch: how many succeeded, failed, bytes processed, duration.
+CREATE TABLE IF NOT EXISTS ops.ingestion_step_batches (
+  id                    bigserial PRIMARY KEY,
+  ingestion_run_step_id bigint NOT NULL REFERENCES ops.ingestion_run_steps(id) ON DELETE CASCADE,
+  batch_seq             int NOT NULL,
+  range_start           bigint,
+  range_end             bigint,
+  status                text CHECK (status IN ('pending','running','success','partial','failed')),
+  items_ok              int,
+  items_failed          int,
+  bytes_processed       bigint,
+  duration_ms           int,
+  error_code            text,
+  error_details         jsonb,
+  created_at            timestamptz DEFAULT now(),
   UNIQUE (ingestion_run_step_id, batch_seq)
 );
-CREATE INDEX ON ops.ingestion_step_batches (ingestion_run_step_id, status);
+
+CREATE INDEX IF NOT EXISTS ix_step_batches_step
+ON ops.ingestion_step_batches (ingestion_run_step_id, status);
+
+-- Links a pipeline run to the specific resource versions it consumed.
+-- Enables traceability: which file version was processed in which run.
 CREATE TABLE IF NOT EXISTS ops.ingestion_run_resources (
-  id                bigserial PRIMARY KEY,
-  ingestion_run_id bigint NOT NULL REFERENCES ops.ingestion_runs(id) ON DELETE CASCADE,
+  id                  bigserial PRIMARY KEY,
+  ingestion_run_id    bigint NOT NULL REFERENCES ops.ingestion_runs(id) ON DELETE CASCADE,
   resource_version_id bigint NOT NULL REFERENCES ops.resource_versions(id) ON DELETE CASCADE,
-  status            text CHECK (status IN ('pending','processed','failed')),
-  notes             text,
+  status              text CHECK (status IN ('pending','processed','failed')),
+  notes               text,
   UNIQUE (ingestion_run_id, resource_version_id)
 );
 
+
+-- ============================================================
+-- GROUP 3: CROSS-SYSTEM ID MAPPING
+-- Resolves card identifiers across external providers.
+-- NOTE: This table is MTGStock-specific. It lives here because
+-- it is populated during ingestion runs, but its content is
+-- persistent reference data — not ephemeral ops data.
+-- Consider moving to card_catalog schema in a future migration.
+-- ============================================================
+
 CREATE TABLE IF NOT EXISTS ops.ingestion_ids_mapping (
-    id SERIAL PRIMARY KEY,
-    ingestion_run_id INT NOT NULL REFERENCES ops.ingestion_runs(id) ON DELETE CASCADE,
-    mtgstock_id BIGINT NOT NULL,
-    scryfall_id UUID,
-    multiverse_id BIGINT,
-    tcg_id BIGINT,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE (ingestion_run_id, mtgstock_id)
+  id               serial PRIMARY KEY,
+  ingestion_run_id int NOT NULL REFERENCES ops.ingestion_runs(id) ON DELETE CASCADE,
+  mtgstock_id      bigint NOT NULL,
+  scryfall_id      uuid,
+  multiverse_id    bigint,
+  tcg_id           bigint,
+  created_at       timestamptz DEFAULT now(),
+  UNIQUE (ingestion_run_id, mtgstock_id)
 );
 
-CREATE INDEX idx_ingestion_ids_mapping_run ON ops.ingestion_ids_mapping(ingestion_run_id);
-CREATE INDEX idx_ingestion_ids_mapping_scryfall ON ops.ingestion_ids_mapping(scryfall_id);
+CREATE INDEX IF NOT EXISTS idx_ingestion_ids_mapping_run
+ON ops.ingestion_ids_mapping (ingestion_run_id);
+
+CREATE INDEX IF NOT EXISTS idx_ingestion_ids_mapping_scryfall
+ON ops.ingestion_ids_mapping (scryfall_id);
 
 INSERT INTO ops.sources (name, base_uri, kind, rate_limit_hz)
 VALUES ('mtgStock', 'https://api.mtgstocks.com', 'http', 2.0)

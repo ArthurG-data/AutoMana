@@ -177,7 +177,7 @@ ServiceRegistry.register_api_repository(
 )
 
 ServiceRegistry.register_api_repository(
-    "scryfall", "automana.core.repositories.app_integration.scryfall.ApiScryfall", "ScryfallAPIRepository"
+    "scryfall", "automana.core.repositories.app_integration.scryfall.ApiScryfall_repository", "ScryfallAPIRepository"
 )
 
 ServiceRegistry.register_api_repository(

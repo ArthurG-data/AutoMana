@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install Python deps first for better layer caching
 COPY pyproject.toml /app/pyproject.toml
 COPY src /app/src
-RUN pip install --no-cache-dir -e .
+RUN RUN uv sync --frozen
 
 # Security: run as non-root
 RUN useradd -m appuser

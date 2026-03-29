@@ -1,5 +1,5 @@
 ﻿import  logging
-from automana.core.repositories.app_integration.scryfall.ApiScryfall import ScryfallAPIRepository
+from automana.core.repositories.app_integration.scryfall.ApiScryfall_repository import ScryfallAPIRepository
 from automana.core.repositories.ops.ops_repository import OpsRepository
 from automana.core.services.ops.pipeline_services import track_step
 import pathlib
@@ -37,7 +37,6 @@ async def scryfall_data_pipeline_start(ops_repository: OpsRepository
                                             , notes="Starting Scryfall data pipeline, scheduled daily ingestion.")
     print(f"Started Scryfall data pipeline with run ID: {run_id}")
     return {'ingestion_run_id': run_id}
-
 
 #get bulk data uri
 @ServiceRegistry.register("staging.scryfall.get_bulk_data_uri",

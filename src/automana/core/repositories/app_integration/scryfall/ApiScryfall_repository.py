@@ -54,6 +54,13 @@ class ScryfallAPIRepository(BaseApiClient):
 
         buffer.seek(0)
         return buffer
+    
+    async def download_data_from_url(self, url: str) -> dict:
+        full_url = self.get_full_url(url) 
+        async with self._get_client() as client:
+            response = await client.get(full_url, timeout=self.timeout)
+            response.raise_for_status()
+            return response.json()
 
     
     async def _fetch_migrations(self) -> AsyncGenerator[Dict[str, Any], None]:
@@ -62,7 +69,7 @@ class ScryfallAPIRepository(BaseApiClient):
         async with self._get_client() as client:
             while full_url:
                 response = await self._get(full_url)
-                data = response.json()
+                data = await response.json()
                 for m in data.get("data", []):
                     yield m
 

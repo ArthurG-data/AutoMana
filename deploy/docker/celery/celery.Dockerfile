@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY pyproject.toml /app/pyproject.toml
 COPY src /app/src
-RUN pip install --no-cache-dir -e .
+RUN RUN uv sync --frozen
 
 RUN useradd -m appuser
 USER appuser
