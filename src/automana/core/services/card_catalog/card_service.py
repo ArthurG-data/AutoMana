@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import  Optional, List, Dict, Any, Callable
 import ijson, asyncio, logging, json
 from automana.core.repositories.ops.ops_repository import OpsRepository
+from automana.core.services.ops.pipeline_services import track_step
 from automana.core.models.card_catalog import card as card_schemas
 from automana.core.repositories.card_catalog.card_repository import CardReferenceRepository
 from automana.core.models.card_catalog.card import BaseCard
@@ -203,19 +204,11 @@ async def process_large_cards_json(
         resume_from_batch: Batch number to resume from (for recovery)
         validate_file_first: Whether to validate JSON structure first
     """
-    await ops_repository.update_run(ingestion_run_id, status="running", current_step="process_large_cards_json")
     service = EnhancedCardImportService(card_repository)
     if file_path_card == "NO CHANGES":
         logger.info("No changes detected in Scryfall data. Skipping processing.")
-        if update_run and ops_repository and ingestion_run_id:
-            await ops_repository.update_run(
-                ingestion_run_id=ingestion_run_id,
-                status="success",
-                current_step="process_large_cards_json",
-                notes="No changes detected in Scryfall data. Processing skipped."
-            )
         return {"status": "success"}
-    try:
+    async with track_step(ops_repository, ingestion_run_id, "process_large_cards_json", error_code="processing_failed"):
         result = await service.process_large_cards_json(
             file_path_card=file_path_card,
             resume_from_batch=resume_from_batch,
@@ -223,16 +216,6 @@ async def process_large_cards_json(
             ops_repository=ops_repository,
             ingestion_run_id=ingestion_run_id
         )
-    except Exception as e:
-        if update_run and ops_repository and ingestion_run_id:
-            await ops_repository.update_run(
-                ingestion_run_id=ingestion_run_id,
-                status="failed",
-                current_step="process_large_cards_json",
-                error_code="processing_failed",
-                error_details={"error": str(e)}
-            )
-        raise e
     return result.to_dict()
 
 

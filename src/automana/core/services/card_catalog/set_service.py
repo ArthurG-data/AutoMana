@@ -7,6 +7,7 @@ from uuid import UUID
 from typing import Any, AsyncGenerator, Callable, Dict, List,  Optional
 from automana.core.repositories.card_catalog.set_repository import SetReferenceRepository
 from automana.core.repositories.ops.ops_repository import OpsRepository
+from automana.core.services.ops.pipeline_services import track_step
 from automana.core.models.card_catalog.set import  SetInDB, NewSet, UpdatedSet, NewSets
 from automana.core.exceptions.service_layer_exceptions.card_catalogue import set_exception
 from automana.core.utils.utils import decode_json_input
@@ -185,29 +186,11 @@ async def process_large_sets_json(
 ) -> dict:
     """Process large JSON file containing sets using streaming to minimize memory usage"""
     processor = EnhancedSetImportService(set_repository, config)
-    try:
-        result : ProcessingStats =  await processor.process_large_sets_json(
+    async with track_step(ops_repository, ingestion_run_id, "process_large_sets_json", error_code="processing_failed"):
+        result: ProcessingStats = await processor.process_large_sets_json(
             file_path=file_path,
             resume_from_batch=resume_from_batch
         )
-        if update_run and ops_repository:
-            await ops_repository.update_run(
-                ingestion_run_id=ingestion_run_id,
-                status="success",
-                current_step="process_large_sets_json",
-                
-                notes=f"Processed {result.total_sets} sets with {result.successful_inserts} successful inserts and {result.failed_inserts} failures."
-            )
-    except Exception as e:
-        if update_run and ops_repository:
-            await ops_repository.update_run(
-                ingestion_run_id=ingestion_run_id,
-                status="failed",
-                current_step="process_large_sets_json",
-                error_code="processing_failed",
-                error_details={"message": str(e)}
-            )
-        raise e
     return result.to_dict()
 
 class EnhancedSetImportService:
