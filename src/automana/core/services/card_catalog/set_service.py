@@ -12,6 +12,7 @@ from automana.core.models.card_catalog.set import  SetInDB, NewSet, UpdatedSet, 
 from automana.core.exceptions.service_layer_exceptions.card_catalogue import set_exception
 from automana.core.utils.utils import decode_json_input
 from automana.core.service_registry import ServiceRegistry
+from automana.core.storage import StorageService
 
 logger = logging.getLogger(__name__)
 
@@ -173,22 +174,24 @@ class ProcessingConfig:
 
 @ServiceRegistry.register(
     "card_catalog.set.process_large_sets_json",
-    db_repositories=["set", "ops"]
+    db_repositories=["set", "ops"],
+    storage_services=["scryfall"]
 )
 async def process_large_sets_json(
     set_repository: SetReferenceRepository,
-    file_path: str,
+    storage_service: StorageService,
+    filename: str,
     ingestion_run_id: int = None,
     ops_repository: OpsRepository = None,
     config: ProcessingConfig = None,
     resume_from_batch: int = 0,
-    update_run: bool = False
 ) -> dict:
     """Process large JSON file containing sets using streaming to minimize memory usage"""
     processor = EnhancedSetImportService(set_repository, config)
     async with track_step(ops_repository, ingestion_run_id, "process_large_sets_json", error_code="processing_failed"):
         result: ProcessingStats = await processor.process_large_sets_json(
-            file_path=file_path,
+            storage_service=storage_service,
+            filename=filename,
             resume_from_batch=resume_from_batch
         )
     return result.to_dict()
