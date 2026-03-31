@@ -1,8 +1,8 @@
-﻿import  logging
+﻿import  logging,pathlib
 from automana.core.repositories.app_integration.scryfall.ApiScryfall_repository import ScryfallAPIRepository
 from automana.core.repositories.ops.ops_repository import OpsRepository
 from automana.core.services.ops.pipeline_services import track_step
-import pathlib
+from automana.core.storage import StorageService
 
 from datetime import datetime
 from automana.core.service_registry import ServiceRegistry
@@ -12,7 +12,8 @@ print("âœ“ data_loader.py imported successfully")
 
 
 @ServiceRegistry.register("staging.scryfall.pipeline_finish"
-                          , db_repositories=["ops"])
+                          , db_repositories=["ops"]
+                          )
 async def pipeline_finish(ops_repository: OpsRepository
                           , ingestion_run_id: int = None
                           , status: str = "success"
@@ -53,7 +54,9 @@ async def get_scryfall_bulk_data_uri(ops_repository: OpsRepository
 
 #download bulk manifests
 @ServiceRegistry.register("staging.scryfall.download_bulk_manifests",
-                         api_repositories=["scryfall"], db_repositories=["ops"])
+                         api_repositories=["scryfall"]
+                         , db_repositories=["ops"]
+                         )
 async def download_scryfall_bulk_manifests( ops_repository: OpsRepository
                                             ,scryfall_repository: ScryfallAPIRepository
                                            , bulk_uri: str
@@ -68,17 +71,14 @@ async def download_scryfall_bulk_manifests( ops_repository: OpsRepository
 
 async def download_scryfall_from_url(repository: ScryfallAPIRepository
                                     , url: str
-                                  , filename_out:  pathlib.Path
+                                    , filename_out: str
+                                  , storage_service: StorageService = None
 ):
     """Download Scryfall data from a given URL and save to specified path"""
-
-    filename_out.parent.mkdir(parents=True, exist_ok=True)
     result = await repository.download_data_from_url(url)
-    if result.get("data"):
-        filename_out.parent.mkdir(parents=True, exist_ok=True)
-        with open(filename_out, "w", encoding="utf-8") as f:
-            import json
-            json.dump(result["data"], f)
+
+    await storage_service.save_json(filename_out, result.get("data", {}))
+
     return {"file_path": filename_out}
     
         
@@ -100,7 +100,8 @@ async def stream_download_scryfall_json_from_uris(repository: ScryfallAPIReposit
 
 
 @ServiceRegistry.register("staging.scryfall.update_data_uri_in_ops_repository",
-                         db_repositories=["ops"])
+                         db_repositories=["ops"]
+                         )
 async def update_data_uri_in_ops_repository(ops_repository: OpsRepository
                                             , items: dict
                                             , ingestion_run_id: int = None):
@@ -112,19 +113,21 @@ async def update_data_uri_in_ops_repository(ops_repository: OpsRepository
         logger.info("No changes in Scryfall bulk data URIs. No download needed.")
     return {'uris_to_download': bulk_items_changed}
 
-@ServiceRegistry.register("staging.scryfall.download_sets", api_repositories=["scryfall"], db_repositories=["ops"])
+@ServiceRegistry.register("staging.scryfall.download_sets"
+                          , api_repositories=["scryfall"]
+                          , db_repositories=["ops"]
+                          , storage_services=["scryfall"])
 async def download_sets(
     scryfall_repository: ScryfallAPIRepository,
     ops_repository: OpsRepository,
     ingestion_run_id: int = None,
-    save_dir: str = None,
+    storage_service: StorageService = None,
 ) -> dict:
-    """Download the Scryfall sets list and save to disk"""
-    save_dir = pathlib.Path(save_dir)
-    out_path = save_dir / str(ingestion_run_id or "standalone") / "sets.json"
+    #TO DO :chekc if file exists before downloading, if exists, skip downloading and return the file path
+    filename_out = f"scryfall_sets_{datetime.utcnow().strftime('%Y%m%d')}.json"
     async with track_step(ops_repository, ingestion_run_id, "download_sets", error_code="download_failed"):
-        await download_scryfall_from_url(scryfall_repository, "https://api.scryfall.com/sets", out_path)
-    return {"file_path": str(out_path)}
+        await download_scryfall_from_url(scryfall_repository, "https://api.scryfall.com/sets", filename_out, storage_service=storage_service)
+    return {"file_path": str(filename_out)}
 
 @ServiceRegistry.register("staging.scryfall.download_cards_bulk", api_repositories=["scryfall"], db_repositories=["ops"])
 async def download_cards_bulk(

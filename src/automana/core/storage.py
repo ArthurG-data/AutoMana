@@ -3,9 +3,8 @@ from pathlib import Path
 import json
 import asyncio
 import logging
-from typing import Any, Optional, Union
+from typing import Any, Union
 from datetime import datetime
-import os
 
 logger = logging.getLogger(__name__)
 
@@ -40,9 +39,7 @@ class StorageBackend(ABC):
 class LocalStorageBackend(StorageBackend):
     """Local filesystem storage"""
 
-    def __init__(self, base_path: str = None):
-        if base_path is None:
-            base_path = os.getenv("OUTPUT_DIR", r"G:\data\mtgjson\raw")
+    def __init__(self, base_path: str):
         self.base_path = Path(base_path)
         self.base_path.mkdir(parents=True, exist_ok=True)
         logger.info(f"LocalStorageBackend initialized at {self.base_path}")
@@ -166,23 +163,26 @@ class StorageService:
         self.backend = backend
         logger.info(f"StorageService initialized with {backend.__class__.__name__}")
 
-    async def save_json(self, path: str, data: Any) -> str:
-        """Save data as JSON"""
-        return await self.backend.save(path, data, file_format="json")
+    @staticmethod
+    def _resolve(filename: str, subdir: str = "") -> str:
+        """Join subdir and filename into a relative path for the backend.
+        The backend resolves this against its own base_path (which already
+        contains the integration subpath set at creation time via the registry).
+        """
+        return str(Path(subdir) / filename) if subdir else filename
 
-    
-    async def load_json(self, path: str) -> Any:
-        """Load data from JSON file"""
-        return await self.backend.load(path, file_format="json")
+    async def save_json(self, filename: str, data: Any, subdir: str = "") -> str:
+        return await self.backend.save(self._resolve(filename, subdir), data, file_format="json")
 
-    async def save_binary(self, path: str, data: Union[bytes, str], file_format: str = "binary") -> str:
-        """Save data as binary"""
-        return await self.backend.save(path, data, file_format=file_format)
+    async def load_json(self, filename: str, subdir: str = "") -> Any:
+        return await self.backend.load(self._resolve(filename, subdir), file_format="json")
 
-    async def load_binary(self, path: str) -> bytes:
-        """Load data as binary"""
-        return await self.backend.load(path, file_format="binary")
+    async def save_binary(self, filename: str, data: Union[bytes, str],
+                          subdir: str = "", file_format: str = "xz") -> str:
+        return await self.backend.save(self._resolve(filename, subdir), data, file_format=file_format)
 
+    async def load_binary(self, filename: str, subdir: str = "") -> bytes:
+        return await self.backend.load(self._resolve(filename, subdir), file_format="binary")
 
     def build_timestamped_name(self, filename: str, ts: str) -> str:
         if filename.endswith(".json.xz"):
@@ -190,29 +190,25 @@ class StorageService:
             return f"{base}_{ts}.json.xz"
         name, ext = filename.rsplit(".", 1) if "." in filename else (filename, "")
         return f"{name}_{ts}.{ext}" if ext else f"{name}_{ts}"
-    
-    async def save_with_timestamp(self, filename: str, data: Any, file_format: str = "xz") -> str:
-        """Save data with timestamp in filename"""
+
+    async def save_with_timestamp(self, filename: str, data: Any,
+                                  subdir: str = "", file_format: str = "xz") -> str:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        timestamped_filename = self.build_timestamped_name(filename, timestamp)
+        timestamped = self.build_timestamped_name(filename, timestamp)
         if file_format == "json":
-            return await self.save_json(timestamped_filename, data)
+            return await self.save_json(timestamped, data, subdir=subdir)
         if file_format == "xz":
-            return await self.save_binary(timestamped_filename, data, file_format="xz")
-        else:
-            raise ValueError(f"Unsupported file format: {file_format}")
+            return await self.save_binary(timestamped, data, subdir=subdir, file_format="xz")
+        raise ValueError(f"Unsupported file format: {file_format}")
 
-    async def file_exists(self, path: str) -> bool:
-        """Check if file exists"""
-        return await self.backend.exists(path)
+    async def file_exists(self, filename: str, subdir: str = "") -> bool:
+        return await self.backend.exists(self._resolve(filename, subdir))
 
-    async def delete_file(self, path: str) -> bool:
-        """Delete a file"""
-        return await self.backend.delete(path)
+    async def delete_file(self, filename: str, subdir: str = "") -> bool:
+        return await self.backend.delete(self._resolve(filename, subdir))
 
-    async def list_directory(self, directory: str) -> list[str]:
-        """List files in directory"""
-        return await self.backend.list_files(directory)
+    async def list_directory(self, subdir: str = "") -> list[str]:
+        return await self.backend.list_files(subdir)
 
 def get_storage_service(base_path: str = "storage") -> StorageService:
     """Get a storage service instance"""

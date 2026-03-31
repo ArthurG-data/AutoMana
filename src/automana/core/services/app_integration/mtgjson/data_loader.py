@@ -7,7 +7,7 @@ import logging
 @ServiceRegistry.register(
         "mtgjson.data.staging.last90",
         api_repositories=["mtgjson"],
-        storage_services=["local_storage"]
+        storage_services=["mtgjson"]
 )
 async def download_mtgjson_data_last_90(mtgjson_repository : ApimtgjsonRepository
                                         , storage_service : StorageService
@@ -30,7 +30,7 @@ async def download_mtgjson_data_last_90(mtgjson_repository : ApimtgjsonRepositor
 @ServiceRegistry.register(
         "mtgjson.data.staging.today",
         api_repositories=["mtgjson"],
-        storage_services=["local_storage"]
+        storage_services=["mtgjson"]
 )
 async def stage_mtgjson_data(mtgjson_repository : ApimtgjsonRepository
                              , storage_service: StorageService, 

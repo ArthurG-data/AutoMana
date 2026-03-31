@@ -25,7 +25,10 @@ class ServiceRegistry:
     _services: Dict[str, ServiceConfig] = {}
     _repository_registry: Dict[str, tuple[str, str]] = {}
     _api_repository_registry: Dict[str, tuple[str, str]] = {}
-    _storage_registry: Dict[str, tuple[str, str]] = {}
+    # Backend registry: backend_name → (module, class)
+    _storage_backend_registry: Dict[str, tuple[str, str]] = {}
+    # Named storage registry: logical_name → {backend: str, **config}
+    _storage_registry: Dict[str, dict] = {}
     
     @classmethod
     def register(
@@ -81,24 +84,40 @@ class ServiceRegistry:
         logger.debug(f"Registered API repository: {name}")
 
     @classmethod
-    def register_storage_service(cls, name: str, module_path: str, class_name: str) -> None:
-        """Register a storage service type"""
-        cls._storage_registry[name] = (module_path, class_name)
-        logger.debug(f"Registered storage service: {name}")
-    
+    def register_storage_backend(cls, name: str, module_path: str, class_name: str) -> None:
+        """Register a storage backend class (e.g. 'local', 's3')."""
+        cls._storage_backend_registry[name] = (module_path, class_name)
+        logger.debug(f"Registered storage backend: {name}")
+
+    @classmethod
+    def register_storage(cls, name: str, backend: str, **config) -> None:
+        """Register a named storage (logical name → backend + config).
+
+        Examples:
+            register_storage("scryfall", backend="local", subpath="scryfall/raw_files")
+            register_storage("scryfall", backend="s3",    bucket="automana", prefix="scryfall")
+        """
+        cls._storage_registry[name] = {"backend": backend, **config}
+        logger.debug(f"Registered storage: {name} → backend={backend}")
+
     @classmethod
     def get_db_repository(cls, name: str) -> Optional[tuple[str, str]]:
         """Get DB repository module path and class name"""
         return cls._repository_registry.get(name)
-    
+
     @classmethod
     def get_api_repository(cls, name: str) -> Optional[tuple[str, str]]:
         """Get API repository module path and class name"""
         return cls._api_repository_registry.get(name)
-    
+
     @classmethod
-    def get_storage_service(cls, name: str) -> Optional[tuple[str, str]]:
-        """Get storage service module path and class name"""
+    def get_storage_backend(cls, name: str) -> Optional[tuple[str, str]]:
+        """Get storage backend (module, class) by backend name."""
+        return cls._storage_backend_registry.get(name)
+
+    @classmethod
+    def get_storage(cls, name: str) -> Optional[dict]:
+        """Get named storage config (includes 'backend' key + backend-specific config)."""
         return cls._storage_registry.get(name)
     
     @classmethod
@@ -184,6 +203,12 @@ ServiceRegistry.register_api_repository(
     "mtgjson", "automana.core.repositories.app_integration.mtgjson.Apimtgjson_repository", "ApimtgjsonRepository"
 )
 
-ServiceRegistry.register_storage_service(
-    "local_storage", "automana.core.storage", "LocalStorageBackend"
+# Storage backends (type → class)
+ServiceRegistry.register_storage_backend(
+    "local", "automana.core.storage", "LocalStorageBackend"
 )
+
+# Named storages (logical name → backend + config)
+ServiceRegistry.register_storage("mtgjson",  backend="local", subpath="mtgjson/raw")
+ServiceRegistry.register_storage("scryfall", backend="local", subpath="scryfall/raw_files")
+
