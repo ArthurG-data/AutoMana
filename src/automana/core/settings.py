@@ -103,7 +103,7 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: str | None = None
 
     # Storage
-    data_dir: str = Field(default="/data", alias="DATA_DIR")
+    data_dir: str = Field(default="/data/automana_data", alias="DATA_DIR")
 
     # WEB HOOKS
     DISCORD_WEBHOOK_URL: str | None = None
