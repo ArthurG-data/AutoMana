@@ -4,6 +4,7 @@ automana-run  —  call any registered service from the command line.
 Usage
 -----
     automana-run <service.path> [--key value ...]
+    automana-run <svc1> [--key value ...] <svc2> [--key value ...]   # chain
 
 Examples
 --------
@@ -18,6 +19,11 @@ Examples
 
     # pipe the JSON result into jq
     automana-run staging.scryfall.get_bulk_data_uri --ingestion_run_id 42 | jq .
+
+    # chain: outputs of each step are merged into the next step's kwargs
+    # (explicit per-step kwargs override accumulated output)
+    automana-run staging.scryfall.download_bulk_manifests --ingestion_run_id 1 --bulk_uri <uri> \\
+                 staging.scryfall.update_data_uri_in_ops_repository --ingestion_run_id 1
 """
 
 import asyncio
@@ -108,8 +114,12 @@ async def _main(service_path, extra_args, raw):
             await _teardown(pool)
         return
 
-    # ── parse --key value pairs ────────────────────────────────────────────
-    kwargs: dict[str, Any] = {}
+    # ── parse steps: split extra_args on bare (non-flag) tokens ──────────────
+    # Each non-flag token is treated as the start of a new service step.
+    steps: list[tuple[str, dict[str, Any]]] = []
+    current_svc = service_path
+    current_kwargs: dict[str, Any] = {}
+
     it = iter(extra_args)
     for token in it:
         if token.startswith("--"):
@@ -122,28 +132,38 @@ async def _main(service_path, extra_args, raw):
                 except StopIteration:
                     click.echo(f"[error] flag --{key} has no value", err=True)
                     sys.exit(1)
-            kwargs[key] = _coerce(val)
+            current_kwargs[key] = _coerce(val)
         else:
-            click.echo(f"[error] unexpected token: {token!r}", err=True)
-            sys.exit(1)
+            # bare token → start of next chained service
+            steps.append((current_svc, current_kwargs))
+            current_svc = token
+            current_kwargs = {}
+
+    steps.append((current_svc, current_kwargs))
 
     # ── bootstrap ─────────────────────────────────────────────────────────
-    click.echo(f"[automana-run] service  : {service_path}", err=True)
-    if kwargs:
-        click.echo(f"[automana-run] kwargs   : {kwargs}", err=True)
-
     pool = await _bootstrap()
     try:
         from automana.core.service_manager import ServiceManager
 
-        t0 = time.perf_counter()
-        result = await ServiceManager.execute_service(service_path, **kwargs)
-        elapsed = time.perf_counter() - t0
+        accumulated: dict[str, Any] = {}
+        result: Any = None
 
-        click.echo(f"[automana-run] elapsed  : {elapsed * 1000:.1f} ms", err=True)
-        click.echo(f"[automana-run] result type: {type(result).__name__}", err=True)
+        for i, (svc, kwargs) in enumerate(steps):
+            merged = {**accumulated, **kwargs}  # explicit kwargs win
+            click.echo(f"[automana-run] step {i+1}/{len(steps)}: {svc}", err=True)
+            if merged:
+                click.echo(f"[automana-run] kwargs   : {merged}", err=True)
 
-        # ── output ────────────────────────────────────────────────────────
+            t0 = time.perf_counter()
+            result = await ServiceManager.execute_service(svc, **merged)
+            elapsed = time.perf_counter() - t0
+
+            click.echo(f"[automana-run] elapsed  : {elapsed * 1000:.1f} ms", err=True)
+            if isinstance(result, dict):
+                accumulated.update(result)
+
+        # ── output (final step result) ─────────────────────────────────────
         if raw:
             click.echo(repr(result))
         else:

@@ -104,7 +104,7 @@ async def stream_download_scryfall_json_from_uris(repository: ScryfallAPIReposit
 async def update_data_uri_in_ops_repository(ops_repository: OpsRepository
                                             , items: dict
                                             , ingestion_run_id: int = None):
-    """Update the bulk data URIs in the Ops repository"""
+    """Update the bulk data URIs in the Ops repository,first update the source table with new uri if exists, then update resource_vertsions with the specified version to be used for the current run"""
     async with track_step(ops_repository, ingestion_run_id, "update_data_uri_in_ops_repository", error_code="update_failed"):
         result = await ops_repository.update_bulk_data_uri_return_new(items, ingestion_run_id)
     bulk_items_changed = result.get("changed", [])

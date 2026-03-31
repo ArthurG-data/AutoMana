@@ -280,18 +280,19 @@ class OpsRepository(AbstractRepository):
         return result[0].get("uri") if result and len(result) > 0 else None
     
 
-    async def update_bulk_data_uri_return_new(self, items: dict, ingestion_run_id: int):
-      
+    async def update_bulk_data_uri_return_new(self, items: dict, ingestion_run_id: int = None) -> dict:
+       
         result = await self.execute_query(
     
             update_bulk_scryfall_data_sql,
             (json.dumps(items), ingestion_run_id)#source_id
         )
+        print("update_bulk_data_uri_return_new result:", result)
         record = result[0] if result and len(result) > 0 else None
         ressources_upserted = record.get("resources_upserted") if record else 0
         versions_inserted = record.get("versions_inserted") if record else 0
         changed_items = record.get("changed") if record else []
-    
+
         return {
         "ingestion_run_id": ingestion_run_id,
         "resources_upserted": ressources_upserted,
