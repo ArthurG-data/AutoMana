@@ -1,6 +1,9 @@
-﻿from contextlib import asynccontextmanager
+﻿import logging
+from contextlib import asynccontextmanager
 from automana.core.service_registry import ServiceRegistry
 from automana.core.repositories.ops.ops_repository import OpsRepository
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -60,9 +63,9 @@ async def start_run(
             celery_task_id=celery_task_id
         )
     except Exception as e:
-        print(f"Error starting run: {e}")
+        logger.error("Failed to start run", extra={"run_key": run_key, "pipeline_name": pipeline_name, "error": str(e)})
         raise
-    print(f"Started run with id {ingestion_run_id}")
+    logger.info("Pipeline run started", extra={"ingestion_run_id": ingestion_run_id, "run_key": run_key, "pipeline_name": pipeline_name})
     return {"ingestion_run_id": ingestion_run_id}
 
 @ServiceRegistry.register(

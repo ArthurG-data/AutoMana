@@ -8,7 +8,6 @@ from datetime import datetime
 from automana.core.service_registry import ServiceRegistry
 
 logger = logging.getLogger(__name__)
-print("âœ“ data_loader.py imported successfully")
 
 
 @ServiceRegistry.register("staging.scryfall.pipeline_finish"
@@ -36,7 +35,7 @@ async def scryfall_data_pipeline_start(ops_repository: OpsRepository
                                             , run_key=run_key or f"{pipeline_name}_{datetime.utcnow().strftime('%Y%m%d')}"
                                             , celery_task_id=celery_task_id
                                             , notes="Starting Scryfall data pipeline, scheduled daily ingestion.")
-    print(f"Started Scryfall data pipeline with run ID: {run_id}")
+    logger.info("Scryfall pipeline run started", extra={"ingestion_run_id": run_id, "pipeline_name": pipeline_name})
     return {'ingestion_run_id': run_id}
 
 #get bulk data uri
@@ -66,7 +65,7 @@ async def download_scryfall_bulk_manifests( ops_repository: OpsRepository
         manifests = await scryfall_repository.download_data_from_url(bulk_uri)
         if not manifests.get("data"):
             raise ValueError("Failed to download Scryfall bulk data manifest.")
-    print(manifests["data"])
+    logger.info("Bulk manifest downloaded", extra={"ingestion_run_id": ingestion_run_id, "item_count": len(manifests["data"])})
     return {"items": manifests["data"]}
 
 async def download_scryfall_from_url(repository: ScryfallAPIRepository
@@ -94,10 +93,12 @@ async def stream_download_scryfall_json_from_uris(repository: ScryfallAPIReposit
     for url in uris:
         name = url.split("/")[-1]  # ends with .json or .json.gz
         out = f"{str(ingestion_run_id or 'standalone')}_{datetime.utcnow().strftime('%Y%m%d')}_{name}"
+        logger.info("Streaming bulk file", extra={"url": url, "filename": out, "ingestion_run_id": ingestion_run_id})
         async with repository.stream_download(str(url).strip()) as chunks:
             async with storage_service.open_stream(out, "wb") as f:
                 async for chunk in chunks:
                     f.write(chunk)
+        logger.info("Bulk file saved", extra={"filename": out, "ingestion_run_id": ingestion_run_id})
         saved.append(str(out))
 
     return {"files_saved": saved}
@@ -151,6 +152,7 @@ async def download_cards_bulk(
 ) -> dict:
     """Stream-download Scryfall card bulk files to disk"""
     if not uris_to_download:
+        logger.info("No bulk URI changes — skipping card download", extra={"ingestion_run_id": ingestion_run_id})
         return {"file_path_card": "NO CHANGES"}
     async with track_step(ops_repository, ingestion_run_id, "download_cards_bulk", error_code="download_failed"):
         result = await stream_download_scryfall_json_from_uris(scryfall_repository, uris_to_download, storage_service, ingestion_run_id)
@@ -191,7 +193,7 @@ async def download_scryfall_migrations(
     async with track_step(ops_repository, ingestion_run_id, "download_and_load_migrations", error_code="migration_failed"):
         buffer = await scryfall_repository.migrations_to_bytes_buffer()
         status = await card_repository.copy_migrations(buffer)
-    logger.info("Loaded Scryfall migrations into database with status: %s", status)
+    logger.info("Migrations loaded", extra={"ingestion_run_id": ingestion_run_id, "status": status})
     return {"migration_load_status": status}
     
 

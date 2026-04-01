@@ -145,11 +145,16 @@ Downloads each URI in `uris_to_download` using a chunked streaming approach to h
 
 **Implementation details (`ScryfallAPIRepository.stream_download`):**
 
-1. Opens an `aiohttp.ClientSession` with a streaming GET request.
-2. Writes the response body in 1 MB chunks to a `.tmp` file at the target path.
-3. Atomically renames `.tmp` → final filename only after the full download completes.
+`stream_download` is an async context manager on the repository that owns the `aiohttp` session and response lifetime. It yields an async iterable of raw bytes chunks; the service layer is responsible for writing those chunks to storage:
 
-This atomic rename prevents partially-written files from being picked up by Stage 3 if the pipeline is interrupted mid-download.
+```
+async with repository.stream_download(url) as chunks:
+    async with storage_service.open_stream(filename, "wb") as f:
+        async for chunk in chunks:
+            f.write(chunk)
+```
+
+This keeps the HTTP transport concern in the repository and the storage concern in the service, matching the layered architecture. The session stays open for the full duration of the download and is closed cleanly on exit (including on error).
 
 **Output path pattern:**
 
