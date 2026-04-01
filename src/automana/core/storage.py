@@ -42,6 +42,11 @@ class StorageBackend(ABC):
         """List all files in a directory."""
         pass
 
+    @abstractmethod
+    async def get_file_size(self, path: str) -> int:
+        """Get the size of a file in bytes."""
+        pass
+
 class LocalStorageBackend(StorageBackend):
     """Local filesystem storage"""
 
@@ -162,6 +167,23 @@ class LocalStorageBackend(StorageBackend):
             logger.error(f"Failed to list files in {directory}: {e}")
             raise
 
+    async def get_file_size(self, path: str) -> int:
+        """Get file size in bytes"""
+        try:
+            full_path = self._get_full_path(path)
+            if not full_path.exists():
+                raise FileNotFoundError(f"File not found: {path}")
+            async def _size():
+                loop = asyncio.get_event_loop()
+                return await loop.run_in_executor(
+                    None,
+                    lambda: full_path.stat().st_size
+                )
+            return await _size()
+        except Exception as e:
+            logger.error(f"Failed to get file size for {path}: {e}")
+            raise
+
     @asynccontextmanager
     async def open_stream(self, path: str, mode: str = "rb", **kwargs):
         """Open a file stream for reading or writing."""
@@ -220,6 +242,9 @@ class StorageService:
 
     async def list_directory(self) -> list[str]:
         return await self.backend.list_files("")
+    
+    async def get_file_size(self, filename: str) -> int:
+        return await self.backend.get_file_size(filename)
 
 def get_storage_service(base_path: str = "storage") -> StorageService:
     """Get a storage service instance"""

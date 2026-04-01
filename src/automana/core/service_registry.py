@@ -211,4 +211,5 @@ ServiceRegistry.register_storage_backend(
 # Named storages (logical name → backend + config)
 ServiceRegistry.register_storage("mtgjson",  backend="local", subpath="mtgjson/raw")
 ServiceRegistry.register_storage("scryfall", backend="local", subpath="scryfall/raw_files")
+ServiceRegistry.register_storage("errors",   backend="local", subpath="errors/card_import")
 

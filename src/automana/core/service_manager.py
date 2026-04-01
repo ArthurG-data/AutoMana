@@ -194,10 +194,10 @@ class ServiceManager:
             ) from e
         
         #storage
-            storage_service = None
             if len(service_config.storage_services) > 0:
-                storage_service = self.get_storage_service(service_config.storage_services[0])
-                kwargs["storage_service"] = storage_service
+                kwargs["storage_service"] = self.get_storage_service(service_config.storage_services[0])
+                for extra_name in service_config.storage_services[1:]:
+                    kwargs[f"{extra_name}_storage_service"] = self.get_storage_service(extra_name)
         # Execute within transaction
             async with self.transaction() as conn:
                 repositories = {}
