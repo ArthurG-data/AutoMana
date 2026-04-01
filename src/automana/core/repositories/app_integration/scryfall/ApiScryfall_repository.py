@@ -1,13 +1,8 @@
 ﻿from datetime import datetime
-import pathlib
-
-import io
-
+import io, aiohttp, logging
+from contextlib import asynccontextmanager
 from automana.core.repositories.abstract_repositories.AbstractAPIRepository import BaseApiClient
-import aiohttp
 from typing import AsyncGenerator, Dict, Any
-import httpx
-import logging
 logger = logging.getLogger(__name__)
 
 class ScryfallAPIRepository(BaseApiClient):
@@ -75,22 +70,16 @@ class ScryfallAPIRepository(BaseApiClient):
 
                 full_url = data.get("next_page")
 
-    
-    async def stream_download(self, url: str, out_path: pathlib.Path, chunk_size: int = 1024 * 1024):
+    @asynccontextmanager
+    async def stream_download(self, url: str, chunk_size: int = 1024 * 1024):
         """
-        Stream download a file from the given URL to out_path.
+        Async context manager that yields an async iterable of chunks streamed from url.
+        The caller (service layer) is responsible for writing chunks to storage.
         """
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = out_path.with_suffix(out_path.suffix + ".tmp")
-
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as resp:
                 resp.raise_for_status()
-                with open(tmp, "wb") as f:
-                    async for chunk in resp.content.iter_chunked(chunk_size):
-                        f.write(chunk)
-
-        tmp.replace(out_path)
+                yield resp.content.iter_chunked(chunk_size)
     
     async def _get(self, endpoint: str, params: dict | None = None) -> dict:
         result = await self.send(method="GET", endpoint=endpoint)

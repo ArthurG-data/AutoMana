@@ -189,12 +189,12 @@ class StorageService:
     async def load_binary(self, filename: str) -> bytes:
         return await self.backend.load(filename, file_format="binary")
 
-    def open_stream(self, filename: str):
+    def open_stream(self, filename: str, mode: str = "rb", **kwargs):
         """Return an async context manager yielding a readable binary stream.
         Works for local files and any future backend (S3 StreamingBody, etc.).
         Compatible with ijson and other streaming parsers.
         """
-        return self.backend.open_stream(filename)
+        return self.backend.open_stream(filename, mode, **kwargs)
 
     def build_timestamped_name(self, filename: str, ts: str) -> str:
         if filename.endswith(".json.xz"):

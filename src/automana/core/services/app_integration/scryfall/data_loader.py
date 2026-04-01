@@ -84,16 +84,20 @@ async def download_scryfall_from_url(repository: ScryfallAPIRepository
         
 
 async def stream_download_scryfall_json_from_uris(repository: ScryfallAPIRepository
-                                            ,uris: list[str]
-                                           , save_dir: pathlib.Path
+                                            ,uris: list[str] | str
+                                           , storage_service: StorageService
                                            , ingestion_run_id: int = None):
     """Download Scryfall bulk data from given URIs and save to specified directory"""
     saved = []
-    save_dir = pathlib.Path(save_dir)
+    if isinstance(uris, str):
+        uris = [uris]
     for url in uris:
         name = url.split("/")[-1]  # ends with .json or .json.gz
-        out = save_dir / str(ingestion_run_id or "standalone") / name
-        await repository.stream_download(url, out)
+        out = f"{str(ingestion_run_id or 'standalone')}_{datetime.utcnow().strftime('%Y%m%d')}_{name}"
+        async with repository.stream_download(str(url).strip()) as chunks:
+            async with storage_service.open_stream(out, "wb") as f:
+                async for chunk in chunks:
+                    f.write(chunk)
         saved.append(str(out))
 
     return {"files_saved": saved}
@@ -124,24 +128,32 @@ async def download_sets(
     storage_service: StorageService = None,
 ) -> dict:
     #TO DO :chekc if file exists before downloading, if exists, skip downloading and return the file path
+    exists = False
     filename_out = f"scryfall_sets_{datetime.utcnow().strftime('%Y%m%d')}.json"
-    async with track_step(ops_repository, ingestion_run_id, "download_sets", error_code="download_failed"):
-        await download_scryfall_from_url(scryfall_repository, "https://api.scryfall.com/sets", filename_out, storage_service=storage_service)
-    return {"file_path": str(filename_out)}
+    if storage_service.file_exists(filename_out):
+        logger.info("File %s already exists in storage. Skipping download.", filename_out)
+        exists = True
+    if not exists:
+        async with track_step(ops_repository, ingestion_run_id, "download_sets", error_code="download_failed"):
+            await download_scryfall_from_url(scryfall_repository, "https://api.scryfall.com/sets", filename_out, storage_service=storage_service)
+        return {"file_path": str(filename_out)}
 
-@ServiceRegistry.register("staging.scryfall.download_cards_bulk", api_repositories=["scryfall"], db_repositories=["ops"])
+@ServiceRegistry.register("staging.scryfall.download_cards_bulk"
+                          , api_repositories=["scryfall"]
+                          , db_repositories=["ops"]
+                          , storage_services=["scryfall"])
 async def download_cards_bulk(
     scryfall_repository: ScryfallAPIRepository,
     ops_repository: OpsRepository,
     ingestion_run_id: int = None,
-    uris_to_download: list[str] = None,
-    save_dir: str = None,
+    uris_to_download: list[str] | str = None,
+    storage_service: StorageService = None,
 ) -> dict:
     """Stream-download Scryfall card bulk files to disk"""
     if not uris_to_download:
         return {"file_path_card": "NO CHANGES"}
     async with track_step(ops_repository, ingestion_run_id, "download_cards_bulk", error_code="download_failed"):
-        result = await stream_download_scryfall_json_from_uris(scryfall_repository, uris_to_download, pathlib.Path(save_dir), ingestion_run_id)
+        result = await stream_download_scryfall_json_from_uris(scryfall_repository, uris_to_download, storage_service, ingestion_run_id)
     return {"file_path_card": result["files_saved"][0]}
 
 import os, shutil
