@@ -7,7 +7,7 @@ import sys
 from datetime import datetime, timezone
 from typing import Any, Dict
 
-from automana.core.logging_context import get_request_id, get_task_id
+from automana.core.logging_context import get_request_id, get_task_id, get_service_path
 
 _RESERVED = {
     "name", "msg", "args", "levelname", "levelno", "pathname", "filename", "module",
@@ -21,6 +21,7 @@ class ContextFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         record.request_id = get_request_id()
         record.task_id = get_task_id()
+        record.service_path = get_service_path()
         record.service = os.getenv("SERVICE_NAME", "unknown")
         record.env = os.getenv("APP_ENV", "dev")
         return True

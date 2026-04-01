@@ -115,7 +115,7 @@ async def update_data_uri_in_ops_repository(ops_repository: OpsRepository
         result = await ops_repository.update_bulk_data_uri_return_new(items, ingestion_run_id)
     bulk_items_changed = result.get("changed", [])
     if not bulk_items_changed:
-        logger.info("No changes in Scryfall bulk data URIs. No download needed.")
+        logger.info("No changes in Scryfall bulk data URIs — skipping download", extra={"ingestion_run_id": ingestion_run_id})
     return {'uris_to_download': bulk_items_changed}
 
 @ServiceRegistry.register("staging.scryfall.download_sets"
@@ -132,7 +132,7 @@ async def download_sets(
     exists = False
     filename_out = f"scryfall_sets_{datetime.utcnow().strftime('%Y%m%d')}.json"
     if storage_service.file_exists(filename_out):
-        logger.info("File %s already exists in storage. Skipping download.", filename_out)
+        logger.info("Sets file already exists — skipping download", extra={"filename": filename_out, "ingestion_run_id": ingestion_run_id})
         exists = True
     if not exists:
         async with track_step(ops_repository, ingestion_run_id, "download_sets", error_code="download_failed"):

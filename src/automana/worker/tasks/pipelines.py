@@ -18,8 +18,8 @@ def daily_scryfall_data_pipeline(self):
         run_service.s("staging.scryfall.get_bulk_data_uri"),#get the uri for the bulk data manifest
         run_service.s("staging.scryfall.download_bulk_manifests"),#download the bulk data manifest
         run_service.s("staging.scryfall.update_data_uri_in_ops_repository"),#from the manifest, update the db and get the list of uris to download
-        run_service.s("staging.scryfall.download_sets", save_dir="/data/scryfall/raw_files/"),
-        run_service.s("card_catalog.set.process_large_sets_json", update_run = True), 
+        run_service.s("staging.scryfall.download_sets"),
+        run_service.s("card_catalog.set.process_large_sets_json"), 
         run_service.s("staging.scryfall.download_cards_bulk"),
         run_service.s("card_catalog.card.process_large_json"),
         run_service.s("ops.pipeline_services.finish_run", status="success"),
