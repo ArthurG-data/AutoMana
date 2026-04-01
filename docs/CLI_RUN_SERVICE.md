@@ -50,18 +50,41 @@ for the dev Postgres container.
 ## Usage
 
 ```
-automana-run [SERVICE_PATH] [--key value ...]
+automana-run [SERVICE_PATH] [--key value ...] [--db-user USER] [--raw] [--list-users]
 ```
 
 | Argument | Description |
 |---|---|
 | `SERVICE_PATH` | Dot-separated service key (e.g. `staging.scryfall.get_bulk_data_uri`). Omit to list all services. |
 | `--key value` | Any number of keyword arguments passed to the service. Values are auto-cast (see below). |
+| `--db-user USER` | Connect as this database user instead of the default (`app_backend`). See `--list-users`. |
+| `--list-users` | Print all available database users with their roles and exit. No DB connection required. |
 | `--raw` | Print `repr(result)` instead of JSON (useful when the result is not serialisable). |
 
 ---
 
 ## Examples
+
+### List available DB users
+
+```bash
+automana-run --list-users
+```
+
+Output:
+```
+Available DB users:
+
+  app_backend          app_rw                    FastAPI application — SELECT / INSERT / UPDATE / DELETE
+  app_celery           app_rw                    Celery workers     — SELECT / INSERT / UPDATE / DELETE
+  automana_admin       db_owner + app_admin      Migration runner   — full DDL + DML
+  app_readonly         app_ro                    Read-only queries  — SELECT only
+  app_agent            agent_reader              AI agent           — SELECT, restricted schemas in prod
+```
+
+This flag does not open a database connection — it exits immediately.
+
+---
 
 ### List all registered services
 
