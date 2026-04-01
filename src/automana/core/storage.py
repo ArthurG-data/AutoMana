@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
+from fnmatch import fnmatch
 from pathlib import Path
 import json
 import asyncio
@@ -38,7 +39,7 @@ class StorageBackend(ABC):
         pass
 
     @abstractmethod
-    async def list_files(self, directory: str) -> list[str]:
+    async def list_files(self, directory: str, pattern: str = "*") -> list[str]:
         """List all files in a directory."""
         pass
 
@@ -149,7 +150,7 @@ class LocalStorageBackend(StorageBackend):
             logger.error(f"Failed to delete file {path}: {e}")
             raise
 
-    async def list_files(self, directory: str) -> list[str]:
+    async def list_files(self, directory: str, pattern: str = "*") -> list[str]:
         """List files in directory"""
         try:
             full_path = self._get_full_path(directory)
@@ -160,7 +161,7 @@ class LocalStorageBackend(StorageBackend):
                 loop = asyncio.get_event_loop()
                 return await loop.run_in_executor(
                     None,
-                    lambda: [f.name for f in full_path.iterdir() if f.is_file()]
+                    lambda: [f.name for f in full_path.iterdir() if f.is_file() and fnmatch(f.name, pattern)]
                 )
             return await _list()
         except Exception as e:
@@ -239,9 +240,21 @@ class StorageService:
 
     async def delete_file(self, filename: str) -> bool:
         return await self.backend.delete(filename)
+    
+    async def delete_files(self, filenames: list[str]) -> dict[str, bool]:
+        results = {}
+        for filename in filenames:
+            try:
+                result = await self.delete_file(filename)
+                results[filename] = result
+            except Exception as e:
+                logger.error(f"Error deleting file {filename}: {e}")
+                results[filename] = False
+        return results
 
-    async def list_directory(self) -> list[str]:
-        return await self.backend.list_files("")
+    async def list_directory(self, pattern: str = "*") -> list[str]:
+        return await self.backend.list_files("", pattern)
+    
     
     async def get_file_size(self, filename: str) -> int:
         return await self.backend.get_file_size(filename)

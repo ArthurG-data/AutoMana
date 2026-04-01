@@ -160,26 +160,24 @@ async def download_cards_bulk(
 
 import os, shutil
 @ServiceRegistry.register("staging.scryfall.delete_old_scryfall_folders",
+                          storage_services=["scryfall"]
                          )
 async def delete_old_scryfall_folders(keep: int
-                               , save_dir: pathlib.Path):
+                               , storage_service: StorageService):
     """Delete Scryfall raw files older than specified days to keep"""
-    root = pathlib.Path(save_dir)
-    if not root.exists():
-        logger.warning("Base dir %s missing; nothing to clean", root)
+    list_default_cards = await storage_service.list_directory("*default-card*")
+    if not list_default_cards:
+        logger.warning("No default card files found; nothing to clean")
         return {"deleted_runs": []}
 
-    run_dirs = [d for d in root.iterdir() if d.is_dir()]
-    run_dirs.sort(key=lambda p: p.stat().st_mtime, reverse=True)  # newest first
-    to_delete = run_dirs[keep:]
+    def _parse_date(filename: str) -> str:
+        parts = filename.split("_")
+        return parts[1] if len(parts) >= 2 else ""
 
-    deleted = []
-    for d in to_delete:
-        shutil.rmtree(d, ignore_errors=False)
-        deleted.append(str(d))
-        logger.info("Deleted old run folder: %s", d)
-
-    return {"deleted_runs": deleted, "kept": [str(d) for d in run_dirs[:keep]]}
+    list_default_cards.sort(key=lambda p: _parse_date(p), reverse=True)  # newest first
+    to_delete = list_default_cards[keep:]
+    results = await storage_service.delete_files([str(d) for d in to_delete])
+    return {"deleted_runs": results, "kept": [str(d) for d in list_default_cards[:keep]]}
 
 @ServiceRegistry.register("staging.scryfall.download_and_load_migrations",
                          api_repositories=["scryfall"], db_repositories=["card", "ops"])
