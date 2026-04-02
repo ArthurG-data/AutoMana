@@ -89,4 +89,6 @@ schemaspy/
 *.egg-info
 *.dist-info/
 
+CLAUDE.md
+
 
