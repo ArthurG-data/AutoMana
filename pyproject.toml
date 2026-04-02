@@ -72,6 +72,9 @@ dependencies = [
     "MarkupSafe==3.0.3",
     "watchfiles==1.1.0",
     "websockets==15.0.1",
+    "pandas>=3.0.2",
+    "pyarrow>=23.0.1",
+    "tqdm>=4.67.3",
 ]
 
 [project.scripts]

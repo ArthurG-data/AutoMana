@@ -1,13 +1,16 @@
 from celery import shared_task, chain
 import logging
 from automana.worker.main import run_service
+from automana.core.logging_context import set_task_id
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
 def daily_scryfall_data_pipeline(self):
+    set_task_id(self.request.id)
     run_key = f"scryfall_daily:{datetime.utcnow().date().isoformat()}"
+    logger.info("Starting Scryfall daily pipeline", extra={"run_key": run_key})
     wf = chain(
         run_service.s("staging.scryfall.start_pipeline",#new test
                       pipeline_name="scryfall_daily",
@@ -29,7 +32,9 @@ def daily_scryfall_data_pipeline(self):
  
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
 def mtgStock_download_pipeline(self):
+    set_task_id(self.request.id)
     run_key = f"mtgStock_All:{datetime.utcnow().date().isoformat()}"
+    logger.info("Starting MTGStock download pipeline", extra={"run_key": run_key})
     wf = chain(
         run_service.s("ops.pipeline_services.start_run",#new test
                       pipeline_name="mtg_stock_all",
@@ -51,8 +56,9 @@ def mtgStock_download_pipeline(self):
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True)
 def daily_mtgjson_data_pipeline(self):
+    set_task_id(self.request.id)
     run_key = f"mtgjson_daily:{datetime.utcnow().date().isoformat()}"
-    logger.info("Starting MTGJSON data pipeline with run key: %s", run_key)
+    logger.info("Starting MTGJson daily pipeline", extra={"run_key": run_key})
     wf = chain(
         run_service.s("ops.pipeline_services.start_run",
                        pipeline_name="mtgjson_daily",

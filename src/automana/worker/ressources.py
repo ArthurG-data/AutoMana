@@ -3,6 +3,9 @@ from automana.core.service_manager import ServiceManager
 from automana.worker.state import CeleryAppState
 from automana.core.QueryExecutor import AsyncQueryExecutor
 import asyncio
+import logging
+
+logger = logging.getLogger(__name__)
 
 _state: CeleryAppState | None = None
 
@@ -17,7 +20,7 @@ def init_backend_runtime() -> None:
     if app_state.initialized:
         return
 
-    # Single event loop per worker process
+    logger.info("Initialising backend runtime")
     app_state.loop = asyncio.new_event_loop()
     asyncio.set_event_loop(app_state.loop)
 
@@ -30,12 +33,14 @@ def init_backend_runtime() -> None:
 
     app_state.loop.run_until_complete(_init())
     app_state.mark_initialized()
+    logger.info("Backend runtime ready")
 
 def shutdown_backend_runtime() -> None:
     state = get_state()
     if not state.initialized:
         return
 
+    logger.info("Shutting down backend runtime")
     if state.loop and state.async_db_pool:
         async def _shutdown():
             await close_async_pool(state.async_db_pool)
@@ -44,3 +49,4 @@ def shutdown_backend_runtime() -> None:
 
     state.loop = None
     state.initialized = False
+    logger.info("Backend runtime stopped")

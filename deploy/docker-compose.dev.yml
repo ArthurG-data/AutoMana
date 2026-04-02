@@ -115,6 +115,8 @@ services:
     environment:
       OUTPUT_DIR: /data/mtgjson/raw
       POSTGRES_USER: ${APP_CELERY_DB_USER}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
       POSTGRES_PASSWORD_FILE: /run/secrets/celery_db_password
       CELERY_POOL: "prefork"
       MODULES_NAMESPACE: celery
@@ -148,6 +150,8 @@ services:
       CELERY_CONCURRENCY: "4"
       CELERY_LOGLEVEL: "INFO"
       CELERY_POOL: "prefork"
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
     depends_on:
       redis:
           condition: service_healthy
