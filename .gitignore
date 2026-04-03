@@ -90,5 +90,6 @@ schemaspy/
 *.dist-info/
 
 CLAUDE.md
+.claude/
 
 
