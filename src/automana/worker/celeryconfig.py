@@ -27,6 +27,8 @@ imports = {
 
 
 worker_prefetch_multiplier = 1
+task_always_eager = False
+task_store_eager_result = True
 
 timezone = os.getenv("CELERY_TIMEZONE", "Australia/Sydney")
 

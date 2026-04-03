@@ -32,7 +32,7 @@ def ping():
 @app.task(name="run_service"
                  , bind=True
                  , autoretry_for=(Exception,)
-                 , retry_kwargs={"max_retries": 3}
+                 , retry_kwargs={"max_retries": 0}
                  , retry_backoff=True
                  , acks_late=True)
 def run_service(self,prev=None, path: str = None, **kwargs):

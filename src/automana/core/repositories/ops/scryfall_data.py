@@ -111,12 +111,14 @@ SELECT
   COALESCE(
     (SELECT jsonb_agg(
         jsonb_build_object(
-          'resource_id',  resource_id,
-          'download_uri', download_uri,
-          'last_modified', last_modified
-        ) ORDER BY resource_id
+          'resource_id',   iv.resource_id,
+          'download_uri',  iv.download_uri,
+          'last_modified', iv.last_modified,
+          'external_type', r.external_type
+        ) ORDER BY iv.resource_id
       )
-     FROM ins_versions),
+     FROM ins_versions iv
+     JOIN ops.resources r ON r.id = iv.resource_id),
     '[]'::jsonb
   ) AS changed;
 """

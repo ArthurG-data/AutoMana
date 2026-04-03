@@ -83,24 +83,22 @@ async def download_scryfall_from_url(repository: ScryfallAPIRepository
         
 
 async def stream_download_scryfall_json_from_uris(repository: ScryfallAPIRepository
-                                            ,uris: list[str] | str
+                                            ,uri: list[str] | str
                                            , storage_service: StorageService
                                            , ingestion_run_id: int = None):
     """Download Scryfall bulk data from given URIs and save to specified directory"""
     saved = []
-    if isinstance(uris, str):
-        uris = [uris]
-    for entries in uris:
-        url = entries.get("download_uri")
-        name = url.split("/")[-1]  # ends with .json or .json.gz
-        out = f"{str(ingestion_run_id or 'standalone')}_{datetime.utcnow().strftime('%Y%m%d')}_{name}"
-        logger.info("Streaming bulk file", extra={"url": url, "file": out, "ingestion_run_id": ingestion_run_id})
-        async with repository.stream_download(str(url).strip()) as chunks:
-            async with storage_service.open_stream(out, "wb") as f:
-                async for chunk in chunks:
-                    f.write(chunk)
-        logger.info("Bulk file saved", extra={"file": out, "ingestion_run_id": ingestion_run_id})
-        saved.append(str(out))
+    
+
+    name = uri.split("/")[-1]  # ends with .json or .json.gz
+    out = f"{str(ingestion_run_id or 'standalone')}_{datetime.utcnow().strftime('%Y%m%d')}_{name}"
+    logger.info("Streaming bulk file", extra={"url": uri, "file": out, "ingestion_run_id": ingestion_run_id})
+    async with repository.stream_download(str(uri).strip()) as chunks:
+        async with storage_service.open_stream(out, "wb") as f:
+            async for chunk in chunks:
+                f.write(chunk)
+    logger.info("Bulk file saved", extra={"file": out, "ingestion_run_id": ingestion_run_id})
+    saved.append(str(out))
 
     return {"files_saved": saved}
 
@@ -146,15 +144,32 @@ async def download_cards_bulk(
     scryfall_repository: ScryfallAPIRepository,
     ops_repository: OpsRepository,
     ingestion_run_id: int = None,
-    uris_to_download: list[str] | str = None,
+    uris_to_download: list[dict] | None = None,
+    resource_type: str = "default_cards",
     storage_service: StorageService = None,
 ) -> dict:
-    """Stream-download Scryfall card bulk files to disk"""
+    """Stream-download Scryfall card bulk files to disk.
+
+    uris_to_download: list of {resource_id, download_uri, last_modified, type}
+    resource_type: only download items whose type matches this value
+    """
     if not uris_to_download:
         logger.info("No bulk URI changes — skipping card download", extra={"ingestion_run_id": ingestion_run_id})
         return {"file_name": None}
+
+    filtered = [
+        item["download_uri"]
+        for item in uris_to_download
+        if isinstance(item, dict) and item.get("type") == resource_type
+    ]
+
+    if not filtered:
+        logger.info("No URI matching resource_type — skipping card download",
+                    extra={"resource_type": resource_type, "ingestion_run_id": ingestion_run_id})
+        return {"file_name": None}
+
     async with track_step(ops_repository, ingestion_run_id, "download_cards_bulk", error_code="download_failed"):
-        result = await stream_download_scryfall_json_from_uris(scryfall_repository, uris_to_download, storage_service, ingestion_run_id)
+        result = await stream_download_scryfall_json_from_uris(scryfall_repository, filtered, storage_service, ingestion_run_id)
     return {"file_name": result["files_saved"][0]}
 
 import os, shutil
