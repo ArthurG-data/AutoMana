@@ -208,7 +208,7 @@ async def process_large_cards_json(
         validate_file_first: Whether to validate JSON structure first
     """
     service = EnhancedCardImportService(card_repository, storage_service=storage_service, errors_storage_service=errors_storage_service)
-    if file_name == "NO CHANGES":
+    if not file_name:
         logger.info("No bulk card changes — skipping processing", extra={"ingestion_run_id": ingestion_run_id})
         return {"status": "success"}
     async with track_step(ops_repository, ingestion_run_id, "process_large_cards_json", error_code="processing_failed"):
@@ -431,7 +431,7 @@ class EnhancedCardImportService:
             )
             async with self.errors_storage_service.open_stream(self.failed_cards_filename, mode="ab") as f:
                 f.write(lines_out)
-            logger.info("Failed cards saved", extra={"filename": self.failed_cards_filename, "count": len(self.failed_cards)})
+            logger.info("Failed cards saved", extra={"file": self.failed_cards_filename, "count": len(self.failed_cards)})
             self.failed_cards = []
         except Exception as e:
             logger.error("Failed to save failed cards", extra={"error": str(e)})
@@ -450,7 +450,7 @@ class EnhancedCardImportService:
             data = json.dumps(batch_data, indent=2, default=str).encode()
             async with self.errors_storage_service.open_stream(filename, mode="wb") as f:
                 f.write(data)
-            logger.info("Failed batch saved", extra={"filename": filename, "batch_number": batch_number})
+            logger.info("Failed batch saved", extra={"file": filename, "batch_number": batch_number})
         except Exception as e:
             logger.error("Failed to save failed batch", extra={"batch_number": batch_number, "error": str(e)})
 

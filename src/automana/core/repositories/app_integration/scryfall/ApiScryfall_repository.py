@@ -1,5 +1,6 @@
 ﻿from datetime import datetime
 import io, aiohttp, logging
+from yarl import URL
 from contextlib import asynccontextmanager
 from automana.core.repositories.abstract_repositories.AbstractAPIRepository import BaseApiClient
 from typing import AsyncGenerator, Dict, Any
@@ -77,7 +78,7 @@ class ScryfallAPIRepository(BaseApiClient):
         The caller (service layer) is responsible for writing chunks to storage.
         """
         async with aiohttp.ClientSession() as session:
-            async with session.get(url) as resp:
+            async with session.get(URL(url, encoded=True)) as resp:
                 resp.raise_for_status()
                 yield resp.content.iter_chunked(chunk_size)
     
