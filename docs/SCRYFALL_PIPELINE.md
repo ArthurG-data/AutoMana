@@ -14,6 +14,21 @@ The pipeline is broken into **three logical stages**:
 | **Stage 2 – Raw Data Download** | Fetch sets and card bulk files from the Scryfall API to local disk |
 | **Stage 3 – Database Import** | Stream the raw JSON files into the PostgreSQL card catalog |
 
+daily Celery chain (`daily_scryfall_data_pipeline`) defined in `worker/tasks/pipelines.py`. Steps run in order via `chain()`:
+
+| Step | Service key | What it does |
+|------|-------------|--------------|
+| 1 | `staging.scryfall.start_pipeline` | Creates an ops run record, returns `ingestion_run_id` |
+| 2 | `staging.scryfall.get_bulk_data_uri` | Reads the Scryfall bulk manifest URI from the DB |
+| 3 | `staging.scryfall.download_bulk_manifests` | Fetches the manifest JSON from the Scryfall API |
+| 4 | `staging.scryfall.update_data_uri_in_ops_repository` | Diffs URIs against DB; returns only changed URIs to download |
+| 5 | `staging.scryfall.download_sets` | Downloads sets JSON (skips if today's file already exists) |
+| 6 | `card_catalog.set.process_large_sets_json` | Loads sets into the DB |
+| 7 | `staging.scryfall.download_cards_bulk` | Stream-downloads card bulk JSON (skips if no URI changes) |
+| 8 | `card_catalog.card.process_large_json` | Loads cards into the DB |
+| 9 | `ops.pipeline_services.finish_run` | Marks the run as success |
+| 10 | `staging.scryfall.delete_old_scryfall_folders` | Keeps the 3 most recent files, deletes older ones |
+
 ---
 
 ## Stage 1 — Orchestration & Tracking
@@ -93,6 +108,12 @@ Diffs the downloaded manifest against the URIs already stored in `ops.resources`
 **Relevant files:**
 - [`src/automana/core/services/app_integration/scryfall/data_loader.py`](../src/automana/core/services/app_integration/scryfall/data_loader.py) — Download service functions
 - [`src/automana/core/repositories/app_integration/scryfall/ApiScryfall.py`](../src/automana/core/repositories/app_integration/scryfall/ApiScryfall.py) — HTTP client for Scryfall API
+
+### 2.0 File Naming and Storage Injection
+
+Downloaded bulk files use the naming pattern `{run_id}_{YYYYMMDD}_{original_filename}` (e.g. `42_20240315_default-cards.json`). The cleanup step matches files with glob `*default-card*` and sorts by the date token at position 1 of the `_`-split filename.
+
+`StorageService` (`core/storage.py`) wraps `LocalStorageBackend`. `list_directory(pattern)` passes the glob pattern to `fnmatch` for filtering. `StorageService` instances are injected via `storage_services=["scryfall"]` in the `@ServiceRegistry.register` decorator.
 
 ### 2.1 Sets Download
 

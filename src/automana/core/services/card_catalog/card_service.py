@@ -398,10 +398,14 @@ class EnhancedCardImportService:
 
                 logger.info("Batch completed", extra={"batch_number": batch_number, "inserted": result.successful_inserts, "total": len(batch)})
 
-                # Log any errors from this batch
+                # Log and queue any partial insert errors for error storage
                 if result.errors:
-                    for error in result.errors[:3]:  # Log first 3 errors
+                    for error in result.errors[:3]:
                         logger.warning("Batch insert error", extra={"batch_number": batch_number, "error": error})
+                    self.failed_cards.extend([
+                        {"batch": batch_number, "error": err}
+                        for err in result.errors
+                    ])
                 
                 return result
                 
@@ -415,8 +419,6 @@ class EnhancedCardImportService:
                     await asyncio.sleep(wait_time)  # Exponential backoff
                 else:
                     # Save failed batch for manual inspection
-                    print(batch[0].model_dump())
-                    breakpoint()
                     await self._save_failed_batch(batch, batch_number, str(e))
                     self.stats.failed_inserts += len(batch)
                     raise card_exception.CardInsertError(f"Batch {batch_number} failed after {self.config.max_retries} retries: {str(e)}")

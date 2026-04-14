@@ -35,81 +35,18 @@ from typing import Any
 
 import click
 
-# ---------------------------------------------------------------------------
-# Value coercion
-# ---------------------------------------------------------------------------
-
-def _coerce(value: str) -> Any:
-    """Try to cast a CLI string to the most specific Python type."""
-    if value.lower() == "true":
-        return True
-    if value.lower() == "false":
-        return False
-    if value.lower() in ("null", "none"):
-        return None
-    try:
-        return int(value)
-    except ValueError:
-        pass
-    try:
-        return float(value)
-    except ValueError:
-        pass
-    return value
-
-
-# ---------------------------------------------------------------------------
-# Bootstrap  (mirrors automana/worker/ressources.py)
-# ---------------------------------------------------------------------------
-
-# ---------------------------------------------------------------------------
-# Available DB users (mirrors 02-app-roles.sql.tpl)
-# ---------------------------------------------------------------------------
-
-# user → (role, description, secret_file)
-DB_USERS = {
-    "app_backend":    ("app_rw",              "FastAPI application — SELECT / INSERT / UPDATE / DELETE", "backend_db_password.txt"),
-    "app_celery":     ("app_rw",              "Celery workers     — SELECT / INSERT / UPDATE / DELETE", "celery_db_password.txt"),
-    "automana_admin": ("db_owner + app_admin","Migration runner   — full DDL + DML",                   "admin_db_password.txt"),
-    "app_readonly":   ("app_ro",              "Read-only queries  — SELECT only",                       "readonly_db_password.txt"),
-    "app_agent":      ("agent_reader",        "AI agent           — SELECT, restricted schemas in prod","agent_db_password.txt"),
-}
+from automana.tools.tui.shared import bootstrap as _bootstrap_impl
+from automana.tools.tui.shared import teardown as _teardown_impl
+from automana.tools.tui.shared import coerce as _coerce
+from automana.tools.tui.shared import DB_USERS
 
 
 async def _bootstrap(db_user: str | None = None, db_password: str | None = None):
-    import os
-    from automana.core.database import init_async_pool
-    from automana.core.QueryExecutor import AsyncQueryExecutor
-    from automana.core.service_manager import ServiceManager
-    from automana.core.settings import get_settings
-    from pathlib import Path
-
-    if db_user:
-        os.environ["APP_BACKEND_DB_USER"] = db_user
-        # Auto-resolve the matching secret file unless a password was given explicitly
-        if not db_password and db_user in DB_USERS:
-            secret_file = DB_USERS[db_user][2]
-            for candidate in [
-                Path.cwd() / "config" / "secrets" / secret_file,
-                Path(__file__).resolve().parents[4] / "config" / "secrets" / secret_file,
-            ]:
-                if candidate.exists():
-                    os.environ["POSTGRES_PASSWORD_FILE"] = str(candidate)
-                    break
-
-    if db_password:
-        os.environ["POSTGRES_PASSWORD"] = db_password
-
-    get_settings.cache_clear()
-    settings = get_settings()
-    pool = await init_async_pool(settings)
-    await ServiceManager.initialize(pool, query_executor=AsyncQueryExecutor())
-    return pool
+    return await _bootstrap_impl(db_user, db_password)
 
 
 async def _teardown(pool):
-    from automana.core.database import close_async_pool
-    await close_async_pool(pool)
+    await _teardown_impl(pool)
 
 
 # ---------------------------------------------------------------------------
@@ -196,7 +133,7 @@ async def _main(service_path, extra_args, raw, db_user, db_password, list_users)
     steps.append((current_svc, current_kwargs))
 
     # ── bootstrap ─────────────────────────────────────────────────────────
-    pool = await _bootstrap(db_user)
+    pool = await _bootstrap(db_user, db_password)
     try:
         from automana.core.service_manager import ServiceManager
 

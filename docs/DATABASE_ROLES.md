@@ -164,3 +164,28 @@ The `public` schema is locked down:
 All schema changes must run as `automana_admin` (which has `db_owner` membership). After creating new tables or sequences, grants to `app_admin` and `app_rw` are applied automatically via `ALTER DEFAULT PRIVILEGES` — no manual `GRANT` is needed for routine migrations.
 
 If you create a new schema, add it to the `schemas` array in `02-app-roles.sql.tpl` and re-run the bootstrap, or add explicit grants in your migration file.
+
+---
+
+## Troubleshooting: `permission denied for table <name>`
+
+**Symptom:** `app_celery` or `app_backend` gets error code `42501` (`permission denied for table <name>`) even though `app_rw` should have access to that schema.
+
+**Root cause:** `ALTER DEFAULT PRIVILEGES` only covers tables created *after* the privilege statement was issued. If the grants migration (e.g. migration 13) was applied before a new table was added to the schema, that table is not retroactively covered.
+
+**Fix:** Create a new numbered migration that re-applies grants to the affected schema:
+
+```sql
+-- Re-apply grants on card_catalog (idempotent — safe to run multiple times)
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA card_catalog TO app_rw;
+GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA card_catalog TO app_rw;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA card_catalog TO app_rw;
+
+GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE ON ALL TABLES IN SCHEMA card_catalog TO app_admin;
+
+GRANT SELECT ON ALL TABLES IN SCHEMA card_catalog TO app_ro, agent_reader;
+```
+
+`GRANT ... ON ALL TABLES IN SCHEMA` is idempotent — re-running it on a table that already has grants is a no-op.
+
+See migrations `13_grant_card_catalog.sql` and `14_grant_card_catalog_sets.sql` for real examples of this pattern.

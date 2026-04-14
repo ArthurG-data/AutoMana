@@ -58,7 +58,7 @@ curl -b cookies.txt "http://localhost:8000/api/users/users/me"
 
 ## Response envelopes
 
-Many endpoints return a standard shape defined in `backend/request_handling/StandardisedQueryResponse.py`.
+Many endpoints return a standard shape defined in [`src/automana/api/schemas/StandardisedQueryResponse.py`](../src/automana/api/schemas/StandardisedQueryResponse.py).
 
 ### `ApiResponse`
 

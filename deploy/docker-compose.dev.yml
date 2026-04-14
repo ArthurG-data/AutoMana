@@ -167,6 +167,40 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+  flower:
+    build:
+      context: ..
+      dockerfile: deploy/docker/celery/celery.Dockerfile
+    container_name: automana-flower-dev
+    env_file:
+      - ../config/env/.env.dev
+    environment:
+      CELERY_BROKER_URL: ${BROKER_URL}
+      FLOWER_PORT: "5555"
+      FLOWER_PERSISTENT: "True"
+      FLOWER_DB: /home/appuser/flower/flower.db
+    ports:
+      - "5555:5555"
+    volumes:
+      - flower-data-dev:/home/appuser/flower
+    depends_on:
+      redis:
+        condition: service_healthy
+      celery-worker:
+        condition: service_healthy
+    networks:
+      - backend-network
+    command: >
+      sh -c "celery -A automana.worker.main:app --broker=${BROKER_URL} flower
+      --port=5555
+      --persistent=True
+      --db=/home/appuser/flower/flower.db
+      --logging=${CELERY_LOGLEVEL:-info}"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:5555/healthcheck')\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
   schema-spy:
     build:
       context: ..
@@ -223,3 +257,4 @@ volumes:
   pgdata-dev:
   redis-data-dev:
   redis-config-dev:
+  flower-data-dev:

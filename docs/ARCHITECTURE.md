@@ -5,13 +5,15 @@ This document explains how the backend is structured, how requests flow through 
 
 If you want the *exact* API surface, use `GET /docs` and `GET /openapi.json`.
 
+For the complete catalogue of design patterns used in this codebase, see [`docs/DESIGN_PATTERNS.md`](DESIGN_PATTERNS.md).
+
 ## High-level overview
 
-AutoMana is a FastAPI application backed by Postgres, with optional background processing via Celery/Redis, and a reverse proxy (nginx) in production.
+AutoMana is a FastAPI application backed by PostgreSQL (+ TimescaleDB + pgvector), with background processing via Celery/Redis, and a reverse proxy (nginx) in production.
 
 ### Layer Diagram
 
-![Architecture Layers]diagrams/layer_diagramm.jpg
+![Architecture Layers](diagrams/layer_diagramm.jpg)
 
 ### Production topology (Docker)
 
@@ -37,103 +39,122 @@ Reference compose file: `deploy/docker-compose.prod.yml`.
 
 ### Entry point and lifespan
 
-The FastAPI app is created in `backend/main.py`.
+The FastAPI app is created in [`src/automana/api/main.py`](../src/automana/api/main.py).
 
 On startup (lifespan):
 
-- Validates environment safety (database URL guard)
-- Initializes an async DB pool (asyncpg) and a sync pool (psycopg2)
-- Creates a `QueryExecutor`
-- Initializes a singleton `ServiceManager` that dispatches service calls
+- Calls `configure_logging()` (idempotent)
+- Initializes an async DB pool (asyncpg) and a sync pool (psycopg2), both with retry/backoff
+- Creates an `AsyncQueryExecutor` with the `AsyncpgExceptionHandler`
+- Initializes the singleton `ServiceManager` which discovers and registers all service modules
 
 On shutdown:
 
-- Closes pools
-- Closes the service manager
+- Closes the `ServiceManager`
+- Closes async and sync DB pools
 
 ### Request flow (HTTP)
 
 Typical request flow:
 
 1. Client calls an endpoint under `/api/...`
-2. Router function uses dependency injection to obtain:
-	 - `ServiceManagerDep`
-	 - optionally `CurrentUserDep` (auth)
+2. Middleware assigns a `request_id` (UUID) and `service_path` to the logging context
+3. Router function uses dependency injection to obtain:
+	 - `ServiceManagerDep` (the `ServiceManager` singleton)
+	 - optionally `CurrentUserDep` (session-cookie auth)
 	 - pagination/sort/search dependencies for list endpoints
-3. Router calls `service_manager.execute_service("some.service.key", **kwargs)`
-4. Service layer executes business logic using repositories
-5. Response is wrapped in `ApiResponse`/`PaginatedResponse`
+4. Router calls `service_manager.execute_service("some.service.key", **kwargs)`
+5. `ServiceManager` looks up the service in `ServiceRegistry`, imports the module, instantiates required repositories (DB and API) within a transaction, and calls the service function
+6. Response is wrapped in `ApiResponse`/`PaginatedResponse`
 
-Key DI wiring lives in `backend/dependancies/service_deps.py`.
+Key DI wiring lives in [`src/automana/api/dependancies/service_deps.py`](../src/automana/api/dependancies/service_deps.py).
+
+### Request flow (Celery)
+
+Background task flow:
+
+1. Celery Beat triggers a pipeline task (e.g., `daily_scryfall_data_pipeline`)
+2. The pipeline builds a `chain()` of `run_service.s(service_path, **kwargs)` calls
+3. Each `run_service` task: resolves the service function, filters kwargs to match its signature (via `inspect.signature`), executes via `ServiceManager.execute_service`, and merges the result dict into the chain context for the next step
+4. The same service layer, repositories, and transaction management are used as in the HTTP path
 
 ## Modules and responsibilities
 
 ### API layer (routing)
 
-Routes are organized under `backend/api/`.
+Routes are organized under [`src/automana/api/routers/`](../src/automana/api/routers/).
 
-- Global API router: `backend/api/__init__.py` (prefix `/api`)
+- Global API router: [`src/automana/api/__init__.py`](../src/automana/api/__init__.py) (prefix `/api`)
 - Major areas:
-	- Catalog: `/api/catalog/...`
+	- Catalog (cards, sets, collections): `/api/catalog/mtg/...`
 	- Users/auth/sessions: `/api/users/...`
-	- Integrations: `/api/integrations/...`
+	- Integrations (eBay, Shopify, MTGStock): `/api/integrations/...`
 	- Logs: `/api/logs/...`
 
-This layer should stay thin: validation, dependency wiring, and calling services.
+This layer should stay thin: validation, dependency wiring, and calling services. **Routers must never access the database directly.**
 
 ### Service layer
 
-The service layer lives under `backend/new_services/` and is orchestrated by `backend/new_services/service_manager.py`.
+The service layer lives under [`src/automana/core/services/`](../src/automana/core/services/) and is orchestrated by [`src/automana/core/service_manager.py`](../src/automana/core/service_manager.py).
 
-- The `ServiceManager` maintains a registry mapping a service key (string) to:
-	- module path
-	- function
-	- required repositories
-- Routers call `execute_service(...)` with a service key instead of importing the implementation directly.
+- The `ServiceManager` is a singleton that dispatches calls to services registered in the `ServiceRegistry`.
+- Services register themselves using the `@ServiceRegistry.register` decorator, declaring their service path, required DB repositories, API repositories, and storage services.
+- Routers call `execute_service(...)` with a dotted service key instead of importing the implementation directly.
 
 This gives you a single place to:
 
-- control dependencies
-- reuse services from HTTP endpoints, Celery tasks, or workflows
+- control dependencies (repositories and storage are injected automatically)
+- reuse services from HTTP endpoints, Celery tasks, CLI tools, or the TUI
 - swap implementations without changing routers
+
+Service modules are grouped into namespaces (`backend`, `celery`, `all`) in [`src/automana/core/service_modules.py`](../src/automana/core/service_modules.py). The active namespace is set by the `MODULES_NAMESPACE` setting.
 
 ### Repository/data access layer
 
-Repositories live under `backend/repositories/` and related database utilities under `backend/database/`.
+Repositories live under [`src/automana/core/repositories/`](../src/automana/core/repositories/) and extend `AbstractRepository` (DB) or `BaseApiClient` (external API).
 
 The backend uses:
 
-- async DB access (asyncpg) for most service calls
-- sync DB access (psycopg2) when needed
+- async DB access (asyncpg) for all service calls in the HTTP and Celery paths
+- sync DB access (psycopg2) available for special cases
 
-Pool initialization lives in `backend/core/database.py`.
+Pool initialization lives in [`src/automana/core/database.py`](../src/automana/core/database.py), with configurable retry/backoff.
 
 ### Standard response shapes
 
-Standard response envelopes are defined in `backend/request_handling/StandardisedQueryResponse.py`:
+Standard response envelopes are defined in [`src/automana/api/schemas/StandardisedQueryResponse.py`](../src/automana/api/schemas/StandardisedQueryResponse.py):
 
-- `ApiResponse`
-- `PaginatedResponse`
-- `ErrorResponse`
+- `ApiResponse` — single-item or list responses
+- `PaginatedResponse` — paginated list responses with `PaginationInfo`
+- `ErrorResponse` — error responses
 
 ### Authentication & authorization
 
 Current auth is cookie-based:
 
 - A `session_id` cookie is used to identify the active session.
-- The `CurrentUserDep` dependency resolves a user from the cookie.
+- The `CurrentUserDep` dependency resolves a user from the cookie via the service layer.
 
-Key file: `backend/dependancies/auth/users.py`.
+Key file: [`src/automana/api/dependancies/auth/users.py`](../src/automana/api/dependancies/auth/users.py).
 
 ### Background jobs (Celery)
 
 Celery configuration and app wiring:
 
-- `celery_app/celery_main_app.py`
-- `celery_app/celeryconfig.py`
-- tasks in `celery_app/tasks/` (e.g., scryfall/shopify/ebay)
+- [`src/automana/worker/main.py`](../src/automana/worker/main.py) — Celery app creation, `run_service` task, worker lifecycle signals
+- [`src/automana/worker/celeryconfig.py`](../src/automana/worker/celeryconfig.py) — broker/result backend URLs, Beat schedule, task imports
+- [`src/automana/worker/ressources.py`](../src/automana/worker/ressources.py) — per-worker-process async event loop and `ServiceManager` bootstrap
+- [`src/automana/worker/state.py`](../src/automana/worker/state.py) — `CeleryAppState` data object
+- Pipeline definitions: [`src/automana/worker/tasks/pipelines.py`](../src/automana/worker/tasks/pipelines.py)
 
-Redis is typically used as broker/result backend (see env vars in config).
+Redis is used as both broker and result backend.
+
+### Developer tools
+
+- **CLI**: `automana-run` ([`src/automana/tools/run_service.py`](../src/automana/tools/run_service.py)) — call any registered service from the command line
+- **TUI**: `automana-tui` ([`src/automana/tools/tui/app.py`](../src/automana/tools/tui/app.py)) — terminal UI with tabs for services, Celery, and API testing
+
+Both tools share the same bootstrap logic in [`src/automana/tools/tui/shared.py`](../src/automana/tools/tui/shared.py) and exercise the exact same code paths as production.
 
 ## Integrations
 
@@ -141,27 +162,35 @@ Integrations are exposed under `/api/integrations/...` and implemented via servi
 
 Current integration areas include:
 
-- eBay (OAuth + listing/search)
-- Shopify (metadata ingestion)
-- MTGStock (staging/loading)
+- **eBay** (OAuth + listing/search/selling)
+- **Shopify** (metadata ingestion, market/collection/theme)
+- **MTGStock** (staging/loading/pricing)
+- **Scryfall** (daily ETL pipeline — see [`docs/SCRYFALL_PIPELINE.md`](SCRYFALL_PIPELINE.md))
+- **MTGJson** (daily ETL pipeline)
 
 The architecture pattern is:
 
-API router -> ServiceManager -> integration service -> (DB repository + external API repository)
+```
+API router / Celery task → ServiceManager → integration service → (DB repository + external API repository)
+```
 
 ## Configuration
 
-Runtime configuration is provided by Pydantic settings in `backend/core/settings.py`.
+Runtime configuration is provided by Pydantic `BaseSettings` in [`src/automana/core/settings.py`](../src/automana/core/settings.py).
 
 - The active environment is determined by `ENV` (default: `dev`).
-- The settings loader reads: `config/env/.env.{ENV}`
+- The settings loader reads: `config/env/.env.{ENV}` (with candidate path resolution for both project-root and installed-package layouts)
+- Settings are cached via `@lru_cache` in `get_settings()`
+- Secrets (JWT keys, PGP keys) are loaded from Docker secret files (`/run/secrets/`) with env-var fallback via [`src/automana/core/secrets.py`](../src/automana/core/secrets.py)
+- Database passwords follow a cascade: explicit parameter > file path > env var > well-known file path
 
-Important variables typically include:
+Important settings include:
 
-- `DATABASE_URL`
-- `JWT_SECRET_KEY`
-- `PGP_SECRET_KEY`
-- Celery broker/result backend variables
+- `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` (composed into `DATABASE_URL_ASYNC`)
+- `jwt_secret_key`, `pgp_secret_key`
+- `MODULES_NAMESPACE` (which service modules to load)
+- `DATA_DIR` (base path for file storage)
+- `DISCORD_WEBHOOK_URL` (analytics notifications)
 
 ## Deployment
 
@@ -185,13 +214,24 @@ See: `deploy/docker-compose.prod.yml` (`db-backup-prod`).
 
 When adding a new feature:
 
-1. Add/extend a service in `backend/new_services/...`
-2. Register it in `ServiceManager._service_registry`
-3. Add a thin router endpoint under `backend/api/...`
-4. Use `ApiResponse`/`PaginatedResponse` for consistency
-5. Add/adjust schemas under `backend/schemas/...`
+1. Add/extend a service in `src/automana/core/services/...`
+2. Decorate it with `@ServiceRegistry.register("dotted.service.key", db_repositories=[...], api_repositories=[...], storage_services=[...])`
+3. If needed, register new repositories in [`src/automana/core/service_registry.py`](../src/automana/core/service_registry.py)
+4. Add a thin router endpoint under `src/automana/api/routers/...`
+5. Use `ApiResponse`/`PaginatedResponse` for consistency
+6. Add/adjust schemas under `src/automana/core/models/` or `src/automana/api/schemas/`
+
+## Non-negotiable rules
+
+- **No direct DB access from routers** — all database access goes through the service layer
+- **No `logging.basicConfig()`** — use `logging.getLogger(__name__)` everywhere; `configure_logging()` is called once at startup
+- **No reserved `LogRecord` keys in `extra={}`** — use unambiguous names (e.g., `file` instead of `filename`)
+- **No `autoretry_for` in pipeline tasks** — retry logic is handled at the `run_service` level
+- **All config via `core/settings.py`** — no hardcoded credentials or paths
+- **New schema changes need a migration** under `database/SQL/migrations/`
 
 ## Known sharp edges / follow-ups
 
 - Some router modules contain TODO/incomplete endpoints; treat them as unstable API.
+- The `AbstractRepository` base class has `print()` debug statements that should be replaced with `logger.debug()`.
 

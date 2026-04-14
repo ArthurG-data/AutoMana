@@ -6,7 +6,7 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-@shared_task(bind=True)
+@shared_task(name="daily_scryfall_data_pipeline", bind=True)
 def daily_scryfall_data_pipeline(self):
     set_task_id(self.request.id)
     run_key = f"scryfall_daily:{datetime.utcnow().date().isoformat()}"
@@ -30,7 +30,7 @@ def daily_scryfall_data_pipeline(self):
     )
     return wf.apply_async().id
  
-@shared_task(bind=True)
+@shared_task(name="mtgStock_download_pipeline", bind=True)
 def mtgStock_download_pipeline(self):
     set_task_id(self.request.id)
     run_key = f"mtgStock_All:{datetime.utcnow().date().isoformat()}"
@@ -54,7 +54,7 @@ def mtgStock_download_pipeline(self):
     return wf.apply_async().id
 
 
-@shared_task(bind=True)
+@shared_task(name="daily_mtgjson_data_pipeline", bind=True)
 def daily_mtgjson_data_pipeline(self):
     set_task_id(self.request.id)
     run_key = f"mtgjson_daily:{datetime.utcnow().date().isoformat()}"

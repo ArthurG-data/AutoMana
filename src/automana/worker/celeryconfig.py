@@ -14,10 +14,26 @@ def _running_in_container() -> bool:
     return os.path.exists("/.dockerenv") or bool(os.getenv("KUBERNETES_SERVICE_HOST"))
 
 
+def _fix_redis_host(url: str) -> str:
+    """Replace the 'redis' service-name hostname with 'localhost' when not in a container.
+
+    .env.dev hard-codes ``redis://redis:6379/…`` for Docker use.  When Celery
+    runs on the host (TUI, manual invocation) that hostname is unresolvable, so
+    swap it out here rather than requiring a separate env file.
+    """
+    if _running_in_container():
+        return url
+    parts = urlsplit(url)
+    if parts.hostname == "redis":
+        fixed_netloc = parts.netloc.replace("redis:", "localhost:", 1)
+        return urlunsplit(parts._replace(netloc=fixed_netloc))
+    return url
+
+
 _default_redis_host = "redis" if _running_in_container() else "localhost"
 
-broker_url = os.getenv("BROKER_URL", f"redis://{_default_redis_host}:6379/0")
-result_backend = os.getenv("RESULT_BACKEND", f"redis://{_default_redis_host}:6379/1")
+broker_url = _fix_redis_host(os.getenv("BROKER_URL", f"redis://{_default_redis_host}:6379/0"))
+result_backend = _fix_redis_host(os.getenv("RESULT_BACKEND", f"redis://{_default_redis_host}:6379/1"))
 
 
 imports = {

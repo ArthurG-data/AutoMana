@@ -291,7 +291,9 @@ class OpsRepository(AbstractRepository):
         record = result[0] if result and len(result) > 0 else None
         ressources_upserted = record.get("resources_upserted") if record else 0
         versions_inserted = record.get("versions_inserted") if record else 0
-        changed_items = record.get("changed") if record else []
+        changed_raw = record.get("changed") if record else "[]"
+        # asyncpg returns jsonb columns as raw JSON strings — parse to Python list
+        changed_items = json.loads(changed_raw) if isinstance(changed_raw, str) else (changed_raw or [])
 
         return {
         "ingestion_run_id": ingestion_run_id,

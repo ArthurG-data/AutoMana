@@ -83,7 +83,7 @@ async def download_scryfall_from_url(repository: ScryfallAPIRepository
         
 
 async def stream_download_scryfall_json_from_uris(repository: ScryfallAPIRepository
-                                            ,uri: list[str] | str
+                                            ,uri: str
                                            , storage_service: StorageService
                                            , ingestion_run_id: int = None):
     """Download Scryfall bulk data from given URIs and save to specified directory"""
@@ -112,6 +112,7 @@ async def update_data_uri_in_ops_repository(ops_repository: OpsRepository
     """Update the bulk data URIs in the Ops repository,first update the source table with new uri if exists, then update resource_vertsions with the specified version to be used for the current run"""
     async with track_step(ops_repository, ingestion_run_id, "update_data_uri_in_ops_repository", error_code="update_failed"):
         result = await ops_repository.update_bulk_data_uri_return_new(items, ingestion_run_id)
+    logger.info("Bulk data URIs updated in Ops repository", extra={"ingestion_run_id": ingestion_run_id, "updated_count": len(result.get("updated", [])), "updated": result.get("updated", [])})
     bulk_items_changed = result.get("changed", [])
     if not bulk_items_changed:
         logger.info("No changes in Scryfall bulk data URIs — skipping download", extra={"ingestion_run_id": ingestion_run_id})
@@ -150,17 +151,18 @@ async def download_cards_bulk(
 ) -> dict:
     """Stream-download Scryfall card bulk files to disk.
 
-    uris_to_download: list of {resource_id, download_uri, last_modified, type}
-    resource_type: only download items whose type matches this value
+    uris_to_download: list of {resource_id, download_uri, last_modified, external_type}
+    resource_type: only download items whose external_type matches this value
     """
     if not uris_to_download:
         logger.info("No bulk URI changes — skipping card download", extra={"ingestion_run_id": ingestion_run_id})
         return {"file_name": None}
-
     filtered = [
         item["download_uri"]
         for item in uris_to_download
-        if isinstance(item, dict) and item.get("type") == resource_type
+        # Key is "external_type" — matches the jsonb_build_object key produced by
+        # update_bulk_scryfall_data_sql in ops/scryfall_data.py (not "type").
+        if isinstance(item, dict) and item.get("external_type") == resource_type
     ]
 
     if not filtered:
@@ -169,15 +171,17 @@ async def download_cards_bulk(
         return {"file_name": None}
 
     async with track_step(ops_repository, ingestion_run_id, "download_cards_bulk", error_code="download_failed"):
-        result = await stream_download_scryfall_json_from_uris(scryfall_repository, filtered, storage_service, ingestion_run_id)
+        # filtered contains exactly one URI for the matched resource_type;
+        # stream_download_scryfall_json_from_uris expects a single string, not a list.
+        result = await stream_download_scryfall_json_from_uris(scryfall_repository, filtered[0], storage_service, ingestion_run_id)
     return {"file_name": result["files_saved"][0]}
 
 import os, shutil
 @ServiceRegistry.register("staging.scryfall.delete_old_scryfall_folders",
                           storage_services=["scryfall"]
                          )
-async def delete_old_scryfall_folders(keep: int
-                               , storage_service: StorageService):
+async def delete_old_scryfall_folders(keep: int = 3
+                               , storage_service: StorageService = None):
     """Delete Scryfall raw files older than specified days to keep"""
     list_default_cards = await storage_service.list_directory("*default-card*")
     if not list_default_cards:

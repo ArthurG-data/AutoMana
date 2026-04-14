@@ -128,6 +128,45 @@ docker compose -f deploy/docker-compose.prod.yml start backend
 
 If your prod DB/user names differ, use the values from `config/env/.env.prod`.
 
+## Flower (Celery monitoring)
+
+Flower provides a real-time web UI for inspecting Celery workers and tasks.
+
+### Access
+
+| Environment | URL |
+|-------------|-----|
+| Dev (direct) | http://localhost:5555 |
+| Dev (proxy) | https://localhost/flower/ |
+| Prod (proxy) | https://your-domain/flower/ |
+
+### Follow Flower logs
+
+```bash
+docker compose -f deploy/docker-compose.prod.yml logs -f flower
+```
+
+### Restart Flower (without restarting other services)
+
+```bash
+docker compose -f deploy/docker-compose.prod.yml up -d --no-deps flower
+```
+
+### Task history persistence
+
+Flower persists task history to a SQLite database at `/data/flower.db` inside the container. This file is stored in a named Docker volume (`flower-data-dev` or `flower-data-prod`) and survives container restarts.
+
+### Credential rotation
+
+To update the Flower Basic Auth password:
+
+1. Update `FLOWER_BASIC_AUTH` in the relevant env file (`config/env/.env.prod`).
+2. Restart Flower:
+
+```bash
+docker compose -f deploy/docker-compose.prod.yml up -d --no-deps flower
+```
+
 ## Certificates
 
 nginx mounts certs from `config/nginx/certs/`.

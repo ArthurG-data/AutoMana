@@ -54,12 +54,20 @@ class CardReferenceRepository(AbstractRepository[Any]):
         #not async anymore
         result = await self.execute_query("SELECT * FROM card_catalog.insert_batch_card_versions($1::JSONB)", (values,))
         batch_result = result[0] if result else {}
+
+        def _parse_jsonb(val, default):
+            # asyncpg returns jsonb columns as raw JSON strings — parse to Python object
+            if isinstance(val, str):
+                import json
+                return json.loads(val)
+            return val if val is not None else default
+
         response = CardReferenceRepository.BatchInsertResponse(
             total_processed=batch_result.get('total_processed', 0),
             successful_inserts=batch_result.get('successful_inserts', 0),
             failed_inserts=batch_result.get('failed_inserts', 0),
-            inserted_card_ids=batch_result.get('inserted_card_ids', []),
-            errors=batch_result.get('error_details', [])
+            inserted_card_ids=_parse_jsonb(batch_result.get('inserted_card_ids'), []),
+            errors=_parse_jsonb(batch_result.get('error_details'), [])
         )
         return response
 

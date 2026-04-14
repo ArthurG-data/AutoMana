@@ -75,10 +75,14 @@ dependencies = [
     "pandas>=3.0.2",
     "pyarrow>=23.0.1",
     "tqdm>=4.67.3",
+    # TUI
+    "textual>=0.80.0",
+    "flower>=2.0.1",
 ]
 
 [project.scripts]
 automana-run = "automana.tools.run_service:main"
+automana-tui = "automana.tools.tui.app:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
