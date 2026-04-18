@@ -22,7 +22,7 @@ class BaseApiClient(ABC):
         self.base_url = self._get_base_url()
         self.http2 = http2
         self._client : Optional[httpx.AsyncClient] = None
-        logger.info("%s initialized base_url=%s", self.__class__.__name__, self.base_url)
+        logger.info("Client initialized", extra={"client": self.__class__.__name__, "base_url": self.base_url})
 
     async def __aenter__(self):
         self._client = httpx.AsyncClient(http2=self.http2, timeout=self.timeout)
@@ -66,7 +66,7 @@ class BaseApiClient(ABC):
     
     def _parse_response(self, response: httpx.Response) -> ParsedResponse:
         content_type = (response.headers.get("content-type") or "").lower()
-        logger.info(f"Parsing response with content-type: {content_type}")
+        logger.info("Parsing response", extra={"content_type": content_type})
         if "application/json" in content_type:
             return response.json()
 
@@ -161,7 +161,7 @@ class BaseApiClient(ABC):
             merged_headers.update(headers)
         client = self._get_client()
         
-        logger.info(f"Making {method.upper()} request to {url}")
+        logger.info("Sending request", extra={"method": method.upper(), "url": url})
         try:
             return await client.request(method.upper(), url, params=params, headers=merged_headers, json=json, data=data, timeout=timeout)
         except httpx.HTTPStatusError as e:

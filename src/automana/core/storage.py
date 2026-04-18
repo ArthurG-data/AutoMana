@@ -54,7 +54,7 @@ class LocalStorageBackend(StorageBackend):
     def __init__(self, base_path: str):
         self.base_path = Path(base_path)
         self.base_path.mkdir(parents=True, exist_ok=True)
-        logger.info(f"LocalStorageBackend initialized at {self.base_path}")
+        logger.info("LocalStorageBackend initialized", extra={"base_path": str(self.base_path)})
 
     def _get_full_path(self, path: str) -> Path:
         """Get full path and ensure it's within base_path"""
@@ -85,11 +85,11 @@ class LocalStorageBackend(StorageBackend):
                         lambda: full_path.write_bytes(data)
                     )
                 await _write_binary()   
-            logger.info(f"Saved data to {full_path}")
+            logger.info("Data saved", extra={"file": str(full_path)})
             return str(full_path)
 
         except Exception as e:
-            logger.error(f"Failed to save data to {path}: {e}")
+            logger.error("Failed to save data", extra={"file": path, "error": str(e)})
             raise
 
     async def load(self, path: str, file_format: str = "json") -> Any:
@@ -119,7 +119,7 @@ class LocalStorageBackend(StorageBackend):
                 return await _read_binary()
 
         except Exception as e:
-            logger.error(f"Failed to load data from {path}: {e}")
+            logger.error("Failed to load data", extra={"file": path, "error": str(e)})
             raise
 
     async def exists(self, path: str) -> bool:
@@ -128,7 +128,7 @@ class LocalStorageBackend(StorageBackend):
             full_path = self._get_full_path(path)
             return full_path.exists()
         except Exception as e:
-            logger.error(f"Error checking if file exists {path}: {e}")
+            logger.error("Failed to check file existence", extra={"file": path, "error": str(e)})
             return False
 
     async def delete(self, path: str) -> bool:
@@ -143,11 +143,11 @@ class LocalStorageBackend(StorageBackend):
                         lambda: full_path.unlink()
                     )
                 await _delete()
-                logger.info(f"Deleted file: {path}")
+                logger.info("File deleted", extra={"file": path})
                 return True
             return False
         except Exception as e:
-            logger.error(f"Failed to delete file {path}: {e}")
+            logger.error("Failed to delete file", extra={"file": path, "error": str(e)})
             raise
 
     async def list_files(self, directory: str, pattern: str = "*") -> list[str]:
@@ -165,7 +165,7 @@ class LocalStorageBackend(StorageBackend):
                 )
             return await _list()
         except Exception as e:
-            logger.error(f"Failed to list files in {directory}: {e}")
+            logger.error("Failed to list files", extra={"directory": directory, "error": str(e)})
             raise
 
     async def get_file_size(self, path: str) -> int:
@@ -182,7 +182,7 @@ class LocalStorageBackend(StorageBackend):
                 )
             return await _size()
         except Exception as e:
-            logger.error(f"Failed to get file size for {path}: {e}")
+            logger.error("Failed to get file size", extra={"file": path, "error": str(e)})
             raise
 
     @asynccontextmanager
@@ -197,7 +197,7 @@ class StorageService:
 
     def __init__(self, backend: StorageBackend):
         self.backend = backend
-        logger.info(f"StorageService initialized with {backend.__class__.__name__}")
+        logger.info("StorageService initialized", extra={"backend": backend.__class__.__name__})
 
     async def save_json(self, filename: str, data: Any) -> str:
         return await self.backend.save(filename, data, file_format="json")
@@ -248,7 +248,7 @@ class StorageService:
                 result = await self.delete_file(filename)
                 results[filename] = result
             except Exception as e:
-                logger.error(f"Error deleting file {filename}: {e}")
+                logger.error("Failed to delete file", extra={"file": filename, "error": str(e)})
                 results[filename] = False
         return results
 

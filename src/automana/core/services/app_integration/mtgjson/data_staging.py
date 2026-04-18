@@ -1,9 +1,11 @@
-﻿from automana.core.service_registry import ServiceRegistry
+﻿import logging
+from automana.core.service_registry import ServiceRegistry
 from automana.core.storage import StorageService
+
+logger = logging.getLogger(__name__)
 
 async def insert_mtg_json_data(mtgjson_repository, storage_service):
     """Calles the reuired stored procedure to move the data from file storage to the staging table in the database"""
-    logger = logging.getLogger(__name__)
     logger.info("Starting MTGJSON data staging")
 
     try:

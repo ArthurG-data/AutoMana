@@ -2,6 +2,8 @@
 from automana.core.settings import Settings
 import logging
 
+logger = logging.getLogger(__name__)
+
 class ApimtgjsonRepository(BaseApiClient):
     def __init__(self
                    , environment: str 
@@ -21,19 +23,24 @@ class ApimtgjsonRepository(BaseApiClient):
             "User-Agent": "AutoMana/1.0"
         }
 
-    async def fetch_all_prices_data(self) -> dict:
+    async def fetch_all_prices_data(self) -> bytes:
         """Fetch the data from the previous 90 days"""
-        return await self._get("AllPrices.json.xz")
-    
-    async def fetch_price_today(self) -> dict:
-        return await self._get("AllPricesToday.json.xz")
+        response = await self.send(method="GET", endpoint="AllPrices.json.xz")
+        return self._parse_response(response)
+
+    async def fetch_price_today(self) -> bytes:
+        response = await self.send(method="GET", endpoint="AllPricesToday.json.xz")
+        return self._parse_response(response)
     
 
     async def fetch_card_data(self, extension) -> dict:
         return await self._get(extension)
     
+    """
     async def _get(self, endpoint: str, params: dict | None = None) -> dict:
         headers = self.default_headers()
         result = await self.request(method="GET", endpoint=endpoint, headers=headers)
         return result
+    """
+
     
