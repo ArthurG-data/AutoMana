@@ -176,7 +176,6 @@ async def download_cards_bulk(
         result = await stream_download_scryfall_json_from_uris(scryfall_repository, filtered[0], storage_service, ingestion_run_id)
     return {"file_name": result["files_saved"][0]}
 
-import os, shutil
 @ServiceRegistry.register("staging.scryfall.delete_old_scryfall_folders",
                           storage_services=["scryfall"]
                          )

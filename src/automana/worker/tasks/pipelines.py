@@ -66,7 +66,7 @@ def daily_mtgjson_data_pipeline(self):
                       source_name="mtgjson",
                       celery_task_id=self.request.id
                       ),
-        run_service.s("mtgjson.data.staging.today"),
+        run_service.s("mtgjson.data.download.today"),
         run_service.s("ops.pipeline_services.finish_run", status="success" )
     )
     return wf.apply_async().id

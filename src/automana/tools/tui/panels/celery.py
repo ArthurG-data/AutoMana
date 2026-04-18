@@ -60,7 +60,7 @@ KNOWN_TASKS: list[CeleryTask] = [
         label="MTGJson daily pipeline",
         steps=[
             "ops.pipeline_services.start_run",
-            "mtgjson.data.staging.today",
+            "mtgjson.data.download.today",
             "ops.pipeline_services.finish_run",
         ],
     ),

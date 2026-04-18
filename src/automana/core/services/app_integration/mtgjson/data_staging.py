@@ -9,7 +9,8 @@ async def insert_mtg_json_data(mtgjson_repository, storage_service):
     logger.info("Starting MTGJSON data staging")
 
     try:
-        #fetch the data from the API repository
+        #fetch the data from storage
+
         card_data = await mtgjson_repository.fetch_price_today()
         if card_data is None:
             raise ValueError("No data returned from MTGJSON repository")
