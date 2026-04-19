@@ -33,33 +33,35 @@ class PriceRepository(AbstractRepository):
             format='csv',
             header=True)
 
-    async def call_load_stage_from_raw(self):
-        """
-        Call the load_staging_prices procedure.
-        """
-        await self.connection.execute("CALL pricing.load_staging_prices_batched();")
+    async def call_load_stage_from_raw(self, source_name: str = "mtgstocks", batch_days: int = 30):
+        """Call pricing.load_staging_prices_batched(source_name, batch_days).
 
-    async def call_load_dim_from_staging(self):
-        """
-        Call the load_dim_from_staging procedure.
-        """
-        await self.connection.execute("CALL pricing.load_dim_from_staging();")
+        `source_name` must match a row in `pricing.price_source.code`. Migration
+        16 made `source_name` a required positional argument."""
+        await self.connection.execute(
+            "CALL pricing.load_staging_prices_batched($1::varchar, $2::int);",
+            source_name,
+            batch_days,
+        )
 
-    async def call_load_prices_from_dim(self):
-        """
-        Call the load_prices_from_dim procedure.
-        """
+    async def call_load_prices_from_staging(self, batch_days: int = 30):
+        """Call pricing.load_prices_from_staged_batched(batch_days).
+
+        Promotes narrow rows from `pricing.stg_price_observation` into the
+        `pricing.price_observation` hypertable. Replaces the legacy pair
+        `load_dim_from_staging` + `load_prices_from_dim_batched` which were
+        never created in the live DB."""
         def _on_notify(conn, pid, channel, payload):
             logger.info("DB notify %s: %s", channel, payload)
 
         try:
-            # register listener
             await self.connection.add_listener('staging_log', _on_notify)
-            # call the procedure (must be a PROCEDURE)
-            await self.connection.execute("CALL pricing.load_prices_from_dim_batched();")
-            logger.info("Called load_prices_from_dim_batched()")
+            await self.connection.execute(
+                "CALL pricing.load_prices_from_staged_batched($1::int);",
+                batch_days,
+            )
+            logger.info("Called load_prices_from_staged_batched()")
         finally:
-            # remove listener
             try:
                 await self.connection.remove_listener('staging_log', _on_notify)
             except Exception:

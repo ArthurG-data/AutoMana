@@ -14,6 +14,7 @@ SERVICE_MODULES : dict[str, list[str]]= {
             "automana.core.services.ops.pipeline_services",
             "automana.core.services.app_integration.scryfall.data_loader",
             "automana.core.services.app_integration.mtgjson.data_loader",
+            "automana.core.services.app_integration.mtgjson.pipeline",
         ],
 
     "celery": [
@@ -25,6 +26,7 @@ SERVICE_MODULES : dict[str, list[str]]= {
             "automana.core.services.app_integration.mtg_stock.data_staging",
             "automana.core.services.analytics.reporting_services",
             "automana.core.services.app_integration.mtgjson.data_loader",
+            "automana.core.services.app_integration.mtgjson.pipeline",
         ],
     "all" : [
             "automana.api.services.auth.auth_service",
@@ -40,8 +42,10 @@ SERVICE_MODULES : dict[str, list[str]]= {
             "automana.core.services.app_integration.ebay.selling_services",
             "automana.core.services.ops.pipeline_services",
             "automana.core.services.app_integration.scryfall.data_loader",
+            "automana.core.services.app_integration.mtg_stock.data_loader",
             "automana.core.services.app_integration.mtg_stock.data_staging",
             "automana.core.services.analytics.reporting_services",
             "automana.core.services.app_integration.mtgjson.data_loader",
+            "automana.core.services.app_integration.mtgjson.pipeline",
     ]
 }

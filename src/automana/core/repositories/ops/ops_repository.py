@@ -1,4 +1,5 @@
 ﻿import json
+from datetime import date as date_type
 from automana.core.repositories.abstract_repositories.AbstractDBRepository import AbstractRepository
 from automana.core.repositories.ops.scryfall_data import update_bulk_scryfall_data_sql
 from automana.core.models.pipelines.mtg_stock import MTGStockBatchStep
@@ -327,6 +328,26 @@ class OpsRepository(AbstractRepository):
         """
         rows = await self.execute_query(query, (ingestion_run_id, json.dumps(ids_master_dict)))
         return rows[0]["rows_inserted"] if rows else 0
+
+    async def get_mtgjson_resource_version(self) -> str | None:
+        query = """
+        SELECT metadata->>'version' AS version
+        FROM ops.resources
+        WHERE canonical_key = 'mtgjson.all_printings'
+        LIMIT 1
+        """
+        result = await self.execute_query(query)
+        return result[0].get("version") if result else None
+
+    async def upsert_mtgjson_resource_version(self, version: str, date: str) -> None:
+        query = """
+        UPDATE ops.resources
+        SET metadata        = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{version}', to_jsonb($1::text)),
+            updated_at_source = $2::timestamptz
+        WHERE canonical_key = 'mtgjson.all_printings'
+        """
+        parsed_date = date_type.fromisoformat(date) if isinstance(date, str) else date
+        await self.execute_command(query, (version, parsed_date))
 
     async def get():
         raise NotImplementedError("This method is not implemented yet.")

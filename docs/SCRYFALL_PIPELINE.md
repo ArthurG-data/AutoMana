@@ -26,8 +26,9 @@ daily Celery chain (`daily_scryfall_data_pipeline`) defined in `worker/tasks/pip
 | 6 | `card_catalog.set.process_large_sets_json` | Loads sets into the DB |
 | 7 | `staging.scryfall.download_cards_bulk` | Stream-downloads card bulk JSON (skips if no URI changes) |
 | 8 | `card_catalog.card.process_large_json` | Loads cards into the DB |
-| 9 | `ops.pipeline_services.finish_run` | Marks the run as success |
-| 10 | `staging.scryfall.delete_old_scryfall_folders` | Keeps the 3 most recent files, deletes older ones |
+| 9 | `staging.scryfall.download_and_load_migrations` | Fetches `/migrations` (paginated), bulk-loads into `card_catalog.scryfall_migration` via COPY-to-staging + `ON CONFLICT DO NOTHING` upsert |
+| 10 | `ops.pipeline_services.finish_run` | Marks the run as success |
+| 11 | `staging.scryfall.delete_old_scryfall_folders` | Keeps the 3 most recent files, deletes older ones |
 
 ---
 
@@ -388,10 +389,15 @@ daily_scryfall_data_pipeline (Celery chain)
 ├── 8.  card_catalog.card.process_large_json
 │        Stream-parse cards JSON → upsert into card_catalog.card_version (batches of 500)
 │
-├── 9.  ops.pipeline_services.finish_run  (status="success")
+├── 9.  staging.scryfall.download_and_load_migrations
+│        Paginates GET /migrations → TSV BytesIO → COPY into TEMP staging
+│        table → INSERT … ON CONFLICT (id) DO NOTHING into
+│        card_catalog.scryfall_migration (re-run safe)
+│
+├── 10. ops.pipeline_services.finish_run  (status="success")
 │        Sets ops.ingestion_runs.ended_at, status="success"
 │
-└── 10. staging.scryfall.delete_old_scryfall_folders  (keep=3)
+└── 11. staging.scryfall.delete_old_scryfall_folders  (keep=3)
          Deletes run folders older than the 3 most recent
 ```
 

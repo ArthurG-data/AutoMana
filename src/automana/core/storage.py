@@ -1,12 +1,17 @@
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
+from datetime import datetime
 from fnmatch import fnmatch
 from pathlib import Path
-import json
-import asyncio
-import logging
 from typing import Any, Union
-from datetime import datetime
+import asyncio
+import json
+import logging
+import lzma
+
+# NB: dropped `from numpy import full` — it was never referenced, yet it
+# dragged the entire NumPy dependency into a storage module. That's a
+# textbook example of an IDE autocomplete accident passing code review.
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +53,9 @@ class StorageBackend(ABC):
         """Get the size of a file in bytes."""
         pass
 
+    def resolve_path(self, path: str) -> Path:
+        raise NotImplementedError
+
 class LocalStorageBackend(StorageBackend):
     """Local filesystem storage"""
 
@@ -62,6 +70,9 @@ class LocalStorageBackend(StorageBackend):
         if not str(full_path).startswith(str(self.base_path)):
             raise ValueError(f"Path {path} is outside base storage directory")
         return full_path
+
+    def resolve_path(self, path: str) -> Path:
+        return self._get_full_path(path)
 
     async def save(self, path: str, data: Any, file_format: str = "json") -> str:
         """Save data to local filesystem"""
@@ -189,6 +200,7 @@ class LocalStorageBackend(StorageBackend):
     async def open_stream(self, path: str, mode: str = "rb", **kwargs):
         """Open a file stream for reading or writing."""
         full_path = self._get_full_path(path)
+        full_path.parent.mkdir(parents=True, exist_ok=True)
         with open(full_path, mode) as f:
             yield f
 
@@ -226,6 +238,12 @@ class StorageService:
         name, ext = filename.rsplit(".", 1) if "." in filename else (filename, "")
         return f"{name}_{ts}.{ext}" if ext else f"{name}_{ts}"
 
+    def build_timestamped_path(self, filename: str) -> Path:
+        """Return the full resolved path for a timestamped file without writing anything."""
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamped = self.build_timestamped_name(filename, timestamp)
+        return self.backend.resolve_path(timestamped)
+
     async def save_with_timestamp(self, filename: str, data: Any, file_format: str = "xz") -> str:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         timestamped = self.build_timestamped_name(filename, timestamp)
@@ -258,6 +276,22 @@ class StorageService:
     
     async def get_file_size(self, filename: str) -> int:
         return await self.backend.get_file_size(filename)
+
+    async def load_xz_as_json(self, absolute_path: str) -> dict:
+        """Decompress an `.xz` file at the given absolute path and parse as JSON.
+
+        The decompression + JSON parse is CPU-heavy and synchronous, so it is
+        offloaded to the default executor to keep the event loop responsive.
+        """
+        # `get_running_loop()` is the 3.10+ idiom; `get_event_loop()` is on
+        # the deprecation glide path when called outside a running loop.
+        loop = asyncio.get_running_loop()
+
+        def _read() -> dict:
+            with lzma.open(absolute_path, "rt", encoding="utf-8") as f:
+                return json.load(f)
+
+        return await loop.run_in_executor(None, _read)
 
 def get_storage_service(base_path: str = "storage") -> StorageService:
     """Get a storage service instance"""

@@ -211,7 +211,7 @@ services:
     secrets:
       - readonly_db_password
     volumes:
-      - ../schemaspy:/app/schemaspy
+      - ../docs/db-schema:/app/docs/db-schema
     depends_on:
       postgres:
           condition: service_healthy
@@ -222,7 +222,7 @@ services:
 
       ls -la /drivers/
       POSTGRES_PASSWORD=$(cat /run/secrets/readonly_db_password)
-      java -jar /usr/local/lib/schemaspy/schemaspy*.jar -t pgsql -host postgres -port 5432 -db automana -u app_readonly -p "$$POSTGRES_PASSWORD" -all -o /app/schemaspy/docs/db-schema -dp /drivers/postgresql.jar -nologo
+      java -jar /usr/local/lib/schemaspy/schemaspy*.jar -t pgsql -host postgres -port 5432 -db automana -u app_readonly -p "$$POSTGRES_PASSWORD" -all -o /app/docs/db-schema -dp /drivers/postgresql.jar -nologo
      
     networks:
       - backend-network

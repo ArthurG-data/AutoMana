@@ -1,20 +1,22 @@
-﻿from automana.core.repositories.abstract_repositories.AbstractDBRepository import AbstractDBRepository
+import json
+from automana.core.repositories.abstract_repositories.AbstractDBRepository import AbstractRepository
 
 
+class MtgjsonRepository(AbstractRepository):
 
-class MtgjsonRepository(AbstractDBRepository):
-    def __init__(self, settings)  :
-        super().__init__( settings)
-
-        
-
+    @property
     def name(self) -> str:
         return "MtgjsonRepository"
-    
-    async def copy_staged_card_data(self, filepath) -> None:
-        
-        await self.execute("TRUNCATE TABLE mtgjson_card_data")
-        query = """
-        COPY mtgjson_card_data FROM $1 WITH (FORMAT parquet, PARQUET_COMPRESSION 'SNAPPY')
-        """
-        await self.execute(query, filepath)
+
+    async def insert_payload(self, source: str, filename: str, payload: dict) -> str:
+        rows = await self.execute_query(
+            "INSERT INTO pricing.mtgjson_payloads (source, filename, payload)"
+            " VALUES ($1, $2, $3::jsonb) RETURNING id",
+            source, filename, json.dumps(payload)
+        )
+        return str(rows[0]["id"])
+
+    async def call_process_payload(self, payload_id: str) -> None:
+        await self.execute_command(
+            "CALL pricing.process_mtgjson_payload($1::uuid)", payload_id
+        )

@@ -1,10 +1,12 @@
-﻿import asyncio, httpx, hashlib, json, random
-from asyncio.log import logger
+﻿import asyncio, httpx, hashlib, json, logging, random
 from typing import Any, Dict, List, Optional, Union
 from automana.core.exceptions.repository_layer_exceptions.api_errors import ExternalApiConnectionError
 from automana.core.repositories.abstract_repositories.AbstractAPIRepository import BaseApiClient
 from automana.core.repositories.abstract_repositories.AbstractAPIRepository import  RepositoryError
 from automana.core.utils.rate_limits import AsyncTokenBucket
+
+# Project convention (CLAUDE.md): never import the asyncio internal logger.
+logger = logging.getLogger(__name__)
 
 class ApiMtgStockRepository(BaseApiClient):
     def __init__(self
