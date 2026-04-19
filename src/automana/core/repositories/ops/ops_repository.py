@@ -1,4 +1,5 @@
 ﻿import json
+from datetime import date as date_type
 from automana.core.repositories.abstract_repositories.AbstractDBRepository import AbstractRepository
 from automana.core.repositories.ops.scryfall_data import update_bulk_scryfall_data_sql
 from automana.core.models.pipelines.mtg_stock import MTGStockBatchStep
@@ -280,18 +281,21 @@ class OpsRepository(AbstractRepository):
         return result[0].get("uri") if result and len(result) > 0 else None
     
 
-    async def update_bulk_data_uri_return_new(self, items: dict, ingestion_run_id: int):
-      
+    async def update_bulk_data_uri_return_new(self, items: dict, ingestion_run_id: int = None) -> dict:
+       
         result = await self.execute_query(
     
             update_bulk_scryfall_data_sql,
             (json.dumps(items), ingestion_run_id)#source_id
         )
+        print("update_bulk_data_uri_return_new result:", result)
         record = result[0] if result and len(result) > 0 else None
         ressources_upserted = record.get("resources_upserted") if record else 0
         versions_inserted = record.get("versions_inserted") if record else 0
-        changed_items = record.get("changed") if record else []
-    
+        changed_raw = record.get("changed") if record else "[]"
+        # asyncpg returns jsonb columns as raw JSON strings — parse to Python list
+        changed_items = json.loads(changed_raw) if isinstance(changed_raw, str) else (changed_raw or [])
+
         return {
         "ingestion_run_id": ingestion_run_id,
         "resources_upserted": ressources_upserted,
@@ -324,6 +328,26 @@ class OpsRepository(AbstractRepository):
         """
         rows = await self.execute_query(query, (ingestion_run_id, json.dumps(ids_master_dict)))
         return rows[0]["rows_inserted"] if rows else 0
+
+    async def get_mtgjson_resource_version(self) -> str | None:
+        query = """
+        SELECT metadata->>'version' AS version
+        FROM ops.resources
+        WHERE canonical_key = 'mtgjson.all_printings'
+        LIMIT 1
+        """
+        result = await self.execute_query(query)
+        return result[0].get("version") if result else None
+
+    async def upsert_mtgjson_resource_version(self, version: str, date: str) -> None:
+        query = """
+        UPDATE ops.resources
+        SET metadata        = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{version}', to_jsonb($1::text)),
+            updated_at_source = $2::timestamptz
+        WHERE canonical_key = 'mtgjson.all_printings'
+        """
+        parsed_date = date_type.fromisoformat(date) if isinstance(date, str) else date
+        await self.execute_command(query, (version, parsed_date))
 
     async def get():
         raise NotImplementedError("This method is not implemented yet.")

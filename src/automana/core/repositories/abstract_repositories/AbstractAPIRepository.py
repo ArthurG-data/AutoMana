@@ -1,5 +1,6 @@
 ﻿# backend/repositories/ApiRepository.py
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Dict, Any, Optional, Union
 from urllib.parse import urljoin
 import httpx, logging,  xmltodict
@@ -22,7 +23,7 @@ class BaseApiClient(ABC):
         self.base_url = self._get_base_url()
         self.http2 = http2
         self._client : Optional[httpx.AsyncClient] = None
-        logger.info("%s initialized base_url=%s", self.__class__.__name__, self.base_url)
+        logger.info("Client initialized", extra={"client": self.__class__.__name__, "base_url": self.base_url})
 
     async def __aenter__(self):
         self._client = httpx.AsyncClient(http2=self.http2, timeout=self.timeout)
@@ -39,23 +40,25 @@ class BaseApiClient(ABC):
             self._client = httpx.AsyncClient(http2=self.http2, timeout=self.timeout)
         return self._client
     
+    # NB: `default_headers` is intentionally concrete with a sensible empty
+    # default — Template Method pattern. Subclasses override only when they
+    # need auth tokens or content negotiation. Declaring it twice (once
+    # concrete, once `@abstractmethod`) — as the earlier version did — is
+    # worse than useless: Python's ABC resolves the last binding, so the
+    # abstract marker silently wins and every subclass is forced to override.
     def default_headers(self) -> Dict[str, str]:
         """Override in subclasses if they need default headers."""
         return {}
 
     @abstractmethod
     def _get_base_url(self) -> str:
-        """Return the base URL for the given environment"""
+        """Return the base URL for the given environment."""
         pass
 
-    @abstractmethod
-    def default_headers(self) -> Dict[str, str]:
-        """Return default headers for the API requests"""
-        return {}
     @property
     @abstractmethod
     def name(self) -> str:
-        """Return the name of the repository"""
+        """Return the name of the repository (used for error messages & logs)."""
         pass
 
     def get_full_url(self, endpoint: str) -> str:
@@ -66,7 +69,7 @@ class BaseApiClient(ABC):
     
     def _parse_response(self, response: httpx.Response) -> ParsedResponse:
         content_type = (response.headers.get("content-type") or "").lower()
-        logger.info(f"Parsing response with content-type: {content_type}")
+        logger.info("Parsing response", extra={"content_type": content_type})
         if "application/json" in content_type:
             return response.json()
 
@@ -161,7 +164,7 @@ class BaseApiClient(ABC):
             merged_headers.update(headers)
         client = self._get_client()
         
-        logger.info(f"Making {method.upper()} request to {url}")
+        logger.info("Sending request", extra={"method": method.upper(), "url": url})
         try:
             return await client.request(method.upper(), url, params=params, headers=merged_headers, json=json, data=data, timeout=timeout)
         except httpx.HTTPStatusError as e:
@@ -183,4 +186,48 @@ class BaseApiClient(ABC):
                 error_data={"url": url},
                 source_exception=e,
             )
+
+    async def stream_download(
+        self,
+        endpoint: str,
+        dest_path: Path,
+        chunk_size: int = 65536,
+        timeout: Optional[float] = None,
+    ) -> Path:
+        """Stream response body directly to disk — avoids loading the full file into memory."""
+        url = self.get_full_url(endpoint)
+        merged_headers = dict(self.default_headers())
+        client = self._get_client()
+
+        logger.info("Starting streaming download", extra={"url": url, "dest": str(dest_path)})
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+
+        try:
+            async with client.stream("GET", url, headers=merged_headers, timeout=timeout) as response:
+                response.raise_for_status()
+                with open(dest_path, "wb") as f:
+                    async for chunk in response.aiter_bytes(chunk_size):
+                        f.write(chunk)
+        except httpx.HTTPStatusError as e:
+            raise self.map_http_error(e)
+        except httpx.RequestError as e:
+            raise api_errors.ExternalApiConnectionError(
+                message=f"Failed to connect to {self.name}: {e}",
+                error_code="EXTERNAL_API_CONNECTION_ERROR",
+                status_code=None,
+                error_data={"url": url},
+                source_exception=e,
+            )
+        except RepositoryError:
+            raise
+        except Exception as e:
+            raise api_errors.ExternalApiError(
+                message=f"Unexpected error calling {self.name}: {e}",
+                error_code="EXTERNAL_API_UNEXPECTED_ERROR",
+                error_data={"url": url},
+                source_exception=e,
+            )
+
+        logger.info("Streaming download complete", extra={"dest": str(dest_path)})
+        return dest_path
 

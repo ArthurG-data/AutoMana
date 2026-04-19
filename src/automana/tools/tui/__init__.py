@@ -1,0 +1,1 @@
+# AutoMana TUI package

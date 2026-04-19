@@ -125,20 +125,38 @@ class ServiceManager:
     
 
     @staticmethod
-    def get_storage_service(storage_type_name: str) -> StorageService:
-        """Get the service function for a given path"""
+    def get_storage_service(storage_name: str) -> StorageService:
+        """Resolve a named storage to a StorageService instance.
+
+        Looks up the logical name in the named-storage registry to find
+        the backend type and its config, then instantiates accordingly.
+        """
         from automana.core.storage import StorageService
+        from automana.core.settings import get_settings
+        from pathlib import Path
         import importlib
-        #get the name of the storage service from the registry
-        storage_backend = ServiceRegistry.get_storage_service(storage_type_name)
-        #load the storage service module
-        module = importlib.import_module(storage_backend[0])
-        class_backend_storage = getattr(module, storage_backend[1])
-        #instanciate the storage service and return it
-        instanciated_storage_backend = class_backend_storage()
-        #load the correct 
-        storage_service = StorageService(instanciated_storage_backend)
-        return storage_service
+
+        storage_config = ServiceRegistry.get_storage(storage_name)
+        if not storage_config:
+            raise ValueError(f"Unknown storage name: {storage_name!r}")
+
+        backend_name = storage_config["backend"]
+        backend_info = ServiceRegistry.get_storage_backend(backend_name)
+        if not backend_info:
+            raise ValueError(f"Unknown storage backend: {backend_name!r}")
+
+        module = importlib.import_module(backend_info[0])
+        backend_class = getattr(module, backend_info[1])
+
+        if backend_name == "local":
+            subpath = storage_config.get("subpath", "")
+            base_path = Path(get_settings().data_dir) / subpath
+            backend = backend_class(base_path=str(base_path))
+        else:
+            config = {k: v for k, v in storage_config.items() if k != "backend"}
+            backend = backend_class(**config)
+
+        return StorageService(backend)
 
     @classmethod
     async def execute_service(cls, service_path: str, **kwargs):
@@ -176,10 +194,10 @@ class ServiceManager:
             ) from e
         
         #storage
-            storage_service = None
             if len(service_config.storage_services) > 0:
-                storage_service = self.get_storage_service(service_config.storage_services[0])
-                kwargs["storage_service"] = storage_service
+                kwargs["storage_service"] = self.get_storage_service(service_config.storage_services[0])
+                for extra_name in service_config.storage_services[1:]:
+                    kwargs[f"{extra_name}_storage_service"] = self.get_storage_service(extra_name)
         # Execute within transaction
             async with self.transaction() as conn:
                 repositories = {}

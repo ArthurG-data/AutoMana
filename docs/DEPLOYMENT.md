@@ -53,6 +53,7 @@ What it does:
 - `postgres` publishes `5433:5432` (convenience for local tools)
 - `redis` publishes `6379:6379`
 - `proxy` publishes `80:80` and `443:443`
+- `flower` publishes `5555:5555` (Flower direct access, dev only)
 
 Run:
 
@@ -193,6 +194,29 @@ The nginx image selects the config at build time via a build arg:
 
 - dev uses `nginx.local.conf` (wired in `deploy/docker-compose.dev.yml`)
 - prod uses `nginx.prod.conf` (wired in `deploy/docker-compose.prod.yml`)
+
+## Flower (Celery monitoring)
+
+Flower provides a real-time web UI for inspecting Celery workers and tasks.
+
+### Access
+
+| Environment | URL |
+|-------------|-----|
+| Dev (direct) | http://localhost:5555 |
+| Dev (proxy) | https://localhost/flower/ |
+| Prod (proxy) | https://your-domain/flower/ (requires `FLOWER_BASIC_AUTH`) |
+
+### Persistence
+
+Task history is persisted via a named Docker volume (`flower-data-dev` or `flower-data-prod`). The SQLite database is stored at `/data/flower.db` inside the container.
+
+### Environment variables
+
+| Variable | Description |
+|----------|-------------|
+| `BROKER_URL` | Redis broker URL (e.g. `redis://redis:6379/0`) |
+| `FLOWER_BASIC_AUTH` | HTTP Basic Auth credentials in `user:password` format (required in prod) |
 
 ## Operational notes / caveats
 

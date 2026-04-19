@@ -19,11 +19,11 @@ CREATE TABLE IF NOT EXISTS pricing.price_source ( --market marketplace or websit
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE TABLE IF NOT EXISTS pricing.data_provider (
-  provider_id SMALLSERIAL PRIMARY KEY,
-  code        TEXT UNIQUE NOT NULL,   -- 'api','web_scrape','manual_entry', etc.
-  description TEXT,
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+  data_provider_id SMALLSERIAL PRIMARY KEY,
+  code             TEXT UNIQUE NOT NULL,   -- 'api','web_scrape','manual_entry', etc.
+  description      TEXT,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS pricing.price_metric (
@@ -185,7 +185,7 @@ CREATE TABLE IF NOT EXISTS pricing.price_observation(
     sold_count INTEGER,
 
     source_product_id BIGINT NOT NULL REFERENCES pricing.source_product(source_product_id),
-    data_provider_id BIGINT NOT NULL REFERENCES pricing.data_provider(data_provider_id),
+    data_provider_id SMALLINT NOT NULL REFERENCES pricing.data_provider(data_provider_id),
 
     scraped_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -197,10 +197,10 @@ CREATE TABLE IF NOT EXISTS pricing.price_observation(
     (list_low_cents IS NULL OR list_low_cents >= 0) AND
     (list_avg_cents IS NULL OR list_avg_cents >= 0) AND
     (sold_avg_cents IS NULL OR sold_avg_cents >= 0)
-  ),
-  CONSTRAINT chk_low_le_avg CHECK (
-    list_low_cents IS NULL OR list_avg_cents IS NULL OR list_low_cents <= list_avg_cents
   )
+  -- NOTE: chk_low_le_avg was removed from the live DB before data load began
+  -- (the v3 rebuild of price_observation never included it). Do not add it back
+  -- without verifying existing data satisfies the constraint.
 );
 SELECT create_hypertable('pricing.price_observation',
                          by_range('ts_date'),
@@ -210,7 +210,8 @@ SELECT create_hypertable('pricing.price_observation',
 --not good for one diskSELECT add_dimension('pricing.price_observation', 'source_product_id', number_partitions => 8);
 
 --set chunk time
-SELECT set_chunk_time_interval('pricing.price_observation', INTERVAL '30 days');
+-- NOTE: live DB uses 7 days (was changed from the original 30 days after initial deploy)
+SELECT set_chunk_time_interval('pricing.price_observation', INTERVAL '7 days');
 
 CREATE INDEX IF NOT EXISTS idx_price_date ON pricing.price_observation(source_product_id, ts_date DESC);
 
@@ -338,7 +339,10 @@ CREATE TABLE IF NOT EXISTS pricing.print_price_weekly (
           (avg_price IS NULL OR avg_price >= 0)
         )
 );
-ADD COMMENT ON TABLE pricing.print_price_weekly IS 'Weekly aggregated price metrics for each card_version_id + transaction_type + dimensions, for older data beyond the daily retention period. price_week is the Monday of the week.';
+-- NOTE: print_price_weekly was defined here but was NEVER applied to the live DB.
+-- It also contained a SQL syntax error (ADD COMMENT is not valid PostgreSQL; must be COMMENT ON TABLE).
+-- Fixed syntax below. Create via a new migration (16_+) if this table is needed.
+COMMENT ON TABLE pricing.print_price_weekly IS 'Weekly aggregated price metrics for each card_version_id + transaction_type + dimensions, for older data beyond the daily retention period. price_week is the Monday of the week.';
 
 CREATE INDEX IF NOT EXISTS idx_ppw_week_type_dims
 ON pricing.print_price_weekly (price_week, transaction_type_id, finish_id, condition_id, language_id);
@@ -371,30 +375,34 @@ CREATE TABLE pricing.raw_mtg_stock_price(
     tcg_id TEXT,
     cardtrader_id TEXT
 );
-ADD COMMENT ON TABLE pricing.raw_mtg_stock_price IS 'Raw price data ingested from MTG Stocks, with one row per print_id and date, and multiple price metrics as columns. This is the landing table before transformation and loading into the dimensional model.';
+COMMENT ON TABLE pricing.raw_mtg_stock_price IS 'Raw price data ingested from MTG Stocks, with one row per print_id and date, and multiple price metrics as columns. This is the landing table before transformation and loading into the dimensional model.';
 CREATE INDEX idx_raw_price_date ON pricing.raw_mtg_stock_price(print_id, ts_date);
 DROP TABLE IF EXISTS pricing.stg_price_observation;
+-- Wide model: one row per (ts_date, source_product_id, is_foil, source_code, data_provider_id)
+-- carrying three metric columns (list_low_cents, list_avg_cents, sold_avg_cents) plus a raw
+-- `value` in source currency units (NUMERIC). product_id/card_version_id/source_product_id
+-- are expected to be already resolved by load_staging_prices_batched before insertion.
 CREATE TABLE pricing.stg_price_observation (
-ts_date       DATE        NOT NULL, 
-game_code     TEXT       NOT NULL,
-print_id      BIGINT      NOT NULL,
-list_low_cents INTEGER,
-list_avg_cents INTEGER,
-sold_avg_cents INTEGER,
-
-
-is_foil       BOOLEAN    NOT NULL,
-source_code     TEXT    NOT NULL,
-value         NUMERIC(12,4) NOT NULL,
-product_id TEXT NOT NULL,
-card_version_id TEXT,
-source_product_id BIGINT, --new
-set_abbr TEXT,
-collector_number TEXT,
-card_name TEXT,
-scryfall_id TEXT,
-tcg_id TEXT,
-scraped_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+    stg_id            BIGSERIAL      PRIMARY KEY,
+    ts_date           DATE           NOT NULL,
+    game_code         TEXT           NOT NULL,
+    print_id          BIGINT         NOT NULL,
+    list_low_cents    INTEGER,
+    list_avg_cents    INTEGER,
+    sold_avg_cents    INTEGER,
+    is_foil           BOOLEAN        NOT NULL,
+    source_code       TEXT           NOT NULL,
+    data_provider_id  SMALLINT       NOT NULL,
+    value             NUMERIC(12,4),
+    product_id        UUID           NOT NULL,
+    card_version_id   UUID,
+    source_product_id BIGINT         NOT NULL,
+    set_abbr          TEXT,
+    collector_number  TEXT,
+    card_name         TEXT,
+    scryfall_id       TEXT,
+    tcg_id            TEXT,
+    scraped_at        TIMESTAMPTZ    NOT NULL DEFAULT now()
 );
 ---------------------------------------------------------------------------------------------new
 
@@ -424,6 +432,10 @@ scraped_at    TIMESTAMPTZ NOT NULL DEFAULT now()
   
 ------------------------------------------------------------------
 --Step 1: Load raw data into staging with resolution of product_source_id, and capture rejects for later inspection
+-- WARNING: The INSERT INTO stg_price_observation block below references the OLD column model
+-- (list_low_cents, list_avg_cents, sold_avg_cents, data_provider_id). These columns no longer
+-- exist in the live stg_price_observation table. The live DB procedure body has been updated
+-- separately. If re-applying this file, update the INSERT block to use the metric_code/value model.
 ------------------------------------------------------------------
 CREATE OR REPLACE PROCEDURE pricing.load_staging_prices_batched(source_name VARCHAR(20), batch_days int DEFAULT 30)--drop first
 LANGUAGE plpgsql
@@ -436,7 +448,7 @@ DECLARE
   v_source_id SMALLINT;
   v_ok boolean;
   v_mtg_game_id SMALLINT;
-  v_data_provider_id TEXT;--new
+  v_data_provider_id SMALLINT;
   cur_rows bigint;
   total_inserted bigint := 0;
 
@@ -840,8 +852,8 @@ resolved_method text
     END IF;
       v_start := v_end + 1;
   END LOOP;
-  CREATE INDEX IF NOT EXISTS stg_price_obs_date_spid_metric_idx
-  ON pricing.stg_price_observation (ts_date, source_product_id, metric_code, is_foil);
+  CREATE INDEX IF NOT EXISTS stg_price_obs_date_spid_foil_idx
+  ON pricing.stg_price_observation (ts_date, source_product_id, is_foil);
   RAISE NOTICE 'load_staging_prices_batched: total inserted % rows', total_inserted;
 END;
 $$;
@@ -850,9 +862,6 @@ $$;
 --Step 2: Move from staging to dimensional model (price_observation), with any necessary transformations
 ------------------------------------------------------------------
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS stg_price_obs_ts_date_spid_notnull
-ON pricing.stg_price_observation (ts_date)
-WHERE source_product_id IS NOT NULL;
 
 ANALYZE pricing.stg_price_observation;
 CREATE OR REPLACE PROCEDURE pricing.load_prices_from_staged_batched(batch_days int DEFAULT 30)
@@ -863,158 +872,201 @@ DECLARE
   v_max date;
   v_start date;
   v_end date;
-  v_price_type_id int;
-  v_finish_foil_id smallint;
-  v_finish_default_id smallint;
+  v_price_type_id      int;
+  v_finish_foil_id     smallint;
+  v_finish_default_id  smallint;
+  v_condition_id       smallint;
+  v_language_id        smallint;
   v_ok boolean;
-  cur_rows bigint;
-  deleted_rows bigint;
+  cur_rows      bigint;
+  deleted_rows  bigint;
   inserted_rows bigint := 0;
   total_deleted bigint := 0;
 BEGIN
-  -- pick default ids
+  -- ------------------------------------------------------------------
+  -- Pre-flight: resolve dimension ids once (cheap, stable across batches)
+  -- ------------------------------------------------------------------
   v_finish_default_id := pricing.default_finish_id();
 
   SELECT cf.finish_id
-  INTO v_finish_foil_id
-  FROM pricing.card_finished cf
-  WHERE lower(cf.code) IN ('foil', 'foiled', 'premium')
-  ORDER BY cf.finish_id
-  LIMIT 1;
+  INTO   v_finish_foil_id
+  FROM   pricing.card_finished cf
+  WHERE  lower(cf.code) IN ('foil', 'foiled', 'premium')
+  ORDER  BY cf.finish_id
+  LIMIT  1;
 
   IF v_finish_foil_id IS NULL THEN
-    -- fallback: if you don't have a foil row yet, just use default
+    -- No FOIL row yet; degrade to default so foil rows still load.
     v_finish_foil_id := v_finish_default_id;
   END IF;
 
-  -- you MUST decide a default transaction type for these prices
   SELECT tt.transaction_type_id
-  INTO v_price_type_id
-  FROM pricing.transaction_type tt
-  WHERE lower(tt.transaction_type_code) = 'sell'  -- adjust to your codes
-  ORDER BY tt.transaction_type_id
-  LIMIT 1;
+  INTO   v_price_type_id
+  FROM   pricing.transaction_type tt
+  WHERE  lower(tt.transaction_type_code) = 'sell'
+  ORDER  BY tt.transaction_type_id
+  LIMIT  1;
 
   IF v_price_type_id IS NULL THEN
-    -- last-resort: take the first transaction type
-    SELECT tt.transaction_type_id INTO v_price_type_id
-    FROM pricing.transaction_type tt
-    ORDER BY tt.transaction_type_id
-    LIMIT 1;
+    RAISE EXCEPTION 'No ''sell'' row in pricing.transaction_type; cannot load price_observation';
   END IF;
 
-  IF v_price_type_id IS NULL THEN
-    RAISE EXCEPTION 'No rows found in pricing.transaction_type; cannot load price_observation';
-  END IF;
+  v_condition_id := pricing.default_condition_id();
+  v_language_id  := card_catalog.default_language_id();
 
   SELECT min(ts_date), max(ts_date)
-  INTO v_min, v_max
-  FROM pricing.stg_price_observation
-  WHERE source_product_id IS NOT NULL;
+  INTO   v_min, v_max
+  FROM   pricing.stg_price_observation;
 
   IF v_min IS NULL THEN
-    RAISE NOTICE 'No staged rows with source_product_id.';
+    RAISE NOTICE 'load_prices_from_staged_batched: staging is empty, nothing to do';
     RETURN;
   END IF;
 
   RAISE NOTICE 'Loading price_observation from staging for % to %', v_min, v_max;
 
+  -- ------------------------------------------------------------------
+  -- Batch loop: per-batch BEGIN/EXCEPTION/COMMIT so one bad day does
+  -- not poison the whole run.
+  -- ------------------------------------------------------------------
   v_start := v_min;
   WHILE v_start <= v_max LOOP
     v_end := LEAST(v_start + (batch_days - 1), v_max);
-    v_ok := false;
-    -- Build a batch slice with metric_id + finish_id resolved
+    v_ok  := false;
 
     BEGIN
+      -- Session locals are cleared by the previous COMMIT, so re-apply.
+      SET LOCAL work_mem          = '512MB';
+      SET LOCAL maintenance_work_mem = '1GB';
+      SET LOCAL synchronous_commit   = off;
+
       RAISE NOTICE 'Batch % to %', v_start, v_end;
 
+      -- ------------------------------------------------------------------
+      -- Step A: build batch slice. One staging row -> one fact row (wide).
+      --   - Map is_foil -> finish_id via CASE on pre-resolved smallints.
+      --   - Skip rows where all three cents columns are NULL (nothing to
+      --     observe); they stay in staging and should be cleaned by the
+      --     upstream loader.
+      --   - Carry stg_id as surrogate for the later DELETE.
+      -- ------------------------------------------------------------------
       DROP TABLE IF EXISTS _batch;
-      CREATE TEMP TABLE _batch AS
+      CREATE TEMP TABLE _batch ON COMMIT DROP AS
       SELECT
+        s.stg_id,
         s.ts_date,
         s.source_product_id,
-        pm.metric_id,
-        s.metric_code,
-        s.is_foil,
-        v_price_type_id::int AS price_type_id,
-        CASE WHEN s.is_foil THEN v_finish_foil_id ELSE v_finish_default_id END AS finish_id,
-        pricing.default_condition_id() AS condition_id,
-        card_catalog.default_language_id() AS language_id,
-        s.scraped_at,
-        s.value
+        s.data_provider_id,
+        v_price_type_id::int                          AS price_type_id,
+        CASE WHEN s.is_foil THEN v_finish_foil_id
+             ELSE v_finish_default_id END             AS finish_id,
+        v_condition_id                                AS condition_id,
+        v_language_id                                 AS language_id,
+        s.list_low_cents,
+        s.list_avg_cents,
+        s.sold_avg_cents,
+        s.scraped_at
       FROM pricing.stg_price_observation s
-      JOIN pricing.price_metric pm
-        ON pm.code = s.metric_code
       WHERE s.ts_date >= v_start
         AND s.ts_date <= v_end
-        AND s.source_product_id IS NOT NULL
-        AND s.value IS NOT NULL;
+        AND NOT (s.list_low_cents IS NULL
+             AND s.list_avg_cents IS NULL
+             AND s.sold_avg_cents IS NULL);
 
-      -- Dedup by the EXACT PK of price_observation (within this batch)
+      -- ------------------------------------------------------------------
+      -- Step B: dedup on the full fact-table PK, keep freshest scraped_at.
+      --   Secondary ORDER BY stg_id DESC makes ties deterministic.
+      -- ------------------------------------------------------------------
       DROP TABLE IF EXISTS _dedup;
-      CREATE TEMP TABLE _dedup  AS
+      CREATE TEMP TABLE _dedup ON COMMIT DROP AS
       SELECT *
       FROM (
         SELECT b.*,
-              row_number() OVER (
-                PARTITION BY
-                  b.ts_date,
-                  b.source_product_id,
-                  b.metric_id,
-                  b.price_type_id,
-                  b.finish_id,
-                  b.condition_id,
-                  b.language_id
-                ORDER BY b.scraped_at DESC
-              ) AS rn
+               row_number() OVER (
+                 PARTITION BY
+                   b.ts_date,
+                   b.source_product_id,
+                   b.price_type_id,
+                   b.finish_id,
+                   b.condition_id,
+                   b.language_id,
+                   b.data_provider_id
+                 ORDER BY b.scraped_at DESC, b.stg_id DESC
+               ) AS rn
         FROM _batch b
       ) x
       WHERE rn = 1;
 
-      -- Upsert into the fact table
+      -- ------------------------------------------------------------------
+      -- Step C: upsert into the fact table.
+      --   DO UPDATE: per-column "newest non-null wins" — a newer scrape
+      --   with a NULL in one column does NOT wipe a valid older value.
+      --   list_count / sold_count are not populated by staging; protect
+      --   any value that may have been inserted from a different source.
+      -- ------------------------------------------------------------------
       INSERT INTO pricing.price_observation (
-        ts_date, source_product_id, metric_id, price_type_id,
-        finish_id, condition_id, language_id,
-        scraped_at, value
+        ts_date, source_product_id, price_type_id,
+        finish_id, condition_id, language_id, data_provider_id,
+        list_low_cents, list_avg_cents, sold_avg_cents,
+        scraped_at
       )
       SELECT
-        ts_date, source_product_id, metric_id, price_type_id,
-        finish_id, condition_id, language_id,
-        scraped_at, value
+        ts_date, source_product_id, price_type_id,
+        finish_id, condition_id, language_id, data_provider_id,
+        list_low_cents, list_avg_cents, sold_avg_cents,
+        scraped_at
       FROM _dedup
       ORDER BY ts_date
-      ON CONFLICT (ts_date, source_product_id, metric_id, price_type_id, finish_id, condition_id, language_id)
-      DO UPDATE
-        SET value = CASE
-                      WHEN EXCLUDED.scraped_at >= pricing.price_observation.scraped_at
-                      THEN EXCLUDED.value
-                      ELSE pricing.price_observation.value
-                    END,
-            scraped_at = GREATEST(pricing.price_observation.scraped_at, EXCLUDED.scraped_at),
-            updated_at = now();
+      ON CONFLICT (ts_date, source_product_id, price_type_id,
+                   finish_id, condition_id, language_id, data_provider_id)
+      DO UPDATE SET
+        list_low_cents = CASE
+          WHEN EXCLUDED.scraped_at >= pricing.price_observation.scraped_at
+               AND EXCLUDED.list_low_cents IS NOT NULL
+            THEN EXCLUDED.list_low_cents
+          ELSE pricing.price_observation.list_low_cents
+        END,
+        list_avg_cents = CASE
+          WHEN EXCLUDED.scraped_at >= pricing.price_observation.scraped_at
+               AND EXCLUDED.list_avg_cents IS NOT NULL
+            THEN EXCLUDED.list_avg_cents
+          ELSE pricing.price_observation.list_avg_cents
+        END,
+        sold_avg_cents = CASE
+          WHEN EXCLUDED.scraped_at >= pricing.price_observation.scraped_at
+               AND EXCLUDED.sold_avg_cents IS NOT NULL
+            THEN EXCLUDED.sold_avg_cents
+          ELSE pricing.price_observation.sold_avg_cents
+        END,
+        scraped_at = GREATEST(pricing.price_observation.scraped_at, EXCLUDED.scraped_at),
+        updated_at = now();
 
       GET DIAGNOSTICS cur_rows = ROW_COUNT;
       inserted_rows := inserted_rows + cur_rows;
+
+      -- ------------------------------------------------------------------
+      -- Step D: drain consumed staging rows by surrogate key.
+      --   stg_id is the PK of stg_price_observation, so this is an exact
+      --   1-to-1 match on what entered _batch this iteration.
+      -- ------------------------------------------------------------------
       DELETE FROM pricing.stg_price_observation s
       USING _batch b
-      WHERE s.ts_date = b.ts_date
-        AND s.source_product_id = b.source_product_id
-        AND s.metric_code = b.metric_code
-        AND s.is_foil = b.is_foil
-        AND s.scraped_at = b.scraped_at
-        AND s.value = b.value;
+      WHERE s.stg_id = b.stg_id;
 
       GET DIAGNOSTICS deleted_rows = ROW_COUNT;
       total_deleted := total_deleted + deleted_rows;
 
-      RAISE NOTICE 'Batch inserted/updated %, deleted % staging rows', cur_rows, deleted_rows;
+      RAISE NOTICE 'Batch % to %: inserted/updated %, deleted % staging rows',
+                   v_start, v_end, cur_rows, deleted_rows;
 
       v_ok := true;
     EXCEPTION WHEN OTHERS THEN
-      RAISE WARNING 'Error processing batch % to %: %', v_start, v_end, SQLERRM;
+      RAISE WARNING 'Error processing batch % to %: % (SQLSTATE %)',
+                    v_start, v_end, SQLERRM, SQLSTATE;
       v_ok := false;
     END;
-    if v_ok THEN
+
+    IF v_ok THEN
       COMMIT;
     ELSE
       ROLLBACK;
@@ -1022,7 +1074,8 @@ BEGIN
     v_start := v_end + 1;
   END LOOP;
 
-  RAISE NOTICE 'Total inserted/updated %, total deleted from staging %', inserted_rows, total_deleted;
+  RAISE NOTICE 'load_prices_from_staged_batched: total inserted/updated %, total deleted from staging %',
+               inserted_rows, total_deleted;
 END;
 $$;
 
@@ -1186,20 +1239,38 @@ BEGIN
     AND sp.source_product_id IS NULL
   ON CONFLICT (product_id, source_id) DO NOTHING;
 
-  -- 4) insert into stg_price_observation
+  -- 4) re-feed resolved rejects into stg_price_observation (wide model).
+  --    ts_date / data_provider_id are NOT NULL on staging; product_id is UUID.
+  --    list_count / sold_count do not exist on staging (they are fact-only).
+  --    Rows where all three cents columns are NULL are skipped to match the
+  --    downstream procedure's filter and avoid orphan no-op staging rows.
   INSERT INTO pricing.stg_price_observation (
-    game_code, print_id, metric_code, is_foil, source_code, value,
-    product_id, source_product_id, scraped_at
+    ts_date, game_code, print_id,
+    list_low_cents, list_avg_cents, sold_avg_cents,
+    is_foil, source_code, data_provider_id, value,
+    product_id, card_version_id, source_product_id,
+    set_abbr, collector_number, card_name, scryfall_id, tcg_id,
+    scraped_at
   )
   SELECT
+    r.ts_date,
     r.game_code,
     r.print_id,
-    r.metric_code,
+    r.list_low_cents,
+    r.list_avg_cents,
+    r.sold_avg_cents,
     r.is_foil,
     r.source_code,
+    r.data_provider_id,
     r.value,
-    mcp.product_id::text,
+    mcp.product_id,
+    r.card_version_id,
     sp.source_product_id,
+    r.set_abbr,
+    r.collector_number,
+    r.card_name,
+    r.scryfall_id,
+    r.tcg_id,
     r.scraped_at
   FROM tmp_resolved r
   JOIN pricing.mtg_card_products mcp
@@ -1207,32 +1278,39 @@ BEGIN
   JOIN pricing.source_product sp
     ON sp.product_id = mcp.product_id
    AND sp.source_id = v_source_id
-  WHERE r.card_version_id IS NOT NULL;
+  WHERE r.card_version_id IS NOT NULL
+    AND NOT (r.list_low_cents IS NULL
+         AND r.list_avg_cents IS NULL
+         AND r.sold_avg_cents IS NULL);
 
   GET DIAGNOSTICS v_inserted = ROW_COUNT;
 
-  -- 5) mark rejects as resolved (for those we resolved)
+  -- 5) mark resolved rejects as terminal. Natural match key in the wide
+  --    model: (ts_date, print_id, is_foil, source_code, data_provider_id,
+  --    scraped_at) — one reject row per scrape per (day, product, foil,
+  --    provider). If that is not unique in your data, add a surrogate PK
+  --    on stg_price_observation_reject.
   UPDATE pricing.stg_price_observation_reject rej
   SET
-    resolved_at = now(),
-    resolved_card_version_id = r.card_version_id,
-    resolved_method = r.resolution_method,
-    resolved_product_id = mcp.product_id,
+    resolved_at                = now(),
+    resolved_card_version_id   = r.card_version_id,
+    resolved_method            = r.resolution_method,
+    resolved_product_id        = mcp.product_id,
     resolved_source_product_id = sp.source_product_id,
-    is_terminal = TRUE,
-    terminal_reason = 'Resolved via ' || r.resolution_method || ' mapping'
+    is_terminal                = TRUE,
+    terminal_reason            = 'Resolved via ' || r.resolution_method || ' mapping'
   FROM tmp_resolved r
   JOIN pricing.mtg_card_products mcp
     ON mcp.card_version_id = r.card_version_id
   JOIN pricing.source_product sp
     ON sp.product_id = mcp.product_id
    AND sp.source_id = v_source_id
-  WHERE rej.ts_date = r.ts_date
-    AND rej.print_id = r.print_id
-    AND rej.metric_code = r.metric_code
-    AND rej.is_foil = r.is_foil
-    AND rej.source_code = r.source_code
-    AND rej.scraped_at = r.scraped_at
+  WHERE rej.ts_date          = r.ts_date
+    AND rej.print_id         = r.print_id
+    AND rej.is_foil          = r.is_foil
+    AND rej.source_code      = r.source_code
+    AND rej.data_provider_id = r.data_provider_id
+    AND rej.scraped_at       = r.scraped_at
     AND r.card_version_id IS NOT NULL;
 
   UPDATE pricing.stg_price_observation_reject r

@@ -54,12 +54,20 @@ class CardReferenceRepository(AbstractRepository[Any]):
         #not async anymore
         result = await self.execute_query("SELECT * FROM card_catalog.insert_batch_card_versions($1::JSONB)", (values,))
         batch_result = result[0] if result else {}
+
+        def _parse_jsonb(val, default):
+            # asyncpg returns jsonb columns as raw JSON strings — parse to Python object
+            if isinstance(val, str):
+                import json
+                return json.loads(val)
+            return val if val is not None else default
+
         response = CardReferenceRepository.BatchInsertResponse(
             total_processed=batch_result.get('total_processed', 0),
             successful_inserts=batch_result.get('successful_inserts', 0),
             failed_inserts=batch_result.get('failed_inserts', 0),
-            inserted_card_ids=batch_result.get('inserted_card_ids', []),
-            errors=batch_result.get('error_details', [])
+            inserted_card_ids=_parse_jsonb(batch_result.get('inserted_card_ids'), []),
+            errors=_parse_jsonb(batch_result.get('error_details'), [])
         )
         return response
 
@@ -211,5 +219,91 @@ class CardReferenceRepository(AbstractRepository[Any]):
     
     
     async def copy_migrations(self, buffer):
-        status = await self._copy_csv_to_table(buffer, schema_name="card_catalog", table_name="scryfall_migration")
-        return status
+        """
+        Bulk-load Scryfall migration records into ``card_catalog.scryfall_migration``
+        with idempotent semantics on the ``id`` primary key.
+
+        PostgreSQL ``COPY`` is a raw bulk transport — it has no ``ON CONFLICT``
+        clause. Copying straight into the target table would blow up on the
+        second daily run the moment a duplicate ``id`` shows up. The correct
+        fix lives at the I/O boundary that actually knows about the conflict,
+        not in a retry flag on the Celery task.
+
+        Pattern: **COPY-into-staging + INSERT … ON CONFLICT DO NOTHING**
+        (a narrow application of the Unit of Work pattern).
+
+            1. Open a transaction so staging DDL, COPY, and the promotion
+               INSERT form a single atomic unit — on failure nothing leaks.
+            2. ``CREATE TEMP TABLE … ON COMMIT DROP`` — session-scoped,
+               self-cleaning on COMMIT. No housekeeping, no cross-run
+               collision if asyncpg reuses the connection.
+            3. COPY the TSV buffer into the temp table (fast path preserved).
+            4. Promote with ``INSERT … SELECT … ON CONFLICT (id) DO NOTHING``
+               so duplicates on re-run are a silent no-op — not a 500.
+
+        The staging schema mirrors ``card_catalog.scryfall_migration`` *without*
+        the PK so COPY never rejects a row mid-stream; the PK check happens
+        at promotion time, where ``ON CONFLICT`` can absorb it cleanly.
+
+        A "SELECT-then-INSERT" guard would be the wrong alternative: it's
+        both racy under concurrent pipeline runs and strictly slower than
+        letting the DB's conflict machinery do its job.
+        """
+        # Keep the staging columns aligned with the tab-separated line built
+        # by ``ScryfallAPIRepository.migrations_to_bytes_buffer``:
+        #   id, uri, performed_at, migration_strategy,
+        #   old_scryfall_id, new_scryfall_id, note, created_at, updated_at
+        staging_table = "tmp_scryfall_migration_stage"
+
+        create_staging_sql = f"""
+            CREATE TEMP TABLE IF NOT EXISTS {staging_table} (
+                id                 uuid,
+                uri                text,
+                performed_at       date,
+                migration_strategy text,
+                old_scryfall_id    uuid,
+                new_scryfall_id    uuid,
+                note               text,
+                created_at         timestamptz,
+                updated_at         timestamptz
+            ) ON COMMIT DROP
+        """
+
+        promote_sql = f"""
+            INSERT INTO card_catalog.scryfall_migration (
+                id, uri, performed_at, migration_strategy,
+                old_scryfall_id, new_scryfall_id, note,
+                created_at, updated_at
+            )
+            SELECT
+                id, uri, performed_at, migration_strategy,
+                old_scryfall_id, new_scryfall_id, note,
+                created_at, updated_at
+            FROM {staging_table}
+            ON CONFLICT (id) DO NOTHING
+        """
+
+        data = buffer.getvalue()  # BytesIO -> bytes
+        assert isinstance(data, (bytes, bytearray)), type(data)
+        data_mv = memoryview(data)
+
+        # Single transaction binds DDL + COPY + INSERT. If any step raises,
+        # asyncpg rolls back; ``ON COMMIT DROP`` guarantees the temp table
+        # evaporates on the happy path — no explicit DROP required.
+        async with self.connection.transaction():
+            await self.connection.execute(create_staging_sql)
+            copy_status = await self.connection.copy_to_table(
+                table_name=staging_table,
+                source=data_mv,
+                format="csv",
+                null="",
+                delimiter="\t",
+                header=False,
+            )
+            insert_status = await self.connection.execute(promote_sql)
+
+        # Return both statuses — ``insert_status`` (e.g. "INSERT 0 N") is what
+        # callers actually care about: rows that survived the conflict filter.
+        # ``copy_status`` only reflects ingestion into the throwaway staging
+        # table and is kept for observability/debugging.
+        return {"copy_status": copy_status, "insert_status": insert_status}

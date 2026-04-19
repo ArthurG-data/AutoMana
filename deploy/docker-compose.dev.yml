@@ -20,7 +20,8 @@ services:
     ports:
       - "${POSTGRES_PORT}:5432"
     volumes:
-      - pgdata-dev:/var/lib/postgresql/data
+      - /data/postgres:/var/lib/postgresql/data
+      - /data/pg_restore:/restore:ro
       - ../infra/db/init/:/docker-entrypoint-initdb.d/:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${APP_ADMIN_DB_USER} -d ${DB_NAME}"]
@@ -105,7 +106,7 @@ services:
       context: ..
       dockerfile: deploy/docker/celery/celery.Dockerfile
     volumes:
-      - "G:/data:/data:/data/mtgjson"
+      - "/data:/data:/data/mtgjson"
     secrets:
       - celery_db_password
     container_name: automana-celery-dev
@@ -114,6 +115,8 @@ services:
     environment:
       OUTPUT_DIR: /data/mtgjson/raw
       POSTGRES_USER: ${APP_CELERY_DB_USER}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
       POSTGRES_PASSWORD_FILE: /run/secrets/celery_db_password
       CELERY_POOL: "prefork"
       MODULES_NAMESPACE: celery
@@ -126,7 +129,7 @@ services:
       - backend-network
 
     command: >
-      sh -c "celery -A automana.worker.main:app worker -P solo
+      sh -c "celery -A automana.worker.main:app worker -P threads
       --loglevel=${CELERY_LOGLEVEL:-DEBUG}
       --concurrency=${CELERY_CONCURRENCY:-1}"
     healthcheck:
@@ -147,6 +150,8 @@ services:
       CELERY_CONCURRENCY: "4"
       CELERY_LOGLEVEL: "INFO"
       CELERY_POOL: "prefork"
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
     depends_on:
       redis:
           condition: service_healthy
@@ -162,6 +167,40 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+  flower:
+    build:
+      context: ..
+      dockerfile: deploy/docker/celery/celery.Dockerfile
+    container_name: automana-flower-dev
+    env_file:
+      - ../config/env/.env.dev
+    environment:
+      CELERY_BROKER_URL: ${BROKER_URL}
+      FLOWER_PORT: "5555"
+      FLOWER_PERSISTENT: "True"
+      FLOWER_DB: /home/appuser/flower/flower.db
+    ports:
+      - "5555:5555"
+    volumes:
+      - flower-data-dev:/home/appuser/flower
+    depends_on:
+      redis:
+        condition: service_healthy
+      celery-worker:
+        condition: service_healthy
+    networks:
+      - backend-network
+    command: >
+      sh -c "celery -A automana.worker.main:app --broker=${BROKER_URL} flower
+      --port=5555
+      --persistent=True
+      --db=/home/appuser/flower/flower.db
+      --logging=${CELERY_LOGLEVEL:-info}"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:5555/healthcheck')\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
   schema-spy:
     build:
       context: ..
@@ -172,7 +211,7 @@ services:
     secrets:
       - readonly_db_password
     volumes:
-      - ../schemaspy:/app/schemaspy
+      - ../docs/db-schema:/app/docs/db-schema
     depends_on:
       postgres:
           condition: service_healthy
@@ -183,7 +222,7 @@ services:
 
       ls -la /drivers/
       POSTGRES_PASSWORD=$(cat /run/secrets/readonly_db_password)
-      java -jar /usr/local/lib/schemaspy/schemaspy*.jar -t pgsql -host postgres -port 5432 -db automana -u app_readonly -p "$$POSTGRES_PASSWORD" -all -o /app/schemaspy/docs/db-schema -dp /drivers/postgresql.jar -nologo
+      java -jar /usr/local/lib/schemaspy/schemaspy*.jar -t pgsql -host postgres -port 5432 -db automana -u app_readonly -p "$$POSTGRES_PASSWORD" -all -o /app/docs/db-schema -dp /drivers/postgresql.jar -nologo
      
     networks:
       - backend-network
@@ -218,3 +257,4 @@ volumes:
   pgdata-dev:
   redis-data-dev:
   redis-config-dev:
+  flower-data-dev:

@@ -7,10 +7,12 @@ from uuid import UUID
 from typing import Any, AsyncGenerator, Callable, Dict, List,  Optional
 from automana.core.repositories.card_catalog.set_repository import SetReferenceRepository
 from automana.core.repositories.ops.ops_repository import OpsRepository
+from automana.core.services.ops.pipeline_services import track_step
 from automana.core.models.card_catalog.set import  SetInDB, NewSet, UpdatedSet, NewSets
 from automana.core.exceptions.service_layer_exceptions.card_catalogue import set_exception
 from automana.core.utils.utils import decode_json_input
 from automana.core.service_registry import ServiceRegistry
+from automana.core.storage import StorageService
 
 logger = logging.getLogger(__name__)
 
@@ -172,42 +174,26 @@ class ProcessingConfig:
 
 @ServiceRegistry.register(
     "card_catalog.set.process_large_sets_json",
-    db_repositories=["set", "ops"]
+    db_repositories=["set", "ops"],
+    storage_services=["scryfall"]
 )
 async def process_large_sets_json(
     set_repository: SetReferenceRepository,
-    file_path: str,
+    storage_service: StorageService,
+    filename: str,
     ingestion_run_id: int = None,
     ops_repository: OpsRepository = None,
     config: ProcessingConfig = None,
     resume_from_batch: int = 0,
-    update_run: bool = False
 ) -> dict:
     """Process large JSON file containing sets using streaming to minimize memory usage"""
     processor = EnhancedSetImportService(set_repository, config)
-    try:
-        result : ProcessingStats =  await processor.process_large_sets_json(
-            file_path=file_path,
+    async with track_step(ops_repository, ingestion_run_id, "process_large_sets_json", error_code="processing_failed"):
+        result: ProcessingStats = await processor.process_large_sets_json(
+            storage_service=storage_service,
+            filename=filename,
             resume_from_batch=resume_from_batch
         )
-        if update_run and ops_repository:
-            await ops_repository.update_run(
-                ingestion_run_id=ingestion_run_id,
-                status="success",
-                current_step="process_large_sets_json",
-                
-                notes=f"Processed {result.total_sets} sets with {result.successful_inserts} successful inserts and {result.failed_inserts} failures."
-            )
-    except Exception as e:
-        if update_run and ops_repository:
-            await ops_repository.update_run(
-                ingestion_run_id=ingestion_run_id,
-                status="failed",
-                current_step="process_large_sets_json",
-                error_code="processing_failed",
-                error_details={"message": str(e)}
-            )
-        raise e
     return result.to_dict()
 
 class EnhancedSetImportService:
@@ -220,79 +206,40 @@ class EnhancedSetImportService:
         self.failed_sets: List[Dict[str, Any]] = []
 
     async def process_large_sets_json(
-        self, 
-        file_path: str,
+        self,
+        storage_service: StorageService,
+        filename: str,
         resume_from_batch: int = 0,
-        validate_file_first: bool = True
-    ) -> ProcessingStats:
-        """
-        Process large JSON file with enhanced error handling and monitoring
-        
-        Args:
-            file_path: Path to JSON file (local or cloud)
-            resume_from_batch: Batch number to resume from (for recovery)
-            validate_file_first: Whether to validate JSON structure first
-        """
+    ):
         try:
-            logger.info(f"ðŸš€ Starting enhanced file processing: {file_path}")
+            logger.info(f"Starting enhanced file processing: {filename}")
             self.stats.start_time = datetime.utcnow()
-            
-            # Validate file exists and is readable
-            if validate_file_first and not self._validate_file(file_path):
-                raise set_exception.SetInsertError(f"File validation failed: {file_path}")
 
-            # Process the file
-            await self._process_file_stream(file_path, resume_from_batch)
+            if not await storage_service.file_exists(filename):
+                raise set_exception.SetInsertError(f"File not found in storage: {filename}")
+
+            await self._process_file_stream(storage_service, filename, resume_from_batch)
 
             self.stats.end_time = datetime.utcnow()
-            # Save failed sets if any
             if self.failed_sets and self.config.save_failed_sets:
                 self._save_failed_sets()
-            
-            # Final summary
             self._log_processing_summary()
-            
             return self.stats
-            
+
         except Exception as e:
             self.stats.end_time = datetime.utcnow()
-            logger.error(f"âŒ File processing failed: {str(e)}")
+            logger.error(f"File processing failed: {str(e)}")
             raise set_exception.SetInsertError(f"File processing failed: {str(e)}")
 
-    def _validate_file(self, file_path: str) -> bool:
-        """Validate file exists and is accessible"""
-        try:
-            path = Path(file_path)
-            if not path.exists():
-                logger.error(f"âŒ File does not exist: {file_path}")
-                return False
-            
-            if not path.is_file():
-                logger.error(f"âŒ Path is not a file: {file_path}")
-                return False
-            
-            # Check file size (warn if very large)
-            file_size = path.stat().st_size
-            if file_size > 500 * 1024 * 1024:  # 500MB
-                logger.warning(f"âš ï¸ Large file detected: {file_size / 1024 / 1024:.1f}MB")
-            
-            logger.info(f"âœ… File validation passed: {file_size / 1024 / 1024:.1f}MB")
-            return True
-            
-        except Exception as e:
-            logger.error(f"âŒ File validation error: {str(e)}")
-            return False
-
-
-    async def _process_file_stream(self, file_path: str, resume_from_batch: int = 0):
-        """Process file using streaming with enhanced error handling"""
+    async def _process_file_stream(self, storage_service: StorageService, filename: str, resume_from_batch: int = 0):
+        """Stream the file through the storage backend — works for local and cloud."""
         batch = []
         batch_count = 0
-        logger.info(f"ðŸ“ Opening file for streaming: {file_path}")
+        logger.info(f"Opening stream: {filename}")
 
         try:
-            with open(file_path, "rb") as f:
-                sets_iter = ijson.items(f, "data.item")
+            async with storage_service.open_stream(filename) as f:
+                sets_iter = ijson.items(f, "item")
                 for set_json in sets_iter:
                     try:
                         # Skip batches if resuming

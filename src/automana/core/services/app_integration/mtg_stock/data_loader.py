@@ -57,7 +57,8 @@ async def write_batch(
                 info_path.write_bytes(details)
             if prices:
                 price_path = pdir  / f"prices.{market}.parquet"
-                price_path.write_bytes(prices)
+                # `prices_to_parquet` both decodes the JSON and writes the
+                # parquet file; no prior `write_bytes(prices)` needed.
                 prices_to_parquet(item.get('card_id'), prices, price_path)
     except Exception as e:
         logger.error(f"Error writing batch: {e}")
@@ -157,6 +158,8 @@ async def run_mtgstock_pipeline(
     start_index = existing_ids.index(first_index) if first_index in existing_ids else 0
     logger.info(f"Starting price updates from index {start_index} (print ID {existing_ids[start_index] if existing_ids else 'N/A'})")
     total_prints = len(existing_ids)
+    batch_result = None
+    end = start_index
     try:
         while start_index < total_prints:
             end = min(start_index + batch_size , total_prints)
@@ -168,45 +171,55 @@ async def run_mtgstock_pipeline(
             await write_batch(cleaned_data, Path(destination_folder), market=market)
             start_index =  end
     except Exception as e:
+        # Prior version referenced an undefined `end_index` here and masked the
+        # real exception with a NameError. `end` is the local batch bound.
         logger.error(f"Error updating prices: {e}")
-        processed, errored, step = await end_of_batch_process(ops_repository
-                                                                  , ingestion_run_id
-                                                                  , step
-                                                                  , existing_ids[start_index]
-                                                                  , existing_ids[end_index-1],
-                                                                    run_key, celery_task_id
-                                                                    ,processed
-                                                                    ,errored
-                                                                    , batch_result)
-        start_index += batch_size
-        end_index += batch_size
+        if existing_ids and start_index < total_prints:
+            processed, errored, step = await end_of_batch_process(
+                ops_repository,
+                ingestion_run_id,
+                "mtgStock_data_loader",
+                step,
+                existing_ids[start_index],
+                existing_ids[min(end, total_prints) - 1],
+                run_key,
+                celery_task_id,
+                processed,
+                errored,
+                batch_result,
+            )
+        raise
     #then, process all remaining prints in batches
 
     last_existing_id = await get_last_print_id(mtg_stock_repository, max(existing_ids) if existing_ids else 0)
     logger.info(f"New prints added until {last_existing_id}, starting full load from {max(existing_ids)+1 if existing_ids else 1}")
     total_prints = last_existing_id
     try:
-        for start in range(existing_ids[-1] +1, last_existing_id + 1, batch_size):
+        start_from = (existing_ids[-1] + 1) if existing_ids else 1
+        for start in range(start_from, last_existing_id + 1, batch_size):
             end = min(start + batch_size - 1, total_prints)
+            # `fetch_card_price_data_batch` signature is (card_ids, market).
+            # The prior implementation passed non-existent kwargs and raised
+            # TypeError on the first call.
+            batch_ids = list(range(start, end + 1))
             batch_result = await mtg_stock_repository.fetch_card_price_data_batch(
-                                      range_start=start,
-                                      range_end=end,
-                                      batch_size=batch_size,
-                                      destination_folder=destination_folder,
-                                      print_ids=None)
-            
+                card_ids=batch_ids, market=market,
+            )
             cleaned_data = [d for d in batch_result.get("data", []) if "error" not in d]
             await write_batch(cleaned_data, Path(destination_folder), market=market)
-            processed, errored, step = await end_of_batch_process(ops_repository
-                                                                    , ingestion_run_id
-                                                                    , step
-                                                                    , start
-                                                                    , end
-                                                                    , run_key
-                                                                    , celery_task_id
-                                                                    ,processed
-                                                                    ,errored
-                                                                    , batch_result)
+            processed, errored, step = await end_of_batch_process(
+                ops_repository,
+                ingestion_run_id,
+                "mtgStock_data_loader",
+                step,
+                start,
+                end,
+                run_key,
+                celery_task_id,
+                processed,
+                errored,
+                batch_result,
+            )
         await ops_repository.update_run(
             run_key=run_key,
             status="success",
@@ -224,6 +237,7 @@ async def run_mtgstock_pipeline(
             error_details={"error": str(e)}
 
         )
+        raise
 
 @ServiceRegistry.register(
         "mtg_stock.data_loader.run_list_id_load",
@@ -291,12 +305,10 @@ async def run_mtgstock_pipeline_selected_lists(
             pbar.update(end_index - start_index)
             start_index = end_index
             pbar.set_postfix_str(f"done ok={processed} err={errored}")
-       
 
-        processed += processed_result
-        errored += errored_result
-        step = step_result
-    #deal with remaining ids if any
+        # `processed`/`errored` are already incremented inside the loop — the
+        # previous code re-added `processed_result`/`errored_result` (just the
+        # LAST batch's counters) here, double-counting the tail. Do not.
 
         if ops_repository:
             await ops_repository.update_run(
@@ -327,45 +339,53 @@ async def run_mtgstock_pipeline_selected_lists(
         pbar.close()
 
 async def end_of_batch_process(ops_repository
-                               ,  ingestion_run_id,step_name
-                               ,  step
+                               , ingestion_run_id
+                               , step_name
+                               , step
                                , start
                                , end
                                , run_key
                                , celery_task_id=None
                                , processed=0
                                , errored=0
-                               , batch_run_result = None): 
-    """
-    batch_result: MTGStockBatchStep = MTGStockBatchStep(
+                               , batch_run_result=None):
+    """Record one batch into ops and advance the running counters.
+
+    The previous implementation had its body inside triple-quoted strings,
+    effectively disabling ops batch-step tracking. Restored here."""
+    items_ok = batch_run_result.get("items_ok", 0) if batch_run_result else 0
+    items_failed = batch_run_result.get("items_failed", 0) if batch_run_result else 0
+    bytes_processed = batch_run_result.get("bytes_processed", 0) if batch_run_result else 0
+    batch_data = batch_run_result.get("data", []) if batch_run_result else []
+
+    processed += items_ok
+    errored += items_failed
+
+    if ops_repository and ingestion_run_id is not None:
+        batch_step = MTGStockBatchStep(
             ingestion_run_id=ingestion_run_id,
             batch_seq=step,
             step_name=step_name,
             range_start=start,
             range_end=end,
-            total_in_batch = len(batch_run_result.get("data", [])),  # end_index exclusive
-            items_ok=batch_run_result.get("items_ok", 0) if batch_run_result else 0,
-            items_failed = batch_run_result.get("items_failed", 0) if batch_run_result else 0,
-            bytes_processed=batch_run_result.get("bytes_processed", 0) if batch_run_result else 0,
+            total_in_batch=len(batch_data),
+            status="success" if items_failed == 0 else "partial",
+            items_ok=items_ok,
+            items_failed=items_failed,
+            bytes_processed=bytes_processed,
             duration_ms=batch_run_result.get("duration_ms", 0.0) if batch_run_result else 0.0,
             error_code=batch_run_result.get("error_code") if batch_run_result else None,
-            error_details=batch_run_result.get("error_details") if batch_run_result else None
+            error_details=batch_run_result.get("error_details") if batch_run_result else None,
         )
-    """
-    processed += batch_run_result.get("items_ok", 0) if batch_run_result else 0
-    errored += batch_run_result.get("items_failed", 0) if batch_run_result else 0
-    """
-    if ops_repository:
-        await ops_repository.insert_batch_step(batch_step=batch_result)
+        await ops_repository.insert_batch_step(batch_step=batch_step)
         await ops_repository.update_run(
             run_key=run_key,
-            status="success",
-            ended_at=datetime.now(timezone.utc),
-            current_step="mtgStock_data_loader",
+            status="running",
+            current_step=step_name,
             celery_task_id=celery_task_id,
-            notes=f"Processed {processed} items with {errored} errors."
+            notes=f"Processed {processed} items with {errored} errors.",
         )
-    """
+
     step += 1
     return processed, errored, step
 

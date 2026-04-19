@@ -1,13 +1,16 @@
-﻿from automana.core.service_registry import ServiceRegistry
+﻿import logging
+from automana.core.service_registry import ServiceRegistry
 from automana.core.storage import StorageService
+
+logger = logging.getLogger(__name__)
 
 async def insert_mtg_json_data(mtgjson_repository, storage_service):
     """Calles the reuired stored procedure to move the data from file storage to the staging table in the database"""
-    logger = logging.getLogger(__name__)
     logger.info("Starting MTGJSON data staging")
 
     try:
-        #fetch the data from the API repository
+        #fetch the data from storage
+
         card_data = await mtgjson_repository.fetch_price_today()
         if card_data is None:
             raise ValueError("No data returned from MTGJSON repository")

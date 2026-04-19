@@ -98,15 +98,21 @@ class Settings(BaseSettings):
     DB_PORT: int = Field(default=5432, alias="POSTGRES_PORT")
     DB_NAME: str = Field(default="automana", alias="DB_NAME")
     DB_USER: str = Field(default="app_backend", alias="APP_BACKEND_DB_USER")
+    POSTGRES_USER: str | None = None  # per-service override (takes priority over APP_BACKEND_DB_USER)
     DB_HOST: str = Field(default="localhost", alias="POSTGRES_HOST")
     POSTGRES_PASSWORD_FILE: str | None = None
     POSTGRES_PASSWORD: str | None = None
+
+    # Storage
+    data_dir: str = Field(default="/data/automana_data", alias="DATA_DIR")
 
     # WEB HOOKS
     DISCORD_WEBHOOK_URL: str | None = None
 
     @model_validator(mode="after")
-    def load_db_password(self):
+    def load_db_settings(self):
+        if self.POSTGRES_USER:
+            self.DB_USER = self.POSTGRES_USER
         self.DB_PASSWORD = read_db_password(
             password=self.db_password,
             password_file=self.POSTGRES_PASSWORD_FILE,

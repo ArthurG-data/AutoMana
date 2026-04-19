@@ -1,5 +1,47 @@
-﻿from automana.core.service_registry import ServiceRegistry
+﻿import logging
+from contextlib import asynccontextmanager
+from automana.core.service_registry import ServiceRegistry
 from automana.core.repositories.ops.ops_repository import OpsRepository
+
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def track_step(
+    ops_repository: OpsRepository | None,
+    ingestion_run_id: int | None,
+    step_name: str,
+    error_code: str = "step_failed",
+):
+    """Async context manager that tracks a pipeline step in the ops repository.
+
+    - No-op when ops_repository or ingestion_run_id is None (standalone / test mode).
+    - On entry:    marks the step as 'running'.
+    - On clean exit: marks the step as 'success'.
+    - On exception: marks the step as 'failed' with error details, then re-raises.
+    """
+    if not ops_repository or not ingestion_run_id:
+        yield
+        return
+
+    await ops_repository.update_run(
+        ingestion_run_id, status="running", current_step=step_name
+    )
+    try:
+        yield
+    except Exception as e:
+        await ops_repository.update_run(
+            ingestion_run_id,
+            status="failed",
+            current_step=step_name,
+            error_code=error_code,
+            error_details={"message": str(e)},
+        )
+        raise
+    else:
+        await ops_repository.update_run(
+            ingestion_run_id, status="success", current_step=step_name
+        )
 
 @ServiceRegistry.register(
         "ops.pipeline_services.start_run",
@@ -21,9 +63,9 @@ async def start_run(
             celery_task_id=celery_task_id
         )
     except Exception as e:
-        print(f"Error starting run: {e}")
+        logger.error("Failed to start run", extra={"run_key": run_key, "pipeline_name": pipeline_name, "error": str(e)})
         raise
-    print(f"Started run with id {ingestion_run_id}")
+    logger.info("Pipeline run started", extra={"ingestion_run_id": ingestion_run_id, "run_key": run_key, "pipeline_name": pipeline_name})
     return {"ingestion_run_id": ingestion_run_id}
 
 @ServiceRegistry.register(

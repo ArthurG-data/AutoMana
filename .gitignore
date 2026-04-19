@@ -84,9 +84,12 @@ staging/
 # test
 test_services.ipynb
 
-#sscehmaspy
-schemaspy/
+# schemaspy generated HTML (written by the schema-spy compose service)
+docs/db-schema/
 *.egg-info
 *.dist-info/
 
+CLAUDE.md
+.claude/
+plans/
 

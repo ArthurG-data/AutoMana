@@ -10,3 +10,4 @@ async def daily_summary_report(analytics_repository: AnalyticsRepository) -> Non
     """for now, how many new sets and how many new cards were added in the last day"""
     result = await analytics_repository.generate_daily_summary_report()
     return result
+
