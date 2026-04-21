@@ -1,4 +1,4 @@
-﻿import asyncio, logging ,os, asyncpg
+import asyncio, logging ,os, asyncpg
 from psycopg2.extras import RealDictCursor, register_uuid, register_uuid
 from psycopg2 import pool
 
@@ -35,7 +35,7 @@ async def init_async_pool(settings:Settings) -> asyncpg.Pool:
                 command_timeout=60,
                 server_settings={"client_encoding": "UTF8"},
             )
-            logger.info("âœ… Async pool created")
+            logger.info("Async pool created")
             return async_pool
         except Exception as exc:  # asyncpg raises a variety of network/PG exceptions
             last_exc = exc
@@ -81,7 +81,7 @@ async def init_sync_pool_with_retry(settings: Settings) -> pool.SimpleConnection
         try:
             logger.info("Creating sync database pool (attempt %s/%s)", attempt, max_attempts)
             sync_pool = await asyncio.to_thread(init_sync_pool, settings)
-            logger.info("âœ… Sync pool created")
+            logger.info("Sync pool created")
             return sync_pool
         except Exception as exc:
             last_exc = exc
@@ -105,11 +105,11 @@ async def close_async_pool(pool: asyncpg.Pool) -> None:
     """Close async pool gracefully"""
     if pool:
         await pool.close()
-        logger.info("âœ… Async pool closed")
+        logger.info("Async pool closed")
 
 
 def close_sync_pool(pool: pool.SimpleConnectionPool) -> None:
     """Close sync pool gracefully"""
     if pool:
         pool.closeall()
-        logger.info("âœ… Sync pool closed")
+        logger.info("Sync pool closed")

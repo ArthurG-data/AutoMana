@@ -46,7 +46,7 @@ class ScryfallAPIRepository(BaseApiClient):
                 datetime.utcnow().isoformat(),
             ]) + "\n"
 
-            buffer.write(line.encode("utf-8"))  # âœ… bytes
+            buffer.write(line.encode("utf-8"))  # bytes
 
         buffer.seek(0)
         return buffer

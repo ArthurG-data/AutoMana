@@ -237,7 +237,7 @@ class CreateCard(BaseCard):
         if faces is None:
             values["card_faces"] = []
         else:
-            # If faces is a dict â†’ call your parse_card_faces() function
+            # If faces is a dict -> call your parse_card_faces() function
             faces = parse_card_faces(faces)  # returns List[CardFace]
 
             # Now clean the list

@@ -14,7 +14,7 @@ def get_query_executor(request: Request) -> QueryExecutor:
 def get_service_manager(request: Request) -> ServiceManager:
     """
     Get ServiceManager from app state
-    âœ… No more global imports from backend.main
+    No more global imports from backend.main
     """
     if not hasattr(request.app.state, 'service_manager') or request.app.state.service_manager is None:
         raise RuntimeError("ServiceManager not initialized")

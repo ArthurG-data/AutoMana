@@ -262,7 +262,7 @@ class EnhancedSetImportService:
                             await self._process_batch(batch, batch_count + 1)
                             batch = []
                             batch_count += 1
-                            logger.info("âœ… finished batch %s", batch_count + 1)
+                            logger.info("finished batch %s", batch_count + 1)
                             # Progress callback
                             if self.config.progress_callback:
                                 self.config.progress_callback(self.stats)
@@ -315,7 +315,7 @@ class EnhancedSetImportService:
                 self.stats.failed_inserts += result.failed_inserts
                 self.stats.batches_processed += 1
 
-                logger.info(f"âœ… Batch {batch_number} completed: {result.successful_inserts}/{len(batch)} sets inserted")
+                logger.info(f"Batch {batch_number} completed: {result.successful_inserts}/{len(batch)} sets inserted")
 
                 # Log any errors from this batch
                 if result.errors:
@@ -379,7 +379,7 @@ class EnhancedSetImportService:
         logger.info("ðŸ“Š FILE PROCESSING SUMMARY")
         logger.info("=" * 60)
         logger.info(f"ðŸ“ Total sets processed: {self.stats.total_sets}")
-        logger.info(f"âœ… Successful inserts: {self.stats.successful_inserts}")
+        logger.info(f"Successful inserts: {self.stats.successful_inserts}")
         logger.info(f"âŒ Failed inserts: {self.stats.failed_inserts}")
         logger.info(f"âš ï¸ Processing errors: {self.stats.processing_errors}")
         logger.info(f"ðŸ“¦ Batches processed: {self.stats.batches_processed}")

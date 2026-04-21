@@ -135,7 +135,7 @@ class ApiMtgStockRepository(BaseApiClient):
                 data=data,
                 timeout=timeout,
             )
-            # ðŸŸ¢ 304 Not Modified â†’ reuse cached body
+            # ðŸŸ¢ 304 Not Modified -> reuse cached body
             if resp.status_code == 304:
                 cached = self._get_cached(url)
                 if cached is not None:
@@ -163,11 +163,11 @@ class ApiMtgStockRepository(BaseApiClient):
                 backoff = min(backoff * 2, 30)
                 continue
 
-            # âŒ Not found â†’ return immediately
+            # âŒ Not found -> return immediately
             if resp.status_code == 404:
                 return resp
 
-            # âœ… Success â†’ store ETag if present
+            # Success -> store ETag if present
             if resp.status_code < 400:
                 etag = resp.headers.get("ETag")
                 if etag:

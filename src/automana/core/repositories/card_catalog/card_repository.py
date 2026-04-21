@@ -35,7 +35,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
             )
 
     async def _copy_csv_to_table(self, buffer :bytes, schema_name, table_name):
-        data = buffer.getvalue()  # convert BytesIO â†’ bytes
+        data = buffer.getvalue()  # convert BytesIO -> bytes
         data_mv = memoryview(data)
         assert isinstance(data, (bytes, bytearray)), type(data_mv)
         status =await self.connection.copy_to_table(

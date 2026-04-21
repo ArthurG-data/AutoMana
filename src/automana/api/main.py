@@ -62,7 +62,7 @@ async def lifespan(app: FastAPI):
         if hasattr(app.state, 'sync_db_pool') and app.state.sync_db_pool:
             close_sync_pool(app.state.sync_db_pool)
             
-        logger.info("âœ… Application shutdown complete")
+        logger.info("Application shutdown complete")
 
 # ==========================================
 # FastAPI Application
