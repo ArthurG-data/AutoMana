@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS pricing.mtgjson_payloads (
 
 CREATE TABLE IF NOT EXISTS pricing.mtgjson_card_prices_staging (
     id SERIAL PRIMARY KEY,
+    payload_id UUID NOT NULL REFERENCES pricing.mtgjson_payloads(id) ON DELETE CASCADE,
     card_uuid TEXT NOT NULL,
     price_source TEXT NOT NULL, --the provenance
     price_type  TEXT, --buylist or retail
@@ -33,32 +34,38 @@ CREATE TABLE IF NOT EXISTS pricing.mtgjson_card_prices_staging (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE OR REPLACE PROCEDURE pricing.process_mtgjson_payload(payload_id UUID)
+CREATE OR REPLACE PROCEDURE pricing.process_mtgjson_payload(p_payload_id UUID)
 LANGUAGE plpgsql
 AS $$
 BEGIN
     -- Fetch the payload record
-    IF NOT EXISTS (SELECT 1 FROM pricing.mtgjson_payloads WHERE id = payload_id) THEN
-        RAISE EXCEPTION 'Payload with ID % not found', payload_id;
+    IF NOT EXISTS (SELECT 1 FROM pricing.mtgjson_payloads WHERE id = p_payload_id) THEN
+        RAISE EXCEPTION 'Payload with ID % not found', p_payload_id;
     END IF;
 
-    INSERT INTO pricing.mtgjson_card_prices_staging (card_uuid, price_source, price_type,finish_type, price_date, price_value, currency)
-    SELECT 
-      card_key AS card_uuid,
-      source_key as source_key,
-      price_type_key as price_type_key,
-      finish_type_key as finish_type_key,
-      price_date::DATE AS price_date,
-      price_value::NUMERIC AS price_value,
-      (source_val->>'currency') AS currency
-    FROM pricing.mtgjson_payloads,
-    LATERAL jsonb_each(payload -> 'data') AS data_entry(card_key, card_val),
-    LATERAL jsonb_each(card_val -> 'paper') AS source_entry(source_key, source_val),
-    LATERAL jsonb_each(source_val) AS price_type_entry(price_type_key, price_type_val),
-    LATERAL jsonb_each(price_type_val) AS finish_entry(finish_type_key, finish_type_val),
-    LATERAL jsonb_each(finish_type_val) AS date_entry(price_date, price_value)
-    WHERE id = payload_id
-      AND price_type_key NOT IN ('currency');
+    INSERT INTO pricing.mtgjson_card_prices_staging (
+        payload_id, card_uuid, price_source, price_type, finish_type,
+        price_date, price_value, currency
+    )
+    SELECT
+      p_payload_id                        AS payload_id,
+      data_entry.card_key                 AS card_uuid,
+      source_entry.source_key             AS price_source,
+      price_type_entry.price_type_key     AS price_type,
+      finish_entry.finish_type_key        AS finish_type,
+      date_entry.price_date::DATE         AS price_date,
+      date_entry.price_value::NUMERIC     AS price_value,
+      (source_entry.source_val->>'currency') AS currency
+    FROM pricing.mtgjson_payloads AS p,
+    LATERAL jsonb_each(p.payload -> 'data')          AS data_entry(card_key, card_val),
+    LATERAL jsonb_each(data_entry.card_val -> 'paper') AS source_entry(source_key, source_val),
+    LATERAL jsonb_each(source_entry.source_val)      AS price_type_entry(price_type_key, price_type_val),
+    LATERAL jsonb_each(price_type_entry.price_type_val) AS finish_entry(finish_type_key, finish_type_val),
+    LATERAL jsonb_each(finish_entry.finish_type_val) AS date_entry(price_date, price_value)
+    WHERE p.id = p_payload_id
+      AND price_type_entry.price_type_key NOT IN ('currency')
+    ON CONFLICT (payload_id, card_uuid, price_source, price_type,
+                 finish_type, price_date, currency) DO NOTHING;
 END;
 $$;
 

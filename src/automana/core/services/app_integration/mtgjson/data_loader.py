@@ -37,9 +37,6 @@ async def download_mtgjson_data_last_90(
     dest_path = storage_service.build_timestamped_path("AllPrices.json.xz")
     await mtgjson_repository.fetch_all_prices_stream(dest_path)
     logger.info("Streamed MTGJson 90-day data to disk", extra={"file": str(dest_path)})
-    # NB: the try/except-log-and-reraise pattern the previous version used is
-    # pure noise — `run_service` already logs and re-raises via its own
-    # try/except. Don't duplicate infrastructure.
     return {"file_path_prices": str(dest_path)}
 
 
@@ -97,4 +94,19 @@ async def load_prices_to_staging(
     await mtgjson_repository.call_process_payload(payload_id)
     logger.info("Expanded payload into staging rows", extra={"payload_id": payload_id})
 
+    return {"payload_id": payload_id}
+
+
+#
+@ServiceRegistry.register(
+    "staging.mtgjson.promote_to_price_observation",
+    db_repositories=["mtgjson"]
+)
+async def promote_to_price_observation(mtgjson_repository: MtgjsonRepository,
+                                        payload_id: int
+                                        ) -> dict:
+    """Call the stored procedure to promote staged rows into `pricing.mtgjson_card_prices`."""
+    logger.info("Promoting MTGJson staged data to price observations", extra={"payload_id": payload_id})
+    await mtgjson_repository.promote_staging_to_production(payload_id) 
+    logger.info("Promotion complete", extra={"payload_id": payload_id})
     return {"payload_id": payload_id}

@@ -20,3 +20,6 @@ class MtgjsonRepository(AbstractRepository):
         await self.execute_command(
             "CALL pricing.process_mtgjson_payload($1::uuid)", payload_id
         )
+
+    async def promote_staging_to_production(self, payload_id: str) -> None:
+        await self.execute_command("CALL pricing.load_price_observation_from_mtgjson_staging_batched($1::uuid)", payload_id)
