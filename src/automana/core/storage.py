@@ -3,11 +3,15 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from fnmatch import fnmatch
 from pathlib import Path
-from typing import Any, Union
+from typing import Any, AsyncIterator, Tuple, Union
 import asyncio
 import json
 import logging
 import lzma
+import queue as _queue
+import threading
+
+import ijson
 
 # NB: dropped `from numpy import full` — it was never referenced, yet it
 # dragged the entire NumPy dependency into a storage module. That's a
@@ -282,6 +286,9 @@ class StorageService:
 
         The decompression + JSON parse is CPU-heavy and synchronous, so it is
         offloaded to the default executor to keep the event loop responsive.
+
+        Memory cost scales with the full decompressed payload — prefer
+        :meth:`iter_xz_json_kvitems` for anything above a few hundred MB.
         """
         # `get_running_loop()` is the 3.10+ idiom; `get_event_loop()` is on
         # the deprecation glide path when called outside a running loop.
@@ -292,6 +299,60 @@ class StorageService:
                 return json.load(f)
 
         return await loop.run_in_executor(None, _read)
+
+    async def iter_xz_json_kvitems(
+        self,
+        absolute_path: str,
+        prefix: str,
+        queue_maxsize: int = 4,
+    ) -> AsyncIterator[Tuple[str, Any]]:
+        """Stream ``(key, value)`` pairs parsed from a JSON map inside an ``.xz`` file.
+
+        Memory stays bounded by ``queue_maxsize`` × sizeof(one value). For the
+        MTGJson price catalog this means ~1 card's worth of JSON in flight at
+        a time, rather than the full ~1-2 GB payload.
+
+        Parameters
+        ----------
+        absolute_path:
+            Resolved path to the ``.xz`` file on disk.
+        prefix:
+            ijson key-path to the target map (e.g. ``"data"`` for a top-level
+            ``{"data": {"<card_uuid>": {...}, ...}}`` document).
+        queue_maxsize:
+            Upper bound on how many parsed values may sit in the bridge queue
+            before the producer thread blocks. Also doubles as backpressure.
+        """
+        sentinel: object = object()
+        bridge: _queue.Queue = _queue.Queue(maxsize=queue_maxsize)
+        err: list[Exception | None] = [None]
+
+        def _producer() -> None:
+            try:
+                with lzma.open(absolute_path, "rb") as fh:
+                    for kv in ijson.kvitems(fh, prefix):
+                        bridge.put(kv)
+            except Exception as exc:  # captured and re-raised on the consumer side
+                err[0] = exc
+            finally:
+                bridge.put(sentinel)
+
+        thread = threading.Thread(
+            target=_producer, name="storage-xz-json-kvitems", daemon=True
+        )
+        thread.start()
+
+        loop = asyncio.get_running_loop()
+        try:
+            while True:
+                item = await loop.run_in_executor(None, bridge.get)
+                if item is sentinel:
+                    break
+                yield item
+            if err[0] is not None:
+                raise err[0]
+        finally:
+            thread.join(timeout=5)
 
 def get_storage_service(base_path: str = "storage") -> StorageService:
     """Get a storage service instance"""

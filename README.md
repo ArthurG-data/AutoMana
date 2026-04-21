@@ -10,6 +10,8 @@ AutoMana is a FastAPI backend for tracking a Magic: The Gathering collection wit
 - [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) — Docker Compose, env files, secrets
 - [docs/LOGGING.md](docs/LOGGING.md) — structured logging
 - [docs/SCRYFALL_PIPELINE.md](docs/SCRYFALL_PIPELINE.md) — Scryfall ETL pipeline
+- [docs/MTGJSON_PIPELINE.md](docs/MTGJSON_PIPELINE.md) — MTGJson daily price ingestion pipeline
+- [docs/MTGSTOCK_PIPELINE.md](docs/MTGSTOCK_PIPELINE.md) — MTGStocks price ingestion pipeline
 
 ## Quickstart (Docker)
 

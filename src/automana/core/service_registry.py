@@ -7,12 +7,34 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ServiceConfig:
-    """Configuration for a registered service"""
+    """Configuration for a registered service.
+
+    Execution knobs
+    ───────────────
+    `runs_in_transaction` (default True) — ServiceManager wraps the call in an
+    explicit asyncpg transaction. Set to False for services whose SQL manages
+    its own transaction control (e.g. stored procedures that use internal
+    `COMMIT`/`ROLLBACK`). Postgres rejects internal transaction control when
+    `CALL` is issued from an atomic block, so those procs must run on a
+    non-atomic connection.
+
+    `command_timeout` (default None → inherit Postgres role default) — seconds.
+    Applied server-side via `SET [LOCAL|SESSION] statement_timeout` for the
+    service's duration. `LOCAL` scope is used inside a transaction (auto-resets
+    at COMMIT/ROLLBACK); `SESSION` scope is used when `runs_in_transaction=False`
+    and explicitly reset on exit so pooled connections don't leak the override.
+    Pass a number of seconds to extend or tighten the ceiling for known-long
+    operations (e.g. bulk-ETL procs). None keeps the role's `statement_timeout`
+    GUC; there is no way to fully "disable" the timeout — pick a generous
+    number instead.
+    """
     module: str
     function: str
     db_repositories: List[str] = field(default_factory=list)
     api_repositories: List[str] = field(default_factory=list)
     storage_services: List[str] = field(default_factory=list)
+    runs_in_transaction: bool = True
+    command_timeout: Optional[float] = None
 
 
 class ServiceRegistry:
@@ -36,11 +58,13 @@ class ServiceRegistry:
         path: str,
         db_repositories: List[str] = None,
         api_repositories: List[str] = None,
-        storage_services: List[str] = None
+        storage_services: List[str] = None,
+        runs_in_transaction: bool = True,
+        command_timeout: Optional[float] = None,
     ) -> Callable:
         """
         Decorator to register a service function.
-        
+
         Usage:
             @ServiceRegistry.register(
                 "card_catalog.card.search",
@@ -48,6 +72,9 @@ class ServiceRegistry:
             )
             async def search_cards(card_repository, **kwargs):
                 ...
+
+        See `ServiceConfig` for the semantics of `runs_in_transaction` and
+        `command_timeout`.
         """
         def decorator(func: Callable) -> Callable:
             cls._services[path] = ServiceConfig(
@@ -55,7 +82,9 @@ class ServiceRegistry:
                 function=func.__name__,
                 db_repositories=db_repositories or [],
                 api_repositories=api_repositories or [],
-                storage_services=storage_services or []
+                storage_services=storage_services or [],
+                runs_in_transaction=runs_in_transaction,
+                command_timeout=command_timeout,
             )
             logger.debug(f"Registered service: {path}")
             return func

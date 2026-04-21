@@ -234,4 +234,28 @@ When adding a new feature:
 
 - Some router modules contain TODO/incomplete endpoints; treat them as unstable API.
 - The `AbstractRepository` base class has `print()` debug statements that should be replaced with `logger.debug()`.
+- `pricing.load_price_observation_from_mtgjson_staging_batched` issues `COMMIT`/`ROLLBACK` inside its `WHILE` loop. Resolved by registering `staging.mtgjson.promote_to_price_observation` with `runs_in_transaction=False` (see "Per-service execution knobs" below).
+
+## Per-service execution knobs
+
+`ServiceRegistry.register` and `ServiceConfig` expose two optional knobs that
+shape how `ServiceManager._execute_service` runs a call:
+
+| Flag | Default | Effect |
+|---|---|---|
+| `runs_in_transaction` | `True` | `True` wraps the call in an explicit `BEGIN`/`COMMIT`. `False` gives the service a raw pool connection with no transaction started — required for services whose SQL manages its own transaction control (e.g. stored procs with internal `COMMIT`/`ROLLBACK`, which Postgres rejects when `CALL` is inside an atomic block). |
+| `command_timeout` | `None` | Seconds. Applied server-side via `SET [LOCAL\|SESSION] statement_timeout`. `LOCAL` when inside a txn (auto-resets at COMMIT/ROLLBACK); `SESSION` when `runs_in_transaction=False` (explicit `RESET` on exit so pooled connections don't leak it). `None` keeps the role's `statement_timeout` GUC. |
+
+Usage:
+
+```python
+@ServiceRegistry.register(
+    "staging.mtgjson.promote_to_price_observation",
+    db_repositories=["mtgjson"],
+    runs_in_transaction=False,
+    command_timeout=3600,
+)
+```
+
+Both knobs default to today's behaviour; existing services need no changes.
 

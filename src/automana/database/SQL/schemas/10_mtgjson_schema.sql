@@ -71,7 +71,7 @@ $$;
 
 ----------------------------------------------------------------next, find reference to data in the table, for source for example
 CREATE OR REPLACE PROCEDURE pricing.load_price_observation_from_mtgjson_staging_batched(
-  batch_days int DEFAULT 30
+   p_payload_id UUID , batch_days int DEFAULT 30
 )
 LANGUAGE plpgsql
 AS $$
@@ -147,6 +147,7 @@ BEGIN
       WHERE s.price_date::date BETWEEN v_start AND v_end
         AND s.price_source IS NOT NULL
         AND s.currency IS NOT NULL
+        AND (p_payload_id IS NULL OR s.payload_id = p_payload_id)
       ON CONFLICT (code) DO NOTHING; --option 1
 
       -- upsert finishes for this batch (IMPORTANT)
@@ -155,6 +156,7 @@ BEGIN
       FROM pricing.mtgjson_card_prices_staging s
       WHERE s.price_date::date BETWEEN v_start AND v_end
         AND s.finish_type IS NOT NULL
+        AND (p_payload_id IS NULL OR s.payload_id = p_payload_id)
       ON CONFLICT (code) DO NOTHING; --option 2
 
       -- upsert observations
@@ -199,6 +201,7 @@ BEGIN
       AND st.card_uuid IS NOT NULL
       AND st.price_source IS NOT NULL
       AND st.currency IS NOT NULL
+      AND (p_payload_id IS NULL OR st.payload_id = p_payload_id)
   ),
   insert_product_source AS (
     INSERT INTO pricing.source_product (product_id, source_id)
@@ -354,7 +357,8 @@ BEGIN
       )
       DELETE FROM pricing.mtgjson_card_prices_staging s
       USING resolved_ids r
-      WHERE s.id = r.id;
+      WHERE s.id = r.id
+      AND (p_payload_id IS NULL OR s.payload_id = p_payload_id);
 
       GET DIAGNOSTICS v_deleted = ROW_COUNT;
 

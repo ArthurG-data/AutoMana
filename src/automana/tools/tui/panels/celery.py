@@ -61,6 +61,9 @@ KNOWN_TASKS: list[CeleryTask] = [
         steps=[
             "ops.pipeline_services.start_run",
             "mtgjson.data.download.today",
+            "staging.mtgjson.stream_to_staging",
+            "staging.mtgjson.promote_to_price_observation",
+            "staging.mtgjson.cleanup_raw_files",
             "ops.pipeline_services.finish_run",
         ],
     ),

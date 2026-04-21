@@ -5,7 +5,11 @@ API or DB repository with the StorageService and returns a plain dict of
 context keys for the next pipeline step to consume. No business logic lives in
 this file that couldn't be named in one sentence — that's by design.
 """
+from __future__ import annotations
+
 import logging
+from datetime import date
+from typing import Any
 
 from automana.core.service_registry import ServiceRegistry
 from automana.core.repositories.app_integration.mtgjson.Apimtgjson_repository import ApimtgjsonRepository
@@ -17,6 +21,12 @@ from automana.core.storage import StorageService
 # is idempotent, but calling it on every invocation is both noisy and a tell
 # that someone copy-pasted the pattern without thinking.
 logger = logging.getLogger(__name__)
+
+
+# Size of each COPY batch. 10k rows × ~100 B per row ≈ 1 MB per batch —
+# big enough to amortise the COPY round-trip, small enough to keep memory
+# flat and to give asyncpg a chance to interleave with other work.
+_COPY_BATCH_SIZE = 10_000
 
 
 @ServiceRegistry.register(
@@ -52,7 +62,7 @@ async def stage_mtgjson_data(
     """Stream today's `AllPricesToday.json.xz` directly to disk.
 
     Returns `file_path_prices` so the next chain step
-    (`staging.mtgjson.load_prices_to_staging`) can decompress and stage it.
+    (`staging.mtgjson.stream_to_staging`) can decompress and stage it.
     """
     logger.info("Starting MTGJson today prices download")
     dest_path = storage_service.build_timestamped_path("AllPricesToday.json.xz")
@@ -61,52 +71,183 @@ async def stage_mtgjson_data(
     return {"file_path_prices": str(dest_path)}
 
 
+def _iter_card_rows(card_uuid: str, card: Any) -> list[tuple]:
+    """Fan out one MTGJson card entry into rows for the staging table.
+
+    MTGJson nests prices as
+        card.paper.<source>.<price_type>.<finish>.<date> = <price_float>
+    with ``<source>`` also carrying a sibling ``"currency"`` scalar we lift
+    onto every row derived from that source. Anything that doesn't match the
+    shape is skipped rather than raising — upstream shape drift shouldn't
+    bring down the whole pipeline.
+    """
+    rows: list[tuple] = []
+    if not isinstance(card, dict):
+        return rows
+    paper = card.get("paper")
+    if not isinstance(paper, dict):
+        return rows
+
+    for source_name, source_val in paper.items():
+        if not isinstance(source_val, dict):
+            continue
+        currency = source_val.get("currency") or "USD"
+        for price_type, finishes in source_val.items():
+            if price_type == "currency" or not isinstance(finishes, dict):
+                continue
+            for finish, dates in finishes.items():
+                if not isinstance(dates, dict):
+                    continue
+                for date_str, price_value in dates.items():
+                    try:
+                        price_date = date.fromisoformat(date_str)
+                        price_float = float(price_value)
+                    except (TypeError, ValueError):
+                        # Bad cell: log and skip so the rest of the card loads.
+                        continue
+                    rows.append((
+                        card_uuid,
+                        source_name,
+                        price_type,
+                        finish,
+                        currency,
+                        price_float,
+                        price_date,
+                    ))
+    return rows
+
+
 @ServiceRegistry.register(
-    "staging.mtgjson.load_prices_to_staging",
+    "staging.mtgjson.stream_to_staging",
     db_repositories=["mtgjson"],
     storage_services=["mtgjson"],
 )
-async def load_prices_to_staging(
+async def stream_to_staging(
     mtgjson_repository: MtgjsonRepository,
     storage_service: StorageService,
     file_path_prices: str,
 ) -> dict:
-    """Decompress the on-disk `.xz`, land the payload in `pricing.mtgjson_payloads`,
-    then expand it into `pricing.mtgjson_card_prices_staging`.
+    """Stream an MTGJson `.xz` payload into `pricing.mtgjson_card_prices_staging`.
 
-    The parameter name `file_path_prices` is contractual: it must match the
-    return key from any upstream download step (see `stage_mtgjson_data` and
-    `download_mtgjson_data_last_90`). `run_service` filters by signature, so
-    there is no need — and no value — in accepting `**kwargs` here.
+    Pipeline-contract note: `file_path_prices` is the key produced by both
+    ``mtgjson.data.download.today`` and ``mtgjson.data.download.last90`` — the
+    ``run_service`` dispatcher filters by signature, so the name is load-bearing.
+
+    Memory stays flat regardless of payload size because decompression + JSON
+    parsing happens in a background thread and flows through a bounded queue
+    (see ``StorageService.iter_xz_json_kvitems``). Rows are COPY-ed into
+    Postgres in batches of ``_COPY_BATCH_SIZE``.
     """
-    logger.info("Loading MTGJson prices to staging", extra={"file": file_path_prices})
+    logger.info("Streaming MTGJson payload to staging", extra={"file": file_path_prices})
 
-    # Decompression is CPU-bound; `load_xz_as_json` offloads to a thread.
-    payload = await storage_service.load_xz_as_json(file_path_prices)
+    # Serialize concurrent streamers against this staging table. See
+    # docs/MTGJSON_PIPELINE.md §"Concurrency" for the rationale — cheap
+    # insurance against cron + manual-trigger collisions.
+    await mtgjson_repository.acquire_streaming_lock()
 
-    payload_id = await mtgjson_repository.insert_payload(
-        source="mtgjson",
-        filename=file_path_prices,
-        payload=payload,
+    batch: list[tuple] = []
+    total_rows = 0
+    cards_seen = 0
+
+    async for card_uuid, card in storage_service.iter_xz_json_kvitems(
+        file_path_prices, prefix="data"
+    ):
+        cards_seen += 1
+        batch.extend(_iter_card_rows(card_uuid, card))
+        if len(batch) >= _COPY_BATCH_SIZE:
+            total_rows += await mtgjson_repository.copy_staging_batch(batch)
+            batch = []
+
+    if batch:
+        total_rows += await mtgjson_repository.copy_staging_batch(batch)
+
+    logger.info(
+        "MTGJson streaming complete",
+        extra={"cards": cards_seen, "rows_staged": total_rows, "file": file_path_prices},
     )
-    logger.info("Inserted MTGJson payload", extra={"payload_id": payload_id})
-
-    await mtgjson_repository.call_process_payload(payload_id)
-    logger.info("Expanded payload into staging rows", extra={"payload_id": payload_id})
-
-    return {"payload_id": payload_id}
+    return {"rows_staged": total_rows, "cards_seen": cards_seen}
 
 
-#
 @ServiceRegistry.register(
     "staging.mtgjson.promote_to_price_observation",
-    db_repositories=["mtgjson"]
+    db_repositories=["mtgjson"],
+    # The underlying proc issues COMMIT/ROLLBACK per batch, which Postgres
+    # forbids when CALL is invoked from an atomic block. Running without
+    # an outer transaction lets the proc's own checkpointing do its job.
+    runs_in_transaction=False,
+    # A fresh 90-day staging load runs for several minutes (normalisation
+    # passes + per-batch upserts across millions of rows). 1h is a loose
+    # safety net — far above observed durations, well below "hung forever".
+    command_timeout=3600,
 )
-async def promote_to_price_observation(mtgjson_repository: MtgjsonRepository,
-                                        payload_id: int
-                                        ) -> dict:
-    """Call the stored procedure to promote staged rows into `pricing.mtgjson_card_prices`."""
-    logger.info("Promoting MTGJson staged data to price observations", extra={"payload_id": payload_id})
-    await mtgjson_repository.promote_staging_to_production(payload_id) 
-    logger.info("Promotion complete", extra={"payload_id": payload_id})
-    return {"payload_id": payload_id}
+async def promote_to_price_observation(
+    mtgjson_repository: MtgjsonRepository,
+) -> dict:
+    """Promote staged rows into `pricing.price_observation` via the batched proc."""
+    logger.info("Promoting MTGJson staged data to price observations")
+    await mtgjson_repository.promote_staging_to_production()
+    logger.info("Promotion complete")
+    return {}
+
+
+# Default daily-snapshot retention. 29 = "keep roughly a month of daily .xz
+# files on disk, always with today's still present". A fresh bulk archive
+# (AllPrices_*.json.xz) trumps this and purges all dailies — the bulk
+# subsumes them, so retaining both would just burn disk.
+_DEFAULT_DAILY_RETENTION = 29
+
+
+@ServiceRegistry.register(
+    "staging.mtgjson.cleanup_raw_files",
+    storage_services=["mtgjson"],
+)
+async def cleanup_raw_files(
+    storage_service: StorageService,
+    retention_days: int = _DEFAULT_DAILY_RETENTION,
+) -> dict:
+    """Trim the on-disk MTGJson `.xz` archive to a sliding retention window.
+
+    Two composable rules:
+    - Sliding window: keep the newest ``retention_days`` ``AllPricesToday_*``
+      files (lexicographic sort on the timestamped filename), delete the rest.
+    - Bulk override: if any ``AllPrices_*.json.xz`` bulk archive is present,
+      delete **all** daily snapshots — the bulk file subsumes them.
+
+    Per-file delete failures are logged and skipped; one bad path shouldn't
+    block the sweep.
+    """
+    all_files = await storage_service.list_directory(pattern="*.json.xz")
+
+    dailies = sorted(f for f in all_files if f.startswith("AllPricesToday_"))
+    bulks = [
+        f for f in all_files
+        if f.startswith("AllPrices_") and not f.startswith("AllPricesToday_")
+    ]
+
+    if bulks:
+        to_delete = list(dailies)
+    elif len(dailies) > retention_days:
+        to_delete = dailies[:-retention_days]
+    else:
+        to_delete = []
+
+    deleted = 0
+    for filename in to_delete:
+        try:
+            if await storage_service.delete_file(filename):
+                deleted += 1
+        except Exception as exc:
+            logger.warning(
+                "Failed to delete MTGJson raw file",
+                extra={"file": filename, "error": str(exc)},
+            )
+
+    logger.info(
+        "MTGJson raw cleanup complete",
+        extra={
+            "deleted": deleted,
+            "retained_dailies": max(0, len(dailies) - deleted),
+            "bulk_present": bool(bulks),
+        },
+    )
+    return {"files_deleted": deleted}

@@ -104,10 +104,20 @@ def daily_mtgjson_data_pipeline(self):
                       run_key=run_key,
                       celery_task_id=self.request.id),
         run_service.s("mtgjson.data.download.today"),
-        # Consumes `file_path_prices` from the previous step's return dict;
-        # produces `payload_id` (unused by `finish_run`, but present for any
-        # future promotion step, e.g. `pricing.load_price_observation_*`).
-        run_service.s("staging.mtgjson.load_prices_to_staging"),
+        # Consumes `file_path_prices` from the download step. Streams the
+        # compressed payload directly into `pricing.mtgjson_card_prices_staging`
+        # via lzma + ijson + asyncpg COPY — no intermediate JSONB archive.
+        # See migration 15 for the rationale (JSONB blobs of 1–2 GB were
+        # tripping the 60 s command_timeout on insert).
+        run_service.s("staging.mtgjson.stream_to_staging"),
+        # Promotes staged rows into `pricing.price_observation` and deletes
+        # resolved rows from staging. No parameters — operates over the
+        # whole staging table.
+        run_service.s("staging.mtgjson.promote_to_price_observation"),
+        # Sliding-window retention on the on-disk .xz archive. Runs inside
+        # the tracked run so cleanup failures surface as a failed step
+        # (rather than silently accumulating stale files).
+        run_service.s("staging.mtgjson.cleanup_raw_files"),
         run_service.s("ops.pipeline_services.finish_run", status="success"),
     )
     return wf.apply_async().id

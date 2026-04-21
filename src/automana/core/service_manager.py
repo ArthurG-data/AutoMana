@@ -198,43 +198,113 @@ class ServiceManager:
                 kwargs["storage_service"] = self.get_storage_service(service_config.storage_services[0])
                 for extra_name in service_config.storage_services[1:]:
                     kwargs[f"{extra_name}_storage_service"] = self.get_storage_service(extra_name)
-        # Execute within transaction
-            async with self.transaction() as conn:
-                repositories = {}
-                
-                # Create DB repositories
-                for repo_type in service_config.db_repositories:
-                    repo_info = ServiceRegistry.get_db_repository(repo_type)
-                    if not repo_info:
-                        raise ValueError(f"Unknown DB repository type: {repo_type}")
-                    
-                    module_path, class_name = repo_info
-                    repo_module = importlib.import_module(module_path)
-                    repo_class = getattr(repo_module, class_name)
-                    repositories[f"{repo_type}_repository"] = repo_class(conn, self.query_executor)
-                
-                # Create API repositories
-                env = kwargs.pop("environment", "sandbox")
-                for repo_type in service_config.api_repositories:
-                    repo_info = ServiceRegistry.get_api_repository(repo_type)
-                    if not repo_info:
-                        raise ValueError(f"Unknown API repository type: {repo_type}")
-                    
-                    module_path, class_name = repo_info
-                    repo_module = importlib.import_module(module_path)
-                    repo_class = getattr(repo_module, class_name)
-                    repositories[f"{repo_type}_repository"] = repo_class(environment=env)
-                
-        
-                logger.debug(
-                    "service_execution_started",
-                    extra={
-                        "action": "execute_service",
-                        "service_path": service_path,
-                        "repository_keys": list(repositories.keys()),
-                    },
-                )
-                result = await service_method(**repositories, **kwargs)
+
+            # Connection acquisition path is chosen per-service:
+            #   runs_in_transaction=True  → explicit BEGIN/COMMIT around the call.
+            #   runs_in_transaction=False → raw pool connection, no txn started.
+            # The second mode exists for SQL that manages its own transaction
+            # control (e.g. stored procs with internal COMMIT/ROLLBACK), which
+            # Postgres rejects when CALL is issued from an atomic block.
+            conn_ctx = (
+                self.transaction() if service_config.runs_in_transaction
+                else self._get_connection()
+            )
+
+            async with conn_ctx as conn:
+                # Per-service command_timeout is applied on two axes:
+                #
+                #   1. Client-side (asyncpg). `protocol.pyx::_get_timeout_impl`
+                #      reads `conn._config.command_timeout` whenever a query is
+                #      dispatched without an explicit timeout, so the pool's
+                #      60 s default DOES reach every `conn.execute(...)` call.
+                #      `_config` is a `_ClientConfiguration` namedtuple; we
+                #      swap it for a `_replace`d copy while the service runs,
+                #      then restore the original on the way out. Passing
+                #      `NO_TIMEOUT` explicitly is unsupported — the public
+                #      `_get_timeout` wrapper `float()`s its argument before
+                #      the sentinel check ever happens.
+                #   2. Server-side (Postgres `statement_timeout`). Set as a
+                #      belt-and-suspenders ceiling via `SET [LOCAL|SESSION]`.
+                # asyncpg returns a `PoolConnectionProxy` from `pool.acquire()`.
+                # The proxy has `__slots__ = ('_con', '_holder')` and a
+                # `__getattr__` that reads through to the wrapped Connection,
+                # but no `__setattr__` — so `conn._config = ...` fails with
+                # AttributeError. We mutate the underlying Connection
+                # (`conn._con`) directly, where `_config` is a real slot.
+                underlying = getattr(conn, "_con", conn)
+                original_config = None
+                timeout_applied = False
+                if service_config.command_timeout is not None:
+                    original_config = underlying._config
+                    underlying._config = original_config._replace(
+                        command_timeout=service_config.command_timeout
+                    )
+                    timeout_ms = int(service_config.command_timeout * 1000)
+                    # `SET LOCAL` auto-resets at COMMIT/ROLLBACK inside a txn;
+                    # session-level `SET` needs an explicit RESET on the way out
+                    # (see finally block) so the pooled connection doesn't
+                    # leak the override to the next acquirer.
+                    scope = "LOCAL" if service_config.runs_in_transaction else "SESSION"
+                    await conn.execute(
+                        f"SET {scope} statement_timeout = {timeout_ms}"
+                    )
+                    timeout_applied = True
+
+                try:
+                    repositories = {}
+
+                    # Create DB repositories
+                    for repo_type in service_config.db_repositories:
+                        repo_info = ServiceRegistry.get_db_repository(repo_type)
+                        if not repo_info:
+                            raise ValueError(f"Unknown DB repository type: {repo_type}")
+
+                        module_path, class_name = repo_info
+                        repo_module = importlib.import_module(module_path)
+                        repo_class = getattr(repo_module, class_name)
+                        repositories[f"{repo_type}_repository"] = repo_class(conn, self.query_executor)
+
+                    # Create API repositories
+                    env = kwargs.pop("environment", "sandbox")
+                    for repo_type in service_config.api_repositories:
+                        repo_info = ServiceRegistry.get_api_repository(repo_type)
+                        if not repo_info:
+                            raise ValueError(f"Unknown API repository type: {repo_type}")
+
+                        module_path, class_name = repo_info
+                        repo_module = importlib.import_module(module_path)
+                        repo_class = getattr(repo_module, class_name)
+                        repositories[f"{repo_type}_repository"] = repo_class(environment=env)
+
+                    logger.debug(
+                        "service_execution_started",
+                        extra={
+                            "action": "execute_service",
+                            "service_path": service_path,
+                            "repository_keys": list(repositories.keys()),
+                            "runs_in_transaction": service_config.runs_in_transaction,
+                            "command_timeout": service_config.command_timeout,
+                        },
+                    )
+                    result = await service_method(**repositories, **kwargs)
+                finally:
+                    # Restore the client-side config on the underlying
+                    # Connection so the pooled proxy returns to the next
+                    # acquirer without our override baked in.
+                    if original_config is not None:
+                        underlying._config = original_config
+                    # Only session-scope server-side overrides need an explicit
+                    # reset; LOCAL scope unwinds at COMMIT/ROLLBACK. Swallow
+                    # errors on RESET so a broken connection can't mask the
+                    # original exception.
+                    if timeout_applied and not service_config.runs_in_transaction:
+                        try:
+                            await conn.execute("RESET statement_timeout")
+                        except Exception:
+                            logger.warning(
+                                "failed_to_reset_statement_timeout",
+                                extra={"service_path": service_path},
+                            )
             return result
         except Exception:
             logger.exception(
