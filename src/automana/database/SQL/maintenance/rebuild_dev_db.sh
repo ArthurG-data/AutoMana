@@ -165,6 +165,13 @@ SUPERUSER="${SUPERUSER:-automana_admin}"
 EXEC="${EXEC:-dcdev-automana exec -T postgres}"
 CELERY_EXEC="${CELERY_EXEC:-dcdev-automana exec -T celery-worker}"
 
+# Container names are baked into the dev compose (deploy/docker-compose.dev.yml)
+# and used only for the preflight healthcheck below — all other interactions
+# go through $EXEC / $CELERY_EXEC. Override if you renamed containers.
+POSTGRES_CONTAINER="${POSTGRES_CONTAINER:-automana-postgres-dev}"
+CELERY_CONTAINER="${CELERY_CONTAINER:-automana-celery-dev}"
+REDIS_CONTAINER="${REDIS_CONTAINER:-automana-redis-dev}"
+
 SCHEMAS_DIR="src/automana/database/SQL/schemas"
 MIGRATIONS_DIR="src/automana/database/SQL/migrations"
 
@@ -179,6 +186,45 @@ if [[ ! -d "$SCHEMAS_DIR" ]]; then
   echo "Error: $SCHEMAS_DIR not found. Run from repo root." >&2
   exit 1
 fi
+
+# Returns 0 iff the container exists, is running, and (if it has a
+# healthcheck) reports "healthy". Containers without a healthcheck are
+# accepted as long as State.Status == "running" — this covers edge cases
+# like a local override compose without healthchecks wired up.
+_container_healthy() {
+  local name="$1"
+  local state health
+  state=$(docker inspect -f '{{.State.Status}}' "$name" 2>/dev/null) || return 1
+  [[ "$state" == "running" ]] || return 1
+  health=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{end}}' "$name" 2>/dev/null) || true
+  [[ -z "$health" || "$health" == "healthy" ]]
+}
+
+echo "== Preflight: containers =="
+# Only require the celery + redis pair when a pipeline stage will run.
+# A rebuild-only invocation (e.g. --only rebuild) should not fail just
+# because the worker container is down.
+required_containers=("$POSTGRES_CONTAINER")
+if should_run scryfall || should_run mtgstock || should_run mtgjson; then
+  required_containers+=("$CELERY_CONTAINER" "$REDIS_CONTAINER")
+fi
+for c in "${required_containers[@]}"; do
+  if _container_healthy "$c"; then
+    echo "  ✓ $c"
+  else
+    # `docker inspect` on a missing container exits non-zero. Under
+    # `set -euo pipefail`, a failing subshell in an assignment aborts
+    # the script before we can print the error — so append `|| true`
+    # to force success. We also strip the trailing newline that
+    # docker-inspect emits even on empty output.
+    state=$({ docker inspect -f '{{.State.Status}}' "$c" 2>/dev/null || true; } | tr -d '\n')
+    health=$({ docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{end}}' "$c" 2>/dev/null || true; } | tr -d '\n')
+    [[ -z "$state" ]] && state="missing"
+    echo "ERROR: $c is not ready (state=$state${health:+, health=$health})." >&2
+    echo "       Start the dev stack: dcdev-automana up -d" >&2
+    exit 1
+  fi
+done
 
 echo "== Preflight: role sanity check =="
 # `02-app-roles.sql.tpl` runs only on first-time volume init. A rebuild
