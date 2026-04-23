@@ -2,6 +2,7 @@
 from automana.api.schemas.auth.token import Token
 from automana.api.utils import auth
 from automana.api.repositories.auth.session_repository import SessionRepository
+from automana.api.repositories.user_management.user_repository import UserRepository
 from uuid import UUID
 from automana.core.utils.now_utc import now_utc
 from datetime import datetime, timedelta, timezone
@@ -56,21 +57,9 @@ async def refresh_tokens(repository
         "refresh_token_expires_at": refresh_expiry.isoformat()
     }
 
-async def refresh_tokens(repository
-                        , token_id
-                        , session_id
-                        , refresh_token
-                        , refresh_expiry):
-    await repository.rotate_refresh_token(
-        token_id=token_id,
-        session_id=session_id,
-        refresh_token=refresh_token,
-        refresh_expiry=refresh_expiry
-    )
-
 async def process_token_refresh(
     session_repository: SessionRepository,
-    token_repository: TokenRepository,
+    token_repository,
     user_repository: UserRepository,
     cookies: CookiesData
 ) -> dict:

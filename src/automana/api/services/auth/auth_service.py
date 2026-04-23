@@ -92,7 +92,7 @@ async def login( user_repository: UserRepository
         extra={"action": "login", "username": username, "ip_address": ip_address, "user_agent": user_agent},
     )
     # Get settings from configuration
-    settings = get_general_settings
+    settings = get_general_settings()
     access_token_expires = timedelta(minutes=int(settings.access_token_expiry))
     expire_time = datetime.now(timezone.utc) + timedelta(days=7)
  

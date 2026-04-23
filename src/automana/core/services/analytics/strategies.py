@@ -1,6 +1,6 @@
 ﻿from abc import ABC, abstractmethod
 from typing import Dict, Optional
-from automana.core.services.analytics.pricing import PricingResult
+from automana.core.services.analytics.models import PricingResult
 
 class PricingStrategy(ABC):
     """Abstract base class for pricing strategies"""

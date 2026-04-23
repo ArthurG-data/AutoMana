@@ -1,20 +1,16 @@
 import jwt
-from passlib.context import CryptContext
+import bcrypt
 from datetime import datetime, timedelta, timezone
 
 # Password utilities
-pwd_context = CryptContext(
-    schemes=["bcrypt"],
-    deprecated="auto",
-)
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verifies a plaintext password against a hashed password."""
-    return pwd_context.verify(plain_password, hashed_password)
+    return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
 
 def get_hash_password(password: str) -> str:
-    """Hashes a plain password using argon2."""
-    return pwd_context.hash(password)
+    """Hashes a plain password using bcrypt."""
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 # JWT utilities 
 def create_access_token(data: dict, secret_key: str, algorithm: str, expires_delta: timedelta = None) -> str:

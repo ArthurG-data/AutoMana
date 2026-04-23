@@ -32,7 +32,6 @@ dependencies = [
     "aiohttp==3.13.2",
     "aiosignal==1.4.0",
     # Authentication & Security
-    "passlib==1.7.4",
     "bcrypt==5.0.0",
     "argon2-cffi==25.1.0",
     "argon2-cffi-bindings==25.1.0",
@@ -80,6 +79,25 @@ dependencies = [
     "flower>=2.0.1",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "pytest-mock>=3.12",
+    "pytest-cov>=5.0",
+]
+integration = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "pytest-mock>=3.12",
+    "pytest-cov>=5.0",
+    "asgi-lifespan>=2.0",
+    "testcontainers[postgres,redis]>=4.0",
+    "fakeredis>=2.21",
+    "respx>=0.20",
+    "asyncpg>=0.29",
+]
+
 [project.scripts]
 automana-run = "automana.tools.run_service:main"
 automana-tui = "automana.tools.tui.app:main"
@@ -90,3 +108,20 @@ package-dir = {"" = "src"}
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["automana*"]
+
+[tool.coverage.run]
+source = ["src/automana"]
+omit = [
+    "src/automana/worker/*",
+    "src/automana/tools/*",
+    "src/automana/api/routers/*",
+    "src/automana/**/migrations/*",
+]
+branch = true
+
+[tool.coverage.report]
+# fail_under is intentionally omitted here: source = src/automana covers all
+# modules, so a bare `pytest --cov` would compare against untested modules and
+# always fail. Per-phase thresholds are enforced via --cov-fail-under= on the
+# command line (see docs/UNIT_TEST_PLAN.md §7.1).
+show_missing = true
