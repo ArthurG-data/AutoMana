@@ -26,6 +26,135 @@
 
 set -euo pipefail
 
+# ============================================================
+# Stage flags
+# ------------------------------------------------------------
+# Stages, in execution order:
+#   rebuild   DROP + CREATE DATABASE + schemas + grants
+#   scryfall  daily_scryfall_data_pipeline (includes migrations)
+#   mtgstock  mtgStock_download_pipeline (reads disk, no network)
+#   mtgjson   daily_mtgjson_data_pipeline
+#
+# Default: all four.
+# ============================================================
+
+STAGES=(rebuild scryfall mtgstock mtgjson)
+
+usage() {
+  cat <<EOF
+Usage: $0 [options]
+
+Stage selection (mutually exclusive groups):
+  --skip-rebuild       Equivalent to --from scryfall.
+  --only <stage>       Run only this stage. Incompatible with --from/--until.
+  --from <stage>       Start here (inclusive).
+  --until <stage>      Stop here (inclusive).
+  -h, --help           This help.
+
+Stages: ${STAGES[*]}
+
+Examples:
+  $0                              # full rebuild + all pipelines
+  $0 --skip-rebuild               # pipelines only (assumes schema is intact)
+  $0 --only scryfall              # dispatch scryfall, skip everything else
+  $0 --from scryfall --until mtgstock   # pipelines up to mtgstock
+  $0 --only rebuild               # schemas + grants only, no pipelines
+
+Notes:
+  --skip-rebuild against a DB with a today-dated run already in
+  ops.ingestion_runs will fail on start_pipeline (UNIQUE constraint
+  on pipeline_name + source_id + run_key). A full rebuild wipes it;
+  otherwise clear it manually.
+EOF
+}
+
+SKIP_REBUILD=0
+ONLY_STAGE=""
+FROM_STAGE=""
+UNTIL_STAGE=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --skip-rebuild)   SKIP_REBUILD=1; shift ;;
+    --only)           ONLY_STAGE="${2:-}"; shift 2 ;;
+    --from)           FROM_STAGE="${2:-}"; shift 2 ;;
+    --until)          UNTIL_STAGE="${2:-}"; shift 2 ;;
+    -h|--help)        usage; exit 0 ;;
+    *)                echo "ERROR: unknown argument: $1" >&2; usage >&2; exit 2 ;;
+  esac
+done
+
+if [[ -n "$ONLY_STAGE" ]]; then
+  if [[ -n "$FROM_STAGE" || -n "$UNTIL_STAGE" || $SKIP_REBUILD -eq 1 ]]; then
+    echo "ERROR: --only cannot combine with --from/--until/--skip-rebuild." >&2
+    exit 2
+  fi
+fi
+
+if [[ $SKIP_REBUILD -eq 1 && -z "$FROM_STAGE" ]]; then
+  FROM_STAGE="scryfall"
+fi
+
+# Look up a stage's position in $STAGES by name. Prints the index to
+# stdout on hit, prints nothing + returns 1 on miss. Callers are
+# responsible for emitting a user-facing error — this keeps the helper
+# reusable by `should_run` (where a miss is fatal, not a user error).
+_stage_idx() {
+  local s="$1" i
+  for i in "${!STAGES[@]}"; do
+    [[ "${STAGES[$i]}" == "$s" ]] && { echo "$i"; return 0; }
+  done
+  return 1
+}
+
+_validate_stage() {
+  local label="$1" value="$2"
+  if ! _stage_idx "$value" >/dev/null; then
+    echo "ERROR: $label: unknown stage '$value' (valid: ${STAGES[*]})" >&2
+    exit 2
+  fi
+}
+
+[[ -n "$ONLY_STAGE"  ]] && _validate_stage "--only"  "$ONLY_STAGE"
+[[ -n "$FROM_STAGE"  ]] && _validate_stage "--from"  "$FROM_STAGE"
+[[ -n "$UNTIL_STAGE" ]] && _validate_stage "--until" "$UNTIL_STAGE"
+
+# Now that --only is validated under its own label, fold it into the
+# from/until range so the rest of the script only has to look at those.
+if [[ -n "$ONLY_STAGE" ]]; then
+  FROM_STAGE="$ONLY_STAGE"
+  UNTIL_STAGE="$ONLY_STAGE"
+fi
+
+FROM_IDX=0
+UNTIL_IDX=$(( ${#STAGES[@]} - 1 ))
+[[ -n "$FROM_STAGE"  ]] && FROM_IDX=$(_stage_idx "$FROM_STAGE")
+[[ -n "$UNTIL_STAGE" ]] && UNTIL_IDX=$(_stage_idx "$UNTIL_STAGE")
+
+if (( FROM_IDX > UNTIL_IDX )); then
+  echo "ERROR: --from '$FROM_STAGE' (#$FROM_IDX) comes after --until '$UNTIL_STAGE' (#$UNTIL_IDX)." >&2
+  exit 2
+fi
+
+should_run() {
+  local stage="$1" idx
+  idx=$(_stage_idx "$stage") || {
+    # Internal caller bug: asked about a stage that isn't in $STAGES.
+    # Fatal, not a flag-parsing error.
+    echo "INTERNAL: should_run called with unknown stage '$stage'" >&2
+    exit 3
+  }
+  (( idx >= FROM_IDX && idx <= UNTIL_IDX ))
+}
+
+# Pretty-print the planned stages so the operator sees what's about to
+# happen before the first destructive step (the DROP DATABASE).
+planned=()
+for s in "${STAGES[@]}"; do
+  should_run "$s" && planned+=("$s")
+done
+echo "== Plan: ${planned[*]} =="
+
 DBNAME="${DBNAME:-automana}"
 DBOWNER="${DBOWNER:-automana_admin}"
 # Bootstrap superuser. After the app_admin demote (see
@@ -82,51 +211,55 @@ BEGIN
 END $$;
 SQL
 
-echo "== Terminating connections to $DBNAME =="
-$EXEC psql -U "$SUPERUSER" -d postgres -c "
-SELECT pg_terminate_backend(pid)
-FROM pg_stat_activity
-WHERE datname = '$DBNAME' AND pid <> pg_backend_pid();"
+if should_run rebuild; then
+  echo "== Terminating connections to $DBNAME =="
+  $EXEC psql -U "$SUPERUSER" -d postgres -c "
+  SELECT pg_terminate_backend(pid)
+  FROM pg_stat_activity
+  WHERE datname = '$DBNAME' AND pid <> pg_backend_pid();"
 
-echo "== Dropping $DBNAME =="
-$EXEC psql -U "$SUPERUSER" -d postgres -c "DROP DATABASE IF EXISTS $DBNAME;"
+  echo "== Dropping $DBNAME =="
+  $EXEC psql -U "$SUPERUSER" -d postgres -c "DROP DATABASE IF EXISTS $DBNAME;"
 
-echo "== Recreating $DBNAME (owner=$DBOWNER) =="
-$EXEC psql -U "$SUPERUSER" -d postgres -c "CREATE DATABASE $DBNAME OWNER $DBOWNER;"
+  echo "== Recreating $DBNAME (owner=$DBOWNER) =="
+  $EXEC psql -U "$SUPERUSER" -d postgres -c "CREATE DATABASE $DBNAME OWNER $DBOWNER;"
 
-echo "== Applying schemas =="
-for f in "$SCHEMAS_DIR"/*.sql; do
-  [[ "$(basename "$f")" == "integrity_checks.sql" ]] && continue   # ops-time only
-  echo "  → $(basename "$f")"
-  # ON_ERROR_STOP=1 makes psql abort on the first error instead of
-  # continuing and cascading 50 follow-on errors. Combined with
-  # `set -e` above, the whole script stops at the first failure so
-  # the operator sees exactly which file / statement broke.
-  $EXEC psql -v ON_ERROR_STOP=1 -U "$DBOWNER" -d "$DBNAME" < "$f" > /dev/null
-done
+  echo "== Applying schemas =="
+  for f in "$SCHEMAS_DIR"/*.sql; do
+    [[ "$(basename "$f")" == "integrity_checks.sql" ]] && continue   # ops-time only
+    echo "  → $(basename "$f")"
+    # ON_ERROR_STOP=1 makes psql abort on the first error instead of
+    # continuing and cascading 50 follow-on errors. Combined with
+    # `set -e` above, the whole script stops at the first failure so
+    # the operator sees exactly which file / statement broke.
+    $EXEC psql -v ON_ERROR_STOP=1 -U "$DBOWNER" -d "$DBNAME" < "$f" > /dev/null
+  done
 
-echo "== Applying schema grants =="
-# DROP DATABASE wipes every per-database privilege (schema-level and
-# object-level grants). The init template `02-app-roles.sql.tpl` only
-# runs on volume init, not on a DROP+CREATE DATABASE cycle, so the
-# app_rw / app_ro / app_admin / agent_reader roles would have no
-# privileges on the newly-created schemas. Re-apply here.
-$EXEC psql -v ON_ERROR_STOP=1 -U "$SUPERUSER" -d "$DBNAME" \
-  < src/automana/database/SQL/maintenance/apply_schema_grants.sql > /dev/null
+  echo "== Applying schema grants =="
+  # DROP DATABASE wipes every per-database privilege (schema-level and
+  # object-level grants). The init template `02-app-roles.sql.tpl` only
+  # runs on volume init, not on a DROP+CREATE DATABASE cycle, so the
+  # app_rw / app_ro / app_admin / agent_reader roles would have no
+  # privileges on the newly-created schemas. Re-apply here.
+  $EXEC psql -v ON_ERROR_STOP=1 -U "$SUPERUSER" -d "$DBNAME" \
+    < src/automana/database/SQL/maintenance/apply_schema_grants.sql > /dev/null
 
-echo "== Skipping migrations =="
-# A rebuild rebuilds from the canonical state defined in the schema files
-# + infra/db/init/02-app-roles.sql.tpl (which already applies the full
-# grant stanza on every schema). The files under migrations/ are historical
-# deltas intended for upgrading long-lived databases from older shapes —
-# running them against a fresh DB at best no-ops via IF EXISTS guards,
-# at worst fails (e.g. `08_schema_change_price.sql` ALTERs a compressed
-# TimescaleDB hypertable that already has the target columns).
-#
-# If you need a specific migration's effect on this fresh DB, apply it
-# manually after reviewing it. Most are obsolete the moment the schema
-# file catches up to what they were deploying.
-echo "  (migrations/ not replayed — schema files are authoritative for rebuilds.)"
+  echo "== Skipping migrations =="
+  # A rebuild rebuilds from the canonical state defined in the schema files
+  # + infra/db/init/02-app-roles.sql.tpl (which already applies the full
+  # grant stanza on every schema). The files under migrations/ are historical
+  # deltas intended for upgrading long-lived databases from older shapes —
+  # running them against a fresh DB at best no-ops via IF EXISTS guards,
+  # at worst fails (e.g. `08_schema_change_price.sql` ALTERs a compressed
+  # TimescaleDB hypertable that already has the target columns).
+  #
+  # If you need a specific migration's effect on this fresh DB, apply it
+  # manually after reviewing it. Most are obsolete the moment the schema
+  # file catches up to what they were deploying.
+  echo "  (migrations/ not replayed — schema files are authoritative for rebuilds.)"
+else
+  echo "== Skipping stage: rebuild =="
+fi
 
 # ============================================================
 # Pipeline orchestration
@@ -247,27 +380,37 @@ _dump_run_steps() {
 
 # MTGStock reads exclusively from /data/mtgstocks/raw/prints/ — there is
 # no download step. An empty directory produces a silent "success" with
-# zero rows loaded, which defeats the whole point of a rebuild. Guard.
+# zero rows loaded, which defeats the whole point of a rebuild. The
+# guard only matters if the mtgstock stage is actually going to run.
 MTGSTOCK_DATA_DIR="${MTGSTOCK_DATA_DIR:-/data/mtgstocks/raw/prints}"
-if ! $CELERY_EXEC bash -c "find '$MTGSTOCK_DATA_DIR' -type f -print -quit 2>/dev/null | grep -q ."; then
-  echo "ERROR: $MTGSTOCK_DATA_DIR is empty or missing inside the celery-worker container." >&2
-  echo "       MTGStock has no download step — it loads from disk. Seed the directory first." >&2
-  exit 1
+if should_run mtgstock; then
+  if ! $CELERY_EXEC bash -c "find '$MTGSTOCK_DATA_DIR' -type f -print -quit 2>/dev/null | grep -q ."; then
+    echo "ERROR: $MTGSTOCK_DATA_DIR is empty or missing inside the celery-worker container." >&2
+    echo "       MTGStock has no download step — it loads from disk. Seed the directory first." >&2
+    exit 1
+  fi
 fi
 
-run_pipeline "Scryfall" \
-  daily_scryfall_data_pipeline \
-  "$SCRYFALL_TIMEOUT"
+if should_run scryfall; then
+  run_pipeline "Scryfall" \
+    daily_scryfall_data_pipeline \
+    "$SCRYFALL_TIMEOUT"
+fi
 
-run_pipeline "MTGStock (from already-downloaded data)" \
-  mtgStock_download_pipeline \
-  "$MTGSTOCK_TIMEOUT"
+if should_run mtgstock; then
+  run_pipeline "MTGStock (from already-downloaded data)" \
+    mtgStock_download_pipeline \
+    "$MTGSTOCK_TIMEOUT"
+fi
 
-run_pipeline "MTGJson" \
-  daily_mtgjson_data_pipeline \
-  "$MTGJSON_TIMEOUT"
+if should_run mtgjson; then
+  run_pipeline "MTGJson" \
+    daily_mtgjson_data_pipeline \
+    "$MTGJSON_TIMEOUT"
+fi
 
 echo ""
-echo "== Rebuild complete =="
-echo "All pipelines finished. Inspect row counts via:"
+echo "== Done =="
+echo "Stages executed: ${planned[*]}"
+echo "Inspect row counts via:"
 echo "  dcdev-automana exec -T postgres psql -U app_readonly -d $DBNAME -c \"SELECT 'card_version' AS t, count(*) FROM card_catalog.card_version UNION ALL SELECT 'price_observation', count(*) FROM pricing.price_observation;\""
