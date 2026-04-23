@@ -421,3 +421,156 @@ daily_scryfall_data_pipeline (Celery chain)
 - **Daily analytics report** — `analytics.daily_summary.generate_report` (see [`reporting_services.py`](../src/automana/core/services/analytics/reporting_services.py)) queries new sets/cards in the last 24 hours and posts a summary to Discord.
 - **Structured logs** — all services use the standard Python `logging` module; log records are enriched with request/task context via `core/logging_context.py`.
 - **Failed record files** — `failed_cards_*.jsonl` and `failed_sets_*.json` provide row-level debug information without blocking the pipeline.
+
+---
+
+## Sanity Checks & Maintenance Scripts
+
+Three read-only SQL scripts live under `src/automana/database/SQL/maintenance/`. All three are SELECT-only and idempotent — they make no writes and can be re-run freely. Every script produces a uniform result shape:
+
+```
+check_name TEXT, severity TEXT, row_count BIGINT, details JSONB
+```
+
+Severity semantics across all three scripts:
+
+| Severity | Meaning |
+|---|---|
+| `error` | A finding that should be zero in a healthy database. Investigate immediately. |
+| `warn` | A soft anomaly or exceeded threshold; investigate but may be benign depending on context. |
+| `info` | Informational — review but do not page. |
+
+---
+
+### `scryfall_run_diff.sql` — Post-run diff report
+
+**Full path:** `src/automana/database/SQL/maintenance/scryfall_run_diff.sql`
+
+**What it answers:** "What changed during the most recent pipeline run?"
+
+Run it immediately after each `scryfall_daily` execution to confirm the run completed, review per-step timing, and verify how many sets and cards were touched.
+
+**How to run:**
+
+```bash
+psql "$DATABASE_URL" -f src/automana/database/SQL/maintenance/scryfall_run_diff.sql
+```
+
+**Targeting a specific run:** By default the script pins to the most recent `scryfall_daily` run via a `last_run` CTE. To inspect a different run, edit the WHERE clause in that CTE:
+
+```sql
+-- Default (most recent run):
+WHERE pipeline_name = 'scryfall_daily' ORDER BY started_at DESC LIMIT 1
+
+-- Specific run:
+WHERE id = 42  -- replace 42 with the desired ops.ingestion_runs.id
+```
+
+**Output blocks (8 blocks, in order):**
+
+| Block (check_name) | What it shows |
+|---|---|
+| `run_metadata` | Run-level summary: status, timing, error details. Severity is `error` if the run failed, `warn` if partial or still running, `info` otherwise. |
+| `step_status` | Per-step status from `ops.ingestion_run_steps`. Severity is `error` if any step failed, `warn` if any step is partial or in an unexpected state. |
+| `run_metrics` | Arbitrary key-value metrics from `ops.ingestion_run_metrics`. Severity is `warn` if no metrics were recorded. |
+| `step_counters` | Parsed `ProcessingStats` JSON from each step's `notes` column: `total_sets`, `successful_inserts`, `failed_inserts`, `total_cards`, `skipped_inserts`, `batches_processed`, `success_rate`, `duration_seconds`. Severity is `warn` if any step recorded `failed_inserts > 0`. Non-JSON notes are silently skipped. |
+| `run_resources` | Resource versions consumed by the run, linked via `ops.ingestion_run_resources`. Severity is `warn` if no resource versions were recorded. |
+| `sets_touched_heuristic` | Count of sets whose `updated_at` date falls within the run window. Always `info`. |
+| `card_versions_created_heuristic` | Count of `card_version` rows with `created_at` within the run window. Always `info`. |
+| `unique_cards_created_heuristic` | Count of `unique_cards_ref` rows with `created_at` within the run window. Always `info`. |
+
+**Gotchas:**
+
+- `card_catalog.sets.updated_at` is a DATE column (day precision). The sets upsert does refresh `updated_at`, so the `sets_touched_heuristic` count is a meaningful day-granularity signal.
+- `card_catalog.card_version` upserts use `ON CONFLICT DO NOTHING`. The `updated_at` column is never refreshed on re-import. Both the `card_versions_created_heuristic` and `unique_cards_created_heuristic` blocks filter on `created_at` (the first-insert timestamp). Do not read these counts as "cards updated" — they count only net-new cards added during the run.
+
+---
+
+### `scryfall_integrity_checks.sql` — Periodic orphan / loose-data checks
+
+**Full path:** `src/automana/database/SQL/maintenance/scryfall_integrity_checks.sql`
+
+**What it answers:** "Is the card catalog internally consistent?"
+
+Run daily (ideally after `scryfall_daily` completes) and on demand after any manual data repair.
+
+**How to run:**
+
+```bash
+psql "$DATABASE_URL" -f src/automana/database/SQL/maintenance/scryfall_integrity_checks.sql
+```
+
+**Sentinel UUIDs excluded from applicable orphan checks:**
+
+| UUID | Represents |
+|---|---|
+| `00000000-0000-0000-0000-000000000001` | Unknown Artist |
+| `00000000-0000-0000-0000-000000000002` | MISSING_SET |
+
+**All 24 checks:**
+
+| check_name | Severity when nonzero | What it detects |
+|---|---|---|
+| `unique-cards-no-version` | error | `unique_cards_ref` rows with no matching `card_version` (orphan unique cards) |
+| `card-version-no-unique-card` | error | `card_version` rows with no matching `unique_cards_ref` (broken FK) |
+| `multifaced-flag-mismatch` | error | `is_multifaced=true` with 0 faces, or `is_multifaced=false` with faces present |
+| `sets-zero-card-versions` | warn | Sets (excluding MISSING_SET) with no card versions (may be normal for newly ingested sets) |
+| `sets-no-icon` | warn | Sets (excluding MISSING_SET) with no `icon_set` row |
+| `parent-set-missing` | error | Sets whose `parent_set` FK points to a non-existent set |
+| `artist-no-illustration` | warn | Artists (excluding Unknown Artist) with no `illustration_artist` row |
+| `illustration-no-artist` | error | Illustrations with no `illustration_artist` row |
+| `illustration-unreferenced` | warn | Illustrations referenced by neither `card_version_illustration` nor `face_illustration` |
+| `face-on-non-multifaced-card` | error | `card_faces` rows whose parent `card_version.is_multifaced = false` |
+| `face-illustration-orphan-face` | error | `face_illustration` rows whose `face_id` has no matching `card_faces` row |
+| `multifaced-card-no-faces` | error | `card_version` with `is_multifaced=true` but zero `card_faces` rows |
+| `external-id-null-value` | error | `card_external_identifier` rows with a NULL value (should be prevented by NOT NULL constraint) |
+| `card-version-no-scryfall-id` | error | `card_version` rows with no scryfall_id external identifier |
+| `unique-card-no-legalities` | info | `unique_cards_ref` with no legalities rows — always info (tokens and emblems legitimately have none) |
+| `print-price-daily-orphan-card-version` | error | `pricing.print_price_daily` rows referencing a non-existent `card_version` |
+| `print-price-weekly-orphan-card-version` | error | `pricing.print_price_weekly` rows referencing a non-existent `card_version` |
+| `card-version-routed-to-missing-set` | warn | `card_version` rows assigned to the MISSING_SET sentinel (set resolution failed during import) |
+| `color-produced-non-empty` | warn | Any rows in `card_catalog.color_produced` — this table is never written by the pipeline; rows indicate an out-of-band writer |
+| `card-version-null-set-id` | error | `card_version` rows with NULL `set_id` (should be prevented by NOT NULL constraint) |
+| `illustration-null-image-uris` | warn | Illustrations with NULL `image_uris` that are referenced by `card_version_illustration` |
+| `migration-merge-missing-target` | warn | Merge migrations whose `new_scryfall_id` is not present in the card catalog |
+| `scryfall-runs-stuck-running` | error | `scryfall_daily` runs that have been in `running` status for more than 2 hours |
+| `last-run-failed-steps` | error | Steps in the most recent `scryfall_daily` run that did not complete with status `success` |
+
+**Design note — no exact face-count assertion:** The `multifaced-flag-mismatch` and `multifaced-card-no-faces` checks confirm that multifaced cards have at least one face, but do not assert an exact face count. This is intentional: Meld cards have 3 faces and Who / What / When / Where / Why has 5 faces, so asserting `face_count = 2` would produce false positives.
+
+---
+
+### `public_schema_leak_check.sql` — Schema isolation check
+
+**Full path:** `src/automana/database/SQL/maintenance/public_schema_leak_check.sql`
+
+**What it answers:** "Has anything been accidentally created in the `public` schema?"
+
+Run after any schema migration and after suspicious pipeline failures. A weekly run in CI is also recommended.
+
+**How to run:**
+
+```bash
+psql "$DATABASE_URL" -f src/automana/database/SQL/maintenance/public_schema_leak_check.sql
+```
+
+Extension-owned objects (pgvector, TimescaleDB) are identified via `pg_depend` and excluded from the non-default-object checks.
+
+**All 8 checks:**
+
+| check_name | Severity when nonzero | What it detects |
+|---|---|---|
+| `card-catalog-tables-in-public` | error | Tables in `public` whose name matches a known `card_catalog` table name — data routing error |
+| `unexpected-tables-in-public` | warn | Non-extension-owned ordinary or partitioned tables in `public` |
+| `views-in-public` | warn | Non-extension-owned views or materialized views in `public` |
+| `sequences-in-public` | warn | Non-extension-owned sequences in `public` (leak from unqualified table creation) |
+| `functions-in-public` | warn | Non-extension-owned functions or procedures in `public` |
+| `session-search-path` | info | Current session `search_path`, `current_user`, and `session_user` — review manually |
+| `role-search-path-config` | info | Roles with an explicit `search_path` rolconfig entry — review to confirm `public` is not first |
+| `proc-body-references-public` | warn | Functions in `card_catalog` or `ops` schemas whose body contains a hardcoded `public.` prefix |
+
+---
+
+### Required database access
+
+All three scripts are read-only. They query across `card_catalog`, `ops`, and `pricing` schemas (the integrity check also reads `pricing.print_price_daily` and `pricing.print_price_weekly`). The `app_readonly` role (`app_ro`) or `automana_admin` is sufficient; `app_agent` does not have `USAGE` on the `pricing` schema in production and cannot run `scryfall_integrity_checks.sql` in that environment. See [`docs/DATABASE_ROLES.md`](DATABASE_ROLES.md) for the full privilege matrix.

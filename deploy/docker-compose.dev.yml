@@ -14,7 +14,13 @@ services:
     env_file:
       - ../config/env/.env.dev
     environment:
-      POSTGRES_USER: ${APP_ADMIN_DB_USER}
+      # Bootstrap cluster superuser. Using automana_admin (not app_admin)
+      # so that `app_admin` stays a NOLOGIN group role per the design in
+      # infra/db/init/02-app-roles.sql.tpl. Passing app_admin here would
+      # cause the image's initdb to create it as superuser, and the init
+      # template's `CREATE ROLE app_admin NOLOGIN` would be skipped by
+      # its IF NOT EXISTS guard — leaving app_admin with superuser bits.
+      POSTGRES_USER: ${AUTOMANA_ADMIN_DB_USER}
       POSTGRES_PASSWORD_FILE: /run/secrets/admin_db_password
       POSTGRES_DB: ${DB_NAME}
     ports:
@@ -24,7 +30,7 @@ services:
       - /data/pg_restore:/restore:ro
       - ../infra/db/init/:/docker-entrypoint-initdb.d/:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${APP_ADMIN_DB_USER} -d ${DB_NAME}"]
+      test: ["CMD-SHELL", "pg_isready -U ${AUTOMANA_ADMIN_DB_USER} -d ${DB_NAME}"]
       interval: 5s
       timeout: 3s
       retries: 20

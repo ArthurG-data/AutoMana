@@ -46,7 +46,7 @@ BEGIN
         value NUMERIC NOT NULL,
         scraped_at TIMESTAMP NOT NULL,
         condition_id INT REFERENCES pricing.card_condition(condition_id),
-        finish_id INT REFERENCES pricing.card_finish(finish_id),
+        finish_id INT REFERENCES pricing.card_finished(finish_id),
         UNIQUE(ts_date, game_id, print_id, source_id, metric_id, condition_id, finish_id)
     );
 
@@ -105,7 +105,7 @@ BEGIN
       JOIN pricing.card_condition cc
         ON lower(cc.description) = lower(s.condition_name)
       /* finish_id only when Foil; otherwise NULL */
-      LEFT JOIN pricing.card_finish cf
+      LEFT JOIN pricing.card_finished cf
         ON s.finish_name IS NOT NULL AND lower(cf.code) = 'foil'
     )
     INSERT INTO pricing.price_observation_stage 
@@ -131,12 +131,23 @@ BEGIN
     ------------------------------------------------------------------
     v_step_time := clock_timestamp();
 
-    INSERT INTO pricing.price_observation
-        (ts_date, game_id, print_id, source_id, metric_id, value, scraped_at, condition_id, finish_id)
-    SELECT
-        ts_date, game_id, print_id, source_id, metric_id, value, scraped_at, condition_id, finish_id
-    FROM pricing.price_observation_stage
-    ON CONFLICT DO NOTHING;
+    -- BROKEN — NEEDS REDESIGN.
+    --
+    -- The previous body inserted into pricing.price_observation with the
+    -- columns (ts_date, game_id, print_id, source_id, metric_id, value,
+    -- scraped_at, condition_id, finish_id). None of `game_id`, `print_id`,
+    -- `source_id`, `metric_id`, `value` exist on the current
+    -- pricing.price_observation schema (see 06_prices.sql:165 — it uses
+    -- price_type_id, finish_id, condition_id, language_id, *_cents,
+    -- source_product_id, data_provider_id).
+    --
+    -- Rewriting correctly requires mapping:
+    --   price_observation_stage.(game_id, print_id, source_id, metric_id)
+    --     → pricing.price_observation.(source_product_id, price_type_id, data_provider_id)
+    -- which is a non-trivial join with pricing.source_product and is
+    -- left for a follow-up that can decide the canonical mapping.
+    RAISE EXCEPTION
+        'pricing.stage_to_price_observation needs to be rewritten against the current price_observation schema (see 07_shopify_staging.sql for context).';
 
     GET DIAGNOSTICS v_count = ROW_COUNT;
     RAISE INFO 'Inserted % rows into price_observation in %',

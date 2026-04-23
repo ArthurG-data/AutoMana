@@ -1,3 +1,5 @@
+BEGIN;
+
 CREATE TABLE IF NOT EXISTS pricing.mtgjson_staging (
   cardFinish TEXT,
   currency TEXT,
@@ -12,21 +14,20 @@ CREATE TABLE IF NOT EXISTS pricing.mtgjson_staging (
   updated_at      timestamptz DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS pricing.mtgjson_payloads (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  source TEXT NOT NULL,
-  fetched_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  filename TEXT,
-  payload JSONB NOT NULL
-);
+-- NOTE: `pricing.mtgjson_payloads` and `pricing.process_mtgjson_payload`
+-- were removed as part of the streaming-refactor. The raw .xz payload is
+-- no longer archived as JSONB in the database — it's streamed directly
+-- from disk into `pricing.mtgjson_card_prices_staging` via lzma + ijson +
+-- asyncpg COPY (see staging.mtgjson.stream_to_staging in data_loader.py,
+-- and docs/MTGJSON_PIPELINE.md for the design rationale). Do not re-add
+-- either object without revisiting that decision first.
 
 CREATE TABLE IF NOT EXISTS pricing.mtgjson_card_prices_staging (
     id SERIAL PRIMARY KEY,
-    payload_id UUID NOT NULL REFERENCES pricing.mtgjson_payloads(id) ON DELETE CASCADE,
     card_uuid TEXT NOT NULL,
-    price_source TEXT NOT NULL, --the provenance
-    price_type  TEXT, --buylist or retail
-    finish_type TEXT NOT NULL, --finish or foil or etched or showcase
+    price_source TEXT NOT NULL,      -- provenance (tcgplayer, cardmarket, ...)
+    price_type  TEXT,                -- buylist, retail
+    finish_type TEXT NOT NULL,       -- foil, nonfoil, etched, showcase
     currency TEXT NOT NULL,
     price_value FLOAT NOT NULL,
     price_date DATE NOT NULL,
@@ -34,44 +35,13 @@ CREATE TABLE IF NOT EXISTS pricing.mtgjson_card_prices_staging (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE OR REPLACE PROCEDURE pricing.process_mtgjson_payload(p_payload_id UUID)
-LANGUAGE plpgsql
-AS $$
-BEGIN
-    -- Fetch the payload record
-    IF NOT EXISTS (SELECT 1 FROM pricing.mtgjson_payloads WHERE id = p_payload_id) THEN
-        RAISE EXCEPTION 'Payload with ID % not found', p_payload_id;
-    END IF;
-
-    INSERT INTO pricing.mtgjson_card_prices_staging (
-        payload_id, card_uuid, price_source, price_type, finish_type,
-        price_date, price_value, currency
-    )
-    SELECT
-      p_payload_id                        AS payload_id,
-      data_entry.card_key                 AS card_uuid,
-      source_entry.source_key             AS price_source,
-      price_type_entry.price_type_key     AS price_type,
-      finish_entry.finish_type_key        AS finish_type,
-      date_entry.price_date::DATE         AS price_date,
-      date_entry.price_value::NUMERIC     AS price_value,
-      (source_entry.source_val->>'currency') AS currency
-    FROM pricing.mtgjson_payloads AS p,
-    LATERAL jsonb_each(p.payload -> 'data')          AS data_entry(card_key, card_val),
-    LATERAL jsonb_each(data_entry.card_val -> 'paper') AS source_entry(source_key, source_val),
-    LATERAL jsonb_each(source_entry.source_val)      AS price_type_entry(price_type_key, price_type_val),
-    LATERAL jsonb_each(price_type_entry.price_type_val) AS finish_entry(finish_type_key, finish_type_val),
-    LATERAL jsonb_each(finish_entry.finish_type_val) AS date_entry(price_date, price_value)
-    WHERE p.id = p_payload_id
-      AND price_type_entry.price_type_key NOT IN ('currency')
-    ON CONFLICT (payload_id, card_uuid, price_source, price_type,
-                 finish_type, price_date, currency) DO NOTHING;
-END;
-$$;
-
-----------------------------------------------------------------next, find reference to data in the table, for source for example
+-- Promote staged rows into pricing.price_observation.
+-- No `p_payload_id` parameter — the streaming pipeline writes rows without
+-- payload provenance (see stream_to_staging service), so there's no payload
+-- to scope by. The proc processes the entire staging table in batch_days
+-- windows and deletes rows it successfully resolves.
 CREATE OR REPLACE PROCEDURE pricing.load_price_observation_from_mtgjson_staging_batched(
-   p_payload_id UUID , batch_days int DEFAULT 30
+   batch_days int DEFAULT 30
 )
 LANGUAGE plpgsql
 AS $$
@@ -112,7 +82,7 @@ BEGIN
   END;
 
   -- provider
-  SELECT dp.provider_id
+  SELECT dp.data_provider_id
   INTO v_data_provider_id
   FROM pricing.data_provider dp
   WHERE dp.code = 'mtgjson'
@@ -147,8 +117,7 @@ BEGIN
       WHERE s.price_date::date BETWEEN v_start AND v_end
         AND s.price_source IS NOT NULL
         AND s.currency IS NOT NULL
-        AND (p_payload_id IS NULL OR s.payload_id = p_payload_id)
-      ON CONFLICT (code) DO NOTHING; --option 1
+      ON CONFLICT (code) DO NOTHING;
 
       -- upsert finishes for this batch (IMPORTANT)
       INSERT INTO pricing.card_finished (code)
@@ -156,8 +125,7 @@ BEGIN
       FROM pricing.mtgjson_card_prices_staging s
       WHERE s.price_date::date BETWEEN v_start AND v_end
         AND s.finish_type IS NOT NULL
-        AND (p_payload_id IS NULL OR s.payload_id = p_payload_id)
-      ON CONFLICT (code) DO NOTHING; --option 2
+      ON CONFLICT (code) DO NOTHING;
 
       -- upsert observations
       with src AS (
@@ -201,7 +169,6 @@ BEGIN
       AND st.card_uuid IS NOT NULL
       AND st.price_source IS NOT NULL
       AND st.currency IS NOT NULL
-      AND (p_payload_id IS NULL OR st.payload_id = p_payload_id)
   ),
   insert_product_source AS (
     INSERT INTO pricing.source_product (product_id, source_id)
@@ -357,8 +324,7 @@ BEGIN
       )
       DELETE FROM pricing.mtgjson_card_prices_staging s
       USING resolved_ids r
-      WHERE s.id = r.id
-      AND (p_payload_id IS NULL OR s.payload_id = p_payload_id);
+      WHERE s.id = r.id;
 
       GET DIAGNOSTICS v_deleted = ROW_COUNT;
 
@@ -386,3 +352,5 @@ BEGIN
   RAISE NOTICE 'Done. Total upserted %, total deleted %', v_total_upserted, v_total_deleted;
 END;
 $$;
+
+COMMIT;

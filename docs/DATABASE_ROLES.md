@@ -148,6 +148,8 @@ The following schemas exist. All are owned by `db_owner`.
 
 In **production**, `agent_reader` has `USAGE` revoked on `user_management`, `user_collection`, `app_integration`, and `pricing` — the agent role can only see `card_catalog`, `markets`, and `ops`.
 
+> **Maintenance scripts:** The three SQL sanity-check scripts in `src/automana/database/SQL/maintenance/` read across `card_catalog`, `ops`, and `pricing`. In production, `app_agent` (via `agent_reader`) lacks `USAGE` on `pricing` and cannot run `scryfall_integrity_checks.sql`. Use `app_readonly` (`app_ro`) or `automana_admin` to execute these scripts.
+
 ---
 
 ## Public Schema

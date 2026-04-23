@@ -8,6 +8,18 @@ logger = logging.getLogger(__name__)
 register_uuid()
 
 
+# Search path pinned on every pool connection so historical repository SQL
+# that still references tables unqualified (e.g. `FROM users`) resolves
+# correctly after migration 15 relocated user-management objects out of
+# `public`. `public` stays in the path because extension functions
+# (uuid_generate_v4, gen_random_uuid, pgvector operators) live there.
+# Keep the order so higher-priority schemas win on name collisions.
+_SEARCH_PATH = (
+    "user_management, public, card_catalog, user_collection, "
+    "app_integration, pricing, markets, ops"
+)
+
+
 def _compute_backoff_seconds(attempt: int, base_delay: float, max_delay: float) -> float:
     # attempt is 1-indexed
     delay = base_delay * (2 ** max(0, attempt - 1))
@@ -33,7 +45,10 @@ async def init_async_pool(settings:Settings) -> asyncpg.Pool:
                 min_size=2,
                 max_size=10,
                 command_timeout=60,
-                server_settings={"client_encoding": "UTF8"},
+                server_settings={
+                    "client_encoding": "UTF8",
+                    "search_path": _SEARCH_PATH,
+                },
             )
             logger.info("Async pool created")
             return async_pool
@@ -57,12 +72,19 @@ async def init_async_pool(settings:Settings) -> asyncpg.Pool:
 def init_sync_pool(settings: Settings) -> pool.SimpleConnectionPool:
     dsn = settings.DATABASE_URL_ASYNC.replace("postgresql+asyncpg://", "postgresql://")
     """Initialize the synchronous connection pool"""
+    # psycopg2 passes `options` as libpq command-line options. Order and
+    # spacing don't matter; each `-c key=value` sets a GUC at connection
+    # start. The search_path here mirrors `_SEARCH_PATH` above — keep them
+    # in sync if you edit either.
     sync_db_pool = pool.SimpleConnectionPool(
         minconn=settings.db_pool_min_conn,
         maxconn=settings.db_pool_max_conn,
         dsn=dsn,
         cursor_factory=RealDictCursor,
-        options='-c client_encoding=UTF8'
+        options=(
+            "-c client_encoding=UTF8 "
+            "-c search_path=" + _SEARCH_PATH.replace(" ", "")
+        ),
     )
     return sync_db_pool
 

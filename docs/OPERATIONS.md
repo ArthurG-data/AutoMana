@@ -167,6 +167,38 @@ To update the Flower Basic Auth password:
 docker compose -f deploy/docker-compose.prod.yml up -d --no-deps flower
 ```
 
+## Pipeline sanity checks
+
+Three read-only SQL scripts provide structured post-run and periodic health checks for the Scryfall pipeline. They write nothing and can be re-run freely. All produce the same column shape: `check_name`, `severity`, `row_count`, `details`.
+
+**Post-run diff** (run after every `scryfall_daily` execution):
+
+```bash
+psql "$DATABASE_URL" -f src/automana/database/SQL/maintenance/scryfall_run_diff.sql
+```
+
+Surfaces run metadata, per-step status and timing, parsed `ProcessingStats` counters, and heuristic counts of sets and cards touched.
+
+**Periodic integrity checks** (run daily or after manual data repairs):
+
+```bash
+psql "$DATABASE_URL" -f src/automana/database/SQL/maintenance/scryfall_integrity_checks.sql
+```
+
+Runs 24 orphan/loose-data checks across `card_catalog`, `ops`, and `pricing` schemas. Any row with `severity = 'error'` warrants immediate investigation.
+
+**Schema isolation check** (run after migrations or on a weekly CI schedule):
+
+```bash
+psql "$DATABASE_URL" -f src/automana/database/SQL/maintenance/public_schema_leak_check.sql
+```
+
+Confirms that no application objects have leaked into the `public` schema.
+
+For the full check catalogue, severity definitions, recommended cadence, and interpretation notes, see the [Sanity Checks & Maintenance Scripts](SCRYFALL_PIPELINE.md#sanity-checks--maintenance-scripts) section of `docs/SCRYFALL_PIPELINE.md`.
+
+---
+
 ## Certificates
 
 nginx mounts certs from `config/nginx/certs/`.

@@ -23,9 +23,13 @@ class SessionRepository(AbstractRepository):
         query = create_select_query('active_sessions_view', conditions_list=[('session_id = $1 ')])
         return await self.execute_query(query,session_id)
 
-    async def delete( self, ip_address : str, user_id : UUID, session_id : UUID):
-        query="SELECT inactivate_session($1, $2, $3);"
-        return await self.execute_query(query, (str(session_id), user_id, ip_address))
+    async def delete(self, ip_address: str, user_id: UUID, session_id: UUID):
+        # `user_management.inactivate_session(p_session_id UUID, p_ip_address TEXT)`
+        # — 2 args, not 3. `user_id` is kept in the Python signature for the
+        # caller's convenience (e.g. authorization checks before calling),
+        # but does not map to a SQL parameter.
+        query = "SELECT user_management.inactivate_session($1, $2);"
+        return await self.execute_query(query, (str(session_id), ip_address))
 
     async def get_token(self, session_id: UUID):
         query = "SELECT session_id, token_id FROM active_sessions_view WHERE user_id = $1"

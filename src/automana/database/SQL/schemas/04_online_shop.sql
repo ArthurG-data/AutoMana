@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS user_collection.collections (
     user_id UUID REFERENCES user_management.users(unique_id) ON DELETE CASCADE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     is_active BOOLEAN DEFAULT TRUE,
-    UC_Collection UNIQUE (collection_name,user_id)
+    CONSTRAINT uc_collection_name_user UNIQUE (collection_name, user_id)
 );
 
 

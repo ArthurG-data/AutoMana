@@ -102,3 +102,58 @@ Checks:
 - Confirm the `session_id` cookie is present after login.
 
 See the examples in `docs/API.md`.
+
+## Pipeline appears stuck (scryfall_daily)
+
+The run shows `status = 'running'` but has not progressed in over 2 hours.
+
+Check the `scryfall-runs-stuck-running` integrity check:
+
+```bash
+psql "$DATABASE_URL" -f src/automana/database/SQL/maintenance/scryfall_integrity_checks.sql
+```
+
+Filter the output for `check_name = 'scryfall-runs-stuck-running'`. If `row_count > 0`, the `details` column lists the stuck run IDs, start times, and which step was last active. Cross-reference with Celery / Flower logs to confirm whether the worker process is still alive.
+
+## Cards showing no artwork
+
+Common causes:
+
+- Illustrations exist in `card_catalog.illustrations` but are not linked to any card version or face row (`illustration-unreferenced`).
+- Illustrations are linked but have a NULL `image_uris` column (`illustration-null-image-uris`).
+
+```bash
+psql "$DATABASE_URL" -f src/automana/database/SQL/maintenance/scryfall_integrity_checks.sql
+```
+
+Filter the output for `check_name IN ('illustration-unreferenced', 'illustration-null-image-uris')`.
+
+## New cards missing after a run
+
+After a `scryfall_daily` run, expected cards are absent from `card_catalog`.
+
+Common causes:
+
+- The card's `set_id` could not be resolved during import and the card was routed to the MISSING_SET sentinel (`card-version-routed-to-missing-set`).
+- The `card_version` row was written but the `unique_cards_ref` FK link is broken (`card-version-no-unique-card`).
+- One or more pipeline steps failed, preventing the cards from being written (`last-run-failed-steps`).
+
+```bash
+psql "$DATABASE_URL" -f src/automana/database/SQL/maintenance/scryfall_integrity_checks.sql
+```
+
+Filter for `check_name IN ('card-version-routed-to-missing-set', 'card-version-no-unique-card', 'last-run-failed-steps')`. Also run the post-run diff to review step-level counters:
+
+```bash
+psql "$DATABASE_URL" -f src/automana/database/SQL/maintenance/scryfall_run_diff.sql
+```
+
+## Unexpected tables appearing in public schema
+
+An unqualified `CREATE TABLE` during a migration or ad-hoc session may have placed objects in `public` instead of the intended schema.
+
+```bash
+psql "$DATABASE_URL" -f src/automana/database/SQL/maintenance/public_schema_leak_check.sql
+```
+
+Any row with `severity = 'error'` (`card-catalog-tables-in-public`) means the pipeline may have silently been reading or writing to the wrong schema. `severity = 'warn'` rows (`unexpected-tables-in-public`, `views-in-public`, `sequences-in-public`, `functions-in-public`) indicate leftover objects that should be dropped or moved. Drop the offending objects and re-run the check to confirm resolution.

@@ -37,9 +37,22 @@ CREATE TABLE IF NOT EXISTS ops.resources (
   CHECK (external_id IS NOT NULL OR canonical_key IS NOT NULL)
 );
 
--- Natural key: a resource is unique per (source, type, external_id, canonical_key)
+-- Full natural key: a resource is unique per (source, type, external_id, canonical_key).
+-- NULLs in `canonical_key` don't collide with each other in the default index,
+-- so this covers the (…, canonical_key IS NOT NULL) case cleanly but doesn't
+-- prevent duplicates when canonical_key IS NULL — the partial index below
+-- handles that case.
 CREATE UNIQUE INDEX IF NOT EXISTS ux_resources_source_type_natkey
 ON ops.resources (source_id, external_type, external_id, canonical_key);
+
+-- Partial unique index matching the Scryfall bulk upsert's ON CONFLICT target
+-- in scryfall_data.py (`ON CONFLICT (source_id, external_type, external_id)
+-- WHERE canonical_key IS NULL`). Without this the upsert errors with
+-- "there is no unique or exclusion constraint matching the ON CONFLICT
+-- specification" on any run where canonical_key is NULL.
+CREATE UNIQUE INDEX IF NOT EXISTS ux_resources_no_canonical_key
+ON ops.resources (source_id, external_type, external_id)
+WHERE canonical_key IS NULL;
 
 CREATE TABLE IF NOT EXISTS ops.resource_versions (
   id                bigserial PRIMARY KEY,
@@ -195,7 +208,9 @@ CREATE TABLE IF NOT EXISTS ops.ingestion_run_resources (
 
 CREATE TABLE IF NOT EXISTS ops.ingestion_ids_mapping (
   id               serial PRIMARY KEY,
-  ingestion_run_id int NOT NULL REFERENCES ops.ingestion_runs(id) ON DELETE CASCADE,
+  -- Must be BIGINT to match ops.ingestion_runs.id (bigserial). A plain INT
+  -- FK would refuse rows once run ids exceed 2^31 and could silently error.
+  ingestion_run_id BIGINT NOT NULL REFERENCES ops.ingestion_runs(id) ON DELETE CASCADE,
   mtgstock_id      bigint NOT NULL,
   scryfall_id      uuid,
   multiverse_id    bigint,
@@ -249,4 +264,90 @@ SET name = EXCLUDED.name,
     api_uri = EXCLUDED.api_uri,
     web_uri = EXCLUDED.web_uri,
     metadata = EXCLUDED.metadata;
+
+
+-- ============================================================
+-- Scryfall source + bulk_data resource
+--
+-- Read by `staging.scryfall.get_bulk_data_uri` → OpsRepository
+-- .get_bulk_data_uri() via the query:
+--   SELECT r.api_uri FROM ops.resources r
+--   JOIN ops.sources s ON s.kind='http' AND s.name='scryfall'
+--                     AND r.external_type='bulk_data'
+-- Without this row the Scryfall pipeline fails on its first step.
+-- ============================================================
+
+INSERT INTO ops.sources (name, base_uri, kind, rate_limit_hz)
+VALUES ('scryfall', 'https://api.scryfall.com', 'http', 10.0)
+ON CONFLICT (name) DO UPDATE
+SET base_uri = EXCLUDED.base_uri,
+    kind = EXCLUDED.kind,
+    rate_limit_hz = EXCLUDED.rate_limit_hz;
+
+WITH src AS (
+  SELECT id FROM ops.sources WHERE name = 'scryfall'
+)
+INSERT INTO ops.resources (
+    source_id, external_type, external_id, canonical_key,
+    name, description, api_uri, web_uri, metadata
+)
+VALUES
+  (
+    (SELECT id FROM src),
+    'bulk_data', 'bulk-data', 'scryfall.bulk_data',
+    'Scryfall bulk data',
+    'Scryfall bulk data catalog endpoint (lists all bulk data manifests).',
+    'https://api.scryfall.com/bulk-data',
+    'https://scryfall.com/docs/api/bulk-data',
+    '{"format":"json"}'::jsonb
+  )
+ON CONFLICT (source_id, external_type, external_id, canonical_key) DO UPDATE
+SET name = EXCLUDED.name,
+    description = EXCLUDED.description,
+    api_uri = EXCLUDED.api_uri,
+    web_uri = EXCLUDED.web_uri,
+    metadata = EXCLUDED.metadata;
+
+
+-- ============================================================
+-- MTGJson source + all_printings resource
+--
+-- Read by `staging.mtgjson.check_version` via
+-- OpsRepository.get_mtgjson_resource_version() /
+-- .upsert_mtgjson_resource_version(), which filter on
+-- canonical_key = 'mtgjson.all_printings'. Seeded here so the
+-- version gate works on a fresh rebuild without manual inserts.
+-- ============================================================
+
+INSERT INTO ops.sources (name, base_uri, kind, rate_limit_hz)
+VALUES ('mtgjson', 'https://mtgjson.com/api/v5', 'http', 2.0)
+ON CONFLICT (name) DO UPDATE
+SET base_uri = EXCLUDED.base_uri,
+    kind = EXCLUDED.kind,
+    rate_limit_hz = EXCLUDED.rate_limit_hz;
+
+WITH src AS (
+  SELECT id FROM ops.sources WHERE name = 'mtgjson'
+)
+INSERT INTO ops.resources (
+    source_id, external_type, external_id, canonical_key,
+    name, description, api_uri, web_uri, metadata
+)
+VALUES
+  (
+    (SELECT id FROM src),
+    'catalog', 'AllPrintings', 'mtgjson.all_printings',
+    'MTGJson AllPrintings catalog',
+    'Version metadata for the MTGJson card catalog (Meta.json).',
+    'https://mtgjson.com/api/v5/Meta.json',
+    'https://mtgjson.com/',
+    '{"format":"json"}'::jsonb
+  )
+ON CONFLICT (source_id, external_type, external_id, canonical_key) DO UPDATE
+SET name = EXCLUDED.name,
+    description = EXCLUDED.description,
+    api_uri = EXCLUDED.api_uri,
+    web_uri = EXCLUDED.web_uri,
+    metadata = EXCLUDED.metadata;
+
 COMMIT;

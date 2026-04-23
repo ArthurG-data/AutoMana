@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS ops.integrity_checks_card_catalog(
     last_run TIMESTAMPTZ,
     bad_records_count INT,
     status TEXT,
-    details JSONB,
+    details JSONB
 );
 ------------------------------count the number of unique cards that do not have an associated card version and log the details of those records 
 WITH bad_unique_cards AS (
@@ -190,56 +190,13 @@ DO UPDATE SET
 --check for 
 -------------------------------
 
--------------------------------
---check for card version or face not linked to an illustration, log any records that do not meet this criteria, and the card version should have the is illustrated flag set to true
--------------------------------
-with bad_card_illustrations as (
-    select
-        cv.card_version_id,
-        cv.unique_card_id,
-        cf.card_faces_id,
-        ia.illustration_id,
-    from card_catalog.card_version cv
-    JOIN card_catalog.card_version_illustration cvi
-        on cvi.card_version_id = cv.card_version_id
-    JOIN card
-    left join card_catalog.card_faces cf
-        on cf.card_version_id = cv.card_version_id
-    left join card_catalog.illustration_agg ia
-        on ia.card_version_id = cv.card_version_id or ia.card_faces_id = cf.card_faces_id
-),
-bad AS (
-    SELECT
-        card_version_id,
-        unique_card_id,
-        card_faces_id,
-        illustration_id,
-        is_illustrated
-    FROM bad_card_illustrations
-    WHERE illustration_id IS NULL
-       OR is_illustrated != (illustration_id IS NOT NULL)
-),
-stats AS (
-    SELECT
-        COUNT(*)::bigint AS bad_count,
-        CASE WHEN COUNT(*) > 0 THEN 'FAIL' ELSE 'PASS' END AS status,
-        jsonb_agg(to_jsonb(bad)) AS details
-    FROM bad
-)
-INSERT INTO ops.integrity_checks_card_catalog
-    (check_name, check_description, last_run, bad_records_count, status, details)
-SELECT
-    'Card Illustrations Validation',
-    'Checks for card versions or faces not linked to an illustration or mismatched is_illustrated flag.',
-    NOW(),
-    s.bad_count,
-    s.status,
-    COALESCE(s.details, '[]'::jsonb)
-FROM stats s
-ON CONFLICT (check_name)
-DO UPDATE SET
-    check_description = EXCLUDED.check_description,
-    last_run          = EXCLUDED.last_run,
-    bad_records_count = EXCLUDED.bad_records_count,
-    status            = EXCLUDED.status,
-    details           = EXCLUDED.details;
+-- Removed: "Card Illustrations Validation" check.
+--
+-- The previous query referenced:
+--   - `card_catalog.illustration_agg` — a table that does not exist in
+--     any schema file.
+--   - `is_illustrated` — a column not declared on any of the joined
+--     tables.
+--   - An incomplete `JOIN card` line with no table name.
+-- Re-author this check once the illustration model stabilises, then
+-- re-add it here with working references.
