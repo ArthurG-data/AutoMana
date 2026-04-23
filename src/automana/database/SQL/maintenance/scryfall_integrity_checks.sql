@@ -804,7 +804,9 @@ FROM (
     UNION ALL
     SELECT check_name, bad_count, details FROM chk_24_last_run_failed_steps
 ) all_checks
-ORDER BY
-    CASE severity WHEN 'error' THEN 1 WHEN 'warn' THEN 2 ELSE 3 END,
-    check_name
 ;
+-- No ORDER BY — the Python service layer partitions rows by severity
+-- into errors/warnings/passed arrays, and PG's outer-SELECT alias
+-- resolution rules don't let `ORDER BY CASE severity WHEN ...` see the
+-- alias here (the alias only exists on the result columns, not in the
+-- underlying `all_checks` subquery's scope).

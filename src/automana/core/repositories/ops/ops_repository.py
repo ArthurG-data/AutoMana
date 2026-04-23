@@ -2,6 +2,11 @@
 from datetime import date as date_type
 from automana.core.repositories.abstract_repositories.AbstractDBRepository import AbstractRepository
 from automana.core.repositories.ops.scryfall_data import update_bulk_scryfall_data_sql
+from automana.core.repositories.ops.integrity_check_sql import (
+    scryfall_run_diff_sql,
+    scryfall_integrity_checks_sql,
+    public_schema_leak_check_sql,
+)
 from automana.core.models.pipelines.mtg_stock import MTGStockBatchStep
 
 class OpsRepository(AbstractRepository):
@@ -348,6 +353,85 @@ class OpsRepository(AbstractRepository):
         """
         parsed_date = date_type.fromisoformat(date) if isinstance(date, str) else date
         await self.execute_command(query, (version, parsed_date))
+
+    # ------------------------------------------------------------------
+    # Integrity-check helpers (read-only, no side effects)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _parse_check_rows(raw_rows: list) -> list[dict]:
+        """Convert asyncpg Record objects from a check query into plain dicts.
+
+        asyncpg surfaces JSONB columns as raw JSON strings; we parse `details`
+        into a Python dict here, mirroring the pattern used in
+        `update_bulk_data_uri_return_new`.
+        """
+        result = []
+        for row in raw_rows:
+            details_raw = row.get("details") if hasattr(row, "get") else row["details"]
+            if isinstance(details_raw, str):
+                details = json.loads(details_raw) if details_raw else {}
+            elif details_raw is None:
+                details = {}
+            else:
+                details = details_raw
+            result.append(
+                {
+                    "check_name": row["check_name"],
+                    "severity": row["severity"],
+                    "row_count": row["row_count"],
+                    "details": details,
+                }
+            )
+        return result
+
+    async def run_scryfall_run_diff(
+        self, ingestion_run_id: int | None = None
+    ) -> list[dict]:
+        """Run the post-run diff report for the most recent (or specified) Scryfall run.
+
+        The underlying SQL (`scryfall_run_diff.sql`) always targets the most
+        recent `scryfall_daily` pipeline run via an internal CTE.  The
+        `ingestion_run_id` argument is accepted for forward-compatibility but is
+        **not currently forwarded to the query** — the SQL does not expose a
+        bind-parameter for it.  A future migration of the SQL to accept a
+        ``$1`` placeholder will make this arg functional without changing
+        callers.
+
+        Returns a list of dicts with keys:
+            ``check_name`` (str), ``severity`` (str), ``row_count`` (int),
+            ``details`` (dict).
+        """
+        raw = await self.execute_query(scryfall_run_diff_sql)
+        return self._parse_check_rows(raw)
+
+    async def run_scryfall_integrity_checks(self) -> list[dict]:
+        """Run the 24-check orphan / loose-data integrity scan for the Scryfall pipeline.
+
+        Covers ``card_catalog``, ``ops``, and ``pricing`` schemas.  All checks
+        are pure SELECTs — zero side effects — safe to run from any read-only
+        role.
+
+        Returns a list of dicts with keys:
+            ``check_name`` (str), ``severity`` (str), ``row_count`` (int),
+            ``details`` (dict).
+        """
+        raw = await self.execute_query(scryfall_integrity_checks_sql)
+        return self._parse_check_rows(raw)
+
+    async def run_public_schema_leak_check(self) -> list[dict]:
+        """Confirm that no app objects leaked into the ``public`` schema.
+
+        Checks tables, views, sequences, functions, and search_path config.
+        Extension-owned objects (pgvector, timescaledb) are excluded so that
+        expected noise does not mask real findings.
+
+        Returns a list of dicts with keys:
+            ``check_name`` (str), ``severity`` (str), ``row_count`` (int),
+            ``details`` (dict).
+        """
+        raw = await self.execute_query(public_schema_leak_check_sql)
+        return self._parse_check_rows(raw)
 
     async def get():
         raise NotImplementedError("This method is not implemented yet.")

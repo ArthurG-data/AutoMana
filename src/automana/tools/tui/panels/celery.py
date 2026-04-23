@@ -53,6 +53,18 @@ KNOWN_TASKS: list[CeleryTask] = [
             "card_catalog.card.process_large_json",
             "ops.pipeline_services.finish_run",
             "staging.scryfall.delete_old_scryfall_folders",
+            "ops.integrity.scryfall_run_diff",
+            "ops.integrity.scryfall_integrity",
+            "ops.integrity.public_schema_leak",
+        ],
+    ),
+    CeleryTask(
+        name="run_scryfall_integrity_checks",
+        label="Scryfall integrity checks (parallel)",
+        steps=[
+            "ops.integrity.scryfall_run_diff",
+            "ops.integrity.scryfall_integrity",
+            "ops.integrity.public_schema_leak",
         ],
     ),
     CeleryTask(

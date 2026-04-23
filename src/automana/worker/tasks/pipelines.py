@@ -1,4 +1,4 @@
-from celery import shared_task, chain
+from celery import group, shared_task, chain
 import logging
 from automana.worker.main import run_service
 from automana.core.logging_context import set_task_id
@@ -36,6 +36,12 @@ def daily_scryfall_data_pipeline(self):
         run_service.s("staging.scryfall.download_and_load_migrations"),
         run_service.s("ops.pipeline_services.finish_run", status="success"),
         run_service.s("staging.scryfall.delete_old_scryfall_folders", keep=3),
+        # Diagnostic integrity checks — run AFTER finish_run so that a failing
+        # check does NOT mark the pipeline run as failed.  These are read-only
+        # sanity checks; their output is informational, not blocking.
+        run_service.s("ops.integrity.scryfall_run_diff"),
+        run_service.s("ops.integrity.scryfall_integrity"),
+        run_service.s("ops.integrity.public_schema_leak"),
     )
     return wf.apply_async().id
  
@@ -60,7 +66,7 @@ def mtgStock_download_pipeline(self):
                       celery_task_id=self.request.id
                       ),
         run_service.s("mtg_stock.data_staging.bulk_load",
-                      root_folder="/data/mtgstocks/raw/prints/",
+                      root_folder="/data/automana_data/mtgstocks/raw/prints/",
                       batch_size=1000,
                       market="tcg"
                       ),
@@ -119,5 +125,31 @@ def daily_mtgjson_data_pipeline(self):
         # (rather than silently accumulating stale files).
         run_service.s("staging.mtgjson.cleanup_raw_files"),
         run_service.s("ops.pipeline_services.finish_run", status="success"),
+    )
+    return wf.apply_async().id
+
+
+@shared_task(name="run_scryfall_integrity_checks", bind=True)
+def run_scryfall_integrity_checks(self):
+    """Dispatch all three Scryfall integrity-check services in parallel.
+
+    The three services are independent read-only diagnostics; using ``group``
+    rather than ``chain`` lets them run concurrently across available workers.
+    The results are collected by the group's result set — no aggregation is
+    performed in this task itself; callers that need a combined report should
+    inspect the group result via Celery's result backend.
+
+    This task can be scheduled independently (e.g. nightly after the
+    scryfall_daily pipeline) or triggered ad-hoc from the TUI / HTTP endpoint.
+    """
+    set_task_id(self.request.id)
+    logger.info(
+        "Launching Scryfall integrity checks",
+        extra={"celery_task_id": self.request.id},
+    )
+    wf = group(
+        run_service.s("ops.integrity.scryfall_run_diff"),
+        run_service.s("ops.integrity.scryfall_integrity"),
+        run_service.s("ops.integrity.public_schema_leak"),
     )
     return wf.apply_async().id

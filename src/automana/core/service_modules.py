@@ -15,6 +15,7 @@ SERVICE_MODULES : dict[str, list[str]]= {
             "automana.core.services.app_integration.scryfall.data_loader",
             "automana.core.services.app_integration.mtgjson.data_loader",
             "automana.core.services.app_integration.mtgjson.pipeline",
+            "automana.core.services.ops.integrity_checks",
         ],
 
     "celery": [
@@ -27,6 +28,7 @@ SERVICE_MODULES : dict[str, list[str]]= {
             "automana.core.services.analytics.reporting_services",
             "automana.core.services.app_integration.mtgjson.data_loader",
             "automana.core.services.app_integration.mtgjson.pipeline",
+            "automana.core.services.ops.integrity_checks",
         ],
     "all" : [
             "automana.api.services.auth.auth_service",
@@ -47,5 +49,6 @@ SERVICE_MODULES : dict[str, list[str]]= {
             "automana.core.services.analytics.reporting_services",
             "automana.core.services.app_integration.mtgjson.data_loader",
             "automana.core.services.app_integration.mtgjson.pipeline",
+            "automana.core.services.ops.integrity_checks",
     ]
 }

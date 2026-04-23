@@ -16,6 +16,11 @@ COPY pyproject.toml /app/pyproject.toml
 COPY uv.lock /app/uv.lock
 COPY src/automana/core /app/src/automana/core
 COPY src/automana/worker /app/src/automana/worker
+# `database/SQL/maintenance/` contains read-only sanity-check scripts
+# that the ops integrity-check repository loads via pathlib at import
+# time (see `core/repositories/ops/integrity_check_sql.py`). Without
+# this the module fails to import and no services register.
+COPY src/automana/database /app/src/automana/database
 RUN uv sync --frozen --no-install-project
 
 ENV PATH="/app/.venv/bin:$PATH" \
