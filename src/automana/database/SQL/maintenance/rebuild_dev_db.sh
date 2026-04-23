@@ -49,16 +49,19 @@ Stage selection (mutually exclusive groups):
   --only <stage>       Run only this stage. Incompatible with --from/--until.
   --from <stage>       Start here (inclusive).
   --until <stage>      Stop here (inclusive).
+  --dry-run            Print plan + container preflight, then exit
+                       without touching the DB or dispatching anything.
   -h, --help           This help.
 
 Stages: ${STAGES[*]}
 
 Examples:
-  $0                              # full rebuild + all pipelines
-  $0 --skip-rebuild               # pipelines only (assumes schema is intact)
-  $0 --only scryfall              # dispatch scryfall, skip everything else
+  $0                              # full rebuild + all pipelines + verify
+  $0 --skip-rebuild               # pipelines + verify, schema untouched
+  $0 --only scryfall              # dispatch scryfall, nothing else
   $0 --from scryfall --until mtgstock   # pipelines up to mtgstock
   $0 --only rebuild               # schemas + grants only, no pipelines
+  $0 --dry-run                    # sanity-check the plan without running
 
 Notes:
   --skip-rebuild against a DB with a today-dated run already in
@@ -72,6 +75,7 @@ SKIP_REBUILD=0
 ONLY_STAGE=""
 FROM_STAGE=""
 UNTIL_STAGE=""
+DRY_RUN=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -79,6 +83,7 @@ while [[ $# -gt 0 ]]; do
     --only)           ONLY_STAGE="${2:-}"; shift 2 ;;
     --from)           FROM_STAGE="${2:-}"; shift 2 ;;
     --until)          UNTIL_STAGE="${2:-}"; shift 2 ;;
+    --dry-run)        DRY_RUN=1; shift ;;
     -h|--help)        usage; exit 0 ;;
     *)                echo "ERROR: unknown argument: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -182,6 +187,11 @@ MTGSTOCK_TIMEOUT="${MTGSTOCK_TIMEOUT:-1800}"
 MTGJSON_TIMEOUT="${MTGJSON_TIMEOUT:-1800}"
 POLL_INTERVAL="${POLL_INTERVAL:-5}"
 
+# MTGStock reads exclusively from this directory inside the celery
+# container — there is no download step. Guarded below before the
+# mtgstock stage runs, and echoed here for the dry-run summary.
+MTGSTOCK_DATA_DIR="${MTGSTOCK_DATA_DIR:-/data/mtgstocks/raw/prints}"
+
 if [[ ! -d "$SCHEMAS_DIR" ]]; then
   echo "Error: $SCHEMAS_DIR not found. Run from repo root." >&2
   exit 1
@@ -208,6 +218,23 @@ required_containers=("$POSTGRES_CONTAINER")
 if should_run scryfall || should_run mtgstock || should_run mtgjson; then
   required_containers+=("$CELERY_CONTAINER" "$REDIS_CONTAINER")
 fi
+_dry_run_summary() {
+  echo ""
+  echo "== Dry run — no changes will be made =="
+  echo "  Target DB   : $DBNAME (owner=$DBOWNER, superuser=$SUPERUSER)"
+  echo "  Plan        : ${planned[*]}"
+  echo "  Poll every  : ${POLL_INTERVAL}s"
+  if should_run scryfall; then echo "  Scryfall    : daily_scryfall_data_pipeline (timeout ${SCRYFALL_TIMEOUT}s)"; fi
+  if should_run mtgstock; then
+    echo "  MTGStock    : mtgStock_download_pipeline (timeout ${MTGSTOCK_TIMEOUT}s)"
+    echo "  Data dir    : $MTGSTOCK_DATA_DIR"
+  fi
+  if should_run mtgjson;  then echo "  MTGJson     : daily_mtgjson_data_pipeline (timeout ${MTGJSON_TIMEOUT}s)"; fi
+  if should_run verify;   then echo "  Verify      : integrity_checks.sql + row counts"; fi
+  echo ""
+  echo "  No role ALTER, no DROP, no celery dispatch performed."
+}
+
 for c in "${required_containers[@]}"; do
   if _container_healthy "$c"; then
     echo "  ✓ $c"
@@ -225,6 +252,11 @@ for c in "${required_containers[@]}"; do
     exit 1
   fi
 done
+
+if [[ $DRY_RUN -eq 1 ]]; then
+  _dry_run_summary
+  exit 0
+fi
 
 echo "== Preflight: role sanity check =="
 # `02-app-roles.sql.tpl` runs only on first-time volume init. A rebuild
@@ -424,11 +456,9 @@ _dump_run_steps() {
     ORDER BY s.id;" >&2 || true
 }
 
-# MTGStock reads exclusively from /data/mtgstocks/raw/prints/ — there is
-# no download step. An empty directory produces a silent "success" with
-# zero rows loaded, which defeats the whole point of a rebuild. The
-# guard only matters if the mtgstock stage is actually going to run.
-MTGSTOCK_DATA_DIR="${MTGSTOCK_DATA_DIR:-/data/mtgstocks/raw/prints}"
+# An empty MTGSTOCK_DATA_DIR produces a silent "success" with zero rows
+# loaded (the pipeline has no download step), which defeats the whole
+# point of a rebuild. Guard — but only when the stage will actually run.
 if should_run mtgstock; then
   if ! $CELERY_EXEC bash -c "find '$MTGSTOCK_DATA_DIR' -type f -print -quit 2>/dev/null | grep -q ."; then
     echo "ERROR: $MTGSTOCK_DATA_DIR is empty or missing inside the celery-worker container." >&2
