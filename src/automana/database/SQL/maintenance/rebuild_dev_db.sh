@@ -190,7 +190,7 @@ POLL_INTERVAL="${POLL_INTERVAL:-5}"
 # MTGStock reads exclusively from this directory inside the celery
 # container — there is no download step. Guarded below before the
 # mtgstock stage runs, and echoed here for the dry-run summary.
-MTGSTOCK_DATA_DIR="${MTGSTOCK_DATA_DIR:-/data/mtgstocks/raw/prints}"
+MTGSTOCK_DATA_DIR="${MTGSTOCK_DATA_DIR:-/data/automana_data/mtgstocks/raw/prints}"
 
 # Per-stage log files land under a timestamped directory relative to
 # the repo root. Override with $LOGDIR to pin a custom location.
