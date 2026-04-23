@@ -192,6 +192,10 @@ POLL_INTERVAL="${POLL_INTERVAL:-5}"
 # mtgstock stage runs, and echoed here for the dry-run summary.
 MTGSTOCK_DATA_DIR="${MTGSTOCK_DATA_DIR:-/data/mtgstocks/raw/prints}"
 
+# Per-stage log files land under a timestamped directory relative to
+# the repo root. Override with $LOGDIR to pin a custom location.
+LOGDIR="${LOGDIR:-logs/rebuild-$(date -u +%Y%m%d-%H%M%S)}"
+
 if [[ ! -d "$SCHEMAS_DIR" ]]; then
   echo "Error: $SCHEMAS_DIR not found. Run from repo root." >&2
   exit 1
@@ -258,6 +262,9 @@ if [[ $DRY_RUN -eq 1 ]]; then
   exit 0
 fi
 
+mkdir -p "$LOGDIR"
+echo "== Logs → $LOGDIR/ =="
+
 echo "== Preflight: role sanity check =="
 # `02-app-roles.sql.tpl` runs only on first-time volume init. A rebuild
 # never re-runs it, so we verify every role we depend on already exists.
@@ -290,51 +297,7 @@ END $$;
 SQL
 
 if should_run rebuild; then
-  echo "== Terminating connections to $DBNAME =="
-  $EXEC psql -U "$SUPERUSER" -d postgres -c "
-  SELECT pg_terminate_backend(pid)
-  FROM pg_stat_activity
-  WHERE datname = '$DBNAME' AND pid <> pg_backend_pid();"
-
-  echo "== Dropping $DBNAME =="
-  $EXEC psql -U "$SUPERUSER" -d postgres -c "DROP DATABASE IF EXISTS $DBNAME;"
-
-  echo "== Recreating $DBNAME (owner=$DBOWNER) =="
-  $EXEC psql -U "$SUPERUSER" -d postgres -c "CREATE DATABASE $DBNAME OWNER $DBOWNER;"
-
-  echo "== Applying schemas =="
-  for f in "$SCHEMAS_DIR"/*.sql; do
-    [[ "$(basename "$f")" == "integrity_checks.sql" ]] && continue   # ops-time only
-    echo "  → $(basename "$f")"
-    # ON_ERROR_STOP=1 makes psql abort on the first error instead of
-    # continuing and cascading 50 follow-on errors. Combined with
-    # `set -e` above, the whole script stops at the first failure so
-    # the operator sees exactly which file / statement broke.
-    $EXEC psql -v ON_ERROR_STOP=1 -U "$DBOWNER" -d "$DBNAME" < "$f" > /dev/null
-  done
-
-  echo "== Applying schema grants =="
-  # DROP DATABASE wipes every per-database privilege (schema-level and
-  # object-level grants). The init template `02-app-roles.sql.tpl` only
-  # runs on volume init, not on a DROP+CREATE DATABASE cycle, so the
-  # app_rw / app_ro / app_admin / agent_reader roles would have no
-  # privileges on the newly-created schemas. Re-apply here.
-  $EXEC psql -v ON_ERROR_STOP=1 -U "$SUPERUSER" -d "$DBNAME" \
-    < src/automana/database/SQL/maintenance/apply_schema_grants.sql > /dev/null
-
-  echo "== Skipping migrations =="
-  # A rebuild rebuilds from the canonical state defined in the schema files
-  # + infra/db/init/02-app-roles.sql.tpl (which already applies the full
-  # grant stanza on every schema). The files under migrations/ are historical
-  # deltas intended for upgrading long-lived databases from older shapes —
-  # running them against a fresh DB at best no-ops via IF EXISTS guards,
-  # at worst fails (e.g. `08_schema_change_price.sql` ALTERs a compressed
-  # TimescaleDB hypertable that already has the target columns).
-  #
-  # If you need a specific migration's effect on this fresh DB, apply it
-  # manually after reviewing it. Most are obsolete the moment the schema
-  # file catches up to what they were deploying.
-  echo "  (migrations/ not replayed — schema files are authoritative for rebuilds.)"
+  _run_stage rebuild do_rebuild
 else
   echo "== Skipping stage: rebuild =="
 fi
@@ -456,42 +419,68 @@ _dump_run_steps() {
     ORDER BY s.id;" >&2 || true
 }
 
-# An empty MTGSTOCK_DATA_DIR produces a silent "success" with zero rows
-# loaded (the pipeline has no download step), which defeats the whole
-# point of a rebuild. Guard — but only when the stage will actually run.
-if should_run mtgstock; then
+# _run_stage <name> <fn>
+# Runs `fn` with stdout+stderr tee'd to $LOGDIR/<name>.log while still
+# streaming to the terminal. Exit code of `fn` is propagated through
+# pipefail so `set -e` still aborts the script on stage failure.
+_run_stage() {
+  local name="$1" fn="$2"
+  "$fn" 2>&1 | tee "$LOGDIR/$name.log"
+  return "${PIPESTATUS[0]}"
+}
+
+# Stage block wrappers. Extracted into named functions so _run_stage
+# can tee each block's output to its own log file.
+do_rebuild() {
+  echo "== Terminating connections to $DBNAME =="
+  $EXEC psql -U "$SUPERUSER" -d postgres -c "
+  SELECT pg_terminate_backend(pid)
+  FROM pg_stat_activity
+  WHERE datname = '$DBNAME' AND pid <> pg_backend_pid();"
+
+  echo "== Dropping $DBNAME =="
+  $EXEC psql -U "$SUPERUSER" -d postgres -c "DROP DATABASE IF EXISTS $DBNAME;"
+
+  echo "== Recreating $DBNAME (owner=$DBOWNER) =="
+  $EXEC psql -U "$SUPERUSER" -d postgres -c "CREATE DATABASE $DBNAME OWNER $DBOWNER;"
+
+  echo "== Applying schemas =="
+  for f in "$SCHEMAS_DIR"/*.sql; do
+    [[ "$(basename "$f")" == "integrity_checks.sql" ]] && continue
+    echo "  → $(basename "$f")"
+    $EXEC psql -v ON_ERROR_STOP=1 -U "$DBOWNER" -d "$DBNAME" < "$f" > /dev/null
+  done
+
+  echo "== Applying schema grants =="
+  $EXEC psql -v ON_ERROR_STOP=1 -U "$SUPERUSER" -d "$DBNAME" \
+    < src/automana/database/SQL/maintenance/apply_schema_grants.sql > /dev/null
+
+  echo "== Skipping migrations =="
+  echo "  (migrations/ not replayed — schema files are authoritative for rebuilds.)"
+}
+
+do_scryfall() {
+  run_pipeline "Scryfall" daily_scryfall_data_pipeline "$SCRYFALL_TIMEOUT"
+}
+
+do_mtgstock() {
+  # Data-dir guard runs inside the stage so it's captured in the log
+  # alongside the pipeline output.
   if ! $CELERY_EXEC bash -c "find '$MTGSTOCK_DATA_DIR' -type f -print -quit 2>/dev/null | grep -q ."; then
     echo "ERROR: $MTGSTOCK_DATA_DIR is empty or missing inside the celery-worker container." >&2
     echo "       MTGStock has no download step — it loads from disk. Seed the directory first." >&2
-    exit 1
+    return 1
   fi
-fi
+  run_pipeline "MTGStock (from already-downloaded data)" mtgStock_download_pipeline "$MTGSTOCK_TIMEOUT"
+}
 
-if should_run scryfall; then
-  run_pipeline "Scryfall" \
-    daily_scryfall_data_pipeline \
-    "$SCRYFALL_TIMEOUT"
-fi
+do_mtgjson() {
+  run_pipeline "MTGJson" daily_mtgjson_data_pipeline "$MTGJSON_TIMEOUT"
+}
 
-if should_run mtgstock; then
-  run_pipeline "MTGStock (from already-downloaded data)" \
-    mtgStock_download_pipeline \
-    "$MTGSTOCK_TIMEOUT"
-fi
-
-if should_run mtgjson; then
-  run_pipeline "MTGJson" \
-    daily_mtgjson_data_pipeline \
-    "$MTGJSON_TIMEOUT"
-fi
-
-if should_run verify; then
-  echo ""
+do_verify() {
   echo "== Verify: integrity checks + row counts =="
 
-  # Truncate the check log so re-runs don't trip the UNIQUE (check_name)
-  # constraint inside integrity_checks.sql. The table's contents are
-  # transient output — nothing outside this run depends on them.
   $EXEC psql -v ON_ERROR_STOP=1 -U "$SUPERUSER" -d "$DBNAME" -c "
     DO \$\$ BEGIN
       IF to_regclass('ops.integrity_checks_card_catalog') IS NOT NULL THEN
@@ -528,8 +517,15 @@ if should_run verify; then
     FROM ops.ingestion_runs
     GROUP BY 1,2
     ORDER BY 1,2;"
-fi
+}
+
+if should_run scryfall; then _run_stage scryfall do_scryfall; fi
+if should_run mtgstock; then _run_stage mtgstock do_mtgstock; fi
+if should_run mtgjson;  then _run_stage mtgjson  do_mtgjson;  fi
+
+if should_run verify; then _run_stage verify do_verify; fi
 
 echo ""
 echo "== Done =="
 echo "Stages executed: ${planned[*]}"
+echo "Logs: $LOGDIR/"
