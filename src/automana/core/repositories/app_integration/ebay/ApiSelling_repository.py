@@ -85,20 +85,50 @@ class EbaySellingRepository(EbayApiClient):
         return await self._make_post_request("", xml=xml_request, headers=headers)
 
     async def get_active(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """Get the active listings of an eBay user"""
+        """Get the active listings of an eBay user.
+
+        Returns the raw xmltodict response. The service layer is responsible
+        for extracting items and `PaginationResult` (`TotalNumberOfEntries`,
+        `TotalNumberOfPages`) — repositories should not make schema-shaping
+        decisions.
+        """
         logger.info("Getting the active listings of an eBay user")
         token = payload.get("token")
         limit = payload.get("limit", 10)
+        # eBay's GetMyeBaySelling uses 1-indexed PageNumber; our service layer
+        # translates offset→page before calling this method. Kept as-is to
+        # avoid a breaking signature change inside this PR.
         offset = payload.get("offset", 0)
         if not token:
             raise ValueError("Token is required")
         xml_request = generate_get_my_ebay_selling_request_xml(entries_per_page=limit
                                                                , page_number=offset)
-    
+
         headers = self._create_ebay_headers(token=token,
                                              marketplace_id=payload.get("marketplace_id", "15"),
                                              call_name="GetMyeBaySelling")
         logger.debug(f"Generated XML Request: {xml_request}")
+        return await self._make_post_request("", xml=xml_request, headers=headers)
+
+    async def get_listing(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Get a single eBay listing by `item_id`.
+
+        Uses the Trading API ``GetItem`` call. Schema-shaping (xmltodict →
+        `ItemModel`) is deferred to the service layer.
+        """
+        logger.info("Getting a single eBay listing")
+        token = payload.get("token")
+        item_id = payload.get("item_id")
+        if not token:
+            raise ValueError("Token is required")
+        if not item_id:
+            raise ValueError("Item ID is required")
+        xml_request = generate_get_item_request_xml(item_id)
+        headers = self._create_ebay_headers(
+            token=token,
+            marketplace_id=payload.get("marketplace_id", "15"),
+            call_name="GetItem",
+        )
         return await self._make_post_request("", xml=xml_request, headers=headers)
     
 

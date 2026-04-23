@@ -44,7 +44,7 @@ def get_or_refresh_ebay_token(self, app_code, user_id= None) :
             stored_access_token = auth_repo.get_valid_access_token_sync(app_code, user_id) if user_id else None
             if not stored_access_token:
                 logging.info(f"No stored access token found for user {user_id}, refreshing...")
-                refresh_token = auth_repo.get_access_from_refresh(app_code, user_id)
+                refresh_token = auth_repo.get_access_from_refresh_sync(app_code, user_id)
             if not refresh_token:
                 raise ValueError("No valid refresh token found")
 

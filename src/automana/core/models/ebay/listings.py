@@ -561,7 +561,64 @@ class ListingHistoryResponse(BaseModel):
     limit : int|None
     offset: int|None
     orders: List[FulfillmentResponse|None]
-    
+
+
+class PaginatedListings(BaseModel):
+    """Paginated active-listings page.
+
+    Pydantic v2 (`ConfigDict`), because this codebase moved on — the old
+    `class Config:` pattern is a Pydantic v1 relic and any linter worth its
+    salt will flag it. The five fields below are the minimum you need to
+    build a correct ``has_more``; fewer fields means the caller is guessing,
+    and a paginator that guesses its own ``has_next`` is the bug this class
+    was written to kill.
+
+    Semantics
+    ─────────
+    - ``items``     : the page's items (already parsed into `ItemModel`).
+    - ``total``     : total number of entries across **all** pages, as
+                      reported by eBay's ``PaginationResult.TotalNumberOfEntries``.
+                      ``None`` means eBay didn't give us a count — callers
+                      should then trust ``has_more`` alone.
+    - ``offset``    : the 0-indexed logical offset used by the caller.
+    - ``limit``     : page size requested.
+    - ``has_more``  : computed at construction time (see ``from_parts``).
+    """
+    items: List[ItemModel]
+    total: Optional[int]
+    offset: int
+    limit: int
+    has_more: bool
+
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+
+    @classmethod
+    def from_parts(
+        cls,
+        items: List[ItemModel],
+        total: Optional[int],
+        offset: int,
+        limit: int,
+    ) -> "PaginatedListings":
+        """Factory that computes ``has_more`` correctly — the old code compared
+        against the current page length (`offset + limit < len(page)`), which
+        is nonsense: a full last page would report ``has_more=False`` only by
+        accident. Here, ``has_more`` is ``offset + len(items) < total`` when
+        ``total`` is known, else ``len(items) == limit`` as a best-effort
+        heuristic (a full page almost certainly means more remain).
+        """
+        if total is not None:
+            has_more = (offset + len(items)) < total
+        else:
+            has_more = len(items) >= limit
+        return cls(
+            items=items,
+            total=total,
+            offset=offset,
+            limit=limit,
+            has_more=has_more,
+        )
+
     def __iter__(self):
         return iter(self.orders)
     def __len__(self):
