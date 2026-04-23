@@ -50,11 +50,12 @@ def mtgStock_download_pipeline(self):
     set_task_id(self.request.id)
     run_key = f"mtgStock_All:{datetime.utcnow().date().isoformat()}"
     logger.info("Starting MTGStock download pipeline", extra={"run_key": run_key})
-    # Chain shape: start → bulk_load → raw→stg → stg→observation → finish.
-    # The previously present `from_staging_to_dim` step was removed — the
-    # `pricing.load_dim_from_staging` procedure was never created in the DB,
-    # and there is no intermediate dim table. The final step calls
-    # `pricing.load_prices_from_staged_batched` directly.
+    # Chain shape: start → bulk_load → raw→stg → retry_rejects → stg→observation → finish.
+    # `retry_rejects` calls pricing.resolve_price_rejects() to re-feed any
+    # previously-rejected rows that can now be resolved (e.g. via new scryfall
+    # migration entries or freshly-seeded external identifiers), so they make
+    # it into today's price_observation promotion rather than lingering in
+    # `stg_price_observation_reject`.
     # `source_name` is the `pricing.price_source.code` value used both by
     # `ops.start_run` (for provenance) and by `from_raw_to_staging` (when
     # calling the staging procedure).
@@ -72,6 +73,7 @@ def mtgStock_download_pipeline(self):
                       ),
         run_service.s("mtg_stock.data_staging.from_raw_to_staging",
                       source_name="mtgstocks"),
+        run_service.s("mtg_stock.data_staging.retry_rejects"),
         run_service.s("mtg_stock.data_staging.from_staging_to_prices"),
         run_service.s("ops.pipeline_services.finish_run", status="success" )
     )

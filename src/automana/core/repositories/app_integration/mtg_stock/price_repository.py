@@ -44,6 +44,23 @@ class PriceRepository(AbstractRepository):
             batch_days,
         )
 
+    async def call_resolve_price_rejects(
+        self,
+        limit: int = 50000,
+        only_unresolved: bool = True,
+    ) -> int:
+        """Invoke pricing.resolve_price_rejects(p_limit, p_only_unresolved).
+
+        Note: `resolve_price_rejects` is a FUNCTION (returns bigint), not a
+        procedure — invoke with SELECT. Returns the number of reject rows
+        it was able to resolve and re-feed into staging."""
+        row = await self.connection.fetchrow(
+            "SELECT pricing.resolve_price_rejects($1::int, $2::boolean) AS rows_resolved;",
+            limit,
+            only_unresolved,
+        )
+        return int(row["rows_resolved"] or 0) if row else 0
+
     async def call_load_prices_from_staging(self, batch_days: int = 30):
         """Call pricing.load_prices_from_staged_batched(batch_days).
 
@@ -82,11 +99,9 @@ class PriceRepository(AbstractRepository):
 
     async def copy_prices(self, df):
         await self._copy_to_table(df, "pricing", "shopify_staging_raw")
-        await self.connection.execute('COMMIT;')
 
     async def copy_prices_mtgstock(self, df):
         await self._copy_to_table(df, "pricing", "raw_mtg_stock_price")
-        await self.connection.execute('COMMIT;')
 
     def add(self):
         raise NotImplementedError("Method not implemented")

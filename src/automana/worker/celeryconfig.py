@@ -57,6 +57,14 @@ beat_schedule = {
             "task": "automana.worker.tasks.pipelines.daily_mtgjson_data_pipeline",
             "schedule": crontab(hour=9, minute=8),  # 03:00 AEST
         },
+    # MTGStock staging runs AFTER Scryfall so that new scryfall_id migrations
+    # published that day are available when pricing.resolve_price_rejects()
+    # re-runs the reject resolver. Offset from mtgjson to avoid contending on
+    # the pricing schema.
+    "refresh-mtgstock-daily": {
+        "task": "automana.worker.tasks.pipelines.mtgStock_download_pipeline",
+        "schedule": crontab(hour=10, minute=8),
+    },
     "daily-analytics-report": {
         "task": "automana.worker.tasks.analytics.daily_summary_analytics_task",
         "schedule": crontab(hour=11, minute=0),  # 03:00 AEST
