@@ -38,12 +38,16 @@ WITH
 --    pgvector and timescaledb noise doesn't drown out real findings.
 -- ---------------------------------------------------------------------------
 extension_owned_oids AS (
+    -- All objects owned by any extension, regardless of catalog.
+    -- Previously this was restricted to `classid = 'pg_class'`, which
+    -- only caught extension-owned tables/views/sequences and let
+    -- extension-owned FUNCTIONS (living in pg_proc) leak through —
+    -- producing 137 false-positive matches in chk_05 from TimescaleDB.
     SELECT
         d.objid
     FROM pg_depend d
     JOIN pg_extension e ON e.oid = d.refobjid
     WHERE d.deptype = 'e'
-      AND d.classid = 'pg_class'::regclass
 ),
 
 -- ---------------------------------------------------------------------------
@@ -266,6 +270,26 @@ chk_07_role_search_path_config AS (
 --           artifact or copy-paste error; warn.
 -- ---------------------------------------------------------------------------
 chk_08_proc_body_references_public AS (
+    -- Strip SQL comments before matching so a legitimate documentation
+    -- comment like `-- can't route to a public.sets drift copy` doesn't
+    -- trip the warning. regexp_replace removes `-- line comments` first,
+    -- then `/* block comments */` (non-greedy, dotall for multi-line
+    -- blocks). The resulting `stripped_src` still contains the executable
+    -- SQL, so any remaining `public.` is a real hardcoded reference.
+    WITH stripped AS (
+        SELECT
+            n.nspname    AS schema_name,
+            p.proname    AS function_name,
+            p.prosrc     AS raw_src,
+            regexp_replace(
+                regexp_replace(p.prosrc, '--[^\n]*', '', 'g'),
+                '/\*.*?\*/', '', 'gn'
+            )            AS stripped_src
+        FROM pg_proc p
+        JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname IN ('card_catalog', 'ops')
+          AND p.prosrc ~ 'public\.'
+    )
     SELECT
         'proc-body-references-public'::TEXT               AS check_name,
         COUNT(*)::BIGINT                                  AS bad_count,
@@ -273,23 +297,20 @@ chk_08_proc_body_references_public AS (
             SELECT jsonb_agg(to_jsonb(s))
             FROM (
                 SELECT
-                    n.nspname  AS schema_name,
-                    p.proname  AS function_name,
-                    -- Show a snippet of the match rather than the full body
-                    substring(p.prosrc FROM position('public.' IN p.prosrc) - 20
-                                       FOR 60)            AS body_snippet
-                FROM pg_proc p
-                JOIN pg_namespace n ON n.oid = p.pronamespace
-                WHERE n.nspname IN ('card_catalog', 'ops')
-                  AND p.prosrc ~ 'public\.'
-                ORDER BY n.nspname, p.proname
+                    schema_name,
+                    function_name,
+                    -- Show a snippet of the remaining match (on the
+                    -- comment-stripped source) for operator context.
+                    substring(stripped_src FROM position('public.' IN stripped_src) - 20
+                                           FOR 60)        AS body_snippet
+                FROM stripped
+                WHERE stripped_src ~ 'public\.'
+                ORDER BY schema_name, function_name
                 LIMIT 5
             ) s
         ) AS details
-    FROM pg_proc p
-    JOIN pg_namespace n ON n.oid = p.pronamespace
-    WHERE n.nspname IN ('card_catalog', 'ops')
-      AND p.prosrc ~ 'public\.'
+    FROM stripped
+    WHERE stripped_src ~ 'public\.'
 )
 
 -- ---------------------------------------------------------------------------
