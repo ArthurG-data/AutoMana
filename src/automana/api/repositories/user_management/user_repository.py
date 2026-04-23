@@ -193,7 +193,7 @@ class UserRepository(AbstractRepository):
         query = """
      WITH
      get_user_id AS (
-     SELECT user_id FROM active_sessions_view WHERE session_id = $1
+     SELECT user_id FROM user_management.v_active_sessions WHERE session_id = $1
         )
       SELECT * FROM users WHERE unique_id = (SELECT user_id FROM get_user_id);
     """

@@ -94,12 +94,15 @@ Common causes:
 
 ## Sessions/auth failing (401)
 
-The API uses a cookie named `session_id` for authenticated routes.
+AutoMana has two auth transports:
 
-Checks:
+1. **Session cookie** — interactive/browser clients. The `session_id` cookie is `httponly` (not readable by JavaScript) and `samesite=strict`. After login, the cookie is set automatically by the browser or by curl with `-c`/`-b`.
+2. **Bearer token** — programmatic callers. Pass `Authorization: Bearer <access_token>` in the request header. The token is returned in the JSON body of `POST /api/users/auth/token`. There is no `access_token` cookie.
 
-- Ensure your client keeps cookies (browser does; curl must use `-c`/`-b`).
-- Confirm the `session_id` cookie is present after login.
+If you are getting 401:
+
+- Cookie clients: ensure your client keeps cookies and that the `session_id` cookie is present after login. In non-dev environments the cookie requires HTTPS (`secure` flag is set).
+- Bearer clients: confirm you are reading `access_token` from the login JSON response and sending it as `Authorization: Bearer <token>`. Cookie fallback for JWT was removed.
 
 See the examples in `docs/API.md`.
 

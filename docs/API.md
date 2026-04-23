@@ -32,7 +32,7 @@ Most “user” endpoints rely on a **session cookie** named `session_id`.
 	- Body: `application/x-www-form-urlencoded` (OAuth2PasswordRequestForm)
 		- `username`
 		- `password`
-	- Returns a JSON token payload and sets cookies (including `session_id`).
+	- Returns a JSON token payload (including `access_token`) and sets a `session_id` cookie (`httponly`, `secure` outside dev, `samesite=strict`). The `access_token` is in the JSON body only — no cookie is set for it.
 
 Example (curl):
 
@@ -114,7 +114,7 @@ Some list/search endpoints use shared dependency helpers and tend to accept:
 
 Auth (`/api/users/auth`)
 
-- `POST /api/users/auth/token` — login, sets `session_id`
+- `POST /api/users/auth/token` — login; sets `session_id` cookie (httponly); returns `access_token` in JSON body for Bearer use
 - `POST /api/users/auth/token/refresh` — refresh access token
 - `POST /api/users/auth/logout` — logout (clears cookie)
 

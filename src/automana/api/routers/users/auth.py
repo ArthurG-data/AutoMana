@@ -6,6 +6,7 @@ from automana.api.dependancies.general import ipDep
 from fastapi.security import OAuth2PasswordRequestForm
 from automana.api.schemas.auth.token import Token, TokenResponse
 from automana.api.dependancies.service_deps import ServiceManagerDep
+from automana.core.settings import get_settings
 import logging
 
 logger = logging.getLogger(__name__)
@@ -73,22 +74,18 @@ async def do_login(ip_address : ipDep
             status_code=200
         )
     
+    # Secure flag requires HTTPS — dev runs over plain HTTP so the browser
+    # would silently drop Secure cookies. All other envs (staging, prod) sit
+    # behind the nginx TLS terminator and must have Secure on.
+    secure_cookies = get_settings().env != "dev"
     if "session_id" in result:
         json_response.set_cookie(
             key="session_id",
             value=result["session_id"],
-            httponly=False,
-            secure=False,
+            httponly=True,
+            secure=secure_cookies,
             samesite="strict",
             max_age=60*60*24*7,
-        )
-    json_response.set_cookie(
-            key="access_token",
-            value=result["access_token"],
-            httponly=False,
-            secure=False,
-            samesite="strict",
-            max_age=3600,  # 1 hour
         )
     return json_response
    

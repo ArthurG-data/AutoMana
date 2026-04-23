@@ -130,12 +130,19 @@ Standard response envelopes are defined in [`src/automana/api/schemas/Standardis
 
 ### Authentication & authorization
 
-Current auth is cookie-based:
+AutoMana uses a split-transport auth model:
 
-- A `session_id` cookie is used to identify the active session.
-- The `CurrentUserDep` dependency resolves a user from the cookie via the service layer.
+- **Session cookie (`session_id`)** — `httponly=True`, `samesite=strict`. Set at login; used by browser/cookie clients. The `CurrentUserDep` dependency reads this cookie and resolves the user via the service layer. The `secure` flag is on in all non-`dev` environments (staging, prod sit behind the nginx TLS terminator).
+- **JWT in response body** — `/api/users/auth/token` returns `access_token` in the JSON body only (no `access_token` cookie). Programmatic callers pass it as `Authorization: Bearer <jwt>`. The `check_token_validity` dependency in `auth_service.py` accepts Bearer tokens only.
 
-Key file: [`src/automana/api/dependancies/auth/users.py`](../src/automana/api/dependancies/auth/users.py).
+These two paths are intentionally separate: cookie auth for interactive clients, Bearer for API callers.
+
+Session state is stored in `user_management.v_active_sessions` (schema-qualified view). All session mutations go through stored functions (`user_management.insert_add_token`, `user_management.rotate_refresh_token`, `user_management.inactivate_session`).
+
+Key files:
+- [`src/automana/api/dependancies/auth/users.py`](../src/automana/api/dependancies/auth/users.py) — `CurrentUserDep`
+- [`src/automana/api/services/auth/auth_service.py`](../src/automana/api/services/auth/auth_service.py) — `check_token_validity`, `login`, `logout`
+- [`src/automana/api/repositories/auth/session_repository.py`](../src/automana/api/repositories/auth/session_repository.py) — session DB access
 
 ### Background jobs (Celery)
 

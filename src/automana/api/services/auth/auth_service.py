@@ -1,5 +1,5 @@
 ﻿import logging
-from fastapi import HTTPException, Request,  Security
+from fastapi import HTTPException, Request
 from datetime import timedelta, datetime, timezone
 from fastapi.security import OAuth2PasswordBearer
 from uuid import UUID
@@ -20,31 +20,24 @@ from automana.api.services.auth.auth import (verify_password
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/token")
 
 async def check_token_validity(request : Request):
+    # Accepts Bearer tokens only. Session-cookie auth for HTML/browser clients
+    # is handled separately by CurrentUserDep (api/dependancies/auth/users.py);
+    # this dependency guards API endpoints that expect a programmatic caller
+    # supplying Authorization: Bearer <jwt>.
     logger.debug("checking_token_validity", extra={"action": "check_token_validity"})
-    token = None
     auth = request.headers.get("Authorization")
     settings = get_general_settings()
 
-    if auth and auth.lower().startswith("bearer "):
-        token = auth.split(" ", 1)[1]
-
-    elif 'access_token' in request.cookies:
-        token = request.cookies.get('access_token')
-    if not token:
+    if not auth or not auth.lower().startswith("bearer "):
         raise HTTPException(status_code=401, detail='No Token')
+    token = auth.split(" ", 1)[1]
     try:
-        payload = decode_access_token(token, 
+        payload = decode_access_token(token,
                                      secret_key=settings.jwt_secret_key,
                                      algorithm=settings.jwt_algorithm)
         return payload
     except ValueError as e:
         raise HTTPException(status_code=401, detail=str(e))
-  
-async def get_token_from_header_or_cookie(request: Request, token: str = Security(oauth2_scheme)) -> dict:
-    if token:
-        return token
-    cookie_token = request.cookies.get("access_token")
-    return {'cookie_token': cookie_token} if cookie_token else None
 
 async def authenticate_user(repository : UserRepository
                       , username : str
