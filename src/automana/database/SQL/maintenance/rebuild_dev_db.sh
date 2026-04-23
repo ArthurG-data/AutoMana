@@ -38,7 +38,7 @@ set -euo pipefail
 # Default: all four.
 # ============================================================
 
-STAGES=(rebuild scryfall mtgstock mtgjson)
+STAGES=(rebuild scryfall mtgstock mtgjson verify)
 
 usage() {
   cat <<EOF
@@ -455,8 +455,51 @@ if should_run mtgjson; then
     "$MTGJSON_TIMEOUT"
 fi
 
+if should_run verify; then
+  echo ""
+  echo "== Verify: integrity checks + row counts =="
+
+  # Truncate the check log so re-runs don't trip the UNIQUE (check_name)
+  # constraint inside integrity_checks.sql. The table's contents are
+  # transient output — nothing outside this run depends on them.
+  $EXEC psql -v ON_ERROR_STOP=1 -U "$SUPERUSER" -d "$DBNAME" -c "
+    DO \$\$ BEGIN
+      IF to_regclass('ops.integrity_checks_card_catalog') IS NOT NULL THEN
+        TRUNCATE ops.integrity_checks_card_catalog;
+      END IF;
+    END \$\$;
+  " > /dev/null
+
+  echo "  → running integrity_checks.sql"
+  $EXEC psql -v ON_ERROR_STOP=1 -U "$SUPERUSER" -d "$DBNAME" \
+    < "$SCHEMAS_DIR/integrity_checks.sql" > /dev/null
+
+  echo ""
+  echo "  --- integrity results ---"
+  $EXEC psql -U "$SUPERUSER" -d "$DBNAME" -c "
+    SELECT check_name, status, bad_records_count
+    FROM ops.integrity_checks_card_catalog
+    ORDER BY id;" || true
+
+  echo ""
+  echo "  --- row counts ---"
+  $EXEC psql -U "$SUPERUSER" -d "$DBNAME" -c "
+    SELECT 'card_catalog.unique_cards_ref'         AS table_name, count(*) FROM card_catalog.unique_cards_ref
+    UNION ALL SELECT 'card_catalog.card_version',              count(*) FROM card_catalog.card_version
+    UNION ALL SELECT 'pricing.price_observation',              count(*) FROM pricing.price_observation
+    UNION ALL SELECT 'pricing.mtgjson_card_prices_staging',    count(*) FROM pricing.mtgjson_card_prices_staging
+    UNION ALL SELECT 'ops.ingestion_runs',                     count(*) FROM ops.ingestion_runs
+    ORDER BY 1;"
+
+  echo ""
+  echo "  --- ingestion run status summary ---"
+  $EXEC psql -U "$SUPERUSER" -d "$DBNAME" -c "
+    SELECT pipeline_name, status, count(*) AS runs
+    FROM ops.ingestion_runs
+    GROUP BY 1,2
+    ORDER BY 1,2;"
+fi
+
 echo ""
 echo "== Done =="
 echo "Stages executed: ${planned[*]}"
-echo "Inspect row counts via:"
-echo "  dcdev-automana exec -T postgres psql -U app_readonly -d $DBNAME -c \"SELECT 'card_version' AS t, count(*) FROM card_catalog.card_version UNION ALL SELECT 'price_observation', count(*) FROM pricing.price_observation;\""
