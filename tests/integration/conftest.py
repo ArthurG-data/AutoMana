@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import os
 import pathlib
+import sys
 
 import pytest
 import pytest_asyncio
@@ -90,8 +91,15 @@ def _test_env(timescale_container, redis_container):
     previous = {k: os.environ.get(k) for k in overrides}
     os.environ.update(overrides)
 
-    # If anything already imported get_settings (e.g. during test collection),
-    # nuke the cache so the next call reads our overrides.
+    # Unit-test collection imports automana modules at module level, which
+    # (a) calls get_settings() via main.py line 81, freezing the lru_cache, and
+    # (b) binds a module-level `settings` reference captured pre-override.
+    # Clearing the cache alone is not enough — we evict the whole automana tree
+    # from sys.modules so the next import reads env vars afresh. Unit tests that
+    # already ran have already held references to their imported symbols, so
+    # purging sys.modules doesn't break them.
+    for mod in [m for m in sys.modules if m.startswith("automana")]:
+        del sys.modules[mod]
     from automana.core.settings import get_settings
 
     get_settings.cache_clear()
