@@ -272,6 +272,14 @@ pricing.raw_mtg_stock_price
 
 ## Operational notes
 
+### `bulk_load` service — non-atomic execution and extended timeout
+
+`mtg_stock.data_staging.bulk_load` is registered with `runs_in_transaction=False` and `command_timeout=3600`.
+
+**Why non-atomic:** the asyncpg pool's default `command_timeout` is 60 s (see `core/database.py`). A single COPY of a 10 000-folder batch can exceed that limit, which surfaces as `AttributeError: 'NoneType' object has no attribute 'done'` inside asyncpg's `base_protocol.py`. Running without an outer transaction also allows per-batch audit rows to commit incrementally rather than being held open for the entire bulk load.
+
+**Re-run idempotency caveat:** `pricing.raw_mtg_stock_price` has no primary key or uniqueness constraint, and `bulk_load` does not `TRUNCATE` the table before loading. If a run crashes mid-way and is re-run, duplicate rows accumulate in the raw landing table. Stage 2 (`load_staging_prices_batched`) pivots those duplicates forward into staging; Stage 3 (`load_prices_from_staged_batched`) deduplicates on the fact-table primary key before the upsert, so duplicates do not propagate to `pricing.price_observation`. This is a pre-existing design property of the landing table, not introduced by the timeout change.
+
 ### Idempotency
 
 - Stage 2 is idempotent on a per-row basis: re-inserting the same `(ts_date, print_id, scraped_at)` produces a duplicate staging row, but stage 3's dedup collapses them before the upsert. Still, avoid re-running stage 2 over the same raw window without draining staging first — it wastes work.
@@ -297,9 +305,82 @@ Each routine emits `RAISE NOTICE` per batch and a final summary. Exceptions emit
 
 ---
 
+---
+
+## Sanity report / integrity checks
+
+`ops.integrity.mtgstock_report` is a runner service that queries eleven registered `mtgstock.*` metrics and returns the standard integrity-report envelope used by all `ops.integrity.*` services (same shape as `ops.integrity.scryfall_run_diff`).
+
+### CLI usage
+
+```bash
+# run all mtgstock metrics against the most recent run
+automana-run ops.integrity.mtgstock_report
+
+# filter to specific metrics (comma-separated string)
+automana-run ops.integrity.mtgstock_report --metrics "mtgstock.link_rate_pct,mtgstock.pipeline_duration_seconds"
+
+# filter by category
+automana-run ops.integrity.mtgstock_report --category health
+
+# target a specific ingestion run id
+automana-run ops.integrity.mtgstock_report --ingestion_run_id 42
+```
+
+The `metrics` parameter accepts a comma-separated string because the CLI coerces all flag values as scalars. The runner splits it internally.
+
+### Return envelope
+
+```json
+{
+  "check_set": "mtgstock_report",
+  "total_checks": 11,
+  "error_count": 0,
+  "warn_count": 1,
+  "ok_count": 10,
+  "errors": [],
+  "warnings": [...],
+  "passed": [...],
+  "rows": [...]
+}
+```
+
+Each row has keys: `check_name`, `severity` (`"ok"` / `"warn"` / `"error"`), `row_count`, `details`.
+
+### Metrics reference
+
+| Metric path | Category | What it reports | Severity rule |
+|---|---|---|---|
+| `mtgstock.pipeline_duration_seconds` | timing | Wall-clock duration of the run in seconds | Warn ≥ 1800 s, Error ≥ 3600 s |
+| `mtgstock.run_status` | status | Final status string of the run | `success`→ok, `partial`/`running`/`pending`→warn, all else→error |
+| `mtgstock.steps_failed_count` | health | Count of `ingestion_run_steps` with `status='failed'` | Warn/Error ≥ 1 |
+| `mtgstock.step_durations` | timing | Per-step duration dict (informational) | None — always ok |
+| `mtgstock.raw_prints_loaded` | volume | `COUNT(DISTINCT print_id)` in `pricing.raw_mtg_stock_price` | Warn ≤ 50 000, Error ≤ 1 000 |
+| `mtgstock.raw_rows_loaded` | volume | `COUNT(*)` in `pricing.raw_mtg_stock_price` | Warn ≤ 500 000, Error ≤ 10 000 |
+| `mtgstock.cards_linked_to_card_version` | volume | `stg_price_observation` rows with non-NULL `card_version_id` | Warn ≤ 50 000, Error ≤ 1 000 |
+| `mtgstock.cards_rejected` | health | Row count in `stg_price_observation_reject` | Warn ≥ 5 000, Error ≥ 50 000 |
+| `mtgstock.link_rate_pct` | health | `100 × linked / (linked + rejected)` | Warn ≤ 95 %, Error ≤ 80 % |
+| `mtgstock.bulk_load_folder_errors` | health | `SUM(items_failed)` across `bulk_load` step batches | Warn ≥ 100, Error ≥ 1 000 |
+| `mtgstock.rows_promoted_to_price_observation` | volume | Rows in `pricing.price_observation` with `scraped_at` inside the run's window and `source_code='mtgstocks'` | Warn ≤ 100 000, Error ≤ 1 000 |
+
+### "Current state" vs per-run semantics
+
+Metrics in the `volume` and `health` categories that read staging tables (`raw_mtg_stock_price`, `stg_price_observation`, `stg_price_observation_reject`) report the **current state** of those tables, not a snapshot from a specific run. The staging tables are repopulated each run and carry no `ingestion_run_id` column, so the current state after the most recent run is the only meaningful scope for those metrics. Passing `--ingestion_run_id` to these metrics has no effect on the staging table queries; the parameter is accepted for API uniformity.
+
+Run-level metrics (`pipeline_duration_seconds`, `run_status`, `steps_failed_count`, `step_durations`, `bulk_load_folder_errors`, `rows_promoted_to_price_observation`) do target a specific run id. When `--ingestion_run_id` is omitted each of them resolves to the most recent `mtg_stock_all` run via `OpsRepository.get_latest_run_id`.
+
+### Auto-discovery
+
+The service is listed in every `SERVICE_MODULES` namespace (`backend`, `celery`, `all`) in `core/service_modules.py`. It is auto-discovered by the `pipeline-health-check` skill because its path matches the `ops.integrity.*` prefix.
+
+For the MetricRegistry design and how to add new metrics, see [`docs/METRICS_REGISTRY.md`](METRICS_REGISTRY.md).
+
+---
+
 ## Related docs
 
 - [`docs/ARCHITECTURE.md`](ARCHITECTURE.md) — layered architecture and request flow
+- [`docs/METRICS_REGISTRY.md`](METRICS_REGISTRY.md) — MetricRegistry design and how to add new metrics
 - [`docs/MTGJSON_PIPELINE.md`](MTGJSON_PIPELINE.md) — alternative price feed via MTGJson
 - [`docs/SCRYFALL_PIPELINE.md`](SCRYFALL_PIPELINE.md) — catalogue feed (populates `card_catalog.*`, not prices)
 - [`docs/DATABASE_ROLES.md`](DATABASE_ROLES.md) — DB roles permitted to `CALL` these routines

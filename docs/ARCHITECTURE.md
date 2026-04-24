@@ -109,6 +109,12 @@ This gives you a single place to:
 
 Service modules are grouped into namespaces (`backend`, `celery`, `all`) in [`src/automana/core/service_modules.py`](../src/automana/core/service_modules.py). The active namespace is set by the `MODULES_NAMESPACE` setting.
 
+### Metric registry (`core/metrics/`)
+
+`src/automana/core/metrics/` houses the `MetricRegistry` — a decorator-based registry parallel to `ServiceRegistry`, scoped to sanity-report metrics. Each metric is an async function that queries a small, well-defined slice of the DB and returns a `MetricResult`. Runner services (e.g., `ops.integrity.mtgstock_report`) call `MetricRegistry.select(prefix=..., category=..., names=...)` to pick a subset and wrap the results in the standard integrity-report envelope.
+
+See [`docs/METRICS_REGISTRY.md`](METRICS_REGISTRY.md) for the full API and how to add new metrics.
+
 ### Repository/data access layer
 
 Repositories live under [`src/automana/core/repositories/`](../src/automana/core/repositories/) and extend `AbstractRepository` (DB) or `BaseApiClient` (external API).
