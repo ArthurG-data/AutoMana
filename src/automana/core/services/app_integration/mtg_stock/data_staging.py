@@ -52,6 +52,8 @@ async def process_prices_file(path, id_dict):
 @ServiceRegistry.register(
     path="mtg_stock.data_staging.bulk_load",
     db_repositories = ["price", "ops"],
+    runs_in_transaction=False,
+    command_timeout=3600,
 )
 async def bulk_load(price_repository: PriceRepository
                     , ops_repository: OpsRepository

@@ -45,13 +45,15 @@ class TestServiceConfigFlags:
         assert cfg.runs_in_transaction is False
         assert cfg.command_timeout == 3600
 
-    def test_bulk_load_uses_default_atomic_wrapper(self):
-        """bulk_load does COPY + INSERTs only — no stored procedure with
-        internal transaction control — so it should stay in the default
-        atomic wrapper."""
+    def test_bulk_load_is_non_atomic(self):
+        """Non-atomic so per-batch COPY + audit rows commit incrementally
+        instead of being held under one multi-minute transaction. 3600s
+        timeout overrides the pool default so a single large COPY can't
+        trip asyncpg's command_timeout race."""
         cfg = ServiceRegistry.get("mtg_stock.data_staging.bulk_load")
         assert cfg is not None
-        assert cfg.runs_in_transaction is True
+        assert cfg.runs_in_transaction is False
+        assert cfg.command_timeout == 3600
 
 
 # ---------------------------------------------------------------------------
