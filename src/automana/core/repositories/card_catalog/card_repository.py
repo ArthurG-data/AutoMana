@@ -434,3 +434,19 @@ class CardReferenceRepository(AbstractRepository[Any]):
         """
         rows = await self.execute_query(query, (identifier_name,))
         return dict(rows[0]) if rows else None
+
+    async def fetch_identifier_value_count(self, identifier_name: str) -> int:
+        """COUNT of card_version rows that have at least one row for ``identifier_name``.
+
+        Used by the informational metrics (multiverse_id, tcgplayer_etched_id)
+        which track raw counts rather than coverage percentages.
+        """
+        query = """
+        SELECT COUNT(DISTINCT cei.card_version_id)::int AS n
+        FROM card_catalog.card_external_identifier cei
+        JOIN card_catalog.card_identifier_ref cir
+          ON cir.card_identifier_ref_id = cei.card_identifier_ref_id
+        WHERE cir.identifier_name = $1
+        """
+        rows = await self.execute_query(query, (identifier_name,))
+        return rows[0]["n"] if rows else 0
