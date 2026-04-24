@@ -450,3 +450,38 @@ class CardReferenceRepository(AbstractRepository[Any]):
         """
         rows = await self.execute_query(query, (identifier_name,))
         return rows[0]["n"] if rows else 0
+
+    async def fetch_orphan_unique_cards_count(self) -> int:
+        """COUNT of unique_cards_ref rows with zero card_version children.
+
+        Small counts are benign (tokens / emblems not yet printed); large
+        counts indicate a mid-run set-ingest stall.
+        """
+        query = """
+        SELECT COUNT(*)::int AS n
+        FROM card_catalog.unique_cards_ref ucr
+        WHERE NOT EXISTS (
+            SELECT 1 FROM card_catalog.card_version cv
+            WHERE cv.unique_card_id = ucr.unique_card_id
+        )
+        """
+        rows = await self.execute_query(query, ())
+        return rows[0]["n"] if rows else 0
+
+    async def fetch_external_id_value_collisions(self) -> int:
+        """COUNT of (card_identifier_ref_id, value) tuples appearing more than once.
+
+        The table has a UNIQUE constraint on (card_identifier_ref_id, value);
+        any non-zero count indicates constraint bypass or replication desync.
+        """
+        query = """
+        SELECT COUNT(*)::int AS n
+        FROM (
+            SELECT card_identifier_ref_id, value
+            FROM card_catalog.card_external_identifier
+            GROUP BY card_identifier_ref_id, value
+            HAVING COUNT(*) > 1
+        ) dup
+        """
+        rows = await self.execute_query(query, ())
+        return rows[0]["n"] if rows else 0

@@ -45,3 +45,32 @@ async def test_fetch_identifier_coverage_pct_no_rows_returns_none():
     out = await repo.fetch_identifier_coverage_pct("scryfall_id")
     assert out is None
     repo.execute_query.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_fetch_orphan_unique_cards_count_returns_int():
+    repo = _make_repo([{"n": 7}])
+    n = await repo.fetch_orphan_unique_cards_count()
+    assert n == 7
+    repo.execute_query.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_fetch_orphan_unique_cards_count_no_rows_returns_zero():
+    repo = _make_repo([])
+    assert await repo.fetch_orphan_unique_cards_count() == 0
+    repo.execute_query.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_fetch_external_id_value_collisions_returns_int():
+    repo = _make_repo([{"n": 0}])
+    assert await repo.fetch_external_id_value_collisions() == 0
+    repo.execute_query.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_fetch_external_id_value_collisions_no_rows_returns_zero():
+    repo = _make_repo([])
+    assert await repo.fetch_external_id_value_collisions() == 0
+    repo.execute_query.assert_awaited_once()
