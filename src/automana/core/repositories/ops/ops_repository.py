@@ -433,6 +433,87 @@ class OpsRepository(AbstractRepository):
         raw = await self.execute_query(public_schema_leak_check_sql)
         return self._parse_check_rows(raw)
 
+    # ------------------------------------------------------------------
+    # Metric-registry primitives
+    # ------------------------------------------------------------------
+    # Small, composable queries that the mtgstock sanity-report metrics
+    # call. Every method resolves `ingestion_run_id=None` to "the most
+    # recent run for this pipeline" so metric callers can stay oblivious.
+
+    async def get_latest_run_id(self, pipeline_name: str) -> int | None:
+        """Return the id of the most recent run for ``pipeline_name`` (any status)."""
+        query = """
+        SELECT id
+        FROM ops.ingestion_runs
+        WHERE pipeline_name = $1
+        ORDER BY started_at DESC
+        LIMIT 1
+        """
+        rows = await self.execute_query(query, (pipeline_name,))
+        return rows[0]["id"] if rows else None
+
+    async def fetch_run_summary(self, ingestion_run_id: int) -> dict | None:
+        """Return run-level fields used by several metrics in one round-trip.
+
+        Keys: ``status``, ``started_at``, ``ended_at``, ``duration_seconds``,
+        ``current_step``, ``error_code``. ``duration_seconds`` is NULL if the
+        run is still in flight.
+        """
+        query = """
+        SELECT
+            status,
+            started_at,
+            ended_at,
+            EXTRACT(EPOCH FROM (ended_at - started_at))::float AS duration_seconds,
+            current_step,
+            error_code
+        FROM ops.ingestion_runs
+        WHERE id = $1
+        """
+        rows = await self.execute_query(query, (ingestion_run_id,))
+        return dict(rows[0]) if rows else None
+
+    async def fetch_step_durations(self, ingestion_run_id: int) -> dict[str, float]:
+        """Return ``{step_name: duration_seconds}`` for every step of the run.
+
+        Steps still running show ``duration_seconds = None``."""
+        query = """
+        SELECT
+            step_name,
+            EXTRACT(EPOCH FROM (ended_at - started_at))::float AS duration_seconds,
+            status
+        FROM ops.ingestion_run_steps
+        WHERE ingestion_run_id = $1
+        ORDER BY started_at
+        """
+        rows = await self.execute_query(query, (ingestion_run_id,))
+        return {r["step_name"]: r["duration_seconds"] for r in rows}
+
+    async def fetch_steps_failed_count(self, ingestion_run_id: int) -> int:
+        query = """
+        SELECT COUNT(*)::int AS n
+        FROM ops.ingestion_run_steps
+        WHERE ingestion_run_id = $1 AND status = 'failed'
+        """
+        rows = await self.execute_query(query, (ingestion_run_id,))
+        return rows[0]["n"] if rows else 0
+
+    async def fetch_bulk_folder_errors(
+        self, ingestion_run_id: int, step_name: str = "bulk_load"
+    ) -> int:
+        """Sum of ``items_failed`` across every batch row of a given step.
+
+        ``COALESCE`` shields against ``SUM`` returning NULL when no batch
+        rows exist for the step yet."""
+        query = """
+        SELECT COALESCE(SUM(b.items_failed), 0)::int AS n
+        FROM ops.ingestion_step_batches b
+        JOIN ops.ingestion_run_steps s ON s.id = b.ingestion_run_step_id
+        WHERE s.ingestion_run_id = $1 AND s.step_name = $2
+        """
+        rows = await self.execute_query(query, (ingestion_run_id, step_name))
+        return rows[0]["n"] if rows else 0
+
     async def get():
         raise NotImplementedError("This method is not implemented yet.")
     

@@ -103,12 +103,78 @@ class PriceRepository(AbstractRepository):
     async def copy_prices_mtgstock(self, df):
         await self._copy_to_table(df, "pricing", "raw_mtg_stock_price")
 
+    # ------------------------------------------------------------------
+    # Metric-registry primitives
+    # ------------------------------------------------------------------
+    # Read-only primitives used by mtgstock sanity-report metrics. First
+    # four operate on the *current state* of the pricing staging tables —
+    # `raw_mtg_stock_price` has no `ingestion_run_id` column, and staging
+    # tables are repopulated per-run, so "current state after the most
+    # recent run" is the only meaningful run-scope here (mirrors
+    # `ops.integrity.scryfall_run_diff`).
+
+    async def fetch_raw_prints_count(self) -> int:
+        """Distinct print_id count currently in `pricing.raw_mtg_stock_price`."""
+        query = """
+        SELECT COUNT(DISTINCT print_id)::int AS n
+        FROM pricing.raw_mtg_stock_price
+        """
+        rows = await self.execute_query(query)
+        return rows[0]["n"] if rows else 0
+
+    async def fetch_raw_rows_count(self) -> int:
+        query = """
+        SELECT COUNT(*)::int AS n
+        FROM pricing.raw_mtg_stock_price
+        """
+        rows = await self.execute_query(query)
+        return rows[0]["n"] if rows else 0
+
+    async def fetch_linked_count(self) -> int:
+        """Staged rows resolved to a card_version_id."""
+        query = """
+        SELECT COUNT(*)::int AS n
+        FROM pricing.stg_price_observation
+        WHERE card_version_id IS NOT NULL
+        """
+        rows = await self.execute_query(query)
+        return rows[0]["n"] if rows else 0
+
+    async def fetch_rejected_count(self) -> int:
+        """Rows that failed resolution and landed in the reject table."""
+        query = """
+        SELECT COUNT(*)::int AS n
+        FROM pricing.stg_price_observation_reject
+        """
+        rows = await self.execute_query(query)
+        return rows[0]["n"] if rows else 0
+
+    async def fetch_promoted_count(
+        self, since, until, source_code: str = "mtgstocks"
+    ) -> int:
+        """Count rows promoted to the `price_observation` hypertable inside a
+        run's wall-clock window.
+
+        Filters on `scraped_at` (timestamptz) — not `ts_date` (business date),
+        which is the date the price applies to, unrelated to when the row
+        was ingested. `scraped_at` is set by `bulk_load` at insertion time.
+        """
+        query = """
+        SELECT COUNT(*)::int AS n
+        FROM pricing.price_observation
+        WHERE scraped_at >= $1
+          AND scraped_at <= $2
+          AND source_code = $3
+        """
+        rows = await self.execute_query(query, (since, until, source_code))
+        return rows[0]["n"] if rows else 0
+
     def add(self):
         raise NotImplementedError("Method not implemented")
 
     def delete(self):
         raise NotImplementedError("Method not implemented")
-    
+
     def update(self):
         raise NotImplementedError("Method not implemented")
     def get(self):
