@@ -185,6 +185,96 @@ async def get(card_repository: CardReferenceRepository,
         raise card_exception.CardRetrievalError(f"Failed to retrieve card: {str(e)}")
 
 @ServiceRegistry.register(
+    "card_catalog.card.register_external_identifier",
+    db_repositories=["card"],
+)
+async def register_external_identifier(
+    card_repository: CardReferenceRepository,
+    card_version_id: UUID,
+    identifier_name: str,
+    value: str,
+) -> bool:
+    """Idempotently attach an external identifier to an existing card_version.
+
+    Returns:
+        True if a new row was inserted, False if the
+        ``(card_version_id, card_identifier_ref_id)`` pair already existed
+        (ON CONFLICT DO NOTHING no-op). The bool lets callers distinguish
+        inserts from no-ops for metrics during backfill runs.
+
+    Raises:
+        UnknownIdentifierNameError: ``identifier_name`` is not in
+            ``card_catalog.card_identifier_ref``. Fail loudly rather than
+            auto-create ref rows — typos must not silently spawn new
+            identifier types.
+        CardNotFoundError: ``card_version_id`` does not exist.
+        CardInsertError: Wrapped failure during the DB round-trip (e.g.
+            a ``UNIQUE (card_identifier_ref_id, value)`` collision against
+            a different card_version, or any other asyncpg error).
+    """
+    try:
+        outcome = await card_repository.register_external_identifier(
+            card_version_id=card_version_id,
+            identifier_name=identifier_name,
+            value=value,
+        )
+
+        # Order matters: check the identifier-name failure before the
+        # card_version failure so a caller passing both a bad name AND a
+        # bad card_version sees the clearer of the two errors first. Both
+        # are validation failures, not insert failures.
+        if not outcome.ref_found:
+            logger.warning(
+                "Unknown external identifier name",
+                extra={
+                    "card_version": str(card_version_id),
+                    "identifier": identifier_name,
+                },
+            )
+            raise card_exception.UnknownIdentifierNameError(
+                f"Unknown identifier_name '{identifier_name}' — not registered "
+                f"in card_catalog.card_identifier_ref"
+            )
+        if not outcome.card_version_exists:
+            logger.warning(
+                "card_version not found for external identifier registration",
+                extra={
+                    "card_version": str(card_version_id),
+                    "identifier": identifier_name,
+                },
+            )
+            raise card_exception.CardNotFoundError(
+                f"card_version {card_version_id} not found"
+            )
+
+        logger.info(
+            "External identifier registered",
+            extra={
+                "card_version": str(card_version_id),
+                "identifier": identifier_name,
+                "inserted": outcome.inserted,
+            },
+        )
+        return outcome.inserted
+
+    except (
+        card_exception.UnknownIdentifierNameError,
+        card_exception.CardNotFoundError,
+    ):
+        # Re-raise domain exceptions untouched so routers can map them to
+        # the correct HTTP status. Double-wrapping would lose the type.
+        raise
+    except Exception as e:
+        # Everything else (DB-side UNIQUE collision on (ref_id, value),
+        # asyncpg connection errors, etc.) gets normalized into a single
+        # insert-error domain exception with context.
+        raise card_exception.CardInsertError(
+            f"Failed to register external identifier "
+            f"(card_version={card_version_id}, identifier={identifier_name}): {e}"
+        )
+
+
+@ServiceRegistry.register(
     "card_catalog.card.process_large_json",
     db_repositories=["card", "ops"],
     storage_services=["scryfall", "errors"]

@@ -264,6 +264,15 @@ CREATE TABLE IF NOT EXISTS card_catalog.card_identifier_ref (
     UNIQUE (identifier_name)
 );
 
+INSERT INTO card_catalog.card_identifier_ref (identifier_name) VALUES
+    ('scryfall_id'),
+    ('oracle_id'),
+    ('multiverse_id'),
+    ('tcgplayer_id'),
+    ('tcgplayer_etched_id'),
+    ('cardmarket_id')
+ON CONFLICT (identifier_name) DO NOTHING;
+
 CREATE TABLE IF NOT EXISTS card_catalog.card_external_identifier (
     card_identifier_ref_id SMALLINT NOT NULL REFERENCES card_catalog.card_identifier_ref(card_identifier_ref_id),
     card_version_id UUID NOT NULL REFERENCES card_catalog.card_version(card_version_id),
