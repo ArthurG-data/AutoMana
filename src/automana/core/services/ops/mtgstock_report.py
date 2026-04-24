@@ -90,6 +90,11 @@ def _result_to_row(config: MetricConfig, result: MetricResult) -> dict[str, Any]
 @ServiceRegistry.register(
     "ops.integrity.mtgstock_report",
     db_repositories=["price", "ops"],
+    # Pure-read report: no BEGIN/COMMIT wrapper. One failing metric query
+    # would otherwise poison the transaction and turn every subsequent
+    # metric into `InFailedSQLTransactionError`, defeating the per-metric
+    # exception-swallowing below.
+    runs_in_transaction=False,
 )
 async def mtgstock_report(
     price_repository: PriceRepository,

@@ -141,12 +141,23 @@ class PriceRepository(AbstractRepository):
         return rows[0]["n"] if rows else 0
 
     async def fetch_rejected_count(self) -> int:
-        """Rows that failed resolution and landed in the reject table."""
-        query = """
-        SELECT COUNT(*)::int AS n
-        FROM pricing.stg_price_observation_reject
+        """Rows that failed resolution and landed in the reject table.
+
+        The reject table is lazily created inside
+        `pricing.load_staging_prices_batched`, so before the mtgstock
+        pipeline has ever run it may not exist. `to_regclass` returns NULL
+        for a missing relation without raising — use it as a cheap probe
+        instead of letting the COUNT query blow up on an unknown table.
         """
-        rows = await self.execute_query(query)
+        exists_rows = await self.execute_query(
+            "SELECT to_regclass('pricing.stg_price_observation_reject') IS NOT NULL AS t"
+        )
+        if not (exists_rows and exists_rows[0]["t"]):
+            return 0
+
+        rows = await self.execute_query(
+            "SELECT COUNT(*)::int AS n FROM pricing.stg_price_observation_reject"
+        )
         return rows[0]["n"] if rows else 0
 
     async def fetch_promoted_count(

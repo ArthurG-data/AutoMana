@@ -26,6 +26,7 @@ from automana.core.services.ops.mtgstock_report import (
     mtgstock_report,
 )
 from automana.core.metrics.registry import MetricRegistry
+from automana.core.service_registry import ServiceRegistry
 
 pytestmark = pytest.mark.unit
 
@@ -71,6 +72,18 @@ def _make_repos(*, run_id=10, summary=None, step_durations=None,
 # ---------------------------------------------------------------------------
 # _normalize_names
 # ---------------------------------------------------------------------------
+
+class TestServiceConfigFlags:
+    def test_runner_is_non_atomic(self):
+        """Regression guard: without runs_in_transaction=False, a single
+        failing metric query aborts the wrapper transaction and turns every
+        subsequent metric into InFailedSQLTransactionError — defeating the
+        per-metric exception-swallowing. Metrics are pure reads; there is no
+        reason to wrap them in a transaction."""
+        cfg = ServiceRegistry.get("ops.integrity.mtgstock_report")
+        assert cfg is not None
+        assert cfg.runs_in_transaction is False
+
 
 class TestNormalizeNames:
     def test_none_returns_none(self):
