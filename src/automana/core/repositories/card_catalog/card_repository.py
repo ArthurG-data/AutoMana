@@ -405,3 +405,32 @@ class CardReferenceRepository(AbstractRepository[Any]):
         # ``copy_status`` only reflects ingestion into the throwaway staging
         # table and is kept for observability/debugging.
         return {"copy_status": copy_status, "insert_status": insert_status}
+
+    async def fetch_identifier_coverage_pct(self, identifier_name: str) -> dict | None:
+        """Return per-identifier coverage stats for the card_catalog.identifier_coverage.* metrics.
+
+        Returns ``{'covered': int, 'total': int, 'pct': float|None}``. ``pct`` is
+        NULL when ``total`` is 0 — the metric layer treats NULL as Severity.WARN
+        rather than silently passing.
+        """
+        query = """
+        WITH totals AS (
+            SELECT COUNT(*)::int AS total FROM card_catalog.card_version
+        ),
+        covered AS (
+            SELECT COUNT(DISTINCT cei.card_version_id)::int AS covered
+            FROM card_catalog.card_external_identifier cei
+            JOIN card_catalog.card_identifier_ref cir
+              ON cir.card_identifier_ref_id = cei.card_identifier_ref_id
+            WHERE cir.identifier_name = $1
+        )
+        SELECT
+            covered,
+            total,
+            CASE WHEN total = 0 THEN NULL
+                 ELSE ROUND(100.0 * covered / total, 2)::float
+            END AS pct
+        FROM totals, covered
+        """
+        rows = await self.execute_query(query, (identifier_name,))
+        return dict(rows[0]) if rows else None
