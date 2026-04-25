@@ -90,16 +90,17 @@ def test_classify_recovered(prior_status, current_status):
 
 def test_format_discord_payload_returns_none_when_no_transitions():
     payload = format_discord_payload(
-        captured_at_iso="2026-04-25T20:00:00+10:00",
+        captured_at_iso="2026-04-25 06:00 AEST",
         degraded=[],
         recovered=[],
+        run_id="run-abc",
     )
     assert payload is None
 
 
 def test_format_discord_payload_degraded_only():
     payload = format_discord_payload(
-        captured_at_iso="2026-04-25T20:00:00+10:00",
+        captured_at_iso="2026-04-25 06:00 AEST",
         degraded=[
             {
                 "check_set": "mtgstock_report",
@@ -110,11 +111,64 @@ def test_format_discord_payload_degraded_only():
             }
         ],
         recovered=[],
+        run_id="run-abc",
     )
     assert payload is not None
     assert "degraded" in payload.lower()
     assert "mtgstock" in payload
     assert "✅ → ❌" in payload
+
+
+def test_format_discord_payload_recovered_only():
+    payload = format_discord_payload(
+        captured_at_iso="2026-04-25 18:00 AEST",
+        degraded=[],
+        recovered=[
+            {
+                "check_set": "mtgstock_report",
+                "pipeline": "mtgstock",
+                "from_status": "error",
+                "to_status": "ok",
+                "delta_summary": "all clear",
+            }
+        ],
+        run_id="run-xyz",
+    )
+    assert payload is not None
+    assert "recovered" in payload.lower()
+    assert "❌ → ✅" in payload
+    assert "mtgstock" in payload
+
+
+def test_format_discord_payload_mixed():
+    payload = format_discord_payload(
+        captured_at_iso="2026-04-25 06:00 AEST",
+        degraded=[
+            {
+                "check_set": "scryfall_integrity",
+                "pipeline": "scryfall",
+                "from_status": "ok",
+                "to_status": "error",
+                "delta_summary": "1 new error",
+            }
+        ],
+        recovered=[
+            {
+                "check_set": "mtgstock_report",
+                "pipeline": "mtgstock",
+                "from_status": "error",
+                "to_status": "warn",
+                "delta_summary": "all clear",
+            }
+        ],
+        run_id="run-mixed",
+    )
+    assert payload is not None
+    assert "changed" in payload.lower()
+    assert "Degraded:" in payload
+    assert "Recovered:" in payload
+    assert "scryfall_integrity" in payload
+    assert "mtgstock_report" in payload
 
 
 def test_format_discord_payload_truncates_when_more_than_five():
@@ -129,12 +183,14 @@ def test_format_discord_payload_truncates_when_more_than_five():
         for i in range(8)
     ]
     payload = format_discord_payload(
-        captured_at_iso="2026-04-25T20:00:00+10:00",
+        captured_at_iso="2026-04-25 06:00 AEST",
         degraded=many,
         recovered=[],
+        run_id="run-trunc",
     )
     assert payload is not None
     assert "and 3 more" in payload  # 8 - 5 = 3 truncated
+    assert "run_id=run-trunc" in payload
 
 
 # ---------- service orchestration ----------
@@ -186,7 +242,7 @@ async def test_service_baseline_run_writes_rows_does_not_alert(monkeypatch):
 
     discover = MagicMock(return_value=list(service_results.keys()))
     run_other = AsyncMock(side_effect=lambda key: service_results[key])
-    poster = AsyncMock(return_value=204)
+    poster = AsyncMock(return_value=(204, ""))
     monkeypatch.setattr(svc, "_discover_integrity_services", discover)
     monkeypatch.setattr(svc, "_run_integrity_service", run_other)
     monkeypatch.setattr(svc, "_post_to_discord", poster)
@@ -212,7 +268,7 @@ async def test_service_degraded_transition_posts_to_discord(monkeypatch):
     repo = _stub_repo(prior)
     discover = MagicMock(return_value=["ops.integrity.scryfall_integrity"])
     run_other = AsyncMock(return_value=_integrity_report("scryfall_integrity", errors=2))
-    poster = AsyncMock(return_value=204)
+    poster = AsyncMock(return_value=(204, ""))
     monkeypatch.setattr(svc, "_discover_integrity_services", discover)
     monkeypatch.setattr(svc, "_run_integrity_service", run_other)
     monkeypatch.setattr(svc, "_post_to_discord", poster)
@@ -259,7 +315,7 @@ async def test_service_integrity_exception_becomes_synthetic_error_row(monkeypat
                                                 "run_id": _uuid.uuid4()}})
     discover = MagicMock(return_value=["ops.integrity.scryfall_integrity"])
     run_other = AsyncMock(side_effect=RuntimeError("DB exploded"))
-    poster = AsyncMock(return_value=204)
+    poster = AsyncMock(return_value=(204, ""))
     monkeypatch.setattr(svc, "_discover_integrity_services", discover)
     monkeypatch.setattr(svc, "_run_integrity_service", run_other)
     monkeypatch.setattr(svc, "_post_to_discord", poster)
