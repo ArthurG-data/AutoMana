@@ -69,6 +69,7 @@ def format_discord_payload(
     captured_at_iso: str,
     degraded: list[dict[str, Any]],
     recovered: list[dict[str, Any]],
+    run_id: str,
 ) -> Optional[str]:
     """Build the transition-only Discord message body.
 
@@ -88,7 +89,7 @@ def format_discord_payload(
         tail = items[MAX:]
         lines = [label + ":"] + [_format_line(t) for t in head]
         if tail:
-            lines.append(f"… and {len(tail)} more")
+            lines.append(f"… and {len(tail)} more (run_id={run_id})")
         return lines
 
     if degraded and recovered:
@@ -98,12 +99,12 @@ def format_discord_payload(
         header = f"⚠️ Pipeline health degraded — {captured_at_iso}"
         body = [_format_line(t) for t in degraded[:MAX]]
         if len(degraded) > MAX:
-            body.append(f"… and {len(degraded) - MAX} more")
+            body.append(f"… and {len(degraded) - MAX} more (run_id={run_id})")
     else:
         header = f"✅ Pipeline health recovered — {captured_at_iso}"
         body = [_format_line(t) for t in recovered[:MAX]]
         if len(recovered) > MAX:
-            body.append(f"… and {len(recovered) - MAX} more")
+            body.append(f"… and {len(recovered) - MAX} more (run_id={run_id})")
 
     return "\n".join([header] + body)
 
@@ -112,8 +113,11 @@ import logging
 import traceback
 import uuid
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 import httpx
+
+_SYDNEY_TZ = ZoneInfo("Australia/Sydney")
 
 from automana.core.repositories.ops.pipeline_health_snapshot_repository import (
     PipelineHealthSnapshotRepository,
@@ -153,11 +157,11 @@ def _get_webhook_url() -> Optional[str]:
     return get_settings().DISCORD_WEBHOOK_URL
 
 
-async def _post_to_discord(webhook_url: str, body: str) -> int:
-    """POST the body to Discord. Returns HTTP status code; never logs the URL."""
+async def _post_to_discord(webhook_url: str, body: str) -> tuple[int, str]:
+    """POST the body to Discord. Returns (status_code, response_body); never logs the URL."""
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.post(webhook_url, json={"content": body})
-    return resp.status_code
+    return resp.status_code, resp.text
 
 
 # ---------- main service ----------
@@ -228,6 +232,7 @@ async def run_alert_check(
     """
     run_id = uuid.uuid4()
     captured_at = datetime.now(timezone.utc)
+    captured_at_str = captured_at.astimezone(_SYDNEY_TZ).strftime("%Y-%m-%d %H:%M %Z")
 
     keys = _discover_integrity_services()
     rows: list[PipelineHealthSnapshotRow] = []
@@ -272,16 +277,17 @@ async def run_alert_check(
         (degraded if verdict == "degraded" else recovered).append(item)
 
     payload = format_discord_payload(
-        captured_at_iso=captured_at.isoformat(timespec="seconds"),
+        captured_at_iso=captured_at_str,
         degraded=degraded,
         recovered=recovered,
+        run_id=str(run_id),
     )
 
     alerted = False
     webhook = _get_webhook_url()
     if payload is not None and webhook:
         try:
-            status = await _post_to_discord(webhook, payload)
+            status, response_body = await _post_to_discord(webhook, payload)
             alerted = 200 <= status < 300
             if alerted:
                 logger.info(
@@ -289,7 +295,10 @@ async def run_alert_check(
                     extra={"degraded": len(degraded), "recovered": len(recovered)},
                 )
             else:
-                logger.warning("discord_post_non_2xx", extra={"http_status": status})
+                logger.warning(
+                    "discord_post_non_2xx",
+                    extra={"http_status": status, "response_body": response_body[:500]},
+                )
         except Exception as exc:
             logger.warning("discord_post_failed", extra={"exc_type": type(exc).__name__})
     elif payload is not None:
