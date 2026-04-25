@@ -135,3 +135,162 @@ def test_format_discord_payload_truncates_when_more_than_five():
     )
     assert payload is not None
     assert "and 3 more" in payload  # 8 - 5 = 3 truncated
+
+
+# ---------- service orchestration ----------
+
+import uuid as _uuid
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest as _pytest
+
+
+def _stub_repo(prior_per_check_set: dict[str, dict | None] | None = None):
+    repo = AsyncMock()
+    prior = prior_per_check_set or {}
+    repo.insert_snapshots = AsyncMock()
+
+    async def _latest(*, check_set, exclude_run_id):
+        return prior.get(check_set)
+
+    repo.latest_for_check_set.side_effect = _latest
+    return repo
+
+
+def _integrity_report(check_set: str, errors: int = 0, warns: int = 0):
+    return {
+        "check_set": check_set,
+        "total_checks": 5,
+        "error_count": errors,
+        "warn_count": warns,
+        "ok_count": max(5 - errors - warns, 0),
+        "errors": [
+            {"check_name": f"{check_set}.bad_thing", "severity": "error",
+             "row_count": errors, "details": "boom"}
+        ] if errors else [],
+        "warnings": [],
+        "passed": [],
+        "rows": [],
+    }
+
+
+@_pytest.mark.asyncio
+async def test_service_baseline_run_writes_rows_does_not_alert(monkeypatch):
+    from automana.core.services.ops import health_alert_service as svc
+
+    repo = _stub_repo()
+    service_results = {
+        "ops.integrity.scryfall_integrity": _integrity_report("scryfall_integrity"),
+        "ops.integrity.public_schema_leak": _integrity_report("public_schema_leak"),
+    }
+
+    discover = MagicMock(return_value=list(service_results.keys()))
+    run_other = AsyncMock(side_effect=lambda key: service_results[key])
+    poster = AsyncMock(return_value=204)
+    monkeypatch.setattr(svc, "_discover_integrity_services", discover)
+    monkeypatch.setattr(svc, "_run_integrity_service", run_other)
+    monkeypatch.setattr(svc, "_post_to_discord", poster)
+    monkeypatch.setattr(svc, "_get_webhook_url", lambda: "https://example/webhook")
+
+    out = await svc.run_alert_check(pipeline_health_snapshot_repository=repo)
+    assert out["alerted"] is False
+    assert out["degraded"] == []
+    assert out["recovered"] == []
+    assert len(out["baselines"]) == 2
+    repo.insert_snapshots.assert_awaited_once()
+    poster.assert_not_called()
+
+
+@_pytest.mark.asyncio
+async def test_service_degraded_transition_posts_to_discord(monkeypatch):
+    from automana.core.services.ops import health_alert_service as svc
+
+    prior = {
+        "scryfall_integrity": {"status": "ok", "error_count": 0, "warn_count": 0,
+                                "run_id": _uuid.uuid4()},
+    }
+    repo = _stub_repo(prior)
+    discover = MagicMock(return_value=["ops.integrity.scryfall_integrity"])
+    run_other = AsyncMock(return_value=_integrity_report("scryfall_integrity", errors=2))
+    poster = AsyncMock(return_value=204)
+    monkeypatch.setattr(svc, "_discover_integrity_services", discover)
+    monkeypatch.setattr(svc, "_run_integrity_service", run_other)
+    monkeypatch.setattr(svc, "_post_to_discord", poster)
+    monkeypatch.setattr(svc, "_get_webhook_url", lambda: "https://example/webhook")
+
+    out = await svc.run_alert_check(pipeline_health_snapshot_repository=repo)
+    assert out["alerted"] is True
+    assert len(out["degraded"]) == 1
+    assert out["degraded"][0]["check_set"] == "scryfall_integrity"
+    assert out["degraded"][0]["from_status"] == "ok"
+    assert out["degraded"][0]["to_status"] == "error"
+    poster.assert_awaited_once()
+    sent_body = poster.await_args.args[1]
+    assert "degraded" in sent_body.lower()
+    assert "scryfall_integrity" in sent_body
+
+
+@_pytest.mark.asyncio
+async def test_service_unchanged_status_does_not_alert(monkeypatch):
+    from automana.core.services.ops import health_alert_service as svc
+
+    prior = {"mtgstock_report": {"status": "error", "error_count": 10, "warn_count": 1,
+                                   "run_id": _uuid.uuid4()}}
+    repo = _stub_repo(prior)
+    discover = MagicMock(return_value=["ops.integrity.mtgstock_report"])
+    run_other = AsyncMock(return_value=_integrity_report("mtgstock_report", errors=12))
+    poster = AsyncMock()
+    monkeypatch.setattr(svc, "_discover_integrity_services", discover)
+    monkeypatch.setattr(svc, "_run_integrity_service", run_other)
+    monkeypatch.setattr(svc, "_post_to_discord", poster)
+    monkeypatch.setattr(svc, "_get_webhook_url", lambda: "https://example/webhook")
+
+    out = await svc.run_alert_check(pipeline_health_snapshot_repository=repo)
+    assert out["alerted"] is False
+    poster.assert_not_called()
+
+
+@_pytest.mark.asyncio
+async def test_service_integrity_exception_becomes_synthetic_error_row(monkeypatch):
+    from automana.core.services.ops import health_alert_service as svc
+
+    repo = _stub_repo({"scryfall_integrity": {"status": "ok", "error_count": 0,
+                                                "warn_count": 0,
+                                                "run_id": _uuid.uuid4()}})
+    discover = MagicMock(return_value=["ops.integrity.scryfall_integrity"])
+    run_other = AsyncMock(side_effect=RuntimeError("DB exploded"))
+    poster = AsyncMock(return_value=204)
+    monkeypatch.setattr(svc, "_discover_integrity_services", discover)
+    monkeypatch.setattr(svc, "_run_integrity_service", run_other)
+    monkeypatch.setattr(svc, "_post_to_discord", poster)
+    monkeypatch.setattr(svc, "_get_webhook_url", lambda: "https://example/webhook")
+
+    out = await svc.run_alert_check(pipeline_health_snapshot_repository=repo)
+    # The synthetic error row triggers an ok→error transition.
+    assert out["alerted"] is True
+    assert len(out["degraded"]) == 1
+    inserted_rows = repo.insert_snapshots.await_args.args[0]
+    assert any(
+        row.status == "error" and "DB exploded" in str(row.report.get("exception", ""))
+        for row in inserted_rows
+    )
+
+
+@_pytest.mark.asyncio
+async def test_service_missing_webhook_skips_post_but_still_writes(monkeypatch):
+    from automana.core.services.ops import health_alert_service as svc
+
+    repo = _stub_repo({"x_check": {"status": "ok", "error_count": 0,
+                                      "warn_count": 0, "run_id": _uuid.uuid4()}})
+    discover = MagicMock(return_value=["ops.integrity.x_check"])
+    run_other = AsyncMock(return_value=_integrity_report("x_check", errors=1))
+    poster = AsyncMock()
+    monkeypatch.setattr(svc, "_discover_integrity_services", discover)
+    monkeypatch.setattr(svc, "_run_integrity_service", run_other)
+    monkeypatch.setattr(svc, "_post_to_discord", poster)
+    monkeypatch.setattr(svc, "_get_webhook_url", lambda: None)
+
+    out = await svc.run_alert_check(pipeline_health_snapshot_repository=repo)
+    assert out["alerted"] is False
+    poster.assert_not_called()
+    repo.insert_snapshots.assert_awaited_once()

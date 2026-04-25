@@ -61,15 +61,13 @@ class ScryfallAPIRepository(BaseApiClient):
     
     async def _fetch_migrations(self) -> AsyncGenerator[Dict[str, Any], None]:
         endpoint = "/migrations?page=1"
-        full_url = self.get_full_url(endpoint) 
-        async with self._get_client() as client:
-            while full_url:
-                response = await self._get(full_url)
-                data = await response.json()
-                for m in data.get("data", []):
-                    yield m
-
-                full_url = data.get("next_page")
+        full_url = self.get_full_url(endpoint)
+        while full_url:
+            response = await self._get(full_url)
+            data = response.json()
+            for m in data.get("data", []):
+                yield m
+            full_url = data.get("next_page")
 
     @asynccontextmanager
     async def stream_download(self, url: str, chunk_size: int = 1024 * 1024):

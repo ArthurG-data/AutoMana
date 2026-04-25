@@ -226,14 +226,14 @@ CREATE INDEX IF NOT EXISTS idx_ingestion_ids_mapping_scryfall
 ON ops.ingestion_ids_mapping (scryfall_id);
 
 INSERT INTO ops.sources (name, base_uri, kind, rate_limit_hz)
-VALUES ('mtgStock', 'https://api.mtgstocks.com', 'http', 2.0)
+VALUES ('mtgstocks', 'https://api.mtgstocks.com', 'http', 2.0)
 ON CONFLICT (name) DO UPDATE
 SET base_uri = EXCLUDED.base_uri,
     kind = EXCLUDED.kind,
     rate_limit_hz = EXCLUDED.rate_limit_hz;
 
 WITH src AS (
-  SELECT id FROM ops.sources WHERE name = 'mtgStock'
+  SELECT id FROM ops.sources WHERE name = 'mtgstocks'
 )
 INSERT INTO ops.resources (
     source_id, external_type, external_id, canonical_key,

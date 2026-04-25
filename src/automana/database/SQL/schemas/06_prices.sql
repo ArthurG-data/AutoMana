@@ -115,13 +115,14 @@ INSERT INTO pricing.card_finished (code, description) VALUES
   ('ETCHED',  'Etched')
 ON CONFLICT (code) DO NOTHING;
 
-INSERT INTO pricing.price_source (code, name, currency_code) VALUES  
+INSERT INTO pricing.price_source (code, name, currency_code) VALUES
   ('tcg', 'tcgplayer', 'USD'),
   ('cardkingdom', 'Card Kingdom', 'USD'),
   ('cardmarket', 'Cardmarket', 'EUR'),
   ('starcitygames', 'Star City Games', 'USD'),
   ('ebay', 'eBay', 'USD'),
-  ('amazon', 'Amazon', 'USD')
+  ('amazon', 'Amazon', 'USD'),
+  ('mtgstocks', 'MTGStocks', 'USD')
 ON CONFLICT (code) DO NOTHING;
 -------------------------------------------------------------------------------price observation table and staging tables for the ETL process
 -- Finish default: NONFOIL
@@ -404,6 +405,46 @@ CREATE TABLE pricing.stg_price_observation (
     tcg_id            TEXT,
     scraped_at        TIMESTAMPTZ    NOT NULL DEFAULT now()
 );
+
+-- Reject table for staging-resolution failures. Pre-created here so the
+-- load_staging_prices_batched procedure (called by app_celery, which has no
+-- CREATE on pricing per the grants design) does not need to create it at
+-- runtime. The procedure still has CREATE TABLE IF NOT EXISTS — that is now
+-- a no-op on each call.
+DROP TABLE IF EXISTS pricing.stg_price_observation_reject;
+CREATE TABLE pricing.stg_price_observation_reject (
+    ts_date date NOT NULL,
+    game_code text NOT NULL,
+    print_id bigint NOT NULL,
+    source_code text NOT NULL,
+    data_provider_id SMALLINT NOT NULL,
+    scraped_at timestamptz NOT NULL,
+    list_low_cents INTEGER,
+    list_avg_cents INTEGER,
+    sold_avg_cents INTEGER,
+    is_foil boolean NOT NULL,
+    value numeric(12,4),
+    card_name text,
+    set_abbr text,
+    collector_number text,
+    scryfall_id text,
+    tcg_id text,
+    cardtrader_id text,
+    is_terminal boolean NOT NULL DEFAULT false,
+    terminal_reason text,
+    resolution_attempted_at timestamptz NOT NULL DEFAULT now(),
+    reject_reason text NOT NULL,
+    resolved_at timestamptz,
+    resolved_source_product_id bigint,
+    resolved_product_id uuid,
+    resolved_card_version_id uuid,
+    resolved_method text
+);
+
+-- Index used by load_staging_prices_batched after batch inserts. Pre-created
+-- here for the same reason as the reject table above.
+CREATE INDEX IF NOT EXISTS stg_price_obs_date_spid_foil_idx
+ON pricing.stg_price_observation (ts_date, source_product_id, is_foil);
 ---------------------------------------------------------------------------------------------new
 
   CREATE INDEX IF NOT EXISTS raw_mtg_stock_price_ts_date_idx
