@@ -194,24 +194,7 @@ async def register_external_identifier(
     identifier_name: str,
     value: str,
 ) -> bool:
-    """Idempotently attach an external identifier to an existing card_version.
-
-    Returns:
-        True if a new row was inserted, False if the
-        ``(card_version_id, card_identifier_ref_id)`` pair already existed
-        (ON CONFLICT DO NOTHING no-op). The bool lets callers distinguish
-        inserts from no-ops for metrics during backfill runs.
-
-    Raises:
-        UnknownIdentifierNameError: ``identifier_name`` is not in
-            ``card_catalog.card_identifier_ref``. Fail loudly rather than
-            auto-create ref rows — typos must not silently spawn new
-            identifier types.
-        CardNotFoundError: ``card_version_id`` does not exist.
-        CardInsertError: Wrapped failure during the DB round-trip (e.g.
-            a ``UNIQUE (card_identifier_ref_id, value)`` collision against
-            a different card_version, or any other asyncpg error).
-    """
+    """Idempotently attach an external identifier to a card_version. Returns True on insert, False on no-op."""
     try:
         outcome = await card_repository.register_external_identifier(
             card_version_id=card_version_id,
@@ -219,10 +202,6 @@ async def register_external_identifier(
             value=value,
         )
 
-        # Order matters: check the identifier-name failure before the
-        # card_version failure so a caller passing both a bad name AND a
-        # bad card_version sees the clearer of the two errors first. Both
-        # are validation failures, not insert failures.
         if not outcome.ref_found:
             logger.warning(
                 "Unknown external identifier name",
@@ -247,27 +226,23 @@ async def register_external_identifier(
                 f"card_version {card_version_id} not found"
             )
 
-        logger.info(
-            "External identifier registered",
-            extra={
-                "card_version": str(card_version_id),
-                "identifier": identifier_name,
-                "inserted": outcome.inserted,
-            },
-        )
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                "External identifier registered",
+                extra={
+                    "card_version": str(card_version_id),
+                    "identifier": identifier_name,
+                    "inserted": outcome.inserted,
+                },
+            )
         return outcome.inserted
 
     except (
         card_exception.UnknownIdentifierNameError,
         card_exception.CardNotFoundError,
     ):
-        # Re-raise domain exceptions untouched so routers can map them to
-        # the correct HTTP status. Double-wrapping would lose the type.
         raise
     except Exception as e:
-        # Everything else (DB-side UNIQUE collision on (ref_id, value),
-        # asyncpg connection errors, etc.) gets normalized into a single
-        # insert-error domain exception with context.
         raise card_exception.CardInsertError(
             f"Failed to register external identifier "
             f"(card_version={card_version_id}, identifier={identifier_name}): {e}"

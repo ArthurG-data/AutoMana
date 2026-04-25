@@ -219,21 +219,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
 
     @dataclass(slots=True, frozen=True)
     class ExternalIdentifierRegistration:
-        """Outcome of a single-row ``card_external_identifier`` upsert attempt.
-
-        Carries enough signal for the service layer to decide which domain
-        exception to raise (or to return ``inserted`` unchanged).
-
-        Attributes:
-            ref_found: ``True`` iff ``identifier_name`` resolved to a row in
-                ``card_catalog.card_identifier_ref``.
-            card_version_exists: ``True`` iff ``card_version_id`` exists in
-                ``card_catalog.card_version``.
-            inserted: ``True`` iff a new row was actually written; ``False``
-                for an ON CONFLICT DO NOTHING no-op OR for the degenerate
-                case where either lookup above failed (the INSERT ... SELECT
-                produces zero rows when either CTE is empty).
-        """
+        """Outcome of a single-row card_external_identifier upsert."""
         ref_found: bool
         card_version_exists: bool
         inserted: bool
@@ -244,38 +230,10 @@ class CardReferenceRepository(AbstractRepository[Any]):
         identifier_name: str,
         value: str,
     ) -> "CardReferenceRepository.ExternalIdentifierRegistration":
-        """Idempotently register one (card_version, identifier) pair.
-
-        Single-CTE round-trip to avoid a check-then-insert race: the ref
-        lookup, card_version existence probe, and upsert all happen in one
-        query. Mirrors the JOIN-with-ref pattern used by
-        ``insert_full_card_version`` in 02_card_schema.sql (lines 734–747),
-        adapted for a single row.
-
-        Conflict target is the ``(card_version_id, card_identifier_ref_id)``
-        primary key — this is the "same identifier already registered for
-        this card_version" case and is the intended no-op.
-
-        The secondary ``UNIQUE (card_identifier_ref_id, value)`` constraint
-        is *not* absorbed by this ON CONFLICT clause. If the same
-        ``(identifier_name, value)`` pair is already attached to a different
-        ``card_version_id``, the INSERT will raise and the service layer
-        will translate it to ``CardInsertError``. That is the correct
-        behavior: external IDs like scryfall_id are supposed to be globally
-        unique per card_version, so a collision indicates genuinely
-        inconsistent input, not idempotent re-entry.
-
-        Args:
-            card_version_id: Target card_version primary key.
-            identifier_name: Symbolic name in ``card_identifier_ref``
-                (e.g. ``"scryfall_id"``, ``"tcgplayer_id"``).
-            value: The raw identifier value as stored by the upstream source.
-
-        Returns:
-            ExternalIdentifierRegistration with three booleans the service
-            uses to decide between returning ``inserted`` and raising a
-            domain exception.
-        """
+        """Idempotently register one (card_version, identifier_name, value) row via a single-CTE round-trip."""
+        # ON CONFLICT targets the PK only. A UNIQUE (ref_id, value) collision
+        # against a different card_version_id will raise — external IDs like
+        # scryfall_id are globally unique per card_version by design.
         query = """
             WITH ref AS (
                 SELECT card_identifier_ref_id
@@ -304,9 +262,6 @@ class CardReferenceRepository(AbstractRepository[Any]):
         rows = await self.execute_query(query, card_version_id, identifier_name, value)
         row = rows[0] if rows else None
         if row is None:
-            # The SELECT above always returns exactly one row. Getting here
-            # means the driver layer misbehaved — surface loudly rather than
-            # silently reporting "nothing happened".
             raise RuntimeError(
                 "register_external_identifier: expected one result row, got none"
             )

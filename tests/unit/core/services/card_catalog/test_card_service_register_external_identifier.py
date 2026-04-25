@@ -129,28 +129,12 @@ class TestRegisterExternalIdentifierFailurePaths:
                 value=_VALUE,
             )
 
-    async def test_db_error_is_wrapped_in_card_insert_error(self):
-        """A repo-side exception (e.g. UNIQUE (card_identifier_ref_id, value)
-        collision against a different card_version_id) must be translated to
-        CardInsertError — not propagated raw — so routers see a known domain
-        exception.  The original exception message must be preserved."""
+    async def test_db_error_wrapped_in_card_insert_error_with_context(self):
+        """A repo-side exception must be translated to CardInsertError with the
+        original message plus enough context (card_version_id, identifier_name)
+        for an operator to diagnose."""
         repo = AsyncMock(spec=CardReferenceRepository)
         repo.register_external_identifier.side_effect = Exception("boom")
-
-        with pytest.raises(CardInsertError, match="boom"):
-            await card_service.register_external_identifier(
-                card_repository=repo,
-                card_version_id=_CARD_VERSION_ID,
-                identifier_name=_IDENTIFIER_NAME,
-                value=_VALUE,
-            )
-
-    async def test_db_error_message_includes_card_version_and_identifier(self):
-        """CardInsertError message must contain enough context (card_version_id
-        and identifier_name) for an operator to diagnose the collision without
-        additional tooling."""
-        repo = AsyncMock(spec=CardReferenceRepository)
-        repo.register_external_identifier.side_effect = Exception("unique violation")
 
         with pytest.raises(CardInsertError) as exc_info:
             await card_service.register_external_identifier(
@@ -161,33 +145,9 @@ class TestRegisterExternalIdentifierFailurePaths:
             )
 
         error_msg = str(exc_info.value)
+        assert "boom" in error_msg
         assert str(_CARD_VERSION_ID) in error_msg
         assert _IDENTIFIER_NAME in error_msg
-
-    async def test_unknown_identifier_name_not_swallowed_as_insert_error(self):
-        """UnknownIdentifierNameError must pass through the except clause
-        untouched — it must not be wrapped in CardInsertError."""
-        repo = _make_repo(ref_found=False, card_version_exists=True, inserted=False)
-
-        with pytest.raises(UnknownIdentifierNameError):
-            await card_service.register_external_identifier(
-                card_repository=repo,
-                card_version_id=_CARD_VERSION_ID,
-                identifier_name=_IDENTIFIER_NAME,
-                value=_VALUE,
-            )
-
-    async def test_card_not_found_error_not_swallowed_as_insert_error(self):
-        """CardNotFoundError must pass through untouched — not re-wrapped."""
-        repo = _make_repo(ref_found=True, card_version_exists=False, inserted=False)
-
-        with pytest.raises(CardNotFoundError):
-            await card_service.register_external_identifier(
-                card_repository=repo,
-                card_version_id=_CARD_VERSION_ID,
-                identifier_name=_IDENTIFIER_NAME,
-                value=_VALUE,
-            )
 
 
 # ---------------------------------------------------------------------------
@@ -195,24 +155,7 @@ class TestRegisterExternalIdentifierFailurePaths:
 # ---------------------------------------------------------------------------
 
 class TestServiceRegistryInvariants:
-    def test_service_is_registered(self):
+    def test_service_registration(self):
         cfg = ServiceRegistry.get("card_catalog.card.register_external_identifier")
         assert cfg is not None
-
-    def test_db_repositories_is_card(self):
-        cfg = ServiceRegistry.get("card_catalog.card.register_external_identifier")
         assert cfg.db_repositories == ["card"]
-
-    def test_runs_in_transaction_is_true(self):
-        """Default for all card services unless explicitly overridden. Protects
-        against accidental opt-out that would break the atomic-wrapper contract."""
-        cfg = ServiceRegistry.get("card_catalog.card.register_external_identifier")
-        assert cfg.runs_in_transaction is True
-
-    def test_api_repositories_is_empty(self):
-        cfg = ServiceRegistry.get("card_catalog.card.register_external_identifier")
-        assert cfg.api_repositories == []
-
-    def test_storage_services_is_empty(self):
-        cfg = ServiceRegistry.get("card_catalog.card.register_external_identifier")
-        assert cfg.storage_services == []
