@@ -23,10 +23,11 @@ from automana.core.metrics.card_catalog.identifier_metrics import (
 pytestmark = pytest.mark.unit
 
 
-def _repo(coverage=None, value_count=None):
+def _repo(coverage=None, value_count=None, coverage_by_unique_card=None):
     repo = AsyncMock()
     repo.fetch_identifier_coverage_pct.return_value = coverage
     repo.fetch_identifier_value_count.return_value = value_count
+    repo.fetch_identifier_coverage_pct_by_unique_card.return_value = coverage_by_unique_card
     return repo
 
 
@@ -76,7 +77,6 @@ async def test_scryfall_id_coverage_repo_returns_none_returns_none():
 @pytest.mark.parametrize(
     "metric_fn,name",
     [
-        (oracle_id_coverage, "oracle_id"),
         (tcgplayer_id_coverage, "tcgplayer_id"),
         (cardmarket_id_coverage, "cardmarket_id"),
     ],
@@ -85,6 +85,23 @@ async def test_other_pct_coverage_metrics_pass_correct_identifier_name(metric_fn
     repo = _repo(coverage={"covered": 50, "total": 100, "pct": 50.0})
     await metric_fn(card_repository=repo)
     repo.fetch_identifier_coverage_pct.assert_awaited_once_with(name)
+
+
+@pytest.mark.asyncio
+async def test_oracle_id_coverage_uses_per_unique_card_repository_method():
+    """Regression: oracle_id is per-abstract-card, not per-printing — the metric
+    must call fetch_identifier_coverage_pct_by_unique_card. Without this, the
+    per-printing denominator divides by the average reprint rate (~3x) and
+    produces a false ERROR even when every abstract card has its identifier row.
+    """
+    repo = _repo(coverage_by_unique_card={"covered": 37236, "total": 37236, "pct": 100.0})
+    result = await oracle_id_coverage(card_repository=repo)
+    repo.fetch_identifier_coverage_pct_by_unique_card.assert_awaited_once_with("oracle_id")
+    repo.fetch_identifier_coverage_pct.assert_not_called()
+    assert result.row_count == 100.0
+    assert result.details["scope"] == "unique_cards_ref"
+    assert result.details["covered"] == 37236
+    assert result.details["total"] == 37236
 
 
 @pytest.mark.asyncio

@@ -13,6 +13,7 @@ For the registry mechanics (decorator, severity, runner dispatch) see [`METRICS_
 | `card_catalog.*` | `ops.integrity.card_catalog_report` | `card-catalog-health-daily` (04:15 AEST) | Identifier coverage per source, orphan unique cards, external-id collisions |
 | `pricing.*`      | `ops.integrity.pricing_report`      | `pricing-health-hourly` (`:42` each hour) | Price freshness, per-source coverage, FK soft-integrity, staging drain, PK collisions |
 | `mtgstock.*` (existing) | `ops.integrity.mtgstock_report` | n/a (run by `pipeline-health-check`) | Per-run pipeline metrics — see [`MTGSTOCK_PIPELINE.md`](MTGSTOCK_PIPELINE.md) |
+| **on-demand audit** | `ops.audit.scryfall_identifier_coverage` | n/a (run when investigating identifier-shape questions) | Streams a Scryfall raw bulk JSON file and compares against `card_external_identifier` row-for-row — see §Audit service below |
 
 All three runners go through the shared `_metric_runner.run_metric_report` helper in `src/automana/core/services/ops/_metric_runner.py`.
 
@@ -25,7 +26,7 @@ Source: `src/automana/core/metrics/card_catalog/`. Backed by `CardReferenceRepos
 | Path | Category | Severity | What it catches |
 |---|---|---|---|
 | `card_catalog.identifier_coverage.scryfall_id` | health | `≤99% → WARN`, `≤95% → ERROR` | The 113k-orphan incident — silent JOIN failures when `card_identifier_ref` is empty or a name is misspelled. Headline metric. |
-| `card_catalog.identifier_coverage.oracle_id` | health | `≤99% → WARN`, `≤95% → ERROR` | Bulk identifier backfill stalled mid-run. Currently surfacing a real gap in the dev DB. |
+| `card_catalog.identifier_coverage.oracle_id` | health | `≤99% → WARN`, `≤95% → ERROR` | Bulk identifier backfill stalled mid-run. **Measured against `unique_cards_ref`, not `card_version`** — `oracle_id` is per-abstract-card (one value shared across all printings; the schema's `UNIQUE (ref_id, value)` constraint enforces this). Per-printing measurement would under-report by the average reprint rate (~3x). |
 | `card_catalog.identifier_coverage.tcgplayer_id` | health | `≤80% → WARN`, `≤60% → ERROR` | TCGPlayer mapping pipeline failure. Lower threshold reflects that regional/promo cards may legitimately lack a TCGPlayer ID. |
 | `card_catalog.identifier_coverage.cardmarket_id` | health | `≤70% → WARN`, `≤50% → ERROR` | Same as above, even lower threshold reflecting Cardmarket's narrower regional coverage. |
 | `card_catalog.identifier_coverage.multiverse_id` | volume | none (informational) | Tracks the count of a deprecated identifier — no pass/fail, just drift detection. |
@@ -98,6 +99,48 @@ card_catalog.duplicate_detection.external_id_value_collision  ok  0
 ```
 
 The standard envelope (`check_set`, `total_checks`, `error_count`, `warn_count`, `ok_count`, `errors`, `warnings`, `passed`, `rows`) is built by `_build_report` in `src/automana/core/services/ops/integrity_checks.py` and is identical across all `ops.integrity.*` services.
+
+---
+
+## Audit service: `ops.audit.scryfall_identifier_coverage`
+
+When an identifier-coverage metric reads suspicious — too low, drifting, or you suspect the metric formulation itself — run the audit. It streams a Scryfall raw bulk JSON file (auto-discovers the newest under `/data/automana_data/scryfall/raw_files/` if no path is passed), tallies per-identifier source presence and distinct-value counts, queries the matching DB-side counts, and prints one row per identifier with the source-vs-DB gap.
+
+```bash
+# Auto-discover the newest raw file
+automana-run ops.audit.scryfall_identifier_coverage
+
+# Pin a specific file
+automana-run ops.audit.scryfall_identifier_coverage --raw_file_path /data/automana_data/scryfall/raw_files/1_20260425_default-cards-20260424211240.json
+```
+
+Each row's `details` reports:
+
+- `classification` — `per-printing` (1:1 ratio of refs to distinct values), `per-printing-with-collisions` (mild ~1.0x–1.5x), or `per-abstract-card` (≥1.5x — the value is shared across multiple printings and the schema's `UNIQUE (ref_id, value)` will silently drop reprints via `ON CONFLICT DO NOTHING`).
+- `source_pct` / `stored_pct` / `gap_pct` — what fraction of the universe has this identifier in the file vs in the DB. Severity is `OK` if `gap_pct < 1`, `WARN` ≥ 1, `ERROR` ≥ 5.
+- The denominator on the DB side switches by classification: per-abstract-card identifiers measure against `unique_cards_ref`; per-printing identifiers measure against `card_version`. Same semantics as the corresponding `identifier_coverage.*` metric, so an audit row should match its metric's value within rounding.
+
+This is the analysis that surfaced the original `oracle_id` metric-design bug — `oracle_id` showed `per-abstract-card` classification (3.05 refs/distinct, matching MTG's average reprint rate), revealing that the per-`card_version` measurement was structurally wrong rather than the ETL being broken.
+
+Real output against the dev DB on 2026-04-25:
+
+```
+file_cards: 113776    db_card_versions: 113776    db_unique_cards: 36819
+errors: 0    warnings: 2    ok: 4
+
+IDENTIFIER             CLASS                   SEV   SRC%  STORED%   GAP  src_distinct  refs/dist
+-------------------------------------------------------------------------------------------------
+scryfall_id            per-printing             OK 100.00   100.00  0.00       113776       1.00
+oracle_id              per-abstract-card        OK  99.93    99.84  0.09        37236       3.05
+tcgplayer_id           per-printing           WARN  85.99    84.92  1.07        96618       1.01
+cardmarket_id          per-printing           WARN  82.84    81.79  1.05        93060       1.01
+multiverse_id          per-printing             OK  61.12    61.12  0.00        70133       1.00
+tcgplayer_etched_id    per-printing             OK   1.08     1.07  0.01         1220       1.00
+```
+
+The two WARNs reflect ~1% of `tcgplayer_id` and `cardmarket_id` values that are shared across multiple printings (typically foil/non-foil pairs of the same printing) and silently absorbed by `ON CONFLICT DO NOTHING` in `card_catalog.insert_full_card_version`. Whether this is acceptable or worth a schema change is a separate question; the audit just surfaces it.
+
+The audit is registered under the `ops.audit.*` namespace, **not** `ops.integrity.*`, so the `pipeline-health-check` skill does not auto-discover it. This is intentional — it's a heavy I/O operation (~5s for a 512MB raw file) meant for on-demand investigation.
 
 ---
 

@@ -22,6 +22,30 @@ async def _coverage(card_repository: CardReferenceRepository, name: str) -> Metr
     )
 
 
+async def _coverage_by_unique_card(
+    card_repository: CardReferenceRepository, name: str
+) -> MetricResult:
+    """Variant of _coverage for identifiers that are per-abstract-card (oracle_id).
+
+    Counts coverage against unique_cards_ref instead of card_version. Without
+    this, the per-printing denominator divides by the average reprint rate
+    (~3x for oracle_id) and produces a false ERROR even when every abstract
+    card has its identifier row.
+    """
+    out = await card_repository.fetch_identifier_coverage_pct_by_unique_card(name)
+    if out is None:
+        return MetricResult(row_count=None, details={"identifier_name": name})
+    return MetricResult(
+        row_count=out["pct"],
+        details={
+            "identifier_name": name,
+            "covered": out["covered"],
+            "total": out["total"],
+            "scope": "unique_cards_ref",
+        },
+    )
+
+
 async def _count(card_repository: CardReferenceRepository, name: str) -> MetricResult:
     n = await card_repository.fetch_identifier_value_count(name)
     return MetricResult(row_count=n, details={"identifier_name": name})
@@ -41,12 +65,16 @@ async def scryfall_id_coverage(card_repository: CardReferenceRepository) -> Metr
 @MetricRegistry.register(
     path="card_catalog.identifier_coverage.oracle_id",
     category="health",
-    description="% of card_version rows that have an oracle_id external identifier.",
+    description="% of unique_cards_ref rows whose card_versions have an oracle_id external identifier (per-abstract-card; see HEALTH_METRICS.md).",
     severity=Threshold(warn=99, error=95, direction="lower_is_worse"),
     db_repositories=["card"],
 )
 async def oracle_id_coverage(card_repository: CardReferenceRepository) -> MetricResult:
-    return await _coverage(card_repository, "oracle_id")
+    # oracle_id is per-abstract-card: the schema's UNIQUE (ref_id, value)
+    # constraint guarantees one row per oracle_id value, so per-card_version
+    # counting under-reports by the reprint rate. Measure against
+    # unique_cards_ref instead.
+    return await _coverage_by_unique_card(card_repository, "oracle_id")
 
 
 @MetricRegistry.register(

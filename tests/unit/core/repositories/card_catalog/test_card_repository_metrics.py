@@ -74,3 +74,19 @@ async def test_fetch_external_id_value_collisions_no_rows_returns_zero():
     repo = _make_repo([])
     assert await repo.fetch_external_id_value_collisions() == 0
     repo.execute_query.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_fetch_identifier_coverage_pct_by_unique_card_returns_pct_and_counts():
+    repo = _make_repo([{"covered": 37236, "total": 37236, "pct": 100.0}])
+    out = await repo.fetch_identifier_coverage_pct_by_unique_card("oracle_id")
+    assert out == {"covered": 37236, "total": 37236, "pct": 100.0}
+    args = repo.execute_query.await_args.args
+    assert args[1] == ("oracle_id",)
+
+
+@pytest.mark.asyncio
+async def test_fetch_identifier_coverage_pct_by_unique_card_no_rows_returns_none():
+    repo = _make_repo([])
+    out = await repo.fetch_identifier_coverage_pct_by_unique_card("oracle_id")
+    assert out is None

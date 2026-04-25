@@ -435,6 +435,49 @@ class CardReferenceRepository(AbstractRepository[Any]):
         rows = await self.execute_query(query, (identifier_name,))
         return dict(rows[0]) if rows else None
 
+    async def fetch_identifier_coverage_pct_by_unique_card(
+        self, identifier_name: str
+    ) -> dict | None:
+        """Coverage measured against ``unique_cards_ref`` rather than ``card_version``.
+
+        Use this for identifiers that are a property of the *abstract card* (one
+        value per ``unique_card_id``) rather than per-printing — most notably
+        ``oracle_id``. The schema's ``UNIQUE (card_identifier_ref_id, value)``
+        constraint causes per-printing counting to under-report by the average
+        reprint rate (~3x for oracle_id), making the per-card_version metric
+        meaningless for these identifiers.
+
+        Returns the same shape as :meth:`fetch_identifier_coverage_pct`:
+        ``{'covered': int, 'total': int, 'pct': float|None}``. ``covered`` is
+        the count of distinct ``unique_card_id`` values for which at least one
+        ``card_version`` has a row of ``identifier_name`` in
+        ``card_external_identifier``; ``total`` is the count of
+        ``unique_cards_ref`` rows.
+        """
+        query = """
+        WITH totals AS (
+            SELECT COUNT(*)::int AS total FROM card_catalog.unique_cards_ref
+        ),
+        covered AS (
+            SELECT COUNT(DISTINCT cv.unique_card_id)::int AS covered
+            FROM card_catalog.card_external_identifier cei
+            JOIN card_catalog.card_identifier_ref cir
+              ON cir.card_identifier_ref_id = cei.card_identifier_ref_id
+            JOIN card_catalog.card_version cv
+              ON cv.card_version_id = cei.card_version_id
+            WHERE cir.identifier_name = $1
+        )
+        SELECT
+            covered,
+            total,
+            CASE WHEN total = 0 THEN NULL
+                 ELSE ROUND(100.0 * covered / total, 2)::float
+            END AS pct
+        FROM totals, covered
+        """
+        rows = await self.execute_query(query, (identifier_name,))
+        return dict(rows[0]) if rows else None
+
     async def fetch_identifier_value_count(self, identifier_name: str) -> int:
         """COUNT of card_version rows that have at least one row for ``identifier_name``.
 
@@ -450,6 +493,41 @@ class CardReferenceRepository(AbstractRepository[Any]):
         """
         rows = await self.execute_query(query, (identifier_name,))
         return rows[0]["n"] if rows else 0
+
+    async def fetch_identifier_audit_counts(self) -> "list[dict]":
+        """Per-identifier aggregate counts for the scryfall-vs-db audit service.
+
+        One row per ``identifier_name`` registered in ``card_identifier_ref``.
+        Identifiers with zero stored rows still appear (LEFT JOIN), so the audit
+        can flag them.
+        """
+        query = """
+        SELECT
+            cir.identifier_name                               AS identifier_name,
+            COUNT(cei.value)::int                             AS total_rows,
+            COUNT(DISTINCT cei.value)::int                    AS distinct_values,
+            COUNT(DISTINCT cei.card_version_id)::int          AS distinct_card_versions,
+            COUNT(DISTINCT cv.unique_card_id)::int            AS distinct_unique_cards
+        FROM card_catalog.card_identifier_ref cir
+        LEFT JOIN card_catalog.card_external_identifier cei
+               ON cei.card_identifier_ref_id = cir.card_identifier_ref_id
+        LEFT JOIN card_catalog.card_version cv
+               ON cv.card_version_id = cei.card_version_id
+        GROUP BY cir.identifier_name
+        ORDER BY cir.identifier_name
+        """
+        rows = await self.execute_query(query, ())
+        return [dict(r) for r in rows]
+
+    async def fetch_card_universe_counts(self) -> dict:
+        """Denominator counts used by the scryfall-vs-db audit service."""
+        query = """
+        SELECT
+            (SELECT COUNT(*)::int FROM card_catalog.card_version)      AS total_card_versions,
+            (SELECT COUNT(*)::int FROM card_catalog.unique_cards_ref)  AS total_unique_cards
+        """
+        rows = await self.execute_query(query, ())
+        return dict(rows[0]) if rows else {"total_card_versions": 0, "total_unique_cards": 0}
 
     async def fetch_orphan_unique_cards_count(self) -> int:
         """COUNT of unique_cards_ref rows with zero card_version children.

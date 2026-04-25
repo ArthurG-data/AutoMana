@@ -15,6 +15,10 @@ pytestmark = pytest.mark.unit
 def _repos():
     card = AsyncMock()
     card.fetch_identifier_coverage_pct.return_value = {"covered": 100, "total": 100, "pct": 100.0}
+    # T16: oracle_id_coverage now uses the per-unique-card variant — stub it too.
+    card.fetch_identifier_coverage_pct_by_unique_card.return_value = {
+        "covered": 100, "total": 100, "pct": 100.0,
+    }
     card.fetch_identifier_value_count.return_value = 0
     card.fetch_orphan_unique_cards_count.return_value = 0
     card.fetch_external_id_value_collisions.return_value = 0
@@ -67,8 +71,10 @@ async def test_card_catalog_report_explicit_metric_string_runs_only_that_one():
 @pytest.mark.asyncio
 async def test_card_catalog_report_one_failing_metric_does_not_kill_report():
     card, ops = _repos()
+    # Break all per-card_version coverage queries. After T16, oracle_id uses
+    # the per-unique-card variant (still stubbed), so only the 3 per-printing
+    # pct-coverage metrics fail (scryfall, tcgplayer, cardmarket).
     card.fetch_identifier_coverage_pct.side_effect = RuntimeError("db down")
     out = await card_catalog_report(card_repository=card, ops_repository=ops)
-    # All 4 pct-coverage metrics fail → 4 errors. The other 4 metrics still run.
-    assert out["error_count"] == 4
+    assert out["error_count"] == 3
     assert out["total_checks"] == 8
