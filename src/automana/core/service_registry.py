@@ -198,8 +198,14 @@ ServiceRegistry.register_db_repository(
     "price", "automana.core.repositories.app_integration.mtg_stock.price_repository", "PriceRepository"
 )
 
+# Ops repositories
 ServiceRegistry.register_db_repository(
     "ops", "automana.core.repositories.ops.ops_repository", "OpsRepository"
+)
+ServiceRegistry.register_db_repository(
+    "pipeline_health_snapshot",
+    "automana.core.repositories.ops.pipeline_health_snapshot_repository",
+    "PipelineHealthSnapshotRepository",
 )
 
 ServiceRegistry.register_db_repository(
@@ -210,6 +216,7 @@ ServiceRegistry.register_db_repository(
 ServiceRegistry.register_db_repository(
     "analytics", "automana.core.repositories.analytics_repositories.analytics_repository", "AnalyticsRepository"
 )
+
 # API repositories
 ServiceRegistry.register_api_repository(
     "auth_oauth", "automana.core.repositories.app_integration.ebay.ApiAuth_repository", "EbayAuthAPIRepository"

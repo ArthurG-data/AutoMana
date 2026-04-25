@@ -35,13 +35,17 @@ class MTGStockBatchStep:
             "error_details": self.error_details,
         }
     def to_tuple(self):
+        # Column order must match ops.insert_batch_step SQL exactly:
+        # $1 ingestion_run_id, $2 step_name (WHERE lookup);
+        # $3..$12 = batch_seq, range_start, range_end, status, items_ok,
+        # items_failed, bytes_processed, duration_ms, error_code, error_details.
+        # total_in_batch has no DB column — it is a Python-side convenience.
         return (
             self.ingestion_run_id,
             self.step_name,
             self.batch_seq,
             self.range_start,
             self.range_end,
-            self.total_in_batch,
             self.status,
             self.items_ok,
             self.items_failed,

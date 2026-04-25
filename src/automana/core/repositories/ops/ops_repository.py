@@ -115,6 +115,11 @@ class OpsRepository(AbstractRepository):
             RETURNING id
         ),
         start_step AS (
+            -- 'start' is an instantaneous marker step: the only work it
+            -- wraps is "the run row was created", which we just did in the
+            -- upsert_run CTE. Close it immediately so the run does not end
+            -- with a dangling 'running' step, which would otherwise trip
+            -- the last-run-failed-steps integrity check on every success.
             INSERT INTO ops.ingestion_run_steps (
                 ingestion_run_id,
                 step_name,
@@ -125,15 +130,15 @@ class OpsRepository(AbstractRepository):
             SELECT
                 id,
                 'start',
-                'running',
+                'success',
                 now(),
-                NULL
+                now()
             FROM upsert_run
             ON CONFLICT (ingestion_run_id, step_name) DO UPDATE
-            SET 
-                status = 'running',
+            SET
+                status = 'success',
                 started_at = now(),
-                ended_at = NULL,
+                ended_at = now(),
                 error_code = NULL,
                 error_details = NULL
             RETURNING ingestion_run_id
@@ -194,7 +199,22 @@ class OpsRepository(AbstractRepository):
                             END
         WHERE ops.ingestion_run_steps.status <> 'success'
         RETURNING id, ingestion_run_id, step_name, status
-)
+),
+        -- Advance ingestion_runs.current_step so operator-facing pollers
+        -- (rebuild_dev_db.sh, TUI, dashboard) see which step is executing.
+        -- Never touch the parent run's terminal status from here — only
+        -- finish_run / fail_run may set 'success'/'failed'/'partial' on
+        -- the run row. This CTE only advances current_step and keeps the
+        -- run in 'running' while steps progress.
+        run_update AS (
+            UPDATE ops.ingestion_runs
+            SET
+                current_step = COALESCE((SELECT step_name FROM desired), current_step),
+                updated_at   = now()
+            WHERE id = $1::bigint
+              AND status = 'running'
+            RETURNING id
+        )
     SELECT * FROM step_insert;
     """
         result = await self.execute_query(query, 
@@ -308,28 +328,34 @@ class OpsRepository(AbstractRepository):
         "changed": changed_items
     }
     async def update_ids_master_dict(self, ingestion_run_id: int, ids_master_dict: dict):
+        # RETURNING cannot aggregate (Postgres rejects aggregates in RETURNING).
+        # Wrap in a CTE so the COUNT runs over the upserted rows in the
+        # outer SELECT instead.
         query = """
-        INSERT INTO ops.ingestion_ids_mapping (
-            ingestion_run_id,
-            mtgstock_id,
-            scryfall_id,
-            multiverse_id,
-            tcg_id
+        WITH upsert AS (
+            INSERT INTO ops.ingestion_ids_mapping (
+                ingestion_run_id,
+                mtgstock_id,
+                scryfall_id,
+                multiverse_id,
+                tcg_id
+            )
+            SELECT
+                $1,
+                (key::BIGINT),
+                (value->>'scryfall_id')::UUID,
+                (value->>'multiverse_id')::BIGINT,
+                (value->>'tcg_id')::BIGINT
+            FROM jsonb_each($2::jsonb)
+            ON CONFLICT (ingestion_run_id, mtgstock_id) DO UPDATE
+            SET
+                scryfall_id = EXCLUDED.scryfall_id,
+                multiverse_id = EXCLUDED.multiverse_id,
+                tcg_id = EXCLUDED.tcg_id,
+                created_at = NOW()
+            RETURNING 1
         )
-        SELECT
-            $1,
-            (key::BIGINT),
-            (value->>'scryfall_id')::UUID,
-            (value->>'multiverse_id')::BIGINT,
-            (value->>'tcg_id')::BIGINT
-        FROM jsonb_each($2::jsonb)
-        ON CONFLICT (ingestion_run_id, mtgstock_id) DO UPDATE
-        SET
-            scryfall_id = EXCLUDED.scryfall_id,
-            multiverse_id = EXCLUDED.multiverse_id,
-            tcg_id = EXCLUDED.tcg_id,
-            created_at = NOW()
-        RETURNING COUNT(*) as rows_inserted;
+        SELECT COUNT(*) AS rows_inserted FROM upsert;
         """
         rows = await self.execute_query(query, (ingestion_run_id, json.dumps(ids_master_dict)))
         return rows[0]["rows_inserted"] if rows else 0

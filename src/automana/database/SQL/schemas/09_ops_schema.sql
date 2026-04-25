@@ -226,14 +226,14 @@ CREATE INDEX IF NOT EXISTS idx_ingestion_ids_mapping_scryfall
 ON ops.ingestion_ids_mapping (scryfall_id);
 
 INSERT INTO ops.sources (name, base_uri, kind, rate_limit_hz)
-VALUES ('mtgStock', 'https://api.mtgstocks.com', 'http', 2.0)
+VALUES ('mtgstocks', 'https://api.mtgstocks.com', 'http', 2.0)
 ON CONFLICT (name) DO UPDATE
 SET base_uri = EXCLUDED.base_uri,
     kind = EXCLUDED.kind,
     rate_limit_hz = EXCLUDED.rate_limit_hz;
 
 WITH src AS (
-  SELECT id FROM ops.sources WHERE name = 'mtgStock'
+  SELECT id FROM ops.sources WHERE name = 'mtgstocks'
 )
 INSERT INTO ops.resources (
     source_id, external_type, external_id, canonical_key,
@@ -349,5 +349,31 @@ SET name = EXCLUDED.name,
     api_uri = EXCLUDED.api_uri,
     web_uri = EXCLUDED.web_uri,
     metadata = EXCLUDED.metadata;
+
+-- ============================================================
+-- ops.pipeline_health_snapshot
+--
+-- One row per (run_id, check_set). Captures every ops.integrity.*
+-- service result so HealthAlertService can diff status transitions
+-- across runs and alert Discord only on changes.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS ops.pipeline_health_snapshot (
+    id              bigserial PRIMARY KEY,
+    run_id          uuid        NOT NULL,
+    captured_at     timestamptz NOT NULL DEFAULT now(),
+    check_set       text        NOT NULL,
+    pipeline        text        NOT NULL,
+    status          text        NOT NULL CHECK (status IN ('ok','warn','error')),
+    error_count     int         NOT NULL,
+    warn_count      int         NOT NULL,
+    total_checks    int         NOT NULL,
+    report          jsonb       NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_pipeline_health_snapshot_check_set_captured_at
+    ON ops.pipeline_health_snapshot (check_set, captured_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_pipeline_health_snapshot_run_id
+    ON ops.pipeline_health_snapshot (run_id);
 
 COMMIT;
