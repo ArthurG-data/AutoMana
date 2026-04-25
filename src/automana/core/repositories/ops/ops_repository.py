@@ -514,6 +514,20 @@ class OpsRepository(AbstractRepository):
         rows = await self.execute_query(query, (ingestion_run_id, step_name))
         return rows[0]["n"] if rows else 0
 
+    async def fetch_latest_successful_run_ended_at(self, pipeline_name: str):
+        """Return ended_at of the most recent ingestion_runs row with status='success'
+        for the given pipeline. Used by pricing freshness metrics to compute lag.
+        """
+        query = """
+        SELECT ended_at
+        FROM ops.ingestion_runs
+        WHERE pipeline_name = $1 AND status = 'success' AND ended_at IS NOT NULL
+        ORDER BY ended_at DESC
+        LIMIT 1
+        """
+        rows = await self.execute_query(query, (pipeline_name,))
+        return rows[0]["ended_at"] if rows else None
+
     async def get():
         raise NotImplementedError("This method is not implemented yet.")
     
