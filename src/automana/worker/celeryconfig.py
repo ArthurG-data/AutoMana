@@ -51,23 +51,30 @@ timezone = os.getenv("CELERY_TIMEZONE", "Australia/Sydney")
 beat_schedule = {
     "refresh-scryfall-manifest-nightly": {
         "task": "automana.worker.tasks.pipelines.daily_scryfall_data_pipeline",
-        "schedule": crontab(hour=8, minute=8),  # 02:00 AEST
+        "schedule": crontab(hour=2, minute=0),  # 02:00 AEST
     },
-        "refresh-mtgjson-daily": {
-            "task": "automana.worker.tasks.pipelines.daily_mtgjson_data_pipeline",
-            "schedule": crontab(hour=9, minute=8),  # 03:00 AEST
-        },
-    # MTGStock staging runs AFTER Scryfall so that new scryfall_id migrations
-    # published that day are available when pricing.resolve_price_rejects()
-    # re-runs the reject resolver. Offset from mtgjson to avoid contending on
-    # the pricing schema.
+    "refresh-mtgjson-daily": {
+        "task": "automana.worker.tasks.pipelines.daily_mtgjson_data_pipeline",
+        "schedule": crontab(hour=3, minute=0),  # 03:00 AEST
+    },
+    # MTGStock staging runs AFTER Scryfall so reject resolver sees fresh
+    # scryfall_id migrations, and AFTER MTGJson to avoid contention on the
+    # pricing schema.
     "refresh-mtgstock-daily": {
         "task": "automana.worker.tasks.pipelines.mtgStock_download_pipeline",
-        "schedule": crontab(hour=10, minute=8),
+        "schedule": crontab(hour=4, minute=0),  # 04:00 AEST
     },
     "daily-analytics-report": {
         "task": "automana.worker.tasks.analytics.daily_summary_analytics_task",
-        "schedule": crontab(hour=11, minute=0),  # 03:00 AEST
+        "schedule": crontab(hour=5, minute=0),  # 05:00 AEST — after all data pipelines
+    },
+    "pipeline-health-am": {
+        "task": "automana.worker.tasks.pipelines.pipeline_health_alert_task",
+        "schedule": crontab(hour=6, minute=0),  # 06:00 AEST — post-pipeline check
+    },
+    "pipeline-health-pm": {
+        "task": "automana.worker.tasks.pipelines.pipeline_health_alert_task",
+        "schedule": crontab(hour=18, minute=0)  # 18:00 AEST — same-day insuranc
     },
     # Card-catalog data-shape health (identifier coverage, orphan unique_cards,
     # external-id collisions) — runs once a day after the daily ingests.

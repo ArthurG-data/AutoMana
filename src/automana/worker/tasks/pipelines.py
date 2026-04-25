@@ -155,3 +155,16 @@ def run_scryfall_integrity_checks(self):
         run_service.s("ops.integrity.public_schema_leak"),
     )
     return wf.apply_async().id
+
+
+@shared_task(bind=True)
+def pipeline_health_alert_task(self):
+    """Twice-daily Celery Beat job: run all ops.integrity.* services, persist
+    a snapshot, and post a transition-only Discord alert.
+
+    Per project rules this task does NOT use ``autoretry_for``; retry policy
+    lives at the run_service layer. A failure here is logged via Celery's
+    standard machinery and does not retry — twice-daily cadence makes the
+    next scheduled invocation the recovery path.
+    """
+    return run_service("ops.health.alert_check")
