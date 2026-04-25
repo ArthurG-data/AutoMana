@@ -296,12 +296,6 @@ BEGIN
 END $$;
 SQL
 
-if should_run rebuild; then
-  _run_stage rebuild do_rebuild
-else
-  echo "== Skipping stage: rebuild =="
-fi
-
 # ============================================================
 # Pipeline orchestration
 # ------------------------------------------------------------
@@ -518,6 +512,12 @@ do_verify() {
     GROUP BY 1,2
     ORDER BY 1,2;"
 }
+
+if should_run rebuild; then
+  _run_stage rebuild do_rebuild
+else
+  echo "== Skipping stage: rebuild =="
+fi
 
 if should_run scryfall; then _run_stage scryfall do_scryfall; fi
 if should_run mtgstock; then _run_stage mtgstock do_mtgstock; fi
