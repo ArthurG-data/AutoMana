@@ -1,65 +1,11 @@
 ﻿from typing import Optional, Dict
-from dataclasses import dataclass
+from automana.core.services.analytics.models import PricingResult
 from automana.core.services.analytics.strategies import PricingStrategy, PricingStrategyManager
 from automana.core.services.analytics.utils import parse_title_for_condition, parsed_description_for_condition
 from automana.core.service_registry import ServiceRegistry
 import numpy as np
 import statistics
 
-@dataclass
-class PricingResult:
-    price : float
-    description: float
-    expected_speed : str
-    profit_margin : str
-    confidence: float =0.0
-    metadata: Optional[dict] = None
-
-
-def enhanced_pricing_analysis(ebay_result,  strategies: Dict[str, PricingStrategy], market_conditions: Dict = None):
-    """Enhanced analysis using Strategy pattern"""
-    
-    # Your existing analysis logic...
-    analysis = analyze_pricing_strategy(ebay_result)
-    if 'error' in analysis:
-        return analysis
-    
-    # Default market conditions
-    if market_conditions is None:
-        market_conditions = {
-            'volatility': analysis['statistics']['std_deviation'] / analysis['statistics']['mean_price'],
-            'competition_level': 'high' if analysis['statistics']['total_listings'] > 20 else 'medium',
-            'inventory_level': 'medium',
-            'cash_flow_priority': False,
-            'card_rarity': 'rare',  # Would come from card database
-            'seller_reputation': 'high'
-        }
-    
-    # Use strategy manager
-    strategy_manager = PricingStrategyManager(strategies)
-                                            
-    
-    # Get all strategies
-    all_strategies = strategy_manager.get_all_strategies(
-        analysis['statistics'], 
-        analysis['percentiles'], 
-        market_conditions
-    )
-    
-    # Get recommendation
-    recommended_name, recommended_result = strategy_manager.recommend_strategy(
-        market_conditions,
-        analysis['statistics'],
-        analysis['percentiles']
-    )
-    
-    return {
-        **analysis,
-        'pricing_strategies': all_strategies,
-        'recommended_strategy': recommended_name,
-        'recommended_result': recommended_result,
-        'market_conditions': market_conditions
-    }
 
 def analyze_pricing_strategy(ebay_result, strategy: Optional[PricingStrategy] = None):
     prices = []

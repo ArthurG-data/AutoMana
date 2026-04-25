@@ -2,7 +2,6 @@
 from uuid import UUID, uuid4
 from automana.api.schemas.auth.session import CreateSession
 from automana.api.services.auth.auth import create_access_token, decode_access_token
-from automana.api.schemas.StandardisedQueryResponse import ApiResponse
 from datetime import timedelta, datetime, timezone
 from automana.core.exceptions import session_exceptions
 from automana.api.schemas.user_management.user import UserInDB
@@ -95,20 +94,6 @@ async def delete_session(session_repository: SessionRepository
         bool: True if the session was deleted successfully, otherwise False.
     """
     await session_repository.delete(ip_address, user_id, session_id)
-
-async def update_session(session_repository: SessionRepository, session_id: UUID, data: dict):
-    """
-    Updates a session with the provided data.
-    
-    Args:
-        repository (SessionRepository): The session repository instance.
-        session_id (UUID): The unique identifier of the session to update.
-        data (dict): The data to update the session with.
-    
-    Returns:
-        bool: True if the session was updated successfully, otherwise False.
-    """
-    return await session_repository.update(session_id, data)
 
 async def insert_session(session_repository: SessionRepository, new_session : CreateSession):
     """"Inserts a new session into the database."""

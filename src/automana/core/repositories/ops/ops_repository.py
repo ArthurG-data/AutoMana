@@ -2,6 +2,11 @@
 from datetime import date as date_type
 from automana.core.repositories.abstract_repositories.AbstractDBRepository import AbstractRepository
 from automana.core.repositories.ops.scryfall_data import update_bulk_scryfall_data_sql
+from automana.core.repositories.ops.integrity_check_sql import (
+    scryfall_run_diff_sql,
+    scryfall_integrity_checks_sql,
+    public_schema_leak_check_sql,
+)
 from automana.core.models.pipelines.mtg_stock import MTGStockBatchStep
 
 class OpsRepository(AbstractRepository):
@@ -348,6 +353,180 @@ class OpsRepository(AbstractRepository):
         """
         parsed_date = date_type.fromisoformat(date) if isinstance(date, str) else date
         await self.execute_command(query, (version, parsed_date))
+
+    # ------------------------------------------------------------------
+    # Integrity-check helpers (read-only, no side effects)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _parse_check_rows(raw_rows: list) -> list[dict]:
+        """Convert asyncpg Record objects from a check query into plain dicts.
+
+        asyncpg surfaces JSONB columns as raw JSON strings; we parse `details`
+        into a Python dict here, mirroring the pattern used in
+        `update_bulk_data_uri_return_new`.
+        """
+        result = []
+        for row in raw_rows:
+            details_raw = row.get("details") if hasattr(row, "get") else row["details"]
+            if isinstance(details_raw, str):
+                details = json.loads(details_raw) if details_raw else {}
+            elif details_raw is None:
+                details = {}
+            else:
+                details = details_raw
+            result.append(
+                {
+                    "check_name": row["check_name"],
+                    "severity": row["severity"],
+                    "row_count": row["row_count"],
+                    "details": details,
+                }
+            )
+        return result
+
+    async def run_scryfall_run_diff(
+        self, ingestion_run_id: int | None = None
+    ) -> list[dict]:
+        """Run the post-run diff report for the most recent (or specified) Scryfall run.
+
+        The underlying SQL (`scryfall_run_diff.sql`) always targets the most
+        recent `scryfall_daily` pipeline run via an internal CTE.  The
+        `ingestion_run_id` argument is accepted for forward-compatibility but is
+        **not currently forwarded to the query** — the SQL does not expose a
+        bind-parameter for it.  A future migration of the SQL to accept a
+        ``$1`` placeholder will make this arg functional without changing
+        callers.
+
+        Returns a list of dicts with keys:
+            ``check_name`` (str), ``severity`` (str), ``row_count`` (int),
+            ``details`` (dict).
+        """
+        raw = await self.execute_query(scryfall_run_diff_sql)
+        return self._parse_check_rows(raw)
+
+    async def run_scryfall_integrity_checks(self) -> list[dict]:
+        """Run the 24-check orphan / loose-data integrity scan for the Scryfall pipeline.
+
+        Covers ``card_catalog``, ``ops``, and ``pricing`` schemas.  All checks
+        are pure SELECTs — zero side effects — safe to run from any read-only
+        role.
+
+        Returns a list of dicts with keys:
+            ``check_name`` (str), ``severity`` (str), ``row_count`` (int),
+            ``details`` (dict).
+        """
+        raw = await self.execute_query(scryfall_integrity_checks_sql)
+        return self._parse_check_rows(raw)
+
+    async def run_public_schema_leak_check(self) -> list[dict]:
+        """Confirm that no app objects leaked into the ``public`` schema.
+
+        Checks tables, views, sequences, functions, and search_path config.
+        Extension-owned objects (pgvector, timescaledb) are excluded so that
+        expected noise does not mask real findings.
+
+        Returns a list of dicts with keys:
+            ``check_name`` (str), ``severity`` (str), ``row_count`` (int),
+            ``details`` (dict).
+        """
+        raw = await self.execute_query(public_schema_leak_check_sql)
+        return self._parse_check_rows(raw)
+
+    # ------------------------------------------------------------------
+    # Metric-registry primitives
+    # ------------------------------------------------------------------
+    # Small, composable queries that the mtgstock sanity-report metrics
+    # call. Every method resolves `ingestion_run_id=None` to "the most
+    # recent run for this pipeline" so metric callers can stay oblivious.
+
+    async def get_latest_run_id(self, pipeline_name: str) -> int | None:
+        """Return the id of the most recent run for ``pipeline_name`` (any status)."""
+        query = """
+        SELECT id
+        FROM ops.ingestion_runs
+        WHERE pipeline_name = $1
+        ORDER BY started_at DESC
+        LIMIT 1
+        """
+        rows = await self.execute_query(query, (pipeline_name,))
+        return rows[0]["id"] if rows else None
+
+    async def fetch_run_summary(self, ingestion_run_id: int) -> dict | None:
+        """Return run-level fields used by several metrics in one round-trip.
+
+        Keys: ``status``, ``started_at``, ``ended_at``, ``duration_seconds``,
+        ``current_step``, ``error_code``. ``duration_seconds`` is NULL if the
+        run is still in flight.
+        """
+        query = """
+        SELECT
+            status,
+            started_at,
+            ended_at,
+            EXTRACT(EPOCH FROM (ended_at - started_at))::float AS duration_seconds,
+            current_step,
+            error_code
+        FROM ops.ingestion_runs
+        WHERE id = $1
+        """
+        rows = await self.execute_query(query, (ingestion_run_id,))
+        return dict(rows[0]) if rows else None
+
+    async def fetch_step_durations(self, ingestion_run_id: int) -> dict[str, float]:
+        """Return ``{step_name: duration_seconds}`` for every step of the run.
+
+        Steps still running show ``duration_seconds = None``."""
+        query = """
+        SELECT
+            step_name,
+            EXTRACT(EPOCH FROM (ended_at - started_at))::float AS duration_seconds,
+            status
+        FROM ops.ingestion_run_steps
+        WHERE ingestion_run_id = $1
+        ORDER BY started_at
+        """
+        rows = await self.execute_query(query, (ingestion_run_id,))
+        return {r["step_name"]: r["duration_seconds"] for r in rows}
+
+    async def fetch_steps_failed_count(self, ingestion_run_id: int) -> int:
+        query = """
+        SELECT COUNT(*)::int AS n
+        FROM ops.ingestion_run_steps
+        WHERE ingestion_run_id = $1 AND status = 'failed'
+        """
+        rows = await self.execute_query(query, (ingestion_run_id,))
+        return rows[0]["n"] if rows else 0
+
+    async def fetch_bulk_folder_errors(
+        self, ingestion_run_id: int, step_name: str = "bulk_load"
+    ) -> int:
+        """Sum of ``items_failed`` across every batch row of a given step.
+
+        ``COALESCE`` shields against ``SUM`` returning NULL when no batch
+        rows exist for the step yet."""
+        query = """
+        SELECT COALESCE(SUM(b.items_failed), 0)::int AS n
+        FROM ops.ingestion_step_batches b
+        JOIN ops.ingestion_run_steps s ON s.id = b.ingestion_run_step_id
+        WHERE s.ingestion_run_id = $1 AND s.step_name = $2
+        """
+        rows = await self.execute_query(query, (ingestion_run_id, step_name))
+        return rows[0]["n"] if rows else 0
+
+    async def fetch_latest_successful_run_ended_at(self, pipeline_name: str):
+        """Return ended_at of the most recent ingestion_runs row with status='success'
+        for the given pipeline. Used by pricing freshness metrics to compute lag.
+        """
+        query = """
+        SELECT ended_at
+        FROM ops.ingestion_runs
+        WHERE pipeline_name = $1 AND status = 'success' AND ended_at IS NOT NULL
+        ORDER BY ended_at DESC
+        LIMIT 1
+        """
+        rows = await self.execute_query(query, (pipeline_name,))
+        return rows[0]["ended_at"] if rows else None
 
     async def get():
         raise NotImplementedError("This method is not implemented yet.")

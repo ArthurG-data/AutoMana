@@ -104,6 +104,14 @@ ins_versions AS (
 )
 
 -- ── 7. Return summary + list of new download URIs for the pipeline ────────────
+-- CRITICAL: join ins_versions → upsert_resources (not ops.resources).
+-- Data-modifying CTEs share a single pre-statement snapshot, so a
+-- direct `FROM ops.resources` in this subquery cannot see rows that
+-- were INSERTed by the sibling `upsert_resources` CTE. On a fresh DB
+-- every manifest is a new INSERT, so the JOIN would yield 0 rows and
+-- `changed` would COALESCE to `[]`, causing the pipeline to skip the
+-- card download. This was the exact failure mode seen on post-rebuild
+-- runs: versions_inserted=5 but changed='[]'.
 SELECT
   (SELECT COUNT(*) FROM items)             AS items_seen,
   (SELECT COUNT(*) FROM upsert_resources)  AS resources_upserted,
@@ -114,11 +122,11 @@ SELECT
           'resource_id',   iv.resource_id,
           'download_uri',  iv.download_uri,
           'last_modified', iv.last_modified,
-          'external_type', r.external_type
+          'external_type', ur.external_type
         ) ORDER BY iv.resource_id
       )
      FROM ins_versions iv
-     JOIN ops.resources r ON r.id = iv.resource_id),
+     JOIN upsert_resources ur ON ur.resource_id = iv.resource_id),
     '[]'::jsonb
   ) AS changed;
 """

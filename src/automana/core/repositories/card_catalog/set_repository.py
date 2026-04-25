@@ -24,9 +24,17 @@ class SetReferenceRepository(AbstractRepository[Any]):
                   , digital: bool
                   , nonfoil_only: bool = False
                   , foil_only: bool = False
-                  , parent_set: Optional[str] = None) -> dict:
-        query = "SELECT insert_joined_set ($1, $2, $3, $4, $5, $6, $7, $8, $9)"
-        values = (id, set_name, set_code, set_type, released_at, digital, nonfoil_only, foil_only, parent_set)
+                  , parent_set: Optional[str] = None
+                  , uri: Optional[str] = None) -> dict:
+        # `card_catalog.insert_joined_set` declares 10 parameters; the final
+        # one is `p_uri TEXT`. Schema-qualified + full 10-arg list so
+        # search_path drift can't silently hit a `public.*` overload.
+        query = (
+            "SELECT card_catalog.insert_joined_set "
+            "($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)"
+        )
+        values = (id, set_name, set_code, set_type, released_at,
+                  digital, nonfoil_only, foil_only, parent_set, uri)
         return await self.execute_command(query, values)
         
     @dataclass(slots=True)

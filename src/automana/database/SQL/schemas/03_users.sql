@@ -4,13 +4,14 @@ CREATE SCHEMA IF NOT EXISTS user_management;
 CREATE TABLE IF NOT EXISTS user_management.users (
     username TEXT NOT NULL UNIQUE,
     unique_id UUID NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
-	email VARCHAR(50) NOT NULL UNIQUE,
+    email VARCHAR(50) NOT NULL UNIQUE,
     fullname VARCHAR(50),
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now(),
+    deleted_at TIMESTAMPTZ,  -- soft-delete sentinel; UserRepository.delete() writes here
     hashed_password TEXT,
     disabled BOOLEAN DEFAULT FALSE,
-    changed_by UUID REFERENCES user_management.users(unique_id) ON DELETE CASCADE --for keeping track of who made the change, should be null exept durinf update
+    changed_by UUID REFERENCES user_management.users(unique_id) ON DELETE CASCADE  -- null except during update
 );
 
 CREATE TABLE IF NOT EXISTS user_management.roles (
@@ -97,32 +98,46 @@ CREATE TABLE IF NOT EXISTS user_management.role_permissions (
     PRIMARY KEY (role_id, permission_id)
 );
 -----------------------------------------------------------------------------------------------------------------------------------
---VIEWS
-CREATE OR REPLACE VIEW user_management.v_active_sessions AS
-    SELECT u.unique_id AS user_id, u.username, s.created_at, s.expires_at AS session_expires_at, s.ip_address, s.user_agent, rt.refresh_token, rt.refresh_token_expires_at, rt.token_id, s.id AS session_id
-    FROM user_management.sessions s
-    JOIN user_management.refresh_tokens rt ON rt.session_id = s.id
-    JOIN user_management.users u ON u.unique_id = s.user_id
-    WHERE s.active = TRUE AND revoked = FALSE AND s.expires_at > now() AND used = FALSE;
-
-CREATE OR REPLACE VIEW user_management.v_sessions AS
-    SELECT u.unique_id AS user_id, u.username, s.created_at, s.expires_at AS session_expires_at, s.ip_address, s.user_agent, rt.refresh_token, rt.refresh_token_expires_at, rt.token_id, s.id AS session_id
-    FROM user_management.sessions s
-    JOIN user_management.refresh_tokens rt ON rt.session_id = s.id
-    JOIN user_management.users u ON u.unique_id = s.user_id;
+-- VIEWS
+-- Each view is defined exactly once. The previous file had identical
+-- CREATE OR REPLACE blocks for v_active_sessions and v_sessions
+-- appearing twice — harmless at replay (last one wins) but confusing.
 
 CREATE OR REPLACE VIEW user_management.v_active_sessions AS
-    SELECT u.unique_id AS user_id, u.username, s.created_at, s.expires_at AS session_expires_at, s.ip_address, s.user_agent, rt.refresh_token, rt.refresh_token_expires_at, rt.token_id, s.id AS session_id
+    SELECT u.unique_id AS user_id, u.username, s.created_at,
+           s.expires_at AS session_expires_at, s.ip_address, s.user_agent,
+           rt.refresh_token, rt.refresh_token_expires_at, rt.token_id,
+           s.id AS session_id
     FROM user_management.sessions s
     JOIN user_management.refresh_tokens rt ON rt.session_id = s.id
-    JOIN user_management.users u ON u.unique_id = s.user_id
-    WHERE s.active = TRUE AND revoked = FALSE AND s.expires_at > now() AND used = FALSE;
+    JOIN user_management.users u            ON u.unique_id = s.user_id
+    WHERE s.active = TRUE
+      AND rt.revoked = FALSE
+      AND s.expires_at > now()
+      AND rt.used = FALSE;
 
 CREATE OR REPLACE VIEW user_management.v_sessions AS
-    SELECT u.unique_id AS user_id, u.username, s.created_at, s.expires_at AS session_expires_at, s.ip_address, s.user_agent, rt.refresh_token, rt.refresh_token_expires_at, rt.token_id, s.id AS session_id
+    SELECT u.unique_id AS user_id, u.username, s.created_at,
+           s.expires_at AS session_expires_at, s.ip_address, s.user_agent,
+           rt.refresh_token, rt.refresh_token_expires_at, rt.token_id,
+           s.id AS session_id
     FROM user_management.sessions s
     JOIN user_management.refresh_tokens rt ON rt.session_id = s.id
-    JOIN user_management.users u ON u.unique_id = s.user_id;
+    JOIN user_management.users u            ON u.unique_id = s.user_id;
+
+-- Flat join of (user, role, permission) used by role_repository.user_has_permission
+-- and user_has_role. Columns are named to match the WHERE clauses in those
+-- queries (`role`, `permission`, `unique_id` of the user).
+CREATE OR REPLACE VIEW user_management.user_roles_permission_view AS
+    SELECT u.unique_id,
+           r.role,
+           p.permission_name AS permission
+    FROM user_management.users            u
+    JOIN user_management.user_roles       ur ON ur.user_id = u.unique_id
+    JOIN user_management.roles            r  ON r.unique_id = ur.role_id
+    LEFT JOIN user_management.role_permissions rp ON rp.role_id = r.unique_id
+    LEFT JOIN user_management.permissions p  ON p.permission_id = rp.permission_id
+    WHERE u.disabled = FALSE;
 
 
 ----------------------------------------------------------------------------------------------------------------------------------
@@ -183,21 +198,30 @@ BEGIN --check if the session exists
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION user_management.update_audit_user_on_user_disabled() --function to update audi table when change to user status
+-- Audit trigger: on every change to `disabled`, log who did it and why.
+--
+-- Column-name fix: was `perfromed_by` (typo) → now matches the actual
+-- column `performed_by` on user_audit_logs.
+--
+-- Attribution fix: `NEW.updated_by` / `NEW.source_ip` don't exist on the
+-- `users` table. We follow the same pattern as `log_user_role_change`
+-- below and read these from session-local GUCs, which the application
+-- layer is expected to `SET LOCAL` before mutating the user row.
+CREATE OR REPLACE FUNCTION user_management.update_audit_user_on_user_disabled()
 RETURNS TRIGGER AS $$
 BEGIN
     INSERT INTO user_management.user_audit_logs(
-        user_id, 
+        user_id,
         action,
         reason,
-        perfromed_by,
+        performed_by,
         source_ip
     ) VALUES (
         NEW.unique_id,
         'User Disabled Change',
         'Disabled changed from ' || OLD.disabled || ' to ' || NEW.disabled,
-        NEW.updated_by,
-        NEW.source_ip
+        NULLIF(current_setting('app.current_user_id', true), '')::uuid,
+        NULLIF(current_setting('app.source_ip', true), '')
     );
     RETURN NEW;
 END;

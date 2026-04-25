@@ -35,7 +35,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
             )
 
     async def _copy_csv_to_table(self, buffer :bytes, schema_name, table_name):
-        data = buffer.getvalue()  # convert BytesIO â†’ bytes
+        data = buffer.getvalue()  # convert BytesIO -> bytes
         data_mv = memoryview(data)
         assert isinstance(data, (bytes, bytearray)), type(data_mv)
         status =await self.connection.copy_to_table(
@@ -216,8 +216,106 @@ class CardReferenceRepository(AbstractRepository[Any]):
 
         # Pass TWO params, not one
         self.execute_command(query,(scry_ids, stock_ids))
-    
-    
+
+    @dataclass(slots=True, frozen=True)
+    class ExternalIdentifierRegistration:
+        """Outcome of a single-row ``card_external_identifier`` upsert attempt.
+
+        Carries enough signal for the service layer to decide which domain
+        exception to raise (or to return ``inserted`` unchanged).
+
+        Attributes:
+            ref_found: ``True`` iff ``identifier_name`` resolved to a row in
+                ``card_catalog.card_identifier_ref``.
+            card_version_exists: ``True`` iff ``card_version_id`` exists in
+                ``card_catalog.card_version``.
+            inserted: ``True`` iff a new row was actually written; ``False``
+                for an ON CONFLICT DO NOTHING no-op OR for the degenerate
+                case where either lookup above failed (the INSERT ... SELECT
+                produces zero rows when either CTE is empty).
+        """
+        ref_found: bool
+        card_version_exists: bool
+        inserted: bool
+
+    async def register_external_identifier(
+        self,
+        card_version_id: UUID,
+        identifier_name: str,
+        value: str,
+    ) -> "CardReferenceRepository.ExternalIdentifierRegistration":
+        """Idempotently register one (card_version, identifier) pair.
+
+        Single-CTE round-trip to avoid a check-then-insert race: the ref
+        lookup, card_version existence probe, and upsert all happen in one
+        query. Mirrors the JOIN-with-ref pattern used by
+        ``insert_full_card_version`` in 02_card_schema.sql (lines 734–747),
+        adapted for a single row.
+
+        Conflict target is the ``(card_version_id, card_identifier_ref_id)``
+        primary key — this is the "same identifier already registered for
+        this card_version" case and is the intended no-op.
+
+        The secondary ``UNIQUE (card_identifier_ref_id, value)`` constraint
+        is *not* absorbed by this ON CONFLICT clause. If the same
+        ``(identifier_name, value)`` pair is already attached to a different
+        ``card_version_id``, the INSERT will raise and the service layer
+        will translate it to ``CardInsertError``. That is the correct
+        behavior: external IDs like scryfall_id are supposed to be globally
+        unique per card_version, so a collision indicates genuinely
+        inconsistent input, not idempotent re-entry.
+
+        Args:
+            card_version_id: Target card_version primary key.
+            identifier_name: Symbolic name in ``card_identifier_ref``
+                (e.g. ``"scryfall_id"``, ``"tcgplayer_id"``).
+            value: The raw identifier value as stored by the upstream source.
+
+        Returns:
+            ExternalIdentifierRegistration with three booleans the service
+            uses to decide between returning ``inserted`` and raising a
+            domain exception.
+        """
+        query = """
+            WITH ref AS (
+                SELECT card_identifier_ref_id
+                FROM card_catalog.card_identifier_ref
+                WHERE identifier_name = $2
+            ),
+            cv AS (
+                SELECT card_version_id
+                FROM card_catalog.card_version
+                WHERE card_version_id = $1
+            ),
+            ins AS (
+                INSERT INTO card_catalog.card_external_identifier (
+                    card_version_id, card_identifier_ref_id, value
+                )
+                SELECT cv.card_version_id, ref.card_identifier_ref_id, $3
+                FROM cv, ref
+                ON CONFLICT (card_version_id, card_identifier_ref_id) DO NOTHING
+                RETURNING 1
+            )
+            SELECT
+                (SELECT card_identifier_ref_id FROM ref) IS NOT NULL AS ref_found,
+                (SELECT card_version_id FROM cv)         IS NOT NULL AS card_version_exists,
+                EXISTS (SELECT 1 FROM ins)                           AS inserted
+        """
+        rows = await self.execute_query(query, card_version_id, identifier_name, value)
+        row = rows[0] if rows else None
+        if row is None:
+            # The SELECT above always returns exactly one row. Getting here
+            # means the driver layer misbehaved — surface loudly rather than
+            # silently reporting "nothing happened".
+            raise RuntimeError(
+                "register_external_identifier: expected one result row, got none"
+            )
+        return CardReferenceRepository.ExternalIdentifierRegistration(
+            ref_found=bool(row["ref_found"]),
+            card_version_exists=bool(row["card_version_exists"]),
+            inserted=bool(row["inserted"]),
+        )
+
     async def copy_migrations(self, buffer):
         """
         Bulk-load Scryfall migration records into ``card_catalog.scryfall_migration``
@@ -307,3 +405,161 @@ class CardReferenceRepository(AbstractRepository[Any]):
         # ``copy_status`` only reflects ingestion into the throwaway staging
         # table and is kept for observability/debugging.
         return {"copy_status": copy_status, "insert_status": insert_status}
+
+    async def fetch_identifier_coverage_pct(self, identifier_name: str) -> dict | None:
+        """Return per-identifier coverage stats for the card_catalog.identifier_coverage.* metrics.
+
+        Returns ``{'covered': int, 'total': int, 'pct': float|None}``. ``pct`` is
+        NULL when ``total`` is 0 — the metric layer treats NULL as Severity.WARN
+        rather than silently passing.
+        """
+        query = """
+        WITH totals AS (
+            SELECT COUNT(*)::int AS total FROM card_catalog.card_version
+        ),
+        covered AS (
+            SELECT COUNT(DISTINCT cei.card_version_id)::int AS covered
+            FROM card_catalog.card_external_identifier cei
+            JOIN card_catalog.card_identifier_ref cir
+              ON cir.card_identifier_ref_id = cei.card_identifier_ref_id
+            WHERE cir.identifier_name = $1
+        )
+        SELECT
+            covered,
+            total,
+            CASE WHEN total = 0 THEN NULL
+                 ELSE ROUND(100.0 * covered / total, 2)::float
+            END AS pct
+        FROM totals, covered
+        """
+        rows = await self.execute_query(query, (identifier_name,))
+        return dict(rows[0]) if rows else None
+
+    async def fetch_identifier_coverage_pct_by_unique_card(
+        self, identifier_name: str
+    ) -> dict | None:
+        """Coverage measured against ``unique_cards_ref`` rather than ``card_version``.
+
+        Use this for identifiers that are a property of the *abstract card* (one
+        value per ``unique_card_id``) rather than per-printing — most notably
+        ``oracle_id``. The schema's ``UNIQUE (card_identifier_ref_id, value)``
+        constraint causes per-printing counting to under-report by the average
+        reprint rate (~3x for oracle_id), making the per-card_version metric
+        meaningless for these identifiers.
+
+        Returns the same shape as :meth:`fetch_identifier_coverage_pct`:
+        ``{'covered': int, 'total': int, 'pct': float|None}``. ``covered`` is
+        the count of distinct ``unique_card_id`` values for which at least one
+        ``card_version`` has a row of ``identifier_name`` in
+        ``card_external_identifier``; ``total`` is the count of
+        ``unique_cards_ref`` rows.
+        """
+        query = """
+        WITH totals AS (
+            SELECT COUNT(*)::int AS total FROM card_catalog.unique_cards_ref
+        ),
+        covered AS (
+            SELECT COUNT(DISTINCT cv.unique_card_id)::int AS covered
+            FROM card_catalog.card_external_identifier cei
+            JOIN card_catalog.card_identifier_ref cir
+              ON cir.card_identifier_ref_id = cei.card_identifier_ref_id
+            JOIN card_catalog.card_version cv
+              ON cv.card_version_id = cei.card_version_id
+            WHERE cir.identifier_name = $1
+        )
+        SELECT
+            covered,
+            total,
+            CASE WHEN total = 0 THEN NULL
+                 ELSE ROUND(100.0 * covered / total, 2)::float
+            END AS pct
+        FROM totals, covered
+        """
+        rows = await self.execute_query(query, (identifier_name,))
+        return dict(rows[0]) if rows else None
+
+    async def fetch_identifier_value_count(self, identifier_name: str) -> int:
+        """COUNT of card_version rows that have at least one row for ``identifier_name``.
+
+        Used by the informational metrics (multiverse_id, tcgplayer_etched_id)
+        which track raw counts rather than coverage percentages.
+        """
+        query = """
+        SELECT COUNT(DISTINCT cei.card_version_id)::int AS n
+        FROM card_catalog.card_external_identifier cei
+        JOIN card_catalog.card_identifier_ref cir
+          ON cir.card_identifier_ref_id = cei.card_identifier_ref_id
+        WHERE cir.identifier_name = $1
+        """
+        rows = await self.execute_query(query, (identifier_name,))
+        return rows[0]["n"] if rows else 0
+
+    async def fetch_identifier_audit_counts(self) -> "list[dict]":
+        """Per-identifier aggregate counts for the scryfall-vs-db audit service.
+
+        One row per ``identifier_name`` registered in ``card_identifier_ref``.
+        Identifiers with zero stored rows still appear (LEFT JOIN), so the audit
+        can flag them.
+        """
+        query = """
+        SELECT
+            cir.identifier_name                               AS identifier_name,
+            COUNT(cei.value)::int                             AS total_rows,
+            COUNT(DISTINCT cei.value)::int                    AS distinct_values,
+            COUNT(DISTINCT cei.card_version_id)::int          AS distinct_card_versions,
+            COUNT(DISTINCT cv.unique_card_id)::int            AS distinct_unique_cards
+        FROM card_catalog.card_identifier_ref cir
+        LEFT JOIN card_catalog.card_external_identifier cei
+               ON cei.card_identifier_ref_id = cir.card_identifier_ref_id
+        LEFT JOIN card_catalog.card_version cv
+               ON cv.card_version_id = cei.card_version_id
+        GROUP BY cir.identifier_name
+        ORDER BY cir.identifier_name
+        """
+        rows = await self.execute_query(query, ())
+        return [dict(r) for r in rows]
+
+    async def fetch_card_universe_counts(self) -> dict:
+        """Denominator counts used by the scryfall-vs-db audit service."""
+        query = """
+        SELECT
+            (SELECT COUNT(*)::int FROM card_catalog.card_version)      AS total_card_versions,
+            (SELECT COUNT(*)::int FROM card_catalog.unique_cards_ref)  AS total_unique_cards
+        """
+        rows = await self.execute_query(query, ())
+        return dict(rows[0]) if rows else {"total_card_versions": 0, "total_unique_cards": 0}
+
+    async def fetch_orphan_unique_cards_count(self) -> int:
+        """COUNT of unique_cards_ref rows with zero card_version children.
+
+        Small counts are benign (tokens / emblems not yet printed); large
+        counts indicate a mid-run set-ingest stall.
+        """
+        query = """
+        SELECT COUNT(*)::int AS n
+        FROM card_catalog.unique_cards_ref ucr
+        WHERE NOT EXISTS (
+            SELECT 1 FROM card_catalog.card_version cv
+            WHERE cv.unique_card_id = ucr.unique_card_id
+        )
+        """
+        rows = await self.execute_query(query, ())
+        return rows[0]["n"] if rows else 0
+
+    async def fetch_external_id_value_collisions(self) -> int:
+        """COUNT of (card_identifier_ref_id, value) tuples appearing more than once.
+
+        The table has a UNIQUE constraint on (card_identifier_ref_id, value);
+        any non-zero count indicates constraint bypass or replication desync.
+        """
+        query = """
+        SELECT COUNT(*)::int AS n
+        FROM (
+            SELECT card_identifier_ref_id, value
+            FROM card_catalog.card_external_identifier
+            GROUP BY card_identifier_ref_id, value
+            HAVING COUNT(*) > 1
+        ) dup
+        """
+        rows = await self.execute_query(query, ())
+        return rows[0]["n"] if rows else 0

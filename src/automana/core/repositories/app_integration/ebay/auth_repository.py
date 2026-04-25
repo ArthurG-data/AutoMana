@@ -68,8 +68,11 @@ class EbayAuthRepository(AbstractRepository):
         refresh_token = row[0].get('token')
         return refresh_token if refresh_token else None
     
-    def get_access_from_refresh(self, app_code : str, user_id : UUID):
-        """Get access token from refresh token"""
+    def get_access_from_refresh_sync(self, app_code : str, user_id : UUID):
+        # Sync variant exists because Celery worker tasks cannot await coroutines
+        # (they run in a synchronous context via state.loop.run_until_complete).
+        # The async twin get_access_from_refresh is used by the FastAPI service layer.
+        """Get access token from refresh token (synchronous variant for Celery workers)."""
         # check if valide session
         query_2 = """ SELECT et.token
                     FROM ebay_tokens et

@@ -11,6 +11,7 @@ VALUES ((SELECT id FROM ops.sources WHERE name='scryfall'),
         '/bulk-data',
         'https://api.scryfall.com/bulk-data',
         'Bulk data manifest of all Magic: The Gathering cards from Scryfall')
+ON CONFLICT (source_id, external_type, external_id) WHERE canonical_key IS NULL DO NOTHING;
 --add the scryfall sets
 INSERT INTO ops.resources (source_id, external_type, external_id, name, api_uri, web_uri, description)
 VALUES ((SELECT id FROM ops.sources WHERE name='scryfall'),
@@ -20,3 +21,4 @@ VALUES ((SELECT id FROM ops.sources WHERE name='scryfall'),
         '/sets',
         'https://api.scryfall.com/sets',
         'Bulk data of all Magic: The Gathering sets from Scryfall')
+ON CONFLICT (source_id, external_type, external_id) WHERE canonical_key IS NULL DO NOTHING;

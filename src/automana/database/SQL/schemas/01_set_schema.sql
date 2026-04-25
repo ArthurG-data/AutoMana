@@ -1,6 +1,11 @@
 
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+-- TimescaleDB is required for `create_hypertable` calls that appear in
+-- later schema files (06_prices.sql, 08_markets_prices.sql). Declaring
+-- the extension here — in the first file applied — guarantees it exists
+-- by the time any downstream file needs it.
+CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;
 CREATE SCHEMA IF NOT EXISTS card_catalog;
 
 CREATE TABLE IF NOT EXISTS card_catalog.language_ref(
@@ -51,33 +56,13 @@ CREATE TABLE  IF NOT EXISTS card_catalog.icon_set(
     PRIMARY KEY (icon_query_id, set_id)
 );
 
-DROP VIEW IF EXISTS v_joined_set;
+-- Index on sets — safe to keep here (no dependency on card_version).
+CREATE INDEX IF NOT EXISTS idx_sets_set_type_id ON card_catalog.sets(set_type_id);
 
-CREATE VIEW card_catalog.v_joined_set (set_id, set_name, set_code, set_type, nonfoil_only, foil_only ,card_count, released_at, digital, parent_set)
-    AS
-    SELECT s.set_id, s.set_name, s.set_code, stl.set_type, s.nonfoil_only, s.foil_only, COUNT(cv.set_id) AS card_count,s.released_at, s.digital, ss.set_name 
-    FROM card_catalog.sets s
-    LEFT JOIN card_catalog.sets ss ON s.parent_set = ss.set_id
-    JOIN card_catalog.set_type_list_ref stl ON s.set_type_id = stl.set_type_id
-    JOIN card_catalog.card_version cv ON cv.set_id = s.set_id
-    WHERE s.is_active = TRUE
-    GROUP BY s.set_id, s.set_name, s.set_code, stl.set_type, s.nonfoil_only, s.foil_only, s.released_at,s.digital,   ss.set_name ;
-
-CREATE  MATERIALIZED VIEW IF NOT EXISTS card_catalog.v_joined_set_materialized (set_id, set_name, set_code, set_type, card_count, released_at, digital)
-    AS
-    SELECT s.set_id, s.set_name, s.set_code, stl.set_type,  COUNT(cv.set_id) AS card_count,s.released_at, s.digital
-    FROM card_catalog.sets s
-    JOIN card_catalog.set_type_list_ref stl ON s.set_type_id = stl.set_type_id
-    JOIN card_catalog.card_version cv ON cv.set_id = s.set_id
-    GROUP BY s.set_id, s.set_name, s.set_code, stl.set_type, s.released_at, s.digital;
-
--- Speeds up JOIN between sets and set_type_list_ref
-CREATE INDEX idx_sets_set_type_id ON card_catalog.sets(set_type_id);
-
--- Speeds up JOIN between card_version and sets
-CREATE INDEX idx_card_version_set_id ON card_catalog.card_version(set_id);
-
-CREATE INDEX ON card_catalog.v_joined_set_materialized(set_code); 
+-- NOTE: v_joined_set, v_joined_set_materialized, and the indexes that
+-- depend on card_catalog.card_version have moved to the bottom of
+-- 02_card_schema.sql — they can't be created here because
+-- card_catalog.card_version is declared in that file, which runs later.
 
 --function to insert a new set
 CREATE OR REPLACE FUNCTION card_catalog.insert_joined_set(
@@ -180,9 +165,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trg_insert_joined_set
-INSTEAD OF INSERT ON card_catalog.v_joined_set
-FOR EACH ROW EXECUTE FUNCTION card_catalog.trigger_insert_on_joined_set();
+-- NOTE: The `INSTEAD OF INSERT ON card_catalog.v_joined_set` trigger
+-- attaches to a view that lives in 02_card_schema.sql (view moved there
+-- because its body depends on `card_catalog.card_version`). The trigger
+-- attachment has moved to the bottom of 02_card_schema.sql, after the
+-- view exists. The trigger FUNCTION above stays here — function bodies
+-- are validated lazily so it can be created now and bound later.
 
 -- ✅ CREATE: Bulk set insert function that accepts JSON
 CREATE OR REPLACE FUNCTION card_catalog.insert_batch_sets(sets_json JSONB)

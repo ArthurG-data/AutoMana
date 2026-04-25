@@ -32,19 +32,30 @@ CREATE TABLE IF NOT EXISTS card_catalog.card_types (
 
 CREATE TABLE IF NOT EXISTS card_catalog.rarities_ref (
     rarity_id SERIAL PRIMARY KEY,
-    rarity_name VARCHAR(20) UNIQUE NOT NULL
+    rarity_name VARCHAR(20) UNIQUE NOT NULL,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS card_catalog.artists_ref (
     artist_id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-    artist_name VARCHAR(50) NOT NULL,
+    -- VARCHAR(255): real Scryfall artist credits routinely exceed 50 chars
+    -- (collabs like "John Avon / Seb McKinnon", studio credits, etc.)
+    artist_name VARCHAR(255) NOT NULL,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now(),
-    UNIQUE (artist_name, artist_id)
+    UNIQUE (artist_name)
 );
-CREATE INDEX idx_artists_name ON card_catalog.artists_ref(artist_name);
+CREATE INDEX IF NOT EXISTS idx_artists_name ON card_catalog.artists_ref(artist_name);
+
+-- Sentinel row used by card_catalog.insert_full_card_version when the
+-- Scryfall payload carries neither `artist_ids` nor `artist` (basic
+-- lands, tokens, reprints with scrubbed metadata). Having a concrete
+-- FK target keeps illustration_artist referentially complete instead
+-- of rejecting ~38k rows per Scryfall import with 23503 errors.
+INSERT INTO card_catalog.artists_ref (artist_id, artist_name)
+VALUES ('00000000-0000-0000-0000-000000000001', 'Unknown Artist')
+ON CONFLICT (artist_name) DO NOTHING;
 CREATE TABLE IF NOT EXISTS card_catalog.frames_ref (
     frame_id SERIAL PRIMARY KEY,
     frame_year VARCHAR(20) NOT NULL UNIQUE,
@@ -92,7 +103,7 @@ CREATE TABLE IF NOT EXISTS card_catalog.color_produced (
     PRIMARY KEY (unique_card_id, color_id)
 );
 
-#same issue with wrin funique card ref id
+-- same issue with wrong unique_card_id ref type — left as-is for now
 CREATE TABLE IF NOT EXISTS card_catalog.card_color_identity (
     unique_card_id UUID REFERENCES card_catalog.unique_cards_ref(unique_card_id),
     color_id int NOT NULL REFERENCES card_catalog.colors_ref(color_id),
@@ -101,7 +112,7 @@ CREATE TABLE IF NOT EXISTS card_catalog.card_color_identity (
     PRIMARY KEY (unique_card_id, color_id)
 );
 
-#same issue with wrin funique card ref id
+-- same issue with wrong unique_card_id ref type — left as-is for now
 CREATE TABLE IF NOT EXISTS card_catalog.formats_ref (
     format_id SERIAL PRIMARY KEY,
     format_name VARCHAR(20) UNIQUE NOT NULL,
@@ -115,7 +126,7 @@ CREATE TABLE IF NOT EXISTS card_catalog.legal_status_ref (
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
 );
-#same issue with wrin funique card ref id
+-- same issue with wrong unique_card_id ref type — left as-is for now
 CREATE TABLE IF NOT EXISTS card_catalog.legalities (
     unique_card_id UUID REFERENCES card_catalog.unique_cards_ref(unique_card_id),
     format_id INT NOT NULL REFERENCES card_catalog.formats_ref(format_id),
@@ -190,7 +201,8 @@ INSERT INTO card_catalog.card_stats_ref (stat_name, stat_description) VALUES
 ('power', 'Creature power value'),
 ('toughness', 'Creature toughness value'),
 ('loyalty', 'Planeswalker loyalty value'),
-('defense', 'Battle defense value');
+('defense', 'Battle defense value')
+ON CONFLICT (stat_name) DO NOTHING;
 
 -- versioned stats table
 CREATE TABLE IF NOT EXISTS card_catalog.card_version_stats (
@@ -222,7 +234,10 @@ CREATE TABLE IF NOT EXISTS card_catalog.card_faces (
     face_index INT,
     name TEXT NOT NULL,
     mana_cost TEXT,
-    type_line TEXT NOT NULL,
+    -- NULLABLE: Scryfall legitimately omits type_line on continuation
+    -- faces of multi-face cards (Adventure cards, MDFC cont'd, etc.).
+    -- The Pydantic `CardFace` model already types this as Optional[str].
+    type_line TEXT,
     oracle_text TEXT,
     power TEXT,
     toughness TEXT,
@@ -238,16 +253,9 @@ CREATE TABLE card_catalog.face_illustration (
   created_at timestamptz DEFAULT now(),
   PRIMARY KEY (face_id, illustration_id)
 );
-CREATE TABLE IF NOT EXISTS card_catalog.card_external_identifier (
-    card_identifier_ref_id SMALLINT NOT NULL REFERENCES card_catalog.card_identifier_ref(card_identifier_ref_id),
-    card_version_id UUID NOT NULL REFERENCES card_catalog.card_version(card_version_id),
-    value TEXT NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT now(),
-    updated_at TIMESTAMPTZ DEFAULT now(),
-    PRIMARY KEY (card_version_id, card_identifier_ref_id),
-    UNIQUE (card_identifier_ref_id, value)
-);
-
+-- card_identifier_ref must be declared BEFORE card_external_identifier
+-- because the latter has a FK pointing at the former. Previously reversed
+-- → CREATE TABLE failed at replay time with "relation does not exist".
 CREATE TABLE IF NOT EXISTS card_catalog.card_identifier_ref (
     card_identifier_ref_id SMALLSERIAL PRIMARY KEY,
     identifier_name TEXT UNIQUE NOT NULL,
@@ -255,6 +263,37 @@ CREATE TABLE IF NOT EXISTS card_catalog.card_identifier_ref (
     updated_at TIMESTAMPTZ DEFAULT now(),
     UNIQUE (identifier_name)
 );
+
+INSERT INTO card_catalog.card_identifier_ref (identifier_name) VALUES
+    ('scryfall_id'),
+    ('oracle_id'),
+    ('multiverse_id'),
+    ('tcgplayer_id'),
+    ('tcgplayer_etched_id'),
+    ('cardmarket_id')
+ON CONFLICT (identifier_name) DO NOTHING;
+
+-- The (card_identifier_ref_id, value) pair is intentionally NOT unique. Some
+-- upstream catalogs (TCGPlayer, Cardmarket) issue one product ID per physical
+-- product, but Scryfall correctly models foil/nonfoil printings of that product
+-- as separate card_version rows. ~1.2k card_version pairs share a tcgplayer_id
+-- in the dev DB (mostly old-style starred collector numbers like #213★ + #213
+-- in 8ED–10E). Forcing uniqueness here would silently drop one printing per
+-- pair and break price-lookup attribution. See:
+--   docs/superpowers/specs/2026-04-25-shared-tcgplayer-cardmarket-id-fix-design.md
+-- The non-unique index keeps reverse lookups (`WHERE value = $tcgplayer_id`)
+-- index-seekable.
+CREATE TABLE IF NOT EXISTS card_catalog.card_external_identifier (
+    card_identifier_ref_id SMALLINT NOT NULL REFERENCES card_catalog.card_identifier_ref(card_identifier_ref_id),
+    card_version_id UUID NOT NULL REFERENCES card_catalog.card_version(card_version_id),
+    value TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    PRIMARY KEY (card_version_id, card_identifier_ref_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_card_external_identifier_ref_value
+    ON card_catalog.card_external_identifier (card_identifier_ref_id, value);
 
 
 CREATE TABLE IF NOT EXISTS card_catalog.card_games_ref (
@@ -266,7 +305,8 @@ CREATE TABLE IF NOT EXISTS card_catalog.card_games_ref (
 );
 
 INSERT INTO card_catalog.card_games_ref (code, name) VALUES
-('mtg', 'Magic: The Gathering');
+('mtg', 'Magic: The Gathering')
+ON CONFLICT (code) DO NOTHING;
 
 
 
@@ -617,9 +657,10 @@ BEGIN
     FROM card_catalog.unique_cards_ref
     WHERE card_name = p_card_name;
 
-    -- Set lookup
+    -- Set lookup — schema-qualified so unqualified resolution via
+    -- search_path can't route us to a `public.sets` drift copy.
     SELECT set_id INTO v_set_id
-    FROM sets
+    FROM card_catalog.sets
     WHERE set_name = p_set_name;
     IF v_set_id IS NULL THEN
     -- Use your MISSING_SET
@@ -702,6 +743,14 @@ BEGIN
     END IF;
     --add the ids
 
+    -- Explicit conflict target = the PRIMARY KEY. This means:
+    --   * Idempotent re-insert of (card_version_id, ref_id) is silently absorbed
+    --     (safe to retry the proc against an already-loaded card_version).
+    --   * UNIQUE (ref_id, value) violations no longer apply because that
+    --     constraint was dropped (intentionally — see comment on the table).
+    -- Previously this clause was a bare `ON CONFLICT DO NOTHING`, which
+    -- silently absorbed UNIQUE-constraint violations and dropped one
+    -- card_version row per shared tcgplayer_id / cardmarket_id pair.
     INSERT INTO card_catalog.card_external_identifier (card_identifier_ref_id, card_version_id, value)
     SELECT r.card_identifier_ref_id, v_card_version_id, n.value
     FROM (
@@ -715,7 +764,7 @@ BEGIN
     JOIN card_catalog.card_identifier_ref r
     ON r.identifier_name = n.name
     WHERE n.value IS NOT NULL
-    ON CONFLICT DO NOTHING;
+    ON CONFLICT (card_version_id, card_identifier_ref_id) DO NOTHING;
 
 
     --card stat
@@ -778,32 +827,43 @@ BEGIN
             ON CONFLICT (unique_card_id, type_name) DO NOTHING;
         END LOOP;
 
-        -- Handle artists for single-faced cards
-        v_artist_uuid := (p_artist_id ->>0)::UUID;
-        v_artist_name := p_artist ->>0;
+        -- ── Resolve single-faced artist ──────────────────────────
+        -- Scryfall supplies both an artist UUID and a name. The rows
+        -- in artists_ref are keyed by that Scryfall UUID, so we MUST
+        -- ensure an artists_ref row exists for v_artist_uuid before
+        -- the downstream FK on illustration_artist fires — otherwise
+        -- every card on a fresh DB hits 23503 on its first sighting
+        -- of each artist (~38k failures per import).
+        --
+        -- Mirrors the multi-faced branch below (line ~895) which
+        -- already does this correctly. Fallback chain:
+        --   1. Both UUID + name   → upsert keyed by UUID
+        --   2. Name only, no UUID → upsert keyed by name
+        --   3. Nothing            → "Unknown Artist" sentinel
+        --                            (UUID '…001', seeded next to
+        --                            artists_ref).
+        v_artist_uuid := (p_artist_id ->> 0)::UUID;
+        v_artist_name := p_artist ->> 0;
 
-        PERFORM 1
-        FROM card_catalog.artists_ref
-        WHERE artist_id = v_artist_uuid;
-
-        IF NOT FOUND THEN
-        -- optionally try by name, or insert, or leave as-is
-        PERFORM 1
-        FROM card_catalog.artists_ref
-        WHERE artist_name = v_artist_name;
-        END IF;
-
-        IF FOUND THEN
-            RAISE NOTICE 'Matched existing artist -> UUID: %', v_artist_uuid;
-        ELSE
-            RAISE NOTICE 'No match found for artist -> UUID: %', v_artist_uuid;
-        END IF;
-        IF v_artist_uuid IS NULL THEN
-        INSERT INTO card_catalog.artists_ref (artist_id, artist_name) 
+        IF v_artist_uuid IS NOT NULL AND v_artist_name IS NOT NULL THEN
+            INSERT INTO card_catalog.artists_ref (artist_id, artist_name)
             VALUES (v_artist_uuid, v_artist_name)
+            ON CONFLICT (artist_id) DO UPDATE
+                SET updated_at = now()
+            RETURNING artist_id INTO v_artist_uuid;
+        ELSIF v_artist_name IS NOT NULL THEN
+            INSERT INTO card_catalog.artists_ref (artist_name)
+            VALUES (v_artist_name)
+            ON CONFLICT (artist_name) DO UPDATE
+                SET updated_at = now()
             RETURNING artist_id INTO v_artist_uuid;
         END IF;
-        -- Link illustration and artist for single-faced card
+
+        IF v_artist_uuid IS NULL THEN
+            v_artist_uuid := '00000000-0000-0000-0000-000000000001'::uuid;
+        END IF;
+
+        -- Link illustration and artist for single-faced card.
         INSERT INTO card_catalog.illustrations (illustration_id, image_uris)
         VALUES (p_illustration_id, p_image_uris)
         ON CONFLICT (illustration_id)
@@ -813,8 +873,8 @@ BEGIN
         RETURNING illustration_id INTO v_illustration_id;
 
         INSERT INTO card_catalog.illustration_artist (illustration_id, artist_id)
-        VALUES (p_illustration_id, v_artist_uuid::uuid)  -- change cast as needed
-        ON CONFLICT DO NOTHING;
+        VALUES (p_illustration_id, v_artist_uuid)
+        ON CONFLICT (illustration_id, artist_id) DO NOTHING;
 
         
         --card illustrations
@@ -1169,11 +1229,57 @@ SELECT
     MIN(cmc) AS min_cmc,
     MAX(cmc) AS max_cmc
 FROM card_catalog.v_card_versions_complete
-GROUP BY set_name, set_code;    
+GROUP BY set_name, set_code;
+
+-- ============================================================
+-- Objects relocated from 01_set_schema.sql
+-- ============================================================
+-- These views + indexes depend on card_catalog.card_version, which is
+-- defined in this file. They used to live at the top of file 01 and
+-- broke replay (mat-view bodies are validated at create time, so the
+-- forward reference to card_version failed).
+
+DROP VIEW IF EXISTS card_catalog.v_joined_set;
+
+CREATE VIEW card_catalog.v_joined_set
+    (set_id, set_name, set_code, set_type, nonfoil_only, foil_only,
+     card_count, released_at, digital, parent_set) AS
+SELECT s.set_id, s.set_name, s.set_code, stl.set_type,
+       s.nonfoil_only, s.foil_only,
+       COUNT(cv.set_id) AS card_count,
+       s.released_at, s.digital, ss.set_name
+FROM card_catalog.sets s
+LEFT JOIN card_catalog.sets ss ON s.parent_set = ss.set_id
+JOIN card_catalog.set_type_list_ref stl ON s.set_type_id = stl.set_type_id
+JOIN card_catalog.card_version cv ON cv.set_id = s.set_id
+WHERE s.is_active = TRUE
+GROUP BY s.set_id, s.set_name, s.set_code, stl.set_type,
+         s.nonfoil_only, s.foil_only, s.released_at, s.digital, ss.set_name;
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS card_catalog.v_joined_set_materialized
+    (set_id, set_name, set_code, set_type, card_count, released_at, digital) AS
+SELECT s.set_id, s.set_name, s.set_code, stl.set_type,
+       COUNT(cv.set_id) AS card_count,
+       s.released_at, s.digital
+FROM card_catalog.sets s
+JOIN card_catalog.set_type_list_ref stl ON s.set_type_id = stl.set_type_id
+JOIN card_catalog.card_version cv ON cv.set_id = s.set_id
+GROUP BY s.set_id, s.set_name, s.set_code, stl.set_type, s.released_at, s.digital;
+
+-- Speeds up the JOIN between card_version and sets used by the view above.
+CREATE INDEX IF NOT EXISTS idx_card_version_set_id
+    ON card_catalog.card_version(set_id);
+
+CREATE INDEX IF NOT EXISTS idx_v_joined_set_materialized_set_code
+    ON card_catalog.v_joined_set_materialized(set_code);
+
+-- INSTEAD OF INSERT trigger — relocated here from 01_set_schema.sql.
+-- The trigger function `card_catalog.trigger_insert_on_joined_set`
+-- is still defined in file 01 (function bodies are lazy), but the
+-- trigger attachment has to happen after the view exists.
+DROP TRIGGER IF EXISTS trg_insert_joined_set ON card_catalog.v_joined_set;
+CREATE TRIGGER trg_insert_joined_set
+INSTEAD OF INSERT ON card_catalog.v_joined_set
+FOR EACH ROW EXECUTE FUNCTION card_catalog.trigger_insert_on_joined_set();
+
 COMMIT;
---------------Insert values
-
-
-##############
--- END OF FILE --
-##############

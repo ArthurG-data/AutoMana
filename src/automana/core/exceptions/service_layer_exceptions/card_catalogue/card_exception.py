@@ -19,3 +19,12 @@ class CardDeletionError(CardCatalogueError):
 class CardRetrievalError(CardCatalogueError):
     """Raised when card retrieval fails"""
     pass
+class UnknownIdentifierNameError(CardCatalogueError):
+    """Raised when an external identifier name is not registered in card_identifier_ref.
+
+    This is a distinct failure mode from CardNotFoundError (the card_version
+    exists; the *identifier type* does not) and from CardInsertError (no DB
+    insert was attempted). Routers can map it to a 400/422 once an endpoint
+    is wired up, instead of a generic 500.
+    """
+    pass

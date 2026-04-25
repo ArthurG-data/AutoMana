@@ -6,32 +6,48 @@ The MTGJson ingestion pipeline is a daily ETL (Extract, Transform, Load) process
 
 The pipeline is **idempotent**: re-running the same `run_key` on a given day is safe. The `start_run` query short-circuits without creating a duplicate ops record when a day's run already has a successful `start` step.
 
-The pipeline is broken into **two logical stages**:
+The pipeline has **four logical stages**:
 
 | Stage | Responsibility |
 |---|---|
 | **Stage 1 – Orchestration & Tracking** | Create the run record in the ops schema |
 | **Stage 2 – Raw Data Download** | Fetch the compressed price file from the MTGJson API and persist it to local disk |
+| **Stage 3 – Stream to Staging + Promote** | Stream-decompress the `.xz` directly into `pricing.mtgjson_card_prices_staging` via asyncpg COPY, then call the batched promoter proc |
+| **Stage 4 – Retention Cleanup** | Trim the on-disk `.xz` archive to a sliding window |
 
 The Celery chain (`daily_mtgjson_data_pipeline`) is defined in `worker/tasks/pipelines.py`. Steps run in order via `chain()`:
 
 | Step | Service key | What it does |
 |------|-------------|--------------|
 | 1 | `ops.pipeline_services.start_run` | Creates an `ops.ingestion_runs` record; returns `ingestion_run_id` |
-| 2 | `mtgjson.data.download.today` | Fetches `AllPricesToday.json.xz` from the MTGJson API and saves it to local disk |
-| 3 | `ops.pipeline_services.finish_run` | Marks the run as `success` |
+| 2 | `mtgjson.data.download.today` | Streams `AllPricesToday.json.xz` from the MTGJson API to local disk |
+| 3 | `staging.mtgjson.stream_to_staging` | Stream-decompresses the `.xz` and COPYs per-price rows into `pricing.mtgjson_card_prices_staging` |
+| 4 | `staging.mtgjson.promote_to_price_observation` | Calls `pricing.load_price_observation_from_mtgjson_staging_batched()` to promote and delete resolved staging rows |
+| 5 | `staging.mtgjson.cleanup_raw_files` | Trims `{DATA_DIR}/mtgjson/raw` to the last 29 daily snapshots; purges all dailies if a bulk `AllPrices_*.json.xz` is present |
+| 6 | `ops.pipeline_services.finish_run` | Marks the run as `success` |
+
+---
+
+## Architectural note — why no JSONB archive
+
+Earlier versions of this pipeline persisted the decompressed payload as a JSONB row in `pricing.mtgjson_payloads` before exploding it. That approach was dropped in **migration 15** because:
+
+- The 90-day archive decompresses to ~1–2 GB of JSON. Inserting that as JSONB exceeded the 60 s asyncpg `command_timeout` and produced an OLTP-hostile row size (TOAST'd out-of-line, slow to scan).
+- The raw `.xz` files already live on disk at `{DATA_DIR}/mtgjson/raw` — that is the canonical raw archive. Keeping a second copy in the DB was redundant.
+- `pricing.process_mtgjson_payload()` is no longer needed: the Python streamer (ijson + COPY) replaces the SQL LATERAL-join fanout.
+
+Current flow: **API → disk (.xz) → stream-decompress → COPY → staging → promote**.
 
 ---
 
 ## Registered services
 
-Three additional service keys exist in the registry but are **not part of the active Celery chain**. They are available for manual invocation or future pipelines:
+Additional service keys exist in the registry but are **not part of the active Celery chain**. They are available for manual invocation or future pipelines:
 
 | Service key | File | Purpose |
 |---|---|---|
 | `mtgjson.data.download.last90` | `data_loader.py` | Fetches the 90-day price history file (`AllPrices.json.xz`) |
 | `staging.mtgjson.check_version` | `pipeline.py` | Idempotency gate: compares `Meta.json` version against the stored version in `ops.resources` |
-| `staging.mtgjson.load_prices_to_staging` | `data_loader.py` | Loads a saved `.xz` file into `pricing.mtgjson_payloads` and expands it via `pricing.process_mtgjson_payload()` |
 
 ---
 
@@ -70,7 +86,7 @@ ops.ingestion_run_metrics   — arbitrary key-value metrics attached to a run
 A run is uniquely identified by `(pipeline_name, source_id, run_key)`. The `run_key` format used by this pipeline is:
 
 ```
-mtgjson_daily:<YYYY-MM-DD>          # e.g. mtgjson_daily:2026-04-18
+mtgjson_daily:<YYYY-MM-DD>          # e.g. mtgjson_daily:2026-04-21
 ```
 
 Re-triggering the pipeline on the same calendar day reuses the existing run record (via `ON CONFLICT DO UPDATE`) rather than creating a duplicate, keeping the audit trail clean.
@@ -82,33 +98,12 @@ running → success   (normal completion via finish_run)
 running → failed    (any step raises an unhandled exception)
 ```
 
-**Step 1 — `ops.pipeline_services.start_run`**
-
-Service key: `ops.pipeline_services.start_run`
-Registered in: `src/automana/core/services/ops/pipeline_services.py`
-DB repository: `ops`
-
-Parameters passed from the Celery task definition:
-
-| Parameter | Value |
-|---|---|
-| `pipeline_name` | `"mtgjson_daily"` |
-| `source_name` | `"mtgjson"` |
-| `run_key` | `"mtgjson_daily:<YYYY-MM-DD>"` |
-| `celery_task_id` | Celery task UUID |
-
-Returns `{"ingestion_run_id": <int>}`. This value propagates through the remaining chain steps via `run_service`'s context merging.
-
-**Step 3 — `ops.pipeline_services.finish_run`**
-
-Called with `status="success"`. Updates `ops.ingestion_runs.status`, `ended_at`, and `current_step = 'finish'`.
-
 ---
 
 ## Stage 2 — Raw Data Download
 
 **Relevant files:**
-- [`src/automana/core/services/app_integration/mtgjson/data_loader.py`](../src/automana/core/services/app_integration/mtgjson/data_loader.py) — Download service functions
+- [`src/automana/core/services/app_integration/mtgjson/data_loader.py`](../src/automana/core/services/app_integration/mtgjson/data_loader.py) — Download + streaming service functions
 - [`src/automana/core/repositories/app_integration/mtgjson/Apimtgjson_repository.py`](../src/automana/core/repositories/app_integration/mtgjson/Apimtgjson_repository.py) — HTTP client for the MTGJson API
 
 ### 2.1 Today's price download
@@ -121,14 +116,9 @@ Storage: `mtgjson` → `LocalStorageBackend` at `{DATA_DIR}/mtgjson/raw`
 
 Execution flow:
 
-1. Calls `ApimtgjsonRepository.fetch_price_today()`, which issues:
-   ```
-   GET https://mtgjson.com/api/v5/AllPricesToday.json.xz
-   ```
-   The response body (compressed bytes) is returned as-is.
-2. Calls `StorageService.save_with_timestamp(filename="AllPricesToday.json.xz", data=card_data, file_format="xz")`.
-3. The storage service builds a timestamped filename of the form `AllPricesToday_<YYYYMMDD_HHMMSS>.json.xz` and writes the raw bytes to disk using `LocalStorageBackend`.
-4. Returns `{"file_path_prices": "<absolute_path>"}`.
+1. Builds a timestamped destination path via `StorageService.build_timestamped_path("AllPricesToday.json.xz")`.
+2. Calls `ApimtgjsonRepository.fetch_price_today_stream(dest_path)` which streams the response body directly to disk — no full-payload buffering in memory.
+3. Returns `{"file_path_prices": "<absolute_path>"}`.
 
 **Output path pattern:**
 
@@ -162,11 +152,74 @@ Available methods:
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `fetch_all_prices_data()` | `GET AllPrices.json.xz` | 90-day price history (compressed) |
-| `fetch_price_today()` | `GET AllPricesToday.json.xz` | Today's prices (compressed) |
+| `fetch_all_prices_stream(dest)` | `GET AllPrices.json.xz` | Streams the 90-day history to disk |
+| `fetch_price_today_stream(dest)` | `GET AllPricesToday.json.xz` | Streams today's prices to disk |
 | `fetch_meta()` | `GET Meta.json` | Catalog version metadata (JSON) |
 
-The `_parse_response()` method (from `BaseApiClient`) returns the raw response bytes for `.xz` endpoints and a parsed dict for JSON endpoints.
+---
+
+## Stage 3 — Stream to Staging + Promote
+
+### 3.1 Streaming architecture
+
+**Step 3 — `staging.mtgjson.stream_to_staging`**
+
+Service key: `staging.mtgjson.stream_to_staging`
+DB repository: `mtgjson` → `MtgjsonRepository`
+Storage: `mtgjson` → `LocalStorageBackend`
+Parameter: `file_path_prices: str` (absolute path returned by the download step)
+
+Memory stays flat regardless of payload size (~50 MB RSS for a 2 GB decompressed document). Three components cooperate:
+
+1. **`StorageService.iter_xz_json_kvitems(absolute_path, prefix="data")`** — opens the `.xz` with `lzma.open`, feeds bytes through `ijson.kvitems` in a daemon thread, and ships parsed `(card_uuid, card_data)` pairs back to the event loop through a bounded `queue.Queue` (backpressured at 4 items). Errors in the producer thread are captured and re-raised on the consumer side.
+2. **`_iter_card_rows(card_uuid, card)`** — a pure function in `data_loader.py` that walks the MTGJson price tree
+   (`card.paper.<source>.<price_type>.<finish>.<date>`) and fans out one tuple per price observation, lifting the sibling `currency` scalar onto every row derived from a given source. Malformed sub-trees are skipped, not raised — shape drift in a single card shouldn't kill the whole run.
+3. **`MtgjsonRepository.copy_staging_batch(records)`** — invokes `asyncpg.Connection.copy_records_to_table` with 10,000-row batches. COPY is ~10–20× faster than `INSERT` batches for this row shape.
+
+**Advisory lock for concurrent safety.** Before any work, the service calls:
+
+```python
+await mtgjson_repository.acquire_streaming_lock("mtgjson_stream_to_staging")
+```
+
+which executes `SELECT pg_advisory_xact_lock(hashtext($1))`. The lock is transaction-scoped, so it auto-releases on COMMIT/ROLLBACK. Cost is zero when uncontended and serializes concurrent streamers when it isn't — cheap insurance against cron + manual-trigger collisions.
+
+Returns `{"rows_staged": <int>, "cards_seen": <int>}`.
+
+### 3.2 Promotion
+
+**Step 4 — `staging.mtgjson.promote_to_price_observation`**
+
+Service key: `staging.mtgjson.promote_to_price_observation`
+DB repository: `mtgjson`
+
+A zero-argument wrapper around `pricing.load_price_observation_from_mtgjson_staging_batched()`. The proc:
+
+- Normalises finish types (`normal` → `NONFOIL`), price sources (`tcgplayer` → `tcg`), and price types (`retail`/`market` → `sell`, `buylist`/`directlow` → `buy`).
+- Processes records in windows of `batch_days` days (default 30).
+- Resolves card identity via `card_catalog.card_external_identifier` where `identifier_name = 'mtgjson_id'`.
+- Upserts into `pricing.price_observation` on `(ts_date, source_product_id, price_type_id, finish_id, condition_id, language_id, data_provider_id)`.
+- Deletes successfully promoted rows from staging.
+- Requires a `pricing.data_provider` row with `code = 'mtgjson'` to exist.
+
+Returns `{}`.
+
+### 3.3 Retention cleanup
+
+**Step 5 — `staging.mtgjson.cleanup_raw_files`**
+
+Service key: `staging.mtgjson.cleanup_raw_files`
+Storage: `mtgjson` → `LocalStorageBackend`
+Parameter: `retention_days: int = 29`
+
+Two rules, composed:
+
+- **Sliding window.** Keep the newest `retention_days` `AllPricesToday_*.json.xz` files (lexicographic sort on the timestamp in the filename); delete the rest.
+- **Bulk override.** If any `AllPrices_*.json.xz` (90-day archive) is present in the same directory, delete **all** daily snapshots — the bulk subsumes them.
+
+Per-file delete failures are logged at `WARNING` and skipped; a single bad path cannot abort the sweep.
+
+Returns `{"files_deleted": <int>}`.
 
 ---
 
@@ -174,9 +227,7 @@ The `_parse_response()` method (from `BaseApiClient`) returns the raw response b
 
 ### `mtgjson.data.download.last90`
 
-Fetches the 90-day price history (`AllPrices.json.xz`) and saves it as `AllPrices_<YYYYMMDD_HHMMSS>.json.xz` in the same `mtgjson/raw` storage directory.
-
-Returns `{"file_path_prices": "<absolute_path>"}`.
+Streams the 90-day price history (`AllPrices.json.xz`) to disk. Returns `{"file_path_prices": "<absolute_path>"}`.
 
 ### `staging.mtgjson.check_version`
 
@@ -207,56 +258,25 @@ Execution flow:
 
 > Note: the `ops.resources` row with `canonical_key = 'mtgjson.all_printings'` must exist for this service to function. It is not seeded automatically by the ops schema SQL; it must be inserted manually or via a migration.
 
-### `staging.mtgjson.load_prices_to_staging`
-
-**File:** `src/automana/core/services/app_integration/mtgjson/data_loader.py`
-**Repositories:** `db_repositories=["mtgjson"]`, `storage_services=["mtgjson"]`
-**Parameter:** `file_path_prices: str` (absolute path to the `.xz` file — matches the return key from the download steps)
-
-Execution flow:
-
-1. Decompresses the `.xz` file using `StorageService.load_xz_as_json(file_path_prices)` (calls `lzma.open` with UTF-8 encoding; returns a Python dict).
-2. Inserts the entire JSON payload into `pricing.mtgjson_payloads`:
-   ```sql
-   INSERT INTO pricing.mtgjson_payloads (source, filename, payload)
-   VALUES ($1, $2, $3::jsonb) RETURNING id
-   ```
-3. Calls the stored procedure to expand the payload into `pricing.mtgjson_card_prices_staging`:
-   ```sql
-   CALL pricing.process_mtgjson_payload($1::uuid)
-   ```
-4. Returns `{"payload_id": "<uuid>"}`.
-
 ---
 
 ## Database schema
 
 Schema file: `src/automana/database/SQL/schemas/10_mtgjson_schema.sql`
+Migration removing the JSONB archive: `src/automana/database/SQL/migrations/15_drop_mtgjson_payloads.sql`
 
 ### Tables
 
-**`pricing.mtgjson_payloads`**
-
-Holds the raw JSON payload as a JSONB blob.
-
-| Column | Type | Description |
-|---|---|---|
-| `id` | UUID (PK) | Generated with `gen_random_uuid()` |
-| `source` | text | Provenance label (value: `"mtgjson"`) |
-| `fetched_at` | timestamptz | Insertion time (default `now()`) |
-| `filename` | text | Absolute path of the source file |
-| `payload` | jsonb | Full decompressed JSON payload |
-
 **`pricing.mtgjson_card_prices_staging`**
 
-Expanded row-per-price staging table, populated by `pricing.process_mtgjson_payload()`.
+Row-per-price staging table, populated directly by `staging.mtgjson.stream_to_staging` via `COPY`.
 
 | Column | Type | Description |
 |---|---|---|
 | `id` | serial (PK) | Auto-increment |
 | `card_uuid` | text | MTGJson card UUID |
 | `price_source` | text | Price provider (e.g. `tcgplayer`, `cardmarket`) |
-| `price_type` | text | `retail` or `buylist` |
+| `price_type` | text | `retail`/`buylist` (normalised to `sell`/`buy` during promotion) |
 | `finish_type` | text | `foil`, `nonfoil`, `etched`, etc. |
 | `currency` | text | Currency code |
 | `price_value` | float | Price value |
@@ -269,26 +289,9 @@ An earlier flat staging table. Not written by the current pipeline services.
 
 ### Stored procedures
 
-**`pricing.process_mtgjson_payload(payload_id UUID)`**
-
-Expands the JSONB payload in `pricing.mtgjson_payloads` into individual rows in `pricing.mtgjson_card_prices_staging`. The payload structure expected by the procedure is the `data` envelope returned by the MTGJson AllPrices/AllPricesToday endpoints:
-
-```
-payload.data.<card_uuid>.paper.<source>.<price_type>.<finish>.<date> = <price_value>
-```
-
-The procedure extracts `currency` from `source_val->>'currency'` and excludes entries where `price_type_key = 'currency'`.
-
 **`pricing.load_price_observation_from_mtgjson_staging_batched(batch_days int DEFAULT 30)`**
 
-A follow-on procedure (not called by the current pipeline services) that promotes data from `pricing.mtgjson_card_prices_staging` into the hypertable `pricing.price_observation`. It:
-
-- Normalises finish types (`normal` → `NONFOIL`), price sources (`tcgplayer` → `tcg`), and price types (`retail`/`market` → `sell`, `buylist`/`directlow` → `buy`).
-- Processes records in windows of `batch_days` days.
-- Resolves card identity via `card_catalog.card_external_identifier` where `identifier_name = 'mtgjson_id'`.
-- Upserts into `pricing.price_observation` on `(ts_date, source_product_id, price_type_id, finish_id, condition_id, language_id, data_provider_id)`.
-- Deletes successfully promoted rows from staging.
-- Requires a `pricing.data_provider` row with `code = 'mtgjson'` to exist.
+Promotes data from `pricing.mtgjson_card_prices_staging` into the hypertable `pricing.price_observation`. See Stage 3.2 above.
 
 ---
 
@@ -303,10 +306,23 @@ daily_mtgjson_data_pipeline (Celery chain)
 │
 ├── 2. mtgjson.data.download.today
 │        GET https://mtgjson.com/api/v5/AllPricesToday.json.xz
-│        Saves to {DATA_DIR}/mtgjson/raw/AllPricesToday_<ts>.json.xz
+│        Streams to {DATA_DIR}/mtgjson/raw/AllPricesToday_<ts>.json.xz
 │        Returns file_path_prices
 │
-└── 3. ops.pipeline_services.finish_run  (status="success")
+├── 3. staging.mtgjson.stream_to_staging
+│        pg_advisory_xact_lock('mtgjson_stream_to_staging')
+│        lzma + ijson.kvitems over "data" → tuples → COPY
+│        Returns {rows_staged, cards_seen}
+│
+├── 4. staging.mtgjson.promote_to_price_observation
+│        CALL pricing.load_price_observation_from_mtgjson_staging_batched()
+│        Returns {}
+│
+├── 5. staging.mtgjson.cleanup_raw_files
+│        Sliding window (default 29 dailies) + bulk-archive override
+│        Returns {files_deleted}
+│
+└── 6. ops.pipeline_services.finish_run  (status="success")
          Sets ops.ingestion_runs.ended_at, status="success"
 ```
 
@@ -319,9 +335,23 @@ The `run_service` Celery task merges each step's return dict into a shared conte
 | Step | Returns | Consumed by |
 |---|---|---|
 | `ops.pipeline_services.start_run` | `ingestion_run_id` | `ops.pipeline_services.finish_run` |
-| `mtgjson.data.download.today` | `file_path_prices` | Not consumed by `finish_run`; available for extension |
+| `mtgjson.data.download.today` | `file_path_prices` | `staging.mtgjson.stream_to_staging` |
+| `staging.mtgjson.stream_to_staging` | `rows_staged`, `cards_seen` | (informational — not consumed) |
+| `staging.mtgjson.promote_to_price_observation` | *(empty)* | — |
+| `staging.mtgjson.cleanup_raw_files` | `files_deleted` | (informational — not consumed) |
 
 The `run_service` dispatcher filters the context dict to only pass keys that appear in the next function's signature (via `inspect.signature`), so extra keys are safely ignored.
+
+---
+
+## Concurrency
+
+Staging is a single global table; two concurrent streamers would race on it. Protection is provided at two layers:
+
+- **Run-level dedup.** `(pipeline_name, source_id, run_key)` is unique in `ops.ingestion_runs`, and the `run_key` is day-scoped, so two triggers on the same calendar day share a single run record.
+- **Streaming serialization.** `stream_to_staging` takes a `pg_advisory_xact_lock(hashtext('mtgjson_stream_to_staging'))` for the lifetime of its transaction. Concurrent streamers (same-day re-trigger, or daily cron colliding with a manual load) wait their turn rather than interleaving rows.
+
+Correctness is further backed by the promoter's `ON CONFLICT ... DO UPDATE` semantics: duplicates that do slip through produce identical upserts, not drift.
 
 ---
 
@@ -329,11 +359,12 @@ The `run_service` dispatcher filters the context dict to only pass keys that app
 
 | Failure scenario | Behaviour |
 |---|---|
-| MTGJson API unreachable | `fetch_price_today()` raises an HTTP exception; `run_service` re-raises; Celery marks the task as `FAILED` |
-| No data returned from API | `download_mtgjson_data_last_90` / `stage_mtgjson_data` raise `ValueError("No data returned from MTGJSON repository")`; the exception propagates up |
-| Storage write failure | `StorageService.save_binary()` raises; the exception propagates up |
+| MTGJson API unreachable | `fetch_price_today_stream()` raises an HTTP exception; `run_service` re-raises; Celery marks the task as `FAILED` |
+| Streaming parse error | Exception raised in the ijson producer thread is captured and re-raised on the async consumer, aborting `stream_to_staging` |
+| Bad cell in payload (non-numeric price, invalid date) | Skipped silently — the rest of the card still loads; malformed shape in a single card doesn't fail the run |
+| Storage write failure during download | `LocalStorageBackend.save` raises; the exception propagates up |
 | Re-run same day | `start_run` detects an existing successful `start` step and no-ops gracefully |
-| `ops.resources` row missing for `check_version` | `OpsRepository.get_mtgjson_resource_version()` returns `None`; `version_changed` evaluates to `True` (any stored value differs from fetched); the upsert then fails silently because the `WHERE canonical_key = 'mtgjson.all_printings'` matches no row |
+| Concurrent stream attempt | Advisory lock blocks the second caller until the first commits/rolls back |
 
 > `run_service` is defined with `autoretry_for=(Exception,)` and `max_retries=0`, meaning no automatic retries occur. Pipeline tasks themselves must not set `autoretry_for` (per `CLAUDE.md`).
 
@@ -342,8 +373,8 @@ The `run_service` dispatcher filters the context dict to only pass keys that app
 ## Observability
 
 - **Ops tables** — query `ops.ingestion_runs` and `ops.ingestion_run_steps` for structured run-level and step-level status.
-- **Structured logs** — all service functions use `logging.getLogger(__name__)`; log records are enriched with `ingestion_run_id`, `old_version`/`new_version` (for `check_version`), `file` (for storage operations), and `payload_id` (for staging).
-- **TUI** — the Textual TUI (`src/automana/tools/tui/panels/celery.py`) lists `daily_mtgjson_data_pipeline` with its three steps and provides a Launch button to trigger the task manually.
+- **Structured logs** — all service functions use `logging.getLogger(__name__)`; log records are enriched with `ingestion_run_id`, `old_version`/`new_version` (for `check_version`), `file` (for storage operations), `cards`, and `rows_staged` (for streaming).
+- **TUI** — the Textual TUI (`src/automana/tools/tui/panels/celery.py`) lists `daily_mtgjson_data_pipeline` with all five steps and provides a Launch button to trigger the task manually.
 
 ---
 

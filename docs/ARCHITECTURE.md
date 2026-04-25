@@ -109,6 +109,12 @@ This gives you a single place to:
 
 Service modules are grouped into namespaces (`backend`, `celery`, `all`) in [`src/automana/core/service_modules.py`](../src/automana/core/service_modules.py). The active namespace is set by the `MODULES_NAMESPACE` setting.
 
+### Metric registry (`core/metrics/`)
+
+`src/automana/core/metrics/` houses the `MetricRegistry` — a decorator-based registry parallel to `ServiceRegistry`, scoped to sanity-report metrics. Each metric is an async function that queries a small, well-defined slice of the DB and returns a `MetricResult`. Runner services (e.g., `ops.integrity.mtgstock_report`) call `MetricRegistry.select(prefix=..., category=..., names=...)` to pick a subset and wrap the results in the standard integrity-report envelope.
+
+See [`docs/METRICS_REGISTRY.md`](METRICS_REGISTRY.md) for the full API and how to add new metrics.
+
 ### Repository/data access layer
 
 Repositories live under [`src/automana/core/repositories/`](../src/automana/core/repositories/) and extend `AbstractRepository` (DB) or `BaseApiClient` (external API).
@@ -130,12 +136,19 @@ Standard response envelopes are defined in [`src/automana/api/schemas/Standardis
 
 ### Authentication & authorization
 
-Current auth is cookie-based:
+AutoMana uses a split-transport auth model:
 
-- A `session_id` cookie is used to identify the active session.
-- The `CurrentUserDep` dependency resolves a user from the cookie via the service layer.
+- **Session cookie (`session_id`)** — `httponly=True`, `samesite=strict`. Set at login; used by browser/cookie clients. The `CurrentUserDep` dependency reads this cookie and resolves the user via the service layer. The `secure` flag is on in all non-`dev` environments (staging, prod sit behind the nginx TLS terminator).
+- **JWT in response body** — `/api/users/auth/token` returns `access_token` in the JSON body only (no `access_token` cookie). Programmatic callers pass it as `Authorization: Bearer <jwt>`. The `check_token_validity` dependency in `auth_service.py` accepts Bearer tokens only.
 
-Key file: [`src/automana/api/dependancies/auth/users.py`](../src/automana/api/dependancies/auth/users.py).
+These two paths are intentionally separate: cookie auth for interactive clients, Bearer for API callers.
+
+Session state is stored in `user_management.v_active_sessions` (schema-qualified view). All session mutations go through stored functions (`user_management.insert_add_token`, `user_management.rotate_refresh_token`, `user_management.inactivate_session`).
+
+Key files:
+- [`src/automana/api/dependancies/auth/users.py`](../src/automana/api/dependancies/auth/users.py) — `CurrentUserDep`
+- [`src/automana/api/services/auth/auth_service.py`](../src/automana/api/services/auth/auth_service.py) — `check_token_validity`, `login`, `logout`
+- [`src/automana/api/repositories/auth/session_repository.py`](../src/automana/api/repositories/auth/session_repository.py) — session DB access
 
 ### Background jobs (Celery)
 
@@ -234,4 +247,28 @@ When adding a new feature:
 
 - Some router modules contain TODO/incomplete endpoints; treat them as unstable API.
 - The `AbstractRepository` base class has `print()` debug statements that should be replaced with `logger.debug()`.
+- `pricing.load_price_observation_from_mtgjson_staging_batched` issues `COMMIT`/`ROLLBACK` inside its `WHILE` loop. Resolved by registering `staging.mtgjson.promote_to_price_observation` with `runs_in_transaction=False` (see "Per-service execution knobs" below).
+
+## Per-service execution knobs
+
+`ServiceRegistry.register` and `ServiceConfig` expose two optional knobs that
+shape how `ServiceManager._execute_service` runs a call:
+
+| Flag | Default | Effect |
+|---|---|---|
+| `runs_in_transaction` | `True` | `True` wraps the call in an explicit `BEGIN`/`COMMIT`. `False` gives the service a raw pool connection with no transaction started — required for services whose SQL manages its own transaction control (e.g. stored procs with internal `COMMIT`/`ROLLBACK`, which Postgres rejects when `CALL` is inside an atomic block). |
+| `command_timeout` | `None` | Seconds. Applied server-side via `SET [LOCAL\|SESSION] statement_timeout`. `LOCAL` when inside a txn (auto-resets at COMMIT/ROLLBACK); `SESSION` when `runs_in_transaction=False` (explicit `RESET` on exit so pooled connections don't leak it). `None` keeps the role's `statement_timeout` GUC. |
+
+Usage:
+
+```python
+@ServiceRegistry.register(
+    "staging.mtgjson.promote_to_price_observation",
+    db_repositories=["mtgjson"],
+    runs_in_transaction=False,
+    command_timeout=3600,
+)
+```
+
+Both knobs default to today's behaviour; existing services need no changes.
 

@@ -152,10 +152,10 @@ async def do_exange_refresh_token( response: Response
             key=f"ebay_access_{app_code}",
             value=cookie_data.to_cookie_value(),
             max_age=result.expires_in,
-            #httponly=True,  # âœ… Prevent XSS
-           # secure=True,    # âœ… HTTPS only
-            samesite="strict",  # âœ… CSRF protection
-            #path="/api/integrations/ebay"  # âœ… Scope to eBay endpoints
+            #httponly=True,  # Prevent XSS
+           # secure=True,    # HTTPS only
+            samesite="strict",  # CSRF protection
+            #path="/api/integrations/ebay"# Scope to eBay endpoints
         )
         logger.info(f"Access token refreshed for user {user.unique_id}, app {app_code}")
 

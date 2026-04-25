@@ -392,11 +392,11 @@ async def process_json_dir_to_parquet(market_repository, path_to_json: str, mark
 
     for json_file in tqdm(json_files, desc="Files", unit="file", dynamic_ncols=True):
         file_size_mb = os.path.getsize(json_file) / (1024 * 1024)
-        tqdm.write(f"â†’ {os.path.basename(json_file)} ({file_size_mb:.2f} MB)")
+        tqdm.write(f"-> {os.path.basename(json_file)} ({file_size_mb:.2f} MB)")
 
         total_items = await get_total_items_in_json(json_file)
         if total_items == 0:
-            tqdm.write(f"   (no items) {os.path.basename(json_file)}")
+            tqdm.write(f"(no items) {os.path.basename(json_file)}")
             continue
 
         with open(json_file, "rb") as f:
@@ -446,7 +446,7 @@ async def process_json_dir_to_parquet(market_repository, path_to_json: str, mark
             finally:
                 pbar.close()
 
-        tqdm.write(f"âœ“ Completed {os.path.basename(json_file)}")
+        tqdm.write(f"Completed {os.path.basename(json_file)}")
 
     # final flush for all remaining products
     for pid in list(buffers.keys()):
@@ -475,7 +475,7 @@ async def stage_data_from_parquet(product_repository: ProductRepository, parquet
         if os.path.exists(parquet_file_path):
             parquet_files.append(parquet_file_path)
         else:
-            logging.warning(f"  (no data.parquet) {prod_dir}")
+            logging.warning(f"(no data.parquet) {prod_dir}")
     
     if not parquet_files:
         logging.warning("No parquet files found to process")
@@ -533,7 +533,7 @@ async def stage_data_from_parquet(product_repository: ProductRepository, parquet
                     logging.error(f"Error inserting batch {i//batch_size + 1}: {e}")
                     raise
 
-        logging.info(f"âœ… Staging completed successfully! Processed {total_rows} rows in {total_batches} batches.")
+        logging.info(f"Staging completed successfully! Processed {total_rows} rows in {total_batches} batches.")
 
     finally:
         # Clean up temporary file

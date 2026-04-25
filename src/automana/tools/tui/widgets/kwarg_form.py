@@ -53,8 +53,25 @@ class KwargForm(Vertical):
         await self.query("*").remove()
 
         try:
+            import importlib
             from automana.core.service_registry import ServiceRegistry
-            fn = ServiceRegistry.get_service_fn(service_key)
+
+            config = ServiceRegistry.get(service_key)
+            if config is None:
+                raise ValueError(f"Unknown service: {service_key}")
+
+            module = importlib.import_module(config.module)
+            fn = getattr(module, config.function)
+
+            # Names that ServiceManager injects — don't render inputs for them.
+            injected = {f"{n}_repository" for n in config.db_repositories}
+            injected |= {f"{n}_repository" for n in config.api_repositories}
+            if config.storage_services:
+                injected.add("storage_service")
+                injected |= {
+                    f"{n}_storage_service" for n in config.storage_services[1:]
+                }
+
             sig = inspect.signature(fn)
             params = [
                 name for name, p in sig.parameters.items()
@@ -63,9 +80,13 @@ class KwargForm(Vertical):
                     inspect.Parameter.VAR_KEYWORD,
                 )
                 and name not in ("self", "context")
+                and name not in injected
             ]
-        except Exception:
-            params = []
+        except Exception as exc:
+            await self.mount(
+                Static(f"(failed to introspect: {exc})", id="no-params")
+            )
+            return
 
         if not params:
             await self.mount(Static("(no parameters)", id="no-params"))

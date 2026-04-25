@@ -1,5 +1,33 @@
 
 services:
+  timescaledb:
+    image: timescale/timescaledb-ha:pg17-all
+    environment:
+      POSTGRES_USER: automana_test
+      POSTGRES_PASSWORD: test_password
+      POSTGRES_DB: automana_test
+    ports:
+      - "127.0.0.1:5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U automana_test -d automana_test"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      - app-network
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      - app-network
+
   backend:
     build:
       context: .
@@ -10,17 +38,27 @@ services:
       - ./.env.${ENV}
     restart: unless-stopped
     environment:
-      # App settings
       DEBUG: "True"
       LOG_LEVEL: "INFO"
+      POSTGRES_HOST: timescaledb
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: automana_test
+      POSTGRES_PASSWORD: test_password
+      DB_NAME: automana_test
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
     volumes:
-      - .:/app/backend 
-      
-      # Add other vars as needed
+      - .:/app/backend
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     extra_hosts:
-      - "host.docker.internal:host-gateway"  # Linux compatibility
+      - "host.docker.internal:host-gateway"
     networks:
       - app-network
+
   nginx:
     build:
       context: ../nginx
@@ -33,11 +71,11 @@ services:
     volumes:
       - ../nginx/certs:/etc/nginx/certs:ro
     restart: unless-stopped
-
     depends_on:
       - backend
     networks:
       - app-network
+
 networks:
   app-network:
     driver: bridge

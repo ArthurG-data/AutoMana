@@ -93,3 +93,6 @@ CLAUDE.md
 .claude/
 plans/
 
+# rebuild_dev_db.sh per-stage logs
+logs/
+

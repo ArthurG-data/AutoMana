@@ -57,10 +57,34 @@ beat_schedule = {
             "task": "automana.worker.tasks.pipelines.daily_mtgjson_data_pipeline",
             "schedule": crontab(hour=9, minute=8),  # 03:00 AEST
         },
+    # MTGStock staging runs AFTER Scryfall so that new scryfall_id migrations
+    # published that day are available when pricing.resolve_price_rejects()
+    # re-runs the reject resolver. Offset from mtgjson to avoid contending on
+    # the pricing schema.
+    "refresh-mtgstock-daily": {
+        "task": "automana.worker.tasks.pipelines.mtgStock_download_pipeline",
+        "schedule": crontab(hour=10, minute=8),
+    },
     "daily-analytics-report": {
         "task": "automana.worker.tasks.analytics.daily_summary_analytics_task",
         "schedule": crontab(hour=11, minute=0),  # 03:00 AEST
-    }
+    },
+    # Card-catalog data-shape health (identifier coverage, orphan unique_cards,
+    # external-id collisions) — runs once a day after the daily ingests.
+    # `timezone` above resolves to Australia/Sydney, so crontab values are AEST.
+    "card-catalog-health-daily": {
+        "task": "run_service",
+        "schedule": crontab(hour=4, minute=15),  # 04:15 AEST
+        "kwargs": {"path": "ops.integrity.card_catalog_report"},
+    },
+    # Pricing data-quality health (freshness, per-source coverage, soft-integrity,
+    # staging drain) — runs hourly because freshness can degrade in <24h.
+    # `:42` keeps it off the on-the-hour Celery cluster.
+    "pricing-health-hourly": {
+        "task": "run_service",
+        "schedule": crontab(minute=42),
+        "kwargs": {"path": "ops.integrity.pricing_report"},
+    },
 }
 
 

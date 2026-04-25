@@ -52,6 +52,8 @@ async def process_prices_file(path, id_dict):
 @ServiceRegistry.register(
     path="mtg_stock.data_staging.bulk_load",
     db_repositories = ["price", "ops"],
+    runs_in_transaction=False,
+    command_timeout=3600,
 )
 async def bulk_load(price_repository: PriceRepository
                     , ops_repository: OpsRepository
@@ -160,6 +162,11 @@ async def bulk_load(price_repository: PriceRepository
 @ServiceRegistry.register(
     path="mtg_stock.data_staging.from_raw_to_staging",
     db_repositories = ["price", "ops"],
+    # pricing.load_staging_prices_batched issues per-batch COMMIT/ROLLBACK.
+    # Postgres forbids internal transaction control inside a CALL block, so
+    # the service must run on a non-atomic connection.
+    runs_in_transaction=False,
+    command_timeout=3600,
 )
 async def from_raw_to_staging(price_repository: PriceRepository
                               , ops_repository: OpsRepository
@@ -178,8 +185,54 @@ async def from_raw_to_staging(price_repository: PriceRepository
         raise e
 
 @ServiceRegistry.register(
+    path="mtg_stock.data_staging.retry_rejects",
+    db_repositories = ["price", "ops"],
+    # pricing.resolve_price_rejects is a plain FUNCTION (no internal COMMIT/
+    # ROLLBACK), but we still need `runs_in_transaction=False` so the `failed`
+    # status update in the except block auto-commits independently — under
+    # the atomic wrapper the re-raise would roll that status update back and
+    # leave the ops audit blank. Same reasoning as the siblings above.
+    runs_in_transaction=False,
+    command_timeout=3600,
+)
+async def retry_rejects(price_repository: PriceRepository,
+                        ops_repository: OpsRepository,
+                        ingestion_run_id: int,
+                        limit: int = 50000,
+                        only_unresolved: bool = True):
+    """Re-feed rows from stg_price_observation_reject back into staging via
+    pricing.resolve_price_rejects(). Runs between from_raw_to_staging and
+    from_staging_to_prices so that rejects resolved via the new scryfall
+    migration rows / identifier updates can still make it into the current
+    day's price_observation promotion."""
+    step_name = "retry_rejects"
+    await ops_repository.update_run(
+        ingestion_run_id=ingestion_run_id, current_step=step_name, status="running"
+    )
+    try:
+        rows = await price_repository.call_resolve_price_rejects(
+            limit=limit, only_unresolved=only_unresolved
+        )
+        await ops_repository.update_run(
+            ingestion_run_id=ingestion_run_id, current_step=step_name, status="success",
+            notes=f"Resolved {rows} reject rows",
+        )
+        return {"rows_resolved": rows}
+    except Exception as e:
+        await ops_repository.update_run(
+            ingestion_run_id=ingestion_run_id, current_step=step_name, status="failed",
+            error_details={"error": str(e)},
+        )
+        raise
+
+
+@ServiceRegistry.register(
     path="mtg_stock.data_staging.from_staging_to_prices",
     db_repositories = ["price", "ops"],
+    # pricing.load_prices_from_staged_batched issues per-batch COMMIT. Same
+    # reason as from_raw_to_staging above — must run outside an atomic block.
+    runs_in_transaction=False,
+    command_timeout=3600,
 )
 async def from_staging_to_prices(price_repository: PriceRepository
                                  , ops_repository: OpsRepository

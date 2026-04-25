@@ -71,7 +71,10 @@ CREATE TABLE IF NOT EXISTS app_integration.log_oauth_request (
     expires_on TIMESTAMPTZ DEFAULT now() + INTERVAL '1 minute',
     status TEXT NOT NULL
 );
-CREATE INDEX IF NOT EXISTS idx_oauth_session ON log_oauth_request(session_id);
+-- Previously: `CREATE INDEX idx_oauth_session ON log_oauth_request(session_id);`
+-- That column does not exist on this table; the index is dropped. If a
+-- user→request lookup is needed, index on user_id instead:
+CREATE INDEX IF NOT EXISTS idx_oauth_user ON app_integration.log_oauth_request(user_id);
 COMMIT;
 -- VEWS----------------------------------------------------------------------------------------------------------------------------------------------
 
