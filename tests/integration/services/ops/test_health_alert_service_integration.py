@@ -42,7 +42,7 @@ _CANNED_OK = {
 async def _run(conn, report=None):
     """Run the service with all side-effects mocked; return (result, poster mock)."""
     repo = PipelineHealthSnapshotRepository(conn)
-    poster = AsyncMock(return_value=204)
+    poster = AsyncMock(return_value=(204, ""))
     with (
         patch.object(svc, "_discover_integrity_services", return_value=["ops.integrity.scryfall_integrity"]),
         patch.object(svc, "_run_integrity_service", new=AsyncMock(return_value=report or _CANNED_OK)),
@@ -68,7 +68,7 @@ async def test_rows_persisted_for_each_integrity_service(db_pool):
 
 
 async def test_second_run_produces_no_transition(db_pool):
-    poster = AsyncMock(return_value=204)
+    poster = AsyncMock(return_value=(204, ""))
     async with db_pool.acquire() as conn:
         repo = PipelineHealthSnapshotRepository(conn)
         with (
@@ -117,3 +117,29 @@ async def test_injected_error_row_triggers_recovery_on_next_run(db_pool):
     transitions = out["degraded"] + out["recovered"]
     assert transitions, f"Expected a recovery transition but got none: {out}"
     poster.assert_awaited_once()
+
+
+async def test_exception_in_integrity_service_writes_synthetic_error_row(db_pool):
+    """When an integrity service raises, a synthetic error snapshot must be persisted."""
+    async with db_pool.acquire() as conn:
+        repo = PipelineHealthSnapshotRepository(conn)
+        poster = AsyncMock(return_value=(204, ""))
+        with (
+            patch.object(svc, "_discover_integrity_services", return_value=["ops.integrity.scryfall_integrity"]),
+            patch.object(svc, "_run_integrity_service", new=AsyncMock(side_effect=RuntimeError("DB exploded"))),
+            patch.object(svc, "_get_webhook_url", return_value="https://discord.example/webhook"),
+            patch.object(svc, "_post_to_discord", new=poster),
+        ):
+            out = await svc.run_alert_check(pipeline_health_snapshot_repository=repo)
+
+    async with db_pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT status, report FROM ops.pipeline_health_snapshot WHERE run_id = $1",
+            uuid.UUID(out["run_id"]),
+        )
+
+    assert row is not None
+    assert row["status"] == "error"
+    import json
+    report = json.loads(row["report"])
+    assert "DB exploded" in report.get("exception", "")

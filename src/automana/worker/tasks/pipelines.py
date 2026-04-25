@@ -157,7 +157,7 @@ def run_scryfall_integrity_checks(self):
     return wf.apply_async().id
 
 
-@shared_task(bind=True)
+@shared_task(bind=True, name="automana.worker.tasks.pipelines.pipeline_health_alert_task")
 def pipeline_health_alert_task(self):
     """Twice-daily Celery Beat job: run all ops.integrity.* services, persist
     a snapshot, and post a transition-only Discord alert.
