@@ -58,16 +58,21 @@ services:
       ENV: dev
       POSTGRES_USER: ${APP_BACKEND_DB_USER}
       POSTGRES_PASSWORD_FILE: /run/secrets/backend_db_password
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
       MODULES_NAMESPACE: backend
     networks:
       - backend-network
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\" || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
   proxy:
     build:
@@ -76,24 +81,26 @@ services:
       args:
         NGINX_CONF: nginx.local.conf
     container_name: automana-proxy-dev
+    restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - ../config/nginx/certs:/etc/nginx/certs:ro
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:80/health || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- --no-check-certificate https://localhost/health > /dev/null || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
       - backend-network
-      - frontend-network
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
   redis:
     image: redis:7.0-alpine
     container_name: automana-redis-dev
+    restart: unless-stopped
     ports:
       - "6379:6379"
     volumes:
@@ -112,10 +119,11 @@ services:
       context: ..
       dockerfile: deploy/docker/celery/celery.Dockerfile
     volumes:
-      - "/data:/data:/data/mtgjson"
+      - /data:/data
     secrets:
       - celery_db_password
     container_name: automana-celery-dev
+    restart: unless-stopped
     env_file:
       - ../config/env/.env.dev
     environment:
@@ -148,6 +156,7 @@ services:
       context: ..
       dockerfile: deploy/docker/celery/celery.Dockerfile
     container_name: automana-celery-beat-dev
+    restart: unless-stopped
     env_file:
       - ../config/env/.env.dev
     secrets:
@@ -158,6 +167,9 @@ services:
       CELERY_POOL: "prefork"
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
+      POSTGRES_USER: ${APP_CELERY_DB_USER}
+      POSTGRES_PASSWORD_FILE: /run/secrets/celery_db_password
+      MODULES_NAMESPACE: celery
     depends_on:
       redis:
           condition: service_healthy
@@ -178,6 +190,7 @@ services:
       context: ..
       dockerfile: deploy/docker/celery/celery.Dockerfile
     container_name: automana-flower-dev
+    restart: unless-stopped
     env_file:
       - ../config/env/.env.dev
     environment:
@@ -185,8 +198,6 @@ services:
       FLOWER_PORT: "5555"
       FLOWER_PERSISTENT: "True"
       FLOWER_DB: /home/appuser/flower/flower.db
-    ports:
-      - "5555:5555"
     volumes:
       - flower-data-dev:/home/appuser/flower
     depends_on:
@@ -199,6 +210,7 @@ services:
     command: >
       sh -c "celery -A automana.worker.main:app --broker=${BROKER_URL} flower
       --port=5555
+      --url_prefix=flower
       --persistent=True
       --db=/home/appuser/flower/flower.db
       --logging=${CELERY_LOGLEVEL:-info}"
@@ -255,9 +267,7 @@ secrets:
     file: ../config/secrets/tavily_api_key.txt
 
 networks:
-  frontend-network:  # nginx <-> backend
-    driver: bridge
-  backend-network:   # backend <-> postgres <-> redis <-> celery <-> schema-spy
+  backend-network:
     driver: bridge
 volumes:
   pgdata-dev:

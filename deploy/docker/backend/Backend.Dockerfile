@@ -19,13 +19,16 @@ COPY uv.lock /app/uv.lock
 COPY src /app/src
 RUN uv sync --frozen
 
+ENV PATH="/app/.venv/bin:$PATH" \
+    PYTHONPATH="/app/src"
+
 # Security: run as non-root
 RUN useradd -m appuser
 USER appuser
 
 EXPOSE 8000
 
-HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+    CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
 CMD ["uvicorn", "automana.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
