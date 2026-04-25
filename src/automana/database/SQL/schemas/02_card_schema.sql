@@ -273,15 +273,27 @@ INSERT INTO card_catalog.card_identifier_ref (identifier_name) VALUES
     ('cardmarket_id')
 ON CONFLICT (identifier_name) DO NOTHING;
 
+-- The (card_identifier_ref_id, value) pair is intentionally NOT unique. Some
+-- upstream catalogs (TCGPlayer, Cardmarket) issue one product ID per physical
+-- product, but Scryfall correctly models foil/nonfoil printings of that product
+-- as separate card_version rows. ~1.2k card_version pairs share a tcgplayer_id
+-- in the dev DB (mostly old-style starred collector numbers like #213★ + #213
+-- in 8ED–10E). Forcing uniqueness here would silently drop one printing per
+-- pair and break price-lookup attribution. See:
+--   docs/superpowers/specs/2026-04-25-shared-tcgplayer-cardmarket-id-fix-design.md
+-- The non-unique index keeps reverse lookups (`WHERE value = $tcgplayer_id`)
+-- index-seekable.
 CREATE TABLE IF NOT EXISTS card_catalog.card_external_identifier (
     card_identifier_ref_id SMALLINT NOT NULL REFERENCES card_catalog.card_identifier_ref(card_identifier_ref_id),
     card_version_id UUID NOT NULL REFERENCES card_catalog.card_version(card_version_id),
     value TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now(),
-    PRIMARY KEY (card_version_id, card_identifier_ref_id),
-    UNIQUE (card_identifier_ref_id, value)
+    PRIMARY KEY (card_version_id, card_identifier_ref_id)
 );
+
+CREATE INDEX IF NOT EXISTS idx_card_external_identifier_ref_value
+    ON card_catalog.card_external_identifier (card_identifier_ref_id, value);
 
 
 CREATE TABLE IF NOT EXISTS card_catalog.card_games_ref (
@@ -731,6 +743,14 @@ BEGIN
     END IF;
     --add the ids
 
+    -- Explicit conflict target = the PRIMARY KEY. This means:
+    --   * Idempotent re-insert of (card_version_id, ref_id) is silently absorbed
+    --     (safe to retry the proc against an already-loaded card_version).
+    --   * UNIQUE (ref_id, value) violations no longer apply because that
+    --     constraint was dropped (intentionally — see comment on the table).
+    -- Previously this clause was a bare `ON CONFLICT DO NOTHING`, which
+    -- silently absorbed UNIQUE-constraint violations and dropped one
+    -- card_version row per shared tcgplayer_id / cardmarket_id pair.
     INSERT INTO card_catalog.card_external_identifier (card_identifier_ref_id, card_version_id, value)
     SELECT r.card_identifier_ref_id, v_card_version_id, n.value
     FROM (
@@ -744,7 +764,7 @@ BEGIN
     JOIN card_catalog.card_identifier_ref r
     ON r.identifier_name = n.name
     WHERE n.value IS NOT NULL
-    ON CONFLICT DO NOTHING;
+    ON CONFLICT (card_version_id, card_identifier_ref_id) DO NOTHING;
 
 
     --card stat

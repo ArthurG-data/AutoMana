@@ -454,8 +454,8 @@ ON pricing.stg_price_observation (ts_date, source_product_id, is_foil);
   CREATE INDEX IF NOT EXISTS card_identifier_ref_name_idx
   ON card_catalog.card_identifier_ref (identifier_name, card_identifier_ref_id);
 
-  CREATE INDEX IF NOT EXISTS card_external_identifier_ref_value_idx
-  ON card_catalog.card_external_identifier (card_identifier_ref_id, value);
+  -- card_external_identifier (ref_id, value) index lives in 02_card_schema.sql
+  -- next to the table definition (idx_card_external_identifier_ref_value).
 
   -- fallback
   CREATE INDEX IF NOT EXISTS sets_set_code_idx
@@ -758,6 +758,11 @@ resolved_method text
     WHERE identifier_name = 'mtgstock_id'
     LIMIT 1
   )
+  -- Explicit PK conflict target — a concurrent re-run that inserted the same
+  -- (card_version_id, ref_id) between the LEFT JOIN check and the INSERT
+  -- gets absorbed silently. The (ref_id, value) UNIQUE constraint no longer
+  -- exists (per 02_card_schema.sql comments), so this clause covers only
+  -- the PK case — which is exactly what we want here.
   INSERT INTO card_catalog.card_external_identifier (card_identifier_ref_id, card_version_id, value)
   SELECT
     r.card_identifier_ref_id,
@@ -769,7 +774,7 @@ resolved_method text
     ON existing_pk.card_version_id = p.card_version_id
   AND existing_pk.card_identifier_ref_id = r.card_identifier_ref_id
   WHERE existing_pk.card_version_id IS NULL
-  ON CONFLICT DO NOTHING;
+  ON CONFLICT (card_version_id, card_identifier_ref_id) DO NOTHING;
 
       -- -------------------------------------------------------------------------
       -- 4) Send unresolved rows to reject table (so you can inspect/repair mappings)

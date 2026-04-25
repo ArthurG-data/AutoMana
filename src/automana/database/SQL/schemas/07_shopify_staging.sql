@@ -158,6 +158,11 @@ BEGIN
     ------------------------------------------------------------------
     v_step_time := clock_timestamp();
 
+    -- Explicit PK conflict target. Note the JOIN to card_external_identifier on
+    -- tcgplayer_id can now return multiple card_version_ids per shared
+    -- tcgplayer_id (foil + nonfoil pairs share IDs — see
+    -- 02_card_schema.sql comments). That's intentional: each card_version
+    -- gets its own gg_brisbane_id row pointing at the same Shopify product.
     INSERT INTO card_catalog.card_external_identifier
         (card_identifier_ref_id, card_version_id, value)
     SELECT
@@ -172,7 +177,7 @@ BEGIN
         AND cce1.value::bigint = ssr.tcg_id
     JOIN card_catalog.card_identifier_ref cir2
          ON cir2.identifier_name = 'gg_brisbane_id'
-    ON CONFLICT DO NOTHING;
+    ON CONFLICT (card_version_id, card_identifier_ref_id) DO NOTHING;
 
     GET DIAGNOSTICS v_count = ROW_COUNT;
     RAISE INFO 'Inserted % rows into card_external_identifier in %',

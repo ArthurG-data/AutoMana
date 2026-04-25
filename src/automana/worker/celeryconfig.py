@@ -74,7 +74,23 @@ beat_schedule = {
     },
     "pipeline-health-pm": {
         "task": "automana.worker.tasks.pipelines.pipeline_health_alert_task",
-        "schedule": crontab(hour=18, minute=0),  # 18:00 AEST — same-day insurance
+        "schedule": crontab(hour=18, minute=0)  # 18:00 AEST — same-day insuranc
+    },
+    # Card-catalog data-shape health (identifier coverage, orphan unique_cards,
+    # external-id collisions) — runs once a day after the daily ingests.
+    # `timezone` above resolves to Australia/Sydney, so crontab values are AEST.
+    "card-catalog-health-daily": {
+        "task": "run_service",
+        "schedule": crontab(hour=4, minute=15),  # 04:15 AEST
+        "kwargs": {"path": "ops.integrity.card_catalog_report"},
+    },
+    # Pricing data-quality health (freshness, per-source coverage, soft-integrity,
+    # staging drain) — runs hourly because freshness can degrade in <24h.
+    # `:42` keeps it off the on-the-hour Celery cluster.
+    "pricing-health-hourly": {
+        "task": "run_service",
+        "schedule": crontab(minute=42),
+        "kwargs": {"path": "ops.integrity.pricing_report"},
     },
 }
 
