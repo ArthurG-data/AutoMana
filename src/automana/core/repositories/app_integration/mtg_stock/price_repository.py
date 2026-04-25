@@ -284,6 +284,88 @@ class PriceRepository(AbstractRepository):
         rows = await self.execute_query(query, ())
         return rows[0]["n"] if rows else 0
 
+    async def fetch_card_coverage_stats(self) -> dict:
+        """Card-version-level price coverage across the full catalog.
+
+        Returns counts for: total card versions, those with any price
+        observation, those without, and the foil/nonfoil split.  Single
+        round-trip via CTE to keep latency predictable on large hypertables.
+        """
+        query = """
+        WITH
+          total AS (
+            SELECT COUNT(*)::int AS n FROM card_catalog.card_version
+          ),
+          priced AS (
+            SELECT COUNT(DISTINCT mcp.card_version_id)::int AS n
+            FROM pricing.mtg_card_products mcp
+            WHERE EXISTS (
+              SELECT 1
+              FROM pricing.source_product sp
+              JOIN pricing.price_observation po
+                ON po.source_product_id = sp.source_product_id
+              WHERE sp.product_id = mcp.product_id
+            )
+          ),
+          nonfoil AS (
+            SELECT COUNT(DISTINCT mcp.card_version_id)::int AS n
+            FROM pricing.mtg_card_products mcp
+            JOIN pricing.source_product sp ON sp.product_id = mcp.product_id
+            JOIN pricing.price_observation po ON po.source_product_id = sp.source_product_id
+            JOIN pricing.card_finished cf ON cf.finish_id = po.finish_id
+            WHERE upper(cf.code) = 'NONFOIL'
+          ),
+          foil AS (
+            SELECT COUNT(DISTINCT mcp.card_version_id)::int AS n
+            FROM pricing.mtg_card_products mcp
+            JOIN pricing.source_product sp ON sp.product_id = mcp.product_id
+            JOIN pricing.price_observation po ON po.source_product_id = sp.source_product_id
+            JOIN pricing.card_finished cf ON cf.finish_id = po.finish_id
+            WHERE upper(cf.code) <> 'NONFOIL'
+          )
+        SELECT
+          t.n   AS total_card_versions,
+          p.n   AS with_price,
+          t.n - p.n AS without_price,
+          nf.n  AS with_nonfoil_price,
+          f.n   AS with_foil_price
+        FROM total t, priced p, nonfoil nf, foil f
+        """
+        rows = await self.execute_query(query, ())
+        if not rows:
+            return {
+                "total_card_versions": 0,
+                "with_price": 0,
+                "without_price": 0,
+                "with_nonfoil_price": 0,
+                "with_foil_price": 0,
+            }
+        r = rows[0]
+        return {
+            "total_card_versions": r["total_card_versions"],
+            "with_price": r["with_price"],
+            "without_price": r["without_price"],
+            "with_nonfoil_price": r["with_nonfoil_price"],
+            "with_foil_price": r["with_foil_price"],
+        }
+
+    async def fetch_total_observation_count(self) -> int:
+        """Estimated total row count of price_observation via pg_class.reltuples.
+
+        Fast (no full scan); good enough for a volume alarm. Use the real
+        COUNT only when exact values matter.
+        """
+        query = """
+        SELECT reltuples::bigint AS n
+        FROM pg_class c
+        JOIN pg_namespace ns ON ns.oid = c.relnamespace
+        WHERE ns.nspname = 'pricing' AND c.relname = 'price_observation'
+        """
+        rows = await self.execute_query(query, ())
+        # pg_class.reltuples = -1 means the table has never been ANALYZEd; treat as 0.
+        n = rows[0]["n"] if rows else 0
+        return max(n, 0)
+
     def add(self):
         raise NotImplementedError("Method not implemented")
 

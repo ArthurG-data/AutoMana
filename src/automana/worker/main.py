@@ -61,10 +61,14 @@ def run_service(self,prev=None, path: str = None, **kwargs):
     allowed_keys = set(sig.parameters.keys())
 
     filtered_context = {k: v for k, v in context.items() if k in allowed_keys}
-    logger.info(
-    "run_service_start",
-    extra={"service_path": path, "kwargs_keys": list(filtered_context.keys())}
-)
+    # DEBUG: per-step executor wiring — fires once per chain link, not a
+    # business event. Keep at DEBUG so the default INFO level stays quiet
+    # across multi-step pipelines (e.g. the 10-step scryfall chain or the
+    # 3 inner execute_service calls inside run_alert_check).
+    logger.debug(
+        "run_service_start",
+        extra={"service_path": path, "kwargs_keys": list(filtered_context.keys())}
+    )
     try:
         result = state.loop.run_until_complete(
             ServiceManager.execute_service(path, **filtered_context)

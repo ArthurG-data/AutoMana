@@ -25,6 +25,11 @@ CREATE TABLE IF NOT EXISTS pricing.data_provider (
   created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+INSERT INTO pricing.data_provider (code, description) VALUES
+  ('mtgstocks', 'MTGStocks price scrape'),
+  ('mtgjson',   'MTGJson bulk data file'),
+  ('scryfall',  'Scryfall API')
+ON CONFLICT (code) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS pricing.price_metric (
   metric_id   SMALLSERIAL PRIMARY KEY,
@@ -497,7 +502,11 @@ BEGIN
   -- determine overall date range from raw data
   SET LOCAL work_mem = '512MB';
   SET LOCAL maintenance_work_mem = '1GB';
-  SET LOCAL temp_buffers = '256MB';
+  -- NOTE: temp_buffers cannot be changed after first temp-table access in a
+  -- session, so it is NOT set here.  The target value (256 MB = 32768 pages)
+  -- is pre-configured at pool-connection time via asyncpg server_settings in
+  -- core/database.py, which makes this SET LOCAL a no-op on pool-recycled
+  -- connections and avoids InvalidParameterValueError on second+ invocations.
   SET LOCAL synchronous_commit = off;
 
   SELECT min(ts_date), max(ts_date) INTO v_min, v_max FROM pricing.raw_mtg_stock_price;
@@ -518,6 +527,10 @@ BEGIN
   SELECT dp.data_provider_id INTO v_data_provider_id
   FROM pricing.data_provider dp
   WHERE dp.code = 'mtgstocks';
+
+  IF v_data_provider_id IS NULL THEN
+    RAISE EXCEPTION 'Missing pricing.data_provider row with code=mtgstocks';
+  END IF;
 -----------------------------------------------
   SELECT cg.game_id INTO v_mtg_game_id
   FROM card_catalog.card_games_ref cg
@@ -525,41 +538,9 @@ BEGIN
   ORDER BY CASE lower(cg.code) WHEN 'mtg' THEN 1 ELSE 2 END
   LIMIT 1;
 
-  EXECUTE $sql$
-    CREATE TABLE IF NOT EXISTS pricing.stg_price_observation_reject (
-      ts_date date NOT NULL,
-      game_code text NOT NULL,
-      print_id bigint NOT NULL,
-      source_code text NOT NULL,
-      data_provider_id SMALLINT NOT NULL,
-      scraped_at timestamptz NOT NULL,
-
-      list_low_cents INTEGER,
-      list_avg_cents INTEGER,
-      sold_avg_cents INTEGER,
-
-      is_foil boolean NOT NULL,
-      value numeric(12,4),
-
-      card_name text,
-      set_abbr text,
-      collector_number text,
-      scryfall_id text,
-      tcg_id text,
-      cardtrader_id text,
-
-      is_terminal boolean NOT NULL DEFAULT false,
-      terminal_reason text,
-
-      resolution_attempted_at timestamptz NOT NULL DEFAULT now(),
-      reject_reason text NOT NULL,
-      resolved_at timestamptz,
-      resolved_source_product_id bigint,
-      resolved_product_id uuid,
-      resolved_card_version_id uuid,
-resolved_method text
-    );
-  $sql$;
+  -- stg_price_observation_reject is pre-created by 06_prices.sql schema section;
+  -- app_celery only has USAGE on the pricing schema (not CREATE), so the
+  -- CREATE TABLE IF NOT EXISTS that used to live here was removed.
 
   v_start := v_min;
   WHILE v_start <= v_max LOOP
@@ -614,14 +595,15 @@ resolved_method text
         (v.sold_avg_cents * 100)::int AS sold_avg_cents,
         v.is_foil,
         v.value,
-        v.data_provider_id
+        r.data_provider_id
       FROM tmp_raw_batch r
       CROSS JOIN LATERAL (VALUES
-        (r.price_low,          false, r.price_low),
-        (r.price_avg,          false, r.price_avg),
-        (r.price_avg,           true, r.price_foil),
-        (r.price_market,       false, r.price_market),
-        (r.price_market,        true, r.price_market_foil)
+        -- Non-foil row: all three non-foil price fields; filter on any non-null price.
+        (r.price_low, r.price_avg, r.price_market, false,
+         COALESCE(r.price_avg, r.price_market, r.price_low)),
+        -- Foil row: foil-specific prices only; filter on any non-null foil price.
+        (NULL::numeric, r.price_foil, r.price_market_foil, true,
+         COALESCE(r.price_foil, r.price_market_foil))
       ) AS v(list_low_cents, list_avg_cents, sold_avg_cents, is_foil, value)
       WHERE v.value IS NOT NULL;
 
@@ -700,7 +682,12 @@ resolved_method text
     AND u.collector_number IS NOT NULL
     AND (u.card_name IS NULL OR uc.card_name IS NULL OR lower(uc.card_name) = lower(u.card_name));
 
-  -- 3d) Final resolved rows
+  -- 3d) Final resolved rows — built from tmp_batch_foil_split so that each row
+  --     already carries the foil-split price columns (list_low_cents, list_avg_cents,
+  --     sold_avg_cents, is_foil, value) needed by the reject insert and the staging
+  --     insert downstream. tmp_map_print / tmp_map_external / tmp_map_fallback are
+  --     keyed by print_id / set_abbr+collector_number, which are present on both
+  --     the raw and foil-split tables.
   DROP TABLE IF EXISTS tmp_resolved;
   CREATE TEMP TABLE tmp_resolved ON COMMIT DROP AS
   SELECT
@@ -712,7 +699,7 @@ resolved_method text
       WHEN mf.card_version_id IS NOT NULL THEN 'SET_COLLECTOR'
       ELSE 'UNRESOLVED'
     END AS resolution_method
-  FROM tmp_raw_batch u
+  FROM tmp_batch_foil_split u
   LEFT JOIN tmp_map_print mp
     ON mp.print_id = u.print_id
   LEFT JOIN tmp_map_external me
@@ -866,8 +853,8 @@ resolved_method text
           r.source_code,
           r.data_provider_id,
           r.value,
-          l.product_id::text,
-          r.card_version_id::text,
+          l.product_id,
+          r.card_version_id,
           l.source_product_id,
           r.set_abbr,
           r.collector_number,
@@ -898,8 +885,8 @@ resolved_method text
     END IF;
       v_start := v_end + 1;
   END LOOP;
-  CREATE INDEX IF NOT EXISTS stg_price_obs_date_spid_foil_idx
-  ON pricing.stg_price_observation (ts_date, source_product_id, is_foil);
+  -- stg_price_obs_date_spid_foil_idx is pre-created by 06_prices.sql schema section;
+  -- CREATE INDEX IF NOT EXISTS removed — same reason as CREATE TABLE above.
   RAISE NOTICE 'load_staging_prices_batched: total inserted % rows', total_inserted;
 END;
 $$;

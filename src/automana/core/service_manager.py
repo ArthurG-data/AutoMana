@@ -164,7 +164,12 @@ class ServiceManager:
         if cls._instance is None or not cls._instance._initialized:
             raise RuntimeError("ServiceManager not initialized")
 
-        logger.info(
+        # DEBUG: entry point trace — emitted before every awaited service
+        # call, including the 3 inner calls health_alert_service makes for
+        # each integrity check_set. At INFO this floods logs twice daily
+        # with wiring detail that adds no operator value beyond what
+        # service_path in the ContextFilter already provides.
+        logger.debug(
             "service_execution_requested",
             extra={
                 "action": "execute_service",
