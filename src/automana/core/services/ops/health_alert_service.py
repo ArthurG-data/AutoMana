@@ -283,7 +283,12 @@ async def run_alert_check(
         try:
             status = await _post_to_discord(webhook, payload)
             alerted = 200 <= status < 300
-            if not alerted:
+            if alerted:
+                logger.info(
+                    "discord_alert_sent",
+                    extra={"degraded": len(degraded), "recovered": len(recovered)},
+                )
+            else:
                 logger.warning("discord_post_non_2xx", extra={"http_status": status})
         except Exception as exc:
             logger.warning("discord_post_failed", extra={"exc_type": type(exc).__name__})

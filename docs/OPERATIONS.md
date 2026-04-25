@@ -134,11 +134,12 @@ Flower provides a real-time web UI for inspecting Celery workers and tasks.
 
 ### Access
 
-| Environment | URL |
-|-------------|-----|
-| Dev (direct) | http://localhost:5555 |
-| Dev (proxy) | https://localhost/flower/ |
-| Prod (proxy) | https://your-domain/flower/ |
+Flower is only exposed through the nginx reverse proxy (not directly):
+
+| Environment | URL | Auth |
+|-------------|-----|------|
+| Dev (proxy) | https://localhost/flower/ | `admin:changeme_dev` |
+| Prod (proxy) | https://your-domain/flower/ | Via `FLOWER_BASIC_AUTH` (`.env.prod`) |
 
 ### Follow Flower logs
 
@@ -160,10 +161,14 @@ Flower persists task history to a SQLite database at `/data/flower.db` inside th
 
 To update the Flower Basic Auth password:
 
-1. Update `FLOWER_BASIC_AUTH` in the relevant env file (`config/env/.env.prod`).
+1. Update `FLOWER_BASIC_AUTH` in the relevant env file (e.g. `config/env/.env.dev` or `config/env/.env.prod`).
 2. Restart Flower:
 
 ```bash
+# Dev
+docker compose -f deploy/docker-compose.dev.yml up -d --no-deps flower
+
+# Prod
 docker compose -f deploy/docker-compose.prod.yml up -d --no-deps flower
 ```
 
@@ -199,7 +204,21 @@ For the full check catalogue, severity definitions, recommended cadence, and int
 
 ---
 
-## Certificates
+## Security
+
+### Security headers
+
+nginx adds the following security headers to all responses on port 443:
+
+- `Strict-Transport-Security: max-age=31536000; includeSubDomains` (HSTS)
+- `X-Frame-Options: SAMEORIGIN` (clickjacking protection)
+- `X-Content-Type-Options: nosniff` (MIME type sniffing prevention)
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `Content-Security-Policy` (configured per route)
+
+These are defined in `nginx.local.conf` and `nginx.prod.conf`.
+
+### Certificates
 
 nginx mounts certs from `config/nginx/certs/`.
 
@@ -208,3 +227,19 @@ After updating certs on the host, restart the proxy:
 ```bash
 docker compose -f deploy/docker-compose.prod.yml restart proxy
 ```
+
+## Service healthchecks
+
+All services in docker-compose.dev.yml have healthchecks configured:
+
+| Service | Check method | Notes |
+|---------|--------------|-------|
+| `backend` | `python3 urllib.request.urlopen('http://localhost:8000/health')` | Direct to backend |
+| `postgres` | `pg_isready -U admin -d automana` | Database ready probe |
+| `redis` | `redis-cli ping` | Cache ready probe |
+| `proxy` | `wget -qO- --no-check-certificate https://localhost/health` | Reverse proxy ready; uses wget (curl not available) |
+| `celery-beat` | `test -f /tmp/celerybeat.pid && kill -0 $(cat /tmp/celerybeat.pid)` | Process alive check |
+| `celery-worker` | `celery -A automana.worker.main:app inspect ping` | Worker responds to inspect |
+| `flower` | `python -c "import urllib.request; urllib.request.urlopen('http://localhost:5555/healthcheck')"` | Flower endpoint |
+
+All services except `schema-spy` have `restart: unless-stopped` configured.

@@ -1,8 +1,11 @@
 ﻿from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
 import asyncpg, psycopg2
+import logging
 from typing import Optional,  TypeVar,  Generic, Union
 from automana.core.QueryExecutor import QueryExecutor
+
+logger = logging.getLogger(__name__)
 
 T =TypeVar('T')
 
@@ -26,10 +29,10 @@ class AbstractRepository(Generic[T], ABC):
     def execute_query_sync(self, query, *args):
         """Execute a query that returns results"""
         if self.executor:
-            print("Executing query with executor")
+            logger.debug("Executing query with executor")
             return self.executor.execute_query(self.connection, query, *args)
         else:
-            print("Executing query withOUT executor")
+            logger.debug("Executing query without executor")
             # Fallback to direct connection
             with self.connection.cursor() as cursor:
                 cursor.execute(query, args)
@@ -38,11 +41,11 @@ class AbstractRepository(Generic[T], ABC):
     def execute_command_sync(self, query, *args):
         """Execute a command that doesn't return results"""
         if self.executor:
-            print("Executing query with executor")
+            logger.debug("Executing query with executor")
             return self.executor.execute_command(self.connection, query, *args)
         else:
             # Fallback to direct connection
-            print("Executing query withOUT executor")
+            logger.debug("Executing query without executor")
             with self.connection.cursor() as cursor:
                 cursor.execute(query, args)
                 self.connection.commit()
@@ -51,21 +54,21 @@ class AbstractRepository(Generic[T], ABC):
     async def execute_query(self, query, *args):
         """Execute a query that returns results"""
         if self.executor:
-            print("Executing query with executor")
+            logger.debug("Executing query with executor")
             return await self.executor.execute_query(self.connection, query, *args)
         else:
-            print("Executing query withOUT executor")
+            logger.debug("Executing query without executor")
             # Fallback to direct connection
             return await self.connection.fetch(query, *args)
     
     async def execute_command(self, query, *args):
         """Execute a command that doesn't return results"""
         if self.executor:
-            print("Executing query with executor")
+            logger.debug("Executing query with executor")
             return await self.executor.execute_command(self.connection, query, *args)
         else:
             # Fallback to direct connection
-            print("Executing query withOUT executor")
+            logger.debug("Executing query without executor")
             return await self.connection.execute(query, *args)
         
     @abstractmethod

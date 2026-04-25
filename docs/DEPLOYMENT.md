@@ -53,7 +53,7 @@ What it does:
 - `postgres` publishes `5433:5432` (convenience for local tools)
 - `redis` publishes `6379:6379`
 - `proxy` publishes `80:80` and `443:443`
-- `flower` publishes `5555:5555` (Flower direct access, dev only)
+- `flower` is not directly exposed (only via nginx proxy)
 
 Run:
 
@@ -68,10 +68,29 @@ curl -f http://localhost:8000/health
 curl -f https://localhost/health -k
 ```
 
-Docs:
+Service access:
 
-- Direct backend: `http://localhost:8000/docs`
-- Through proxy: `https://localhost/docs` (may require `-k` for self-signed certs)
+| Service | URL | Notes |
+|---------|-----|-------|
+| Backend API | `http://localhost:8000` | Direct; also exposed through proxy |
+| Backend API (proxy) | `https://localhost/api/` | Through nginx reverse proxy (HTTPS) |
+| OpenAPI docs | `https://localhost/docs` | Through nginx reverse proxy |
+| Health check | `https://localhost/health` | Through nginx reverse proxy |
+| Flower | `https://localhost/flower/` | Through nginx proxy; auth: `admin:changeme_dev` (from `FLOWER_BASIC_AUTH`) |
+| Postgres | `localhost:5433` | Host-side access (`.env.dev` default); containers use `postgres:5432` |
+| Redis | `localhost:6379` | Host-side access; containers use `redis:6379` |
+
+### Container environment overrides
+
+The `backend` and `celery-beat` services override `POSTGRES_HOST` and `POSTGRES_PORT` in their `environment:` blocks:
+
+```yaml
+environment:
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: 5432
+```
+
+This overrides `.env.dev`'s `localhost:5433` (which is for host-side tools only). Inside the Docker network, containers reach Postgres via the service name `postgres` on port `5432`.
 
 Stop:
 
@@ -201,22 +220,23 @@ Flower provides a real-time web UI for inspecting Celery workers and tasks.
 
 ### Access
 
-| Environment | URL |
-|-------------|-----|
-| Dev (direct) | http://localhost:5555 |
-| Dev (proxy) | https://localhost/flower/ |
-| Prod (proxy) | https://your-domain/flower/ (requires `FLOWER_BASIC_AUTH`) |
+Flower is only exposed through the nginx reverse proxy (not directly on port 5555):
+
+| Environment | URL | Auth |
+|-------------|-----|------|
+| Dev (proxy) | https://localhost/flower/ | `admin:changeme_dev` (from `FLOWER_BASIC_AUTH` in `.env.dev`) |
+| Prod (proxy) | https://your-domain/flower/ | Configure via `FLOWER_BASIC_AUTH` in `.env.prod` |
 
 ### Persistence
 
-Task history is persisted via a named Docker volume (`flower-data-dev` or `flower-data-prod`). The SQLite database is stored at `/data/flower.db` inside the container.
+Task history is persisted via a named Docker volume (`flower-data-dev` or `flower-data-prod`). The SQLite database is stored at `/home/appuser/flower/flower.db` inside the container.
 
 ### Environment variables
 
 | Variable | Description |
 |----------|-------------|
 | `BROKER_URL` | Redis broker URL (e.g. `redis://redis:6379/0`) |
-| `FLOWER_BASIC_AUTH` | HTTP Basic Auth credentials in `user:password` format (required in prod) |
+| `FLOWER_BASIC_AUTH` | HTTP Basic Auth credentials in `user:password` format (dev and prod) |
 
 ## Operational notes / caveats
 

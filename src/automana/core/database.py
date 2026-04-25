@@ -48,6 +48,19 @@ async def init_async_pool(settings:Settings) -> asyncpg.Pool:
                 server_settings={
                     "client_encoding": "UTF8",
                     "search_path": _SEARCH_PATH,
+                    # Pre-set temp_buffers to the value that
+                    # pricing.load_staging_prices_batched requests via
+                    # SET LOCAL.  PostgreSQL only blocks changes to
+                    # temp_buffers after the first temp-table access in a
+                    # session; if the connection already holds the target
+                    # value the SET LOCAL becomes a no-op and the check
+                    # passes even on a recycled pool connection that has
+                    # previously run the procedure.  Without this, the
+                    # asyncpg pool hands back a warmed-up connection whose
+                    # local buffer count is already initialised, causing:
+                    #   InvalidParameterValueError: "temp_buffers" cannot be
+                    #   changed after any temporary tables have been accessed.
+                    "temp_buffers": "32768",  # 32768 × 8 kB = 256 MB
                 },
             )
             logger.info("Async pool created")
