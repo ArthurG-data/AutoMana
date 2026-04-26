@@ -32,6 +32,7 @@ class ApimtgjsonRepository(BaseApiClient):
     ):
         super().__init__(timeout=timeout)
 
+    @property
     def name(self) -> str:
         return "ApimtgjsonRepository"
 
