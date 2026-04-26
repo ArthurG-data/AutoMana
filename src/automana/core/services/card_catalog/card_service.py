@@ -270,7 +270,7 @@ async def get(card_repository: CardReferenceRepository,
             card_id=card_id,
         )
         if not result:
-            raise CardSearchResult(cards=[], total_count=0)
+            return CardSearchResult(cards=[], total_count=0)
         return CardSearchResult(cards=[BaseCard.model_validate(result)], total_count=1)
     except card_exception.CardNotFoundError:
         raise

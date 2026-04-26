@@ -70,7 +70,7 @@ def mtgStock_download_pipeline(self):
                       ),
         run_service.s("mtg_stock.data_staging.bulk_load",
                       root_folder="/data/automana_data/mtgstocks/raw/prints/",
-                      batch_size=1000,
+                      batch_size=5000,
                       market="tcg"
                       ),
         run_service.s("mtg_stock.data_staging.from_raw_to_staging",

@@ -22,7 +22,7 @@ class PriceRepository(AbstractRepository):
         except Exception as e:
             logger.error("Error rolling back transaction: %s", e)
 
-    async def _copy_to_table(self, df, schema_name, table_name):
+    async def _copy_to_table(self, df, schema_name, table_name, timeout: float = 300):
         buf = io.BytesIO()
         df.to_csv(buf, index=False, header=True, encoding='utf-8')
         buf.seek(0)
@@ -31,7 +31,8 @@ class PriceRepository(AbstractRepository):
             schema_name=schema_name,
             source=buf,
             format='csv',
-            header=True)
+            header=True,
+            timeout=timeout)
 
     async def call_load_stage_from_raw(
         self, source_name: str = "mtgstocks", batch_days: int = 30,
@@ -108,6 +109,14 @@ class PriceRepository(AbstractRepository):
 
     async def copy_prices_mtgstock(self, df):
         await self._copy_to_table(df, "pricing", "raw_mtg_stock_price")
+
+    async def clear_raw_prices(self) -> int:
+        """Delete all rows from the raw landing table. Returns deleted row count."""
+        rows = await self.execute_query(
+            "WITH del AS (DELETE FROM pricing.raw_mtg_stock_price RETURNING 1) "
+            "SELECT count(*)::int AS n FROM del"
+        )
+        return rows[0]["n"] if rows else 0
 
     # ------------------------------------------------------------------
     # Metric-registry primitives

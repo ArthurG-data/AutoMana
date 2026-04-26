@@ -72,8 +72,8 @@ class CardReferenceRepository(AbstractRepository[Any]):
         return response
 
     async def delete(self, card_id: UUID):
-        result = await self.execute_command(queries.delete_card_query, card_id)
-        return result is not None
+        rows = await self.execute_query(queries.delete_card_query, (card_id,))
+        return len(rows) > 0
 
     async def update(self, item):
         pass

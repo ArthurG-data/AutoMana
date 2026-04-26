@@ -76,6 +76,8 @@ async def bulk_load(price_repository: PriceRepository
     try:
         if ingestion_run_id is not None:
             await ops_repository.update_run(ingestion_run_id=ingestion_run_id,current_step=step_name ,status="running")
+        deleted = await price_repository.clear_raw_prices()
+        logger.info("bulk_load: cleared %d stale rows from raw_mtg_stock_price", deleted)
         for i, folder in tqdm(enumerate(folders, 1), desc="Processing MTG Stock folders", total=len(folders)):
 
             try:
@@ -176,12 +178,15 @@ async def from_raw_to_staging(price_repository: PriceRepository
     card_version_id via mtgstock_id → external ids → set+collector.
     `source_name` must match a `pricing.price_source.code` value."""
     step_name = "raw_to_staging"
-    await ops_repository.update_run(ingestion_run_id=ingestion_run_id,current_step=step_name ,status="running")
+    if ingestion_run_id is not None:
+        await ops_repository.update_run(ingestion_run_id=ingestion_run_id, current_step=step_name, status="running")
     try:
         await price_repository.call_load_stage_from_raw(source_name=source_name, ingestion_run_id=ingestion_run_id)
-        await ops_repository.update_run(ingestion_run_id=ingestion_run_id,current_step=step_name ,status="success")
+        if ingestion_run_id is not None:
+            await ops_repository.update_run(ingestion_run_id=ingestion_run_id, current_step=step_name, status="success")
     except Exception as e:
-        await ops_repository.update_run(ingestion_run_id=ingestion_run_id,current_step=step_name ,status="failed", error_details={"error": str(e)})
+        if ingestion_run_id is not None:
+            await ops_repository.update_run(ingestion_run_id=ingestion_run_id, current_step=step_name, status="failed", error_details={"error": str(e)})
         raise e
 
 @ServiceRegistry.register(
@@ -206,9 +211,10 @@ async def retry_rejects(price_repository: PriceRepository,
     migration rows / identifier updates can still make it into the current
     day's price_observation promotion."""
     step_name = "retry_rejects"
-    await ops_repository.update_run(
-        ingestion_run_id=ingestion_run_id, current_step=step_name, status="running"
-    )
+    if ingestion_run_id is not None:
+        await ops_repository.update_run(
+            ingestion_run_id=ingestion_run_id, current_step=step_name, status="running"
+        )
     try:
         logger.info(
             "retry_rejects: starting limit=%d only_unresolved=%s ingestion_run_id=%s",
@@ -221,16 +227,18 @@ async def retry_rejects(price_repository: PriceRepository,
             "retry_rejects: resolved %d reject rows (limit=%d only_unresolved=%s)",
             rows, limit, only_unresolved,
         )
-        await ops_repository.update_run(
-            ingestion_run_id=ingestion_run_id, current_step=step_name, status="success",
-            notes=f"Resolved {rows} reject rows",
-        )
+        if ingestion_run_id is not None:
+            await ops_repository.update_run(
+                ingestion_run_id=ingestion_run_id, current_step=step_name, status="success",
+                notes=f"Resolved {rows} reject rows",
+            )
         return {"rows_resolved": rows}
     except Exception as e:
-        await ops_repository.update_run(
-            ingestion_run_id=ingestion_run_id, current_step=step_name, status="failed",
-            error_details={"error": str(e)},
-        )
+        if ingestion_run_id is not None:
+            await ops_repository.update_run(
+                ingestion_run_id=ingestion_run_id, current_step=step_name, status="failed",
+                error_details={"error": str(e)},
+            )
         logger.exception("retry_rejects: failed with %s", e)
         raise
 
@@ -251,11 +259,14 @@ async def from_staging_to_prices(price_repository: PriceRepository
     separate `from_staging_to_dim` step has been removed — no
     `load_dim_from_staging` procedure exists in the DB."""
     step_name = "staging_to_prices"
-    await ops_repository.update_run(ingestion_run_id=ingestion_run_id,current_step=step_name ,status="running")
+    if ingestion_run_id is not None:
+        await ops_repository.update_run(ingestion_run_id=ingestion_run_id, current_step=step_name, status="running")
     try:
         await price_repository.call_load_prices_from_staging()
-        await ops_repository.update_run(ingestion_run_id=ingestion_run_id,current_step=step_name ,status="success")
+        if ingestion_run_id is not None:
+            await ops_repository.update_run(ingestion_run_id=ingestion_run_id, current_step=step_name, status="success")
     except Exception as e:
-        await ops_repository.update_run(ingestion_run_id=ingestion_run_id,current_step=step_name ,status="failed", error_details={"error": str(e)})
+        if ingestion_run_id is not None:
+            await ops_repository.update_run(ingestion_run_id=ingestion_run_id, current_step=step_name, status="failed", error_details={"error": str(e)})
         raise e
 
