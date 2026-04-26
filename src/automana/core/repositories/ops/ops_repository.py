@@ -2,8 +2,6 @@
 import logging
 from datetime import date as date_type
 from automana.core.repositories.abstract_repositories.AbstractDBRepository import AbstractRepository
-
-logger = logging.getLogger(__name__)
 from automana.core.repositories.ops.scryfall_data import update_bulk_scryfall_data_sql
 from automana.core.repositories.ops.integrity_check_sql import (
     scryfall_run_diff_sql,
@@ -11,6 +9,9 @@ from automana.core.repositories.ops.integrity_check_sql import (
     public_schema_leak_check_sql,
 )
 from automana.core.models.pipelines.mtg_stock import MTGStockBatchStep
+
+logger = logging.getLogger(__name__)
+
 
 class OpsRepository(AbstractRepository):
 
@@ -272,6 +273,8 @@ class OpsRepository(AbstractRepository):
         error_details: dict | None = None,
         notes: str | None = None,
     ) -> int | None:
+        if error_details is not None and not isinstance(error_details, str):
+            error_details = json.dumps(error_details)
         query = """
         UPDATE ops.ingestion_runs
         SET
@@ -315,7 +318,7 @@ class OpsRepository(AbstractRepository):
             update_bulk_scryfall_data_sql,
             (json.dumps(items), ingestion_run_id)#source_id
         )
-        logger.debug("update_bulk_data_uri_return_new result: %s", result)
+        logger.debug("update_bulk_data_uri_return_new result", extra={"result": result})
         record = result[0] if result and len(result) > 0 else None
         ressources_upserted = record.get("resources_upserted") if record else 0
         versions_inserted = record.get("versions_inserted") if record else 0
@@ -556,14 +559,17 @@ class OpsRepository(AbstractRepository):
         rows = await self.execute_query(query, (pipeline_name,))
         return rows[0]["ended_at"] if rows else None
 
-    async def get():
+    async def get(self):
         raise NotImplementedError("This method is not implemented yet.")
-    
-    async def add():
+
+    async def add(self):
         raise NotImplementedError("This method is not implemented yet.")
-    async def update():
+
+    async def update(self):
         raise NotImplementedError("This method is not implemented yet.")
-    async def delete():
+
+    async def delete(self):
         raise NotImplementedError("This method is not implemented yet.")
-    async def list():
+
+    async def list(self):
         raise NotImplementedError("This method is not implemented yet.")

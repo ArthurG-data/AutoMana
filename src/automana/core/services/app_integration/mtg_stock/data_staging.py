@@ -1,4 +1,5 @@
-﻿import os, json,  logging
+﻿import asyncio
+import os, json, logging
 import pandas as pd
 from automana.core.repositories.app_integration.mtg_stock.price_repository import PriceRepository
 import time
@@ -11,9 +12,11 @@ from automana.core.repositories.ops.ops_repository import OpsRepository
 logger = logging.getLogger(__name__)
 
 async def process_info_file(path):
-    with open(path, "r") as f:
-        obj = json.load(f)
-        card_set = obj.get("card_set", None)
+    def _read():
+        with open(path, "r") as f:
+            return json.load(f)
+    obj = await asyncio.to_thread(_read)
+    card_set = obj.get("card_set", None)
     return {
         "mtgstock": obj["id"],
         "card_name": obj.get("name", None),
@@ -28,8 +31,7 @@ async def process_info_file(path):
     }
 
 async def process_prices_file(path, id_dict):
-
-    df = pd.read_parquet(path)
+    df = await asyncio.to_thread(pd.read_parquet, path)
     # asyncpg.copy_to_table(..., header=True) maps by column NAME, so the
     # DataFrame columns must match pricing.raw_mtg_stock_price exactly.
     # The parquet file writes a `date` column; the DB column is `ts_date`.
@@ -75,7 +77,7 @@ async def bulk_load(price_repository: PriceRepository
     # Cache listdir once — the directory can hold ~500k entries on a full load.
     folders = os.listdir(root_folder)
     deleted = await price_repository.clear_raw_prices()
-    logger.info("bulk_load: cleared %d stale rows from raw_mtg_stock_price", deleted)
+    logger.info("bulk_load: cleared stale rows from raw_mtg_stock_price", extra={"deleted": deleted})
     async with track_step(ops_repository, ingestion_run_id, step_name):
         for i, folder in tqdm(enumerate(folders, 1), desc="Processing MTG Stock folders", total=len(folders)):
 
@@ -98,7 +100,7 @@ async def bulk_load(price_repository: PriceRepository
                 price_rows.append(price_df)
             except Exception as e:
                 folder_errors += 1
-                logger.warning(f"Error processing folder: {folder} Error: {e}")
+                logger.warning("Error processing folder", extra={"folder": folder, "error": str(e)})
             if i % batch_size == 0 and price_rows:
                 big_price_df = pd.concat(price_rows, ignore_index=True)
                 start = time.perf_counter()
@@ -127,7 +129,7 @@ async def bulk_load(price_repository: PriceRepository
                 await ops_repository.insert_batch_step(batch_result)
                 batch_number += 1
                 folder_errors = 0
-                logger.info("copy_prices took %.3f s for %d rows", elapsed, len(big_price_df))
+                logger.info("copy_prices batch complete", extra={"elapsed_s": round(elapsed, 3), "rows": len(big_price_df)})
                 price_rows.clear()
         # Leftover tail — flush anything remaining and record the final batch
         # step so the ops audit reflects the full load.
@@ -196,15 +198,15 @@ async def retry_rejects(price_repository: PriceRepository,
     rows = None
     async with track_step(ops_repository, ingestion_run_id, "retry_rejects"):
         logger.info(
-            "retry_rejects: starting limit=%d only_unresolved=%s ingestion_run_id=%s",
-            limit, only_unresolved, ingestion_run_id,
+            "retry_rejects: starting",
+            extra={"limit": limit, "only_unresolved": only_unresolved, "ingestion_run_id": ingestion_run_id},
         )
         rows = await price_repository.call_resolve_price_rejects(
             limit=limit, only_unresolved=only_unresolved
         )
         logger.info(
-            "retry_rejects: resolved %d reject rows (limit=%d only_unresolved=%s)",
-            rows, limit, only_unresolved,
+            "retry_rejects: resolved reject rows",
+            extra={"rows_resolved": rows, "limit": limit, "only_unresolved": only_unresolved},
         )
     return {"rows_resolved": rows}
 
