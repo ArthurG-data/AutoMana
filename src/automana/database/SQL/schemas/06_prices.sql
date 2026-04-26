@@ -388,7 +388,7 @@ DROP TABLE IF EXISTS pricing.stg_price_observation;
 -- carrying three metric columns (list_low_cents, list_avg_cents, sold_avg_cents) plus a raw
 -- `value` in source currency units (NUMERIC). product_id/card_version_id/source_product_id
 -- are expected to be already resolved by load_staging_prices_batched before insertion.
-CREATE TABLE pricing.stg_price_observation (
+CREATE UNLOGGED TABLE pricing.stg_price_observation (
     stg_id            BIGSERIAL      PRIMARY KEY,
     ts_date           DATE           NOT NULL,
     game_code         TEXT           NOT NULL,
@@ -511,6 +511,7 @@ BEGIN
   -- core/database.py, which makes this SET LOCAL a no-op on pool-recycled
   -- connections and avoids InvalidParameterValueError on second+ invocations.
   SET LOCAL synchronous_commit = off;
+  SET LOCAL max_parallel_workers_per_gather = 4;
 
   SELECT min(ts_date), max(ts_date) INTO v_min, v_max FROM pricing.raw_mtg_stock_price;
   IF v_min IS NULL THEN
