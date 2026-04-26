@@ -20,7 +20,7 @@ class PriceRepository(AbstractRepository):
             await self.connection.execute("ROLLBACK;")
             logger.info("Transaction rolled back successfully.")
         except Exception as e:
-            logger.error("Error rolling back transaction: %s", e)
+            logger.error("Error rolling back transaction", extra={"error": str(e)})
 
     async def _copy_to_table(self, df, schema_name, table_name, timeout: float = 300):
         buf = io.BytesIO()
@@ -76,7 +76,7 @@ class PriceRepository(AbstractRepository):
         `load_dim_from_staging` + `load_prices_from_dim_batched` which were
         never created in the live DB."""
         def _on_notify(conn, pid, channel, payload):
-            logger.info("DB notify %s: %s", channel, payload)
+            logger.info("DB notify", extra={"channel": channel, "payload": payload})
 
         try:
             await self.connection.add_listener('staging_log', _on_notify)
