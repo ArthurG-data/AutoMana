@@ -98,7 +98,9 @@ async def card_search_params(
     toughness: Optional[int] = Query(None, ge=0, description="Filter by toughness"),
     flavor_text: Optional[str] = Query(None, description="Filter by flavor text"),
     card_faces: Optional[List[UUID]] = Query(None, description="Filter by card faces"),
-    digital: Optional[bool] = Query(None, description="Filter by digital status")
+    digital: Optional[bool] = Query(None, description="Filter by digital status"),
+    oracle_text: Optional[str] = Query(None, description="Filter by oracle text (full-text search)"),
+    format: Optional[str] = Query(None, description="Filter by format legality (e.g. 'standard', 'modern')"),
 ):
     """Card search parameters"""
     return {
@@ -117,5 +119,7 @@ async def card_search_params(
         #"flavor_text": flavor_text,
         #"card_faces": card_faces,
         "digital": digital,
-        "card_type": card_type
+        "card_type": card_type,
+        "oracle_text": oracle_text,
+        "format": format,
     }

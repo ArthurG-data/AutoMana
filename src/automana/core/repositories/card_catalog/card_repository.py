@@ -82,63 +82,113 @@ class CardReferenceRepository(AbstractRepository[Any]):
                   card_id: UUID,
                  ) -> dict[str, Any]|None:
         # if a list
-    
+
         query = """ SELECT uc.card_name, r.rarity_name, s.set_name,s.set_code, uc.cmc, cv.oracle_text, s.released_at, s.digital, r.rarity_name
                 FROM card_catalog.unique_cards_ref uc
                 JOIN card_catalog.card_version cv ON uc.unique_card_id = cv.unique_card_id
                 JOIN card_catalog.rarities_ref r ON cv.rarity_id = r.rarity_id
-                JOIN card_catalog.sets s ON cv.set_id = s.set_id 
+                JOIN card_catalog.sets s ON cv.set_id = s.set_id
                 WHERE cv.card_version_id = $1;"""
 
         result = await self.execute_query(query, (card_id,))
         return result[0] if result else None
 
+    async def suggest(self, query: str, limit: int = 10) -> list[dict]:
+        """Return fuzzy name suggestions from the trigram-indexed suggest view.
+
+        Uses pg_trgm ``%`` operator for similarity matching and orders results
+        by descending ``word_similarity`` score. Callers should treat the
+        results as display hints, not authoritative search results.
+        """
+        sql = """
+            SELECT card_version_id, card_name, set_code, rarity_name,
+                   word_similarity($1, card_name) AS score
+            FROM card_catalog.v_card_name_suggest
+            WHERE $1 % card_name
+            ORDER BY score DESC
+            LIMIT $2
+        """
+        rows = await self.execute_query(sql, (query, limit))
+        return [dict(r) for r in rows]
+
     async def search(
-            self, 
+            self,
             name: Optional[str] = None,
             color: Optional[str] = None,
             rarity: Optional[str] = None,
             set_name: Optional[str] = None,
             mana_cost: Optional[int] = None,
             digital: Optional[bool] = None,
-            card_type : Optional[str] = None,
+            card_type: Optional[str] = None,
             released_after: Optional[str] = None,
             released_before: Optional[str] = None,
+            oracle_text: Optional[str] = None,
+            format: Optional[str] = None,
             limit: int = 100,
             offset: int = 0,
             sort_by: Optional[str] = "card_name",
-            sort_order: Optional[str] = "asc"
+            sort_order: Optional[str] = "asc",
     ) -> dict[str, Any]:
-        conditions = []
-        values = []
+        """Search card versions using the v_card_versions_complete materialized view.
+
+        Filters are ANDed together. When ``name`` or ``oracle_text`` are provided
+        the result is ranked by relevance; otherwise the ``sort_by`` / ``sort_order``
+        pair controls ordering.
+
+        Notes:
+            - ``color`` matches against ``color_identity`` (text[]) stored as
+              proper-cased colour names (e.g. 'White', 'Blue'). Callers must
+              pass the value in that casing.
+            - ``card_type`` matches against the ``types`` array (e.g. 'Creature').
+            - ``digital`` uses the per-card-version ``is_digital`` flag, not the
+              legacy per-set ``sets.digital`` column.
+            - ``released_after`` / ``released_before`` are satisfied via a JOIN to
+              ``card_catalog.sets`` because ``v_card_versions_complete`` does not
+              project ``released_at``.
+        """
+        conditions: list[str] = []
+        values: list[Any] = []
         counter = 1
 
+        # Track placeholder indices for relevance ORDER BY reuse —
+        # the same $N bound in WHERE is referenced again in ORDER BY without
+        # appending a duplicate value.
+        name_param_idx: Optional[int] = None
+        oracle_param_idx: Optional[int] = None
+
         if name:
-            conditions.append(f"uc.card_name ILIKE ${counter}")
-            values.append(f"%{name}%")
+            conditions.append(f"word_similarity(${counter}, v.card_name) > 0.3")
+            values.append(name)
+            name_param_idx = counter
             counter += 1
+
         if color:
-            conditions.append(f"cv.color ILIKE ${counter}")
-            values.append(f"%{color}%")
+            # color_identity is text[]; caller must use canonical casing (e.g. 'White').
+            conditions.append(f"${counter} = ANY(v.color_identity)")
+            values.append(color)
             counter += 1
+
         if rarity:
-            conditions.append(f"r.rarity_name ILIKE ${counter}")
+            conditions.append(f"v.rarity_name ILIKE ${counter}")
             values.append(f"%{rarity}%")
             counter += 1
+
         if set_name:
-            conditions.append(f"s.set_name ILIKE ${counter}")
+            conditions.append(f"v.set_name ILIKE ${counter}")
             values.append(f"%{set_name}%")
             counter += 1
-        if mana_cost:
-            conditions.append(f"uc.cmc = ${counter}")
+
+        if mana_cost is not None:
+            conditions.append(f"v.cmc = ${counter}")
             values.append(mana_cost)
             counter += 1
+
         if digital is not None:
-            conditions.append(f"s.digital = ${counter}")
+            # v.is_digital is the per-card-version flag (differs from the old s.digital set-level flag).
+            conditions.append(f"v.is_digital = ${counter}")
             values.append(digital)
             counter += 1
 
-        # Add date filters if provided
         if released_after:
             conditions.append(f"s.released_at > ${counter}")
             values.append(released_after)
@@ -149,34 +199,83 @@ class CardReferenceRepository(AbstractRepository[Any]):
             values.append(released_before)
             counter += 1
 
+        if card_type:
+            # types is text[]; caller must use canonical casing (e.g. 'Creature').
+            conditions.append(f"${counter} = ANY(v.types)")
+            values.append(card_type)
+            counter += 1
+
+        if oracle_text:
+            conditions.append(f"v.search_vector @@ websearch_to_tsquery('english', ${counter})")
+            values.append(oracle_text)
+            oracle_param_idx = counter
+            counter += 1
+
+        if format:
+            conditions.append(f"v.legalities->>${counter} = 'legal'")
+            values.append(format)
+            counter += 1
+
         where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
 
-        order_clause = f"ORDER BY {sort_by} {sort_order.upper()}"
+        # Dynamic ORDER BY: prefer relevance when text search params are present.
+        if name_param_idx and oracle_param_idx:
+            order_clause = (
+                f"ORDER BY ("
+                f"word_similarity(${name_param_idx}, v.card_name) + "
+                f"ts_rank_cd(v.search_vector, websearch_to_tsquery('english', ${oracle_param_idx}))"
+                f") DESC"
+            )
+        elif name_param_idx:
+            order_clause = f"ORDER BY word_similarity(${name_param_idx}, v.card_name) DESC"
+        elif oracle_param_idx:
+            order_clause = (
+                f"ORDER BY ts_rank_cd(v.search_vector, "
+                f"websearch_to_tsquery('english', ${oracle_param_idx})) DESC"
+            )
+        else:
+            safe_sort_by = sort_by if sort_by in {
+                "card_name", "cmc", "rarity_name", "set_name", "set_code"
+            } else "card_name"
+            safe_sort_order = "DESC" if (sort_order or "").upper() == "DESC" else "ASC"
+            order_clause = f"ORDER BY v.{safe_sort_by} {safe_sort_order}"
 
-        query = f""" SELECT uc.card_name, r.rarity_name, s.set_name,s.set_code, uc.cmc, cv.oracle_text, s.released_at, s.digital, r.rarity_name
-                FROM card_catalog.unique_cards_ref uc
-                JOIN card_catalog.card_version cv ON uc.unique_card_id = cv.unique_card_id
-                JOIN card_catalog.rarities_ref r ON cv.rarity_id = r.rarity_id
-                JOIN card_catalog.sets s ON cv.set_id = s.set_id
-                {where_clause}
-                {order_clause}
-                LIMIT ${counter} OFFSET ${counter + 1}
+        # JOIN sets for released_at (not projected by the view) and to filter on date range.
+        from_clause = (
+            "FROM card_catalog.v_card_versions_complete v"
+            " JOIN card_catalog.sets s ON s.set_id = v.set_id"
+        )
+
+        query = f"""
+            SELECT
+                v.card_version_id,
+                v.card_name,
+                v.rarity_name,
+                v.set_name,
+                v.set_code,
+                v.cmc,
+                v.oracle_text,
+                v.is_digital AS digital,
+                s.released_at
+            {from_clause}
+            {where_clause}
+            {order_clause}
+            LIMIT ${counter} OFFSET ${counter + 1}
         """
         values.extend([limit, offset])
         cards = await self.execute_query(query, tuple(values))
 
-        count_query = f""" SELECT COUNT(*) as total_count FROM card_catalog.unique_cards_ref uc
-                JOIN card_catalog.card_version cv ON uc.unique_card_id = cv.unique_card_id
-                JOIN card_catalog.rarities_ref r ON cv.rarity_id = r.rarity_id
-                JOIN card_catalog.sets s ON cv.set_id = s.set_id
-                {where_clause}
+        count_query = f"""
+            SELECT COUNT(*) AS total_count
+            {from_clause}
+            {where_clause}
         """
         count_values = values[:-2]
         count_result = await self.execute_query(count_query, tuple(count_values))
         total_count = count_result[0]["total_count"] if count_result else 0
         return {
             "cards": cards,
-            "total_count": total_count
+            "total_count": total_count,
         }
     async def list(self) -> dict[str, Any]:
         raise NotImplementedError("Method not implemented")

@@ -2,6 +2,7 @@
 
 -- TABLES------------------------------------
 BEGIN;
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
 CREATE TABLE IF NOT EXISTS card_catalog.unique_cards_ref (
     unique_card_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     card_name TEXT NOT NULL UNIQUE,
@@ -566,6 +567,31 @@ CREATE INDEX idx_v_card_versions_complete_types ON card_catalog.v_card_versions_
 CREATE INDEX idx_v_card_versions_complete_rarity ON card_catalog.v_card_versions_complete (rarity_name);
 CREATE INDEX idx_v_card_versions_complete_search ON card_catalog.v_card_versions_complete USING GIN (search_vector);
 CREATE INDEX idx_v_card_versions_complete_legalities ON card_catalog.v_card_versions_complete USING GIN (legalities);
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS card_catalog.v_card_name_suggest AS
+SELECT
+    cv.card_version_id,
+    uc.card_name,
+    s.set_code,
+    r.rarity_name
+FROM card_catalog.card_version cv
+JOIN card_catalog.unique_cards_ref uc ON cv.unique_card_id = uc.unique_card_id
+JOIN card_catalog.sets s ON cv.set_id = s.set_id
+JOIN card_catalog.rarities_ref r ON cv.rarity_id = r.rarity_id;
+
+-- Required for REFRESH MATERIALIZED VIEW CONCURRENTLY
+CREATE UNIQUE INDEX idx_v_card_name_suggest_pk
+    ON card_catalog.v_card_name_suggest (card_version_id);
+
+-- GIN trigram index for autocomplete fuzzy matching
+CREATE INDEX gin_trgm_idx_v_card_name_suggest
+    ON card_catalog.v_card_name_suggest
+    USING GIN (card_name gin_trgm_ops);
+
+-- GIN trigram index for fuzzy name ranking in full search
+CREATE INDEX gin_trgm_idx_v_card_versions_name
+    ON card_catalog.v_card_versions_complete
+    USING GIN (card_name gin_trgm_ops);
 
 
 --STORED PROCEDURE---------------------------
@@ -1159,29 +1185,26 @@ CREATE OR REPLACE FUNCTION card_catalog.refresh_card_versions_complete()
 RETURNS void AS $$
 BEGIN
     REFRESH MATERIALIZED VIEW CONCURRENTLY card_catalog.v_card_versions_complete;
-    
+
     -- Log refresh
     RAISE NOTICE 'Materialized view v_card_versions_complete refreshed at %', now();
 END;
 $$ LANGUAGE plpgsql;
 
--- ✅ AUTO REFRESH: Trigger function to auto-refresh on data changes
-CREATE OR REPLACE FUNCTION card_catalog.trigger_refresh_card_versions()
-RETURNS trigger AS $$
+CREATE OR REPLACE PROCEDURE card_catalog.refresh_card_search_views()
+LANGUAGE plpgsql AS $$
 BEGIN
-    -- Schedule refresh (you might want to implement a queue system for production)
-    PERFORM pg_notify('refresh_card_view', 'card_data_changed');
-    RETURN COALESCE(NEW, OLD);
+    REFRESH MATERIALIZED VIEW CONCURRENTLY card_catalog.v_card_versions_complete;
+    REFRESH MATERIALIZED VIEW CONCURRENTLY card_catalog.v_card_name_suggest;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
-CREATE TRIGGER tr_card_version_refresh 
-    AFTER INSERT OR UPDATE OR DELETE ON card_catalog.card_version
-    FOR EACH ROW EXECUTE FUNCTION card_catalog.trigger_refresh_card_versions();
-
-CREATE TRIGGER tr_unique_cards_refresh 
-    AFTER INSERT OR UPDATE OR DELETE ON card_catalog.unique_cards_ref
-    FOR EACH ROW EXECUTE FUNCTION card_catalog.trigger_refresh_card_versions();
+-- Per-row trigger removed: fired on every INSERT/UPDATE/DELETE during bulk ETL
+-- (30k+ full view recomputes per pipeline run). Views refreshed once per
+-- pipeline run via refresh_card_search_views().
+DROP TRIGGER IF EXISTS tr_card_version_refresh ON card_catalog.card_version;
+DROP TRIGGER IF EXISTS tr_unique_cards_refresh ON card_catalog.unique_cards_ref;
+DROP FUNCTION IF EXISTS card_catalog.trigger_refresh_card_versions();
 
     -- ✅ HELPER VIEWS: Additional views for common queries
 

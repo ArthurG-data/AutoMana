@@ -1,5 +1,5 @@
 ﻿
-from pydantic import Field, field_validator, model_validator, BaseModel
+from pydantic import ConfigDict, Field, field_validator, model_validator, BaseModel
 from uuid import UUID
 from typing import Any, Dict, Optional,  List, Union
 from automana.core.utils.type_parser import process_type_line
@@ -324,3 +324,17 @@ class CreateCards(BaseModel):
             "rarities": rarities,
             "sample_cards": [card.name for card in self.items[:3]]
         }
+
+
+class CardSuggestion(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    card_version_id: UUID
+    card_name: str
+    set_code: str
+    rarity_name: str
+    score: float
+
+
+class CardSuggestionResponse(BaseModel):
+    suggestions: list[CardSuggestion]
