@@ -231,7 +231,7 @@ async def retry_rejects(price_repository: PriceRepository,
             ingestion_run_id=ingestion_run_id, current_step=step_name, status="failed",
             error_details={"error": str(e)},
         )
-        logger.error("retry_rejects: failed with %s", e)
+        logger.exception("retry_rejects: failed with %s", e)
         raise
 
 

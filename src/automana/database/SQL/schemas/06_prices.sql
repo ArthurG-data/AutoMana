@@ -554,6 +554,12 @@ BEGIN
     v_end := LEAST(v_start + (batch_days - 1), v_max);
     v_ok :=false;
     BEGIN
+      -- Session locals are cleared by the previous COMMIT, so re-apply.
+      SET LOCAL work_mem                    = '512MB';
+      SET LOCAL maintenance_work_mem        = '1GB';
+      SET LOCAL synchronous_commit          = off;
+      SET LOCAL max_parallel_workers_per_gather = 4;
+
       RAISE NOTICE 'Loading raw -> staging for % to %', v_start, v_end;
       
       -- -------------------------------------------------------------------------
@@ -1296,8 +1302,7 @@ BEGIN
       r.print_id,
       r.card_version_id
     FROM tmp_resolved r
-    WHERE r.print_id IS NOT NULL
-      AND r.card_version_id IS NOT NULL
+    WHERE r.card_version_id IS NOT NULL
       AND r.resolution_method <> 'PRINT_ID'
   ),
   unambiguous_print AS (
