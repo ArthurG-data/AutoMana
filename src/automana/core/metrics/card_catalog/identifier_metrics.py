@@ -70,10 +70,11 @@ async def scryfall_id_coverage(card_repository: CardReferenceRepository) -> Metr
     db_repositories=["card"],
 )
 async def oracle_id_coverage(card_repository: CardReferenceRepository) -> MetricResult:
-    # oracle_id is per-abstract-card: the schema's UNIQUE (ref_id, value)
-    # constraint guarantees one row per oracle_id value, so per-card_version
-    # counting under-reports by the reprint rate. Measure against
-    # unique_cards_ref instead.
+    # oracle_id is per-abstract-card: one value is shared across every printing
+    # of the same MTG card. Measuring coverage per card_version would under-report
+    # by the average reprint rate (~3x). Measuring against unique_cards_ref instead
+    # correctly asks "does every abstract card have at least one printing with an
+    # oracle_id?" — which is the meaningful question.
     return await _coverage_by_unique_card(card_repository, "oracle_id")
 
 

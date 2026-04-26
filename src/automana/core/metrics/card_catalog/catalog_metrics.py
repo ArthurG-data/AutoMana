@@ -20,7 +20,13 @@ async def orphan_unique_cards(card_repository: CardReferenceRepository) -> Metri
 @MetricRegistry.register(
     path="card_catalog.duplicate_detection.external_id_value_collision",
     category="health",
-    description="Count of (card_identifier_ref_id, value) tuples appearing more than once (UNIQUE-constraint guard).",
+    description=(
+        "Count of (card_identifier_ref_id, value) pairs shared by more than one card_version_id "
+        "for identifiers that Scryfall/upstream guarantees are per-printing unique "
+        "(scryfall_id, multiverse_id, tcgplayer_etched_id, mtgjson_id). "
+        "tcgplayer_id, cardmarket_id, and oracle_id are excluded — they intentionally "
+        "share values across multiple card_version rows."
+    ),
     severity=Threshold(warn=1, error=1, direction="higher_is_worse"),
     db_repositories=["card"],
 )

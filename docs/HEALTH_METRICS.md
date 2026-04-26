@@ -26,13 +26,13 @@ Source: `src/automana/core/metrics/card_catalog/`. Backed by `CardReferenceRepos
 | Path | Category | Severity | What it catches |
 |---|---|---|---|
 | `card_catalog.identifier_coverage.scryfall_id` | health | `≤99% → WARN`, `≤95% → ERROR` | The 113k-orphan incident — silent JOIN failures when `card_identifier_ref` is empty or a name is misspelled. Headline metric. |
-| `card_catalog.identifier_coverage.oracle_id` | health | `≤99% → WARN`, `≤95% → ERROR` | Bulk identifier backfill stalled mid-run. **Measured against `unique_cards_ref`, not `card_version`** — `oracle_id` is per-abstract-card (one value shared across all printings; the schema's `UNIQUE (ref_id, value)` constraint enforces this). Per-printing measurement would under-report by the average reprint rate (~3x). |
+| `card_catalog.identifier_coverage.oracle_id` | health | `≤99% → WARN`, `≤95% → ERROR` | Bulk identifier backfill stalled mid-run. **Measured against `unique_cards_ref`, not `card_version`** — `oracle_id` is per-abstract-card (one value shared across all printings of the same MTG card). Per-printing measurement would under-report by the average reprint rate (~3x). |
 | `card_catalog.identifier_coverage.tcgplayer_id` | health | `≤80% → WARN`, `≤60% → ERROR` | TCGPlayer mapping pipeline failure. Lower threshold reflects that regional/promo cards may legitimately lack a TCGPlayer ID. |
 | `card_catalog.identifier_coverage.cardmarket_id` | health | `≤70% → WARN`, `≤50% → ERROR` | Same as above, even lower threshold reflecting Cardmarket's narrower regional coverage. |
 | `card_catalog.identifier_coverage.multiverse_id` | volume | none (informational) | Tracks the count of a deprecated identifier — no pass/fail, just drift detection. |
 | `card_catalog.identifier_coverage.tcgplayer_etched_id` | volume | none (informational) | Etched-printing count; expected to be a tiny subset. |
 | `card_catalog.print_coverage.orphan_unique_cards` | health | `≥5 → WARN`, `≥50 → ERROR` | `unique_cards_ref` rows with zero `card_version` children. Small counts are benign (tokens/emblems); large counts mean a set ingest stalled. |
-| `card_catalog.duplicate_detection.external_id_value_collision` | health | `≥1 → ERROR` | The UNIQUE constraint on `(card_identifier_ref_id, value)` should make this 0. Any non-zero count = constraint bypass or replication desync. |
+| `card_catalog.duplicate_detection.external_id_value_collision` | health | `≥1 → ERROR` | Count of `(card_identifier_ref_id, value)` pairs shared by more than one `card_version_id` **for per-printing-unique identifiers only** (`scryfall_id`, `multiverse_id`, `tcgplayer_etched_id`, `mtgjson_id`). `oracle_id`, `tcgplayer_id`, and `cardmarket_id` are excluded — they legitimately share values across multiple card_version rows. Any non-zero count = ingest duplicate or upstream data error. |
 
 `details` for coverage metrics carries `{identifier_name, covered, total}` so the operator can see the raw counts behind the percentage.
 
@@ -116,7 +116,7 @@ automana-run ops.audit.scryfall_identifier_coverage --raw_file_path /data/automa
 
 Each row's `details` reports:
 
-- `classification` — `per-printing` (1:1 ratio of refs to distinct values), `per-printing-with-collisions` (mild ~1.0x–1.5x), or `per-abstract-card` (≥1.5x — the value is shared across multiple printings and the schema's `UNIQUE (ref_id, value)` will silently drop reprints via `ON CONFLICT DO NOTHING`).
+- `classification` — `per-printing` (1:1 ratio of refs to distinct values), `per-printing-with-collisions` (mild ~1.0x–1.5x), or `per-abstract-card` (≥1.5x — the value is shared across multiple printings; `tcgplayer_id`/`cardmarket_id` fall here intentionally).
 - `source_pct` / `stored_pct` / `gap_pct` — what fraction of the universe has this identifier in the file vs in the DB. Severity is `OK` if `gap_pct < 1`, `WARN` ≥ 1, `ERROR` ≥ 5.
 - The denominator on the DB side switches by classification: per-abstract-card identifiers measure against `unique_cards_ref`; per-printing identifiers measure against `card_version`. Same semantics as the corresponding `identifier_coverage.*` metric, so an audit row should match its metric's value within rounding.
 
@@ -138,7 +138,7 @@ multiverse_id          per-printing             OK  61.12    61.12  0.00        
 tcgplayer_etched_id    per-printing             OK   1.08     1.07  0.01         1220       1.00
 ```
 
-The two WARNs reflect ~1% of `tcgplayer_id` and `cardmarket_id` values that are shared across multiple printings (typically foil/non-foil pairs of the same printing) and silently absorbed by `ON CONFLICT DO NOTHING` in `card_catalog.insert_full_card_version`. Whether this is acceptable or worth a schema change is a separate question; the audit just surfaces it.
+The two WARNs reflect ~1% of `tcgplayer_id` and `cardmarket_id` values that are shared across multiple printings (typically foil/non-foil pairs of the same physical product). This is the expected post-fix state — the `UNIQUE (card_identifier_ref_id, value)` constraint was intentionally dropped so both card_version rows can own their external_identifier row for the shared product ID. The WARN gap will resolve to ~0 once the Scryfall pipeline runs against the updated schema (the previously-dropped second printing row will now be inserted).
 
 The audit is registered under the `ops.audit.*` namespace, **not** `ops.integrity.*`, so the `pipeline-health-check` skill does not auto-discover it. This is intentional — it's a heavy I/O operation (~5s for a 512MB raw file) meant for on-demand investigation.
 

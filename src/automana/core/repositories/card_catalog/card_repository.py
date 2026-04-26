@@ -330,9 +330,12 @@ class CardReferenceRepository(AbstractRepository[Any]):
         value: str,
     ) -> "CardReferenceRepository.ExternalIdentifierRegistration":
         """Idempotently register one (card_version, identifier_name, value) row via a single-CTE round-trip."""
-        # ON CONFLICT targets the PK only. A UNIQUE (ref_id, value) collision
-        # against a different card_version_id will raise — external IDs like
-        # scryfall_id are globally unique per card_version by design.
+        # ON CONFLICT targets the PK only. There is no UNIQUE (ref_id, value)
+        # constraint — it was intentionally dropped so that shared identifiers
+        # like tcgplayer_id and cardmarket_id can be owned by multiple
+        # card_version rows (foil/non-foil pairs of the same physical product).
+        # A duplicate (card_version_id, ref_id) row is silently absorbed; any
+        # other combination inserts a new row, which is the correct behaviour.
         query = """
             WITH ref AS (
                 SELECT card_identifier_ref_id
@@ -496,10 +499,12 @@ class CardReferenceRepository(AbstractRepository[Any]):
 
         Use this for identifiers that are a property of the *abstract card* (one
         value per ``unique_card_id``) rather than per-printing — most notably
-        ``oracle_id``. The schema's ``UNIQUE (card_identifier_ref_id, value)``
-        constraint causes per-printing counting to under-report by the average
-        reprint rate (~3x for oracle_id), making the per-card_version metric
-        meaningless for these identifiers.
+        ``oracle_id``. Because ``oracle_id`` is shared across every printing of
+        the same abstract card, counting rows per ``card_version`` would
+        under-report coverage by the average reprint rate (~3x for oracle_id),
+        making the per-``card_version`` metric misleading for these identifiers.
+        Note: the ``UNIQUE (card_identifier_ref_id, value)`` constraint no longer
+        exists; multiple ``card_version`` rows can legally share one oracle_id value.
 
         Returns the same shape as :meth:`fetch_identifier_coverage_pct`:
         ``{'covered': int, 'total': int, 'pct': float|None}``. ``covered`` is
@@ -601,18 +606,34 @@ class CardReferenceRepository(AbstractRepository[Any]):
         return rows[0]["n"] if rows else 0
 
     async def fetch_external_id_value_collisions(self) -> int:
-        """COUNT of (card_identifier_ref_id, value) tuples appearing more than once.
+        """COUNT of (card_identifier_ref_id, value) tuples shared by more than one
+        card_version_id for identifiers that upstream guarantees are per-printing unique.
 
-        The table has a UNIQUE constraint on (card_identifier_ref_id, value);
-        any non-zero count indicates constraint bypass or replication desync.
+        The ``UNIQUE (card_identifier_ref_id, value)`` constraint was dropped intentionally
+        to allow tcgplayer_id and cardmarket_id to be shared by foil/non-foil pairs of the
+        same physical product.  However, identifiers that upstream guarantees are strictly
+        one-per-printing — ``scryfall_id``, ``multiverse_id``, ``tcgplayer_etched_id``, and
+        ``mtgjson_id`` — should never collide.  Any non-zero count here indicates a real bug:
+        either a duplicate ingest, a pipeline retry that produced duplicate rows, or an
+        upstream data error that slipped past validation.
+
+        Identifiers intentionally excluded (expected multi-card_version sharing):
+        - oracle_id      — one value per abstract card, shared across all printings
+        - tcgplayer_id   — one product per physical SKU; foil/non-foil pairs share
+        - cardmarket_id  — same sharing pattern as tcgplayer_id
         """
         query = """
         SELECT COUNT(*)::int AS n
         FROM (
-            SELECT card_identifier_ref_id, value
-            FROM card_catalog.card_external_identifier
-            GROUP BY card_identifier_ref_id, value
-            HAVING COUNT(*) > 1
+            SELECT cei.card_identifier_ref_id, cei.value
+            FROM card_catalog.card_external_identifier cei
+            JOIN card_catalog.card_identifier_ref cir
+              ON cir.card_identifier_ref_id = cei.card_identifier_ref_id
+            WHERE cir.identifier_name IN (
+                'scryfall_id', 'multiverse_id', 'tcgplayer_etched_id', 'mtgjson_id'
+            )
+            GROUP BY cei.card_identifier_ref_id, cei.value
+            HAVING COUNT(DISTINCT cei.card_version_id) > 1
         ) dup
         """
         rows = await self.execute_query(query, ())
