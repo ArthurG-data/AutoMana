@@ -166,7 +166,7 @@ async def bulk_load(price_repository: PriceRepository
     # Postgres forbids internal transaction control inside a CALL block, so
     # the service must run on a non-atomic connection.
     runs_in_transaction=False,
-    command_timeout=3600,
+    command_timeout=86400,  # 24h — 456M raw rows across 14 years; generous ceiling
 )
 async def from_raw_to_staging(price_repository: PriceRepository
                               , ops_repository: OpsRepository
@@ -178,7 +178,7 @@ async def from_raw_to_staging(price_repository: PriceRepository
     step_name = "raw_to_staging"
     await ops_repository.update_run(ingestion_run_id=ingestion_run_id,current_step=step_name ,status="running")
     try:
-        await price_repository.call_load_stage_from_raw(source_name=source_name)
+        await price_repository.call_load_stage_from_raw(source_name=source_name, ingestion_run_id=ingestion_run_id)
         await ops_repository.update_run(ingestion_run_id=ingestion_run_id,current_step=step_name ,status="success")
     except Exception as e:
         await ops_repository.update_run(ingestion_run_id=ingestion_run_id,current_step=step_name ,status="failed", error_details={"error": str(e)})
