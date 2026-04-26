@@ -593,6 +593,7 @@ CREATE INDEX gin_trgm_idx_v_card_versions_name
     ON card_catalog.v_card_versions_complete
     USING GIN (card_name gin_trgm_ops);
 
+GRANT SELECT ON card_catalog.v_card_name_suggest TO app_admin, app_rw, app_ro, agent_reader;
 
 --STORED PROCEDURE---------------------------
 CREATE OR REPLACE FUNCTION card_catalog.insert_full_card_version(
