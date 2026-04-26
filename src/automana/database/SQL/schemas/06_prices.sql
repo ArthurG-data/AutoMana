@@ -388,7 +388,7 @@ DROP TABLE IF EXISTS pricing.stg_price_observation;
 -- carrying three metric columns (list_low_cents, list_avg_cents, sold_avg_cents) plus a raw
 -- `value` in source currency units (NUMERIC). product_id/card_version_id/source_product_id
 -- are expected to be already resolved by load_staging_prices_batched before insertion.
-CREATE TABLE pricing.stg_price_observation (
+CREATE UNLOGGED TABLE pricing.stg_price_observation (
     stg_id            BIGSERIAL      PRIMARY KEY,
     ts_date           DATE           NOT NULL,
     game_code         TEXT           NOT NULL,
@@ -511,6 +511,7 @@ BEGIN
   -- core/database.py, which makes this SET LOCAL a no-op on pool-recycled
   -- connections and avoids InvalidParameterValueError on second+ invocations.
   SET LOCAL synchronous_commit = off;
+  SET LOCAL max_parallel_workers_per_gather = 4;
 
   SELECT min(ts_date), max(ts_date) INTO v_min, v_max FROM pricing.raw_mtg_stock_price;
   IF v_min IS NULL THEN
@@ -1155,9 +1156,15 @@ RETURNS bigint
 LANGUAGE plpgsql
 AS $$
 DECLARE
-  v_source_id smallint;
-  v_mtg_game_id smallint;
-  v_inserted bigint := 0;
+  v_source_id       smallint;
+  v_mtg_game_id     smallint;
+  v_inserted        bigint := 0;
+  v_selected        bigint := 0;
+  v_print_id        bigint := 0;
+  v_external_id     bigint := 0;
+  v_set_collector   bigint := 0;
+  v_unresolved      bigint := 0;
+  v_terminal_scry   bigint := 0;
 BEGIN
   -- mtgstock source
   SELECT ps.source_id INTO v_source_id
@@ -1184,9 +1191,12 @@ BEGIN
   CREATE TEMP TABLE tmp_rejects ON COMMIT DROP AS
   SELECT *
   FROM pricing.stg_price_observation_reject r
-  WHERE (NOT p_only_unresolved) OR r.resolved_at IS NULL AND is_terminal IS FALSE
+  WHERE (NOT p_only_unresolved) OR (r.resolved_at IS NULL AND is_terminal IS FALSE)
   ORDER BY r.resolution_attempted_at
   LIMIT p_limit;
+
+  SELECT COUNT(*) INTO v_selected FROM tmp_rejects;
+  RAISE NOTICE 'resolve_price_rejects: selected % candidates (only_unresolved=%)', v_selected, p_only_unresolved;
 
   --check first if the id is marked as migrated or merged in the migration tables (in case the reject was from a previous run and the dim_price_observation load procedure was fixed in the meantime to populate product_source_id directly)
 
@@ -1267,6 +1277,65 @@ BEGIN
   LEFT JOIN map_print mp ON mp.print_id = r.print_id
   LEFT JOIN map_ext   me ON me.print_id = r.print_id
   LEFT JOIN map_fb    mf ON mf.set_abbr = r.set_abbr AND mf.collector_number = r.collector_number;
+
+  SELECT
+    COUNT(*) FILTER (WHERE resolution_method = 'PRINT_ID'),
+    COUNT(*) FILTER (WHERE resolution_method = 'EXTERNAL_ID'),
+    COUNT(*) FILTER (WHERE resolution_method = 'SET_COLLECTOR'),
+    COUNT(*) FILTER (WHERE resolution_method = 'UNRESOLVED')
+  INTO v_print_id, v_external_id, v_set_collector, v_unresolved
+  FROM tmp_resolved;
+  RAISE NOTICE 'resolve_price_rejects: PRINT_ID=% EXTERNAL_ID=% SET_COLLECTOR=% UNRESOLVED=%',
+    v_print_id, v_external_id, v_set_collector, v_unresolved;
+
+  -- 1b) Back-fill mtgstock_id mapping for rows resolved via EXTERNAL_ID or
+  --     SET_COLLECTOR (PRINT_ID rows are already in card_external_identifier).
+  --     Mirrors the equivalent block in load_staging_prices_batched.
+  WITH resolved_prints AS (
+    SELECT DISTINCT
+      r.print_id,
+      r.card_version_id
+    FROM tmp_resolved r
+    WHERE r.print_id IS NOT NULL
+      AND r.card_version_id IS NOT NULL
+      AND r.resolution_method <> 'PRINT_ID'
+  ),
+  unambiguous_print AS (
+    SELECT rp.print_id, rp.card_version_id
+    FROM resolved_prints rp
+    JOIN (
+      SELECT print_id
+      FROM resolved_prints
+      GROUP BY print_id
+      HAVING count(DISTINCT card_version_id) = 1
+    ) ok USING (print_id)
+  ),
+  -- choose at most one print_id per card_version_id to avoid PK conflicts
+  pick_one_per_cv AS (
+    SELECT DISTINCT ON (card_version_id)
+      card_version_id,
+      print_id::text AS print_value
+    FROM unambiguous_print
+    ORDER BY card_version_id, print_id
+  ),
+  mtgstock_ref AS (
+    SELECT card_identifier_ref_id
+    FROM card_catalog.card_identifier_ref
+    WHERE identifier_name = 'mtgstock_id'
+    LIMIT 1
+  )
+  INSERT INTO card_catalog.card_external_identifier (card_identifier_ref_id, card_version_id, value)
+  SELECT
+    r.card_identifier_ref_id,
+    p.card_version_id,
+    p.print_value
+  FROM pick_one_per_cv p
+  CROSS JOIN mtgstock_ref r
+  LEFT JOIN card_catalog.card_external_identifier existing_pk
+    ON existing_pk.card_version_id = p.card_version_id
+   AND existing_pk.card_identifier_ref_id = r.card_identifier_ref_id
+  WHERE existing_pk.card_version_id IS NULL
+  ON CONFLICT (card_version_id, card_identifier_ref_id) DO NOTHING;
 
   -- 2) ensure product_ref + mtg_card_products for newly resolved card_version_id
   WITH need AS (
@@ -1349,6 +1418,7 @@ BEGIN
          AND r.sold_avg_cents IS NULL);
 
   GET DIAGNOSTICS v_inserted = ROW_COUNT;
+  RAISE NOTICE 'resolve_price_rejects: re-fed % rows into stg_price_observation', v_inserted;
 
   -- 5) mark resolved rejects as terminal. Natural match key in the wide
   --    model: (ts_date, print_id, is_foil, source_code, data_provider_id,
@@ -1387,7 +1457,8 @@ BEGIN
   WHERE m.migration_strategy = 'delete'
   AND m.old_scryfall_id::text = r.scryfall_id;
 
-
+  GET DIAGNOSTICS v_terminal_scry = ROW_COUNT;
+  RAISE NOTICE 'resolve_price_rejects: marked % rows terminal (scryfall delete)', v_terminal_scry;
 
   RETURN v_inserted;
 END;
