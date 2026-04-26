@@ -3,6 +3,7 @@ import pandas as pd
 from automana.core.repositories.app_integration.mtg_stock.price_repository import PriceRepository
 import time
 from automana.core.service_registry import ServiceRegistry
+from automana.core.services.ops.pipeline_services import track_step
 from tqdm import tqdm
 from automana.core.models.pipelines.mtg_stock import MTGStockBatchStep
 from automana.core.repositories.ops.ops_repository import OpsRepository
@@ -73,9 +74,9 @@ async def bulk_load(price_repository: PriceRepository
     ids_master_dict = {}
     # Cache listdir once — the directory can hold ~500k entries on a full load.
     folders = os.listdir(root_folder)
-    try:
-        if ingestion_run_id is not None:
-            await ops_repository.update_run(ingestion_run_id=ingestion_run_id,current_step=step_name ,status="running")
+    deleted = await price_repository.clear_raw_prices()
+    logger.info("bulk_load: cleared %d stale rows from raw_mtg_stock_price", deleted)
+    async with track_step(ops_repository, ingestion_run_id, step_name):
         for i, folder in tqdm(enumerate(folders, 1), desc="Processing MTG Stock folders", total=len(folders)):
 
             try:
@@ -102,7 +103,7 @@ async def bulk_load(price_repository: PriceRepository
                 big_price_df = pd.concat(price_rows, ignore_index=True)
                 start = time.perf_counter()
                 if ingestion_run_id is not None:
-                    await ops_repository.update_run(ingestion_run_id=ingestion_run_id,current_step=step_name ,status="running")
+                    await ops_repository.update_run(ingestion_run_id=ingestion_run_id, current_step=step_name, status="running")
                 await price_repository.copy_prices_mtgstock(big_price_df)
                 if ingestion_run_id is not None:
                     await ops_repository.update_ids_master_dict(ingestion_run_id=ingestion_run_id, ids_master_dict=ids_master_dict)
@@ -151,13 +152,6 @@ async def bulk_load(price_repository: PriceRepository
                     duration_ms=int(elapsed * 1000),
                 ))
             ids_master_dict.clear()
-    
-    except Exception as e:
-        if ingestion_run_id is not None:
-            await ops_repository.update_run(ingestion_run_id=ingestion_run_id,current_step=step_name ,status="failed", error_details={"error": str(e)})
-        raise e
-    if ingestion_run_id is not None:
-        await ops_repository.update_run(ingestion_run_id=ingestion_run_id,current_step=step_name ,status="success")
 
 @ServiceRegistry.register(
     path="mtg_stock.data_staging.from_raw_to_staging",
@@ -170,19 +164,13 @@ async def bulk_load(price_repository: PriceRepository
 )
 async def from_raw_to_staging(price_repository: PriceRepository
                               , ops_repository: OpsRepository
-                              , ingestion_run_id: int
+                              , ingestion_run_id: int = None
                               , source_name: str = "mtgstocks"):
     """Pivot raw wide rows into narrow stg_price_observation rows, resolving
     card_version_id via mtgstock_id → external ids → set+collector.
     `source_name` must match a `pricing.price_source.code` value."""
-    step_name = "raw_to_staging"
-    await ops_repository.update_run(ingestion_run_id=ingestion_run_id,current_step=step_name ,status="running")
-    try:
+    async with track_step(ops_repository, ingestion_run_id, "raw_to_staging"):
         await price_repository.call_load_stage_from_raw(source_name=source_name, ingestion_run_id=ingestion_run_id)
-        await ops_repository.update_run(ingestion_run_id=ingestion_run_id,current_step=step_name ,status="success")
-    except Exception as e:
-        await ops_repository.update_run(ingestion_run_id=ingestion_run_id,current_step=step_name ,status="failed", error_details={"error": str(e)})
-        raise e
 
 @ServiceRegistry.register(
     path="mtg_stock.data_staging.retry_rejects",
@@ -197,7 +185,7 @@ async def from_raw_to_staging(price_repository: PriceRepository
 )
 async def retry_rejects(price_repository: PriceRepository,
                         ops_repository: OpsRepository,
-                        ingestion_run_id: int,
+                        ingestion_run_id: int = None,
                         limit: int = 50000,
                         only_unresolved: bool = True):
     """Re-feed rows from stg_price_observation_reject back into staging via
@@ -205,11 +193,8 @@ async def retry_rejects(price_repository: PriceRepository,
     from_staging_to_prices so that rejects resolved via the new scryfall
     migration rows / identifier updates can still make it into the current
     day's price_observation promotion."""
-    step_name = "retry_rejects"
-    await ops_repository.update_run(
-        ingestion_run_id=ingestion_run_id, current_step=step_name, status="running"
-    )
-    try:
+    rows = None
+    async with track_step(ops_repository, ingestion_run_id, "retry_rejects"):
         logger.info(
             "retry_rejects: starting limit=%d only_unresolved=%s ingestion_run_id=%s",
             limit, only_unresolved, ingestion_run_id,
@@ -221,18 +206,7 @@ async def retry_rejects(price_repository: PriceRepository,
             "retry_rejects: resolved %d reject rows (limit=%d only_unresolved=%s)",
             rows, limit, only_unresolved,
         )
-        await ops_repository.update_run(
-            ingestion_run_id=ingestion_run_id, current_step=step_name, status="success",
-            notes=f"Resolved {rows} reject rows",
-        )
-        return {"rows_resolved": rows}
-    except Exception as e:
-        await ops_repository.update_run(
-            ingestion_run_id=ingestion_run_id, current_step=step_name, status="failed",
-            error_details={"error": str(e)},
-        )
-        logger.exception("retry_rejects: failed with %s", e)
-        raise
+    return {"rows_resolved": rows}
 
 
 @ServiceRegistry.register(
@@ -245,17 +219,11 @@ async def retry_rejects(price_repository: PriceRepository,
 )
 async def from_staging_to_prices(price_repository: PriceRepository
                                  , ops_repository: OpsRepository
-                                 , ingestion_run_id: int):
+                                 , ingestion_run_id: int = None):
     """Promote stg_price_observation rows into the pricing.price_observation
     hypertable via pricing.load_prices_from_staged_batched(). The previously
     separate `from_staging_to_dim` step has been removed — no
     `load_dim_from_staging` procedure exists in the DB."""
-    step_name = "staging_to_prices"
-    await ops_repository.update_run(ingestion_run_id=ingestion_run_id,current_step=step_name ,status="running")
-    try:
+    async with track_step(ops_repository, ingestion_run_id, "staging_to_prices"):
         await price_repository.call_load_prices_from_staging()
-        await ops_repository.update_run(ingestion_run_id=ingestion_run_id,current_step=step_name ,status="success")
-    except Exception as e:
-        await ops_repository.update_run(ingestion_run_id=ingestion_run_id,current_step=step_name ,status="failed", error_details={"error": str(e)})
-        raise e
 

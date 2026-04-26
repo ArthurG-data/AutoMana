@@ -63,14 +63,10 @@ class OpsRepository(AbstractRepository):
         already_started_successfully as (
             SELECT 1
                 FROM ops.ingestion_runs r
-                JOIN ops.ingestion_run_steps st
-                    ON st.ingestion_run_id = r.id
-                AND st.step_name = 'start'
-                AND st.status = 'success'
-                JOIN src
-                    ON r.source_id = src.id
+                JOIN src ON r.source_id = src.id
                 WHERE r.pipeline_name = $1
                     AND r.run_key = $3
+                    AND r.status = 'success'
             LIMIT 1
         ),
         upsert_run AS (

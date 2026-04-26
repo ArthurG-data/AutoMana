@@ -98,7 +98,7 @@ class TestRetryRejects:
         # error_details must include the exception message so the ops audit
         # row is useful.
         failed_call = ops_repo.update_run.await_args_list[-1]
-        assert "boom" in failed_call.kwargs["error_details"]["error"]
+        assert "boom" in failed_call.kwargs["error_details"]["message"]
 
     async def test_honors_custom_limit_and_only_unresolved(self):
         price_repo = AsyncMock()

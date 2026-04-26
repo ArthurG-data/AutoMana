@@ -388,22 +388,38 @@ ServiceError (base)
 
 **Where:** [`src/automana/core/services/ops/pipeline_services.py`](../src/automana/core/services/ops/pipeline_services.py), `track_step` async context manager (lines 9--44)
 
-**Implementation:** An async context manager that wraps a pipeline step. On entry, it marks the step as `running` in the ops repository. On clean exit, it marks it as `success`. On exception, it records the failure and re-raises.
+**Implementation:** An async context manager that wraps a pipeline step. On entry, it marks the step as `running` in the ops repository. On clean exit, it marks it as `success`. On exception, it records the failure with `error_details={"message": str(e)}` and re-raises.
 
 ```python
 @asynccontextmanager
-async def track_step(ops_repository, ingestion_run_id, step_name, ...):
+async def track_step(ops_repository, ingestion_run_id, step_name, error_code="step_failed"):
+    if not ops_repository or not ingestion_run_id:
+        yield          # no-op in standalone / test mode
+        return
     await ops_repository.update_run(ingestion_run_id, status="running", current_step=step_name)
     try:
         yield
     except Exception as e:
-        await ops_repository.update_run(ingestion_run_id, status="failed", ...)
+        await ops_repository.update_run(ingestion_run_id, status="failed",
+                                        error_code=error_code,
+                                        error_details={"message": str(e)})
         raise
     else:
-        await ops_repository.update_run(ingestion_run_id, status="success", ...)
+        await ops_repository.update_run(ingestion_run_id, status="success", current_step=step_name)
 ```
 
-**Why:** Provides structured observability for ETL pipelines. Every step's start time, end time, and status are recorded in `ops.ingestion_run_steps`. When a pipeline fails, operators can query the ops tables to see exactly which step failed and why, without parsing logs. The context manager is a no-op when `ops_repository` is `None`, allowing services to run standalone (via CLI) without ops tracking.
+**Canonical usage** (from `data_staging.py` and `scryfall/data_loader.py`):
+
+```python
+from automana.core.services.ops.pipeline_services import track_step
+
+async with track_step(ops_repository, ingestion_run_id, "my_step"):
+    result = await some_repository.do_work()
+```
+
+**Why:** Provides structured observability for ETL pipelines. Every step's start time, end time, and status are recorded in `ops.ingestion_run_steps`. When a pipeline fails, operators can query the ops tables to see exactly which step failed and why, without parsing logs. The context manager is a no-op when `ops_repository` or `ingestion_run_id` is `None`, allowing services to run standalone (via CLI or tests) without ops tracking — no `if ingestion_run_id is not None:` guards needed in service code.
+
+**Rule:** Pipeline services must use `track_step` for step-level ops tracking. Never call `ops_repository.update_run()` directly with `status="running"/"success"/"failed"` inside a service function — that pattern duplicates logic, misses the None guard, and produces inconsistent `error_details` keys. The only legitimate direct `update_run` calls inside a service are mid-loop progress heartbeats (e.g., per-batch status pings in `bulk_load`) that fall between the `track_step` entry and its yield.
 
 ---
 
@@ -449,3 +465,4 @@ These architectural rules are enforced by the patterns above:
 | No `autoretry_for` in pipeline tasks | Chain pattern (retry at `run_service` level, not per-pipeline-task) |
 | All config via `core/settings.py` | Strategy (`Settings` with Pydantic `BaseSettings`, `@lru_cache`, secret cascade) |
 | Schema changes need a migration | Repository pattern (all DDL under `database/SQL/migrations/`, enforced by `db_owner` RBAC) |
+| Pipeline services must use `track_step` for step ops tracking | Step Tracking pattern (`pipeline_services.py`) — direct `update_run(status=...)` calls inside services are forbidden |
