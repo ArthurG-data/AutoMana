@@ -61,16 +61,16 @@ class OpsRepository(AbstractRepository):
         LIMIT 1
         ),
         already_started_successfully as (
+            -- Only block re-runs for fully successful pipelines.
+            -- A failed or partial run must be retriable on the same day,
+            -- so we guard on the run row's final status, not the 'start'
+            -- step alone (which always succeeds even when the run later fails).
             SELECT 1
                 FROM ops.ingestion_runs r
-                JOIN ops.ingestion_run_steps st
-                    ON st.ingestion_run_id = r.id
-                AND st.step_name = 'start'
-                AND st.status = 'success'
-                JOIN src
-                    ON r.source_id = src.id
+                JOIN src ON r.source_id = src.id
                 WHERE r.pipeline_name = $1
                     AND r.run_key = $3
+                    AND r.status = 'success'
             LIMIT 1
         ),
         upsert_run AS (
