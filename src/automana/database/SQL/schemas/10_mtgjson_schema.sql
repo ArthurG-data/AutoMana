@@ -63,10 +63,14 @@ BEGIN
     RAISE EXCEPTION 'batch_days must be > 0 (got %)', batch_days;
   END IF;
 
-  -- normalize finish
+  -- normalize finish: map 'normal'→'NONFOIL' first, then uppercase everything
   UPDATE pricing.mtgjson_card_prices_staging
   SET finish_type = 'NONFOIL'
   WHERE lower(finish_type) = 'normal';
+
+  UPDATE pricing.mtgjson_card_prices_staging
+  SET finish_type = UPPER(finish_type)
+  WHERE finish_type IS NOT NULL;
 
   -- normalize tcgplayer
   UPDATE pricing.mtgjson_card_prices_staging
@@ -129,7 +133,7 @@ BEGIN
 
       -- upsert observations
       with src AS (
-        SELECT ps.source_id, ps.name, ps.currency_code
+        SELECT ps.source_id, ps.code, ps.name, ps.currency_code
         FROM pricing.price_source ps
       ),
       fin AS (
@@ -160,21 +164,23 @@ BEGIN
       s.source_id
     FROM pricing.mtgjson_card_prices_staging st
     JOIN src s
-      ON s.name = st.price_source
+      ON s.code = st.price_source
     AND s.currency_code = st.currency
     JOIN prod p
       ON p.card_uuid::uuid = st.card_uuid::uuid
-  -- WHERE st.price_date::date BETWEEN v_start AND v_end
-    where st.price_date IS NOT NULL
-      AND st.card_uuid IS NOT NULL
-      AND st.price_source IS NOT NULL
-      AND st.currency IS NOT NULL
+  WHERE st.price_date::date BETWEEN v_start AND v_end
+    AND st.price_date IS NOT NULL
+    AND st.card_uuid IS NOT NULL
+    AND st.price_source IS NOT NULL
+    AND st.currency IS NOT NULL
   ),
   insert_product_source AS (
     INSERT INTO pricing.source_product (product_id, source_id)
     SELECT product_id, source_id
     FROM pairs
-    ON CONFLICT (product_id, source_id) DO NOTHING--option 3
+    ON CONFLICT (product_id, source_id) DO UPDATE
+      SET product_id = EXCLUDED.product_id  -- no-op; ensures RETURNING fires on conflicts too
+    RETURNING source_product_id, product_id, source_id
   ),
         staged AS (
           SELECT
@@ -189,7 +195,7 @@ BEGIN
           FROM pricing.mtgjson_card_prices_staging s
           JOIN pricing.transaction_type tt
             ON tt.transaction_type_code = s.price_type
-          --WHERE s.price_date::date BETWEEN v_start AND v_end
+          WHERE s.price_date::date BETWEEN v_start AND v_end
             AND s.price_date IS NOT NULL
             AND s.card_uuid  IS NOT NULL
             AND s.price_source IS NOT NULL
@@ -209,15 +215,15 @@ BEGIN
             sp.source_product_id
           FROM staged st
           JOIN src
-            ON src.name = st.price_source
+            ON src.code = st.price_source
           AND src.currency_code = st.currency
           JOIN fin
             ON fin.code = st.finish_type
           JOIN prod
           ON prod.card_uuid::uuid = st.card_uuid::uuid
-          JOIN pricing.source_product sp
-            ON sp.product_id = prod.product_id 
-        --  AND sp.source_id  = src.source_id
+          JOIN insert_product_source sp
+            ON sp.product_id = prod.product_id
+           AND sp.source_id = src.source_id
         ),
         upserted AS (
           INSERT INTO pricing.price_observation (
@@ -265,7 +271,7 @@ BEGIN
       -- delete only rows that resolved (same resolution logic) -- the card from store has been insert
       WITH
       src AS (
-        SELECT ps.source_id, ps.name, ps.currency_code
+        SELECT ps.source_id, ps.code, ps.name, ps.currency_code
         FROM pricing.price_source ps
       ),
       fin AS (
@@ -313,7 +319,7 @@ BEGIN
         JOIN pricing.transaction_type tt
           ON tt.transaction_type_code = st.price_type
         JOIN src
-          ON src.name = st.price_source AND src.currency_code = st.currency
+          ON src.code = st.price_source AND src.currency_code = st.currency
         JOIN fin
           ON fin.code = st.finish_type
         JOIN prod
@@ -341,10 +347,6 @@ BEGIN
       RAISE NOTICE 'Batch % to %: upserted %, deleted %',
           v_start, v_end, v_upserted, v_deleted;
       COMMIT;
-    ELSE
-       RAISE NOTICE 'Batch % to % failed, rolling back. Upserted %, deleted %',
-          v_start, v_end, v_upserted, v_deleted;
-        ROLLBACK;
     END IF;
     v_start := v_end + 1;
   END LOOP;

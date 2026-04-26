@@ -270,7 +270,8 @@ INSERT INTO card_catalog.card_identifier_ref (identifier_name) VALUES
     ('multiverse_id'),
     ('tcgplayer_id'),
     ('tcgplayer_etched_id'),
-    ('cardmarket_id')
+    ('cardmarket_id'),
+    ('mtgjson_id')
 ON CONFLICT (identifier_name) DO NOTHING;
 
 -- The (card_identifier_ref_id, value) pair is intentionally NOT unique. Some

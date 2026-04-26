@@ -483,7 +483,7 @@ ON pricing.stg_price_observation (ts_date, source_product_id, is_foil);
 -- exist in the live stg_price_observation table. The live DB procedure body has been updated
 -- separately. If re-applying this file, update the INSERT block to use the metric_code/value model.
 ------------------------------------------------------------------
-CREATE OR REPLACE PROCEDURE pricing.load_staging_prices_batched(source_name VARCHAR(20), batch_days int DEFAULT 30)--drop first
+CREATE OR REPLACE PROCEDURE pricing.load_staging_prices_batched(source_name VARCHAR(20), batch_days int DEFAULT 30, p_ingestion_run_id INT DEFAULT NULL)
 LANGUAGE plpgsql
 AS $$
 DECLARE
@@ -497,6 +497,9 @@ DECLARE
   v_data_provider_id SMALLINT;
   cur_rows bigint;
   total_inserted bigint := 0;
+  v_batch_seq   INT := 0;
+  v_batch_start TIMESTAMPTZ;
+  v_total_days  INT;
 
 BEGIN
   -- determine overall date range from raw data
@@ -514,6 +517,7 @@ BEGIN
     RAISE NOTICE 'load_staging_prices_batched: no rows in raw_mtg_stock_price';
     RETURN;
   END IF;
+  v_total_days := (v_max - v_min) + 1;
 
   --will need to add the foil code translation in the same way as the metric code and source code translation
   SELECT ps.source_id INTO v_source_id
@@ -544,6 +548,8 @@ BEGIN
 
   v_start := v_min;
   WHILE v_start <= v_max LOOP
+    v_batch_seq   := v_batch_seq + 1;
+    v_batch_start := clock_timestamp();
     v_end := LEAST(v_start + (batch_days - 1), v_max);
     v_ok :=false;
     BEGIN
@@ -882,6 +888,32 @@ BEGIN
       COMMIT;
     ELSE
       ROLLBACK;
+    END IF;
+    IF p_ingestion_run_id IS NOT NULL THEN
+      INSERT INTO ops.ingestion_step_batches (
+        ingestion_run_step_id, batch_seq, range_start, range_end,
+        status, items_ok, items_failed, duration_ms, error_details
+      )
+      SELECT
+        st.id,
+        v_batch_seq,
+        EXTRACT(EPOCH FROM v_start)::bigint,
+        EXTRACT(EPOCH FROM v_end)::bigint,
+        CASE WHEN v_ok THEN 'success' ELSE 'failed' END,
+        CASE WHEN v_ok THEN cur_rows ELSE 0 END,
+        0,
+        ROUND(EXTRACT(EPOCH FROM (clock_timestamp() - v_batch_start)) * 1000)::int,
+        jsonb_build_object('date_start', v_start::text, 'date_end', v_end::text,
+                           'total_inserted', total_inserted)
+      FROM ops.ingestion_run_steps st
+      WHERE st.ingestion_run_id = p_ingestion_run_id
+        AND st.step_name = 'raw_to_staging'
+      LIMIT 1
+      ON CONFLICT (ingestion_run_step_id, batch_seq) DO NOTHING;
+      UPDATE ops.ingestion_run_steps
+      SET progress = ROUND(100.0 * (v_end - v_min + 1) / NULLIF(v_total_days, 0), 2)
+      WHERE ingestion_run_id = p_ingestion_run_id AND step_name = 'raw_to_staging';
+      COMMIT;
     END IF;
       v_start := v_end + 1;
   END LOOP;
