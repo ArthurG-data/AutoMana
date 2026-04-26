@@ -27,7 +27,7 @@ class TestServiceConfigFlags:
         cfg = ServiceRegistry.get("mtg_stock.data_staging.from_raw_to_staging")
         assert cfg is not None
         assert cfg.runs_in_transaction is False
-        assert cfg.command_timeout == 3600
+        assert cfg.command_timeout == 86400  # 24h ceiling for 456M raw rows
 
     def test_from_staging_to_prices_is_non_atomic(self):
         cfg = ServiceRegistry.get("mtg_stock.data_staging.from_staging_to_prices")

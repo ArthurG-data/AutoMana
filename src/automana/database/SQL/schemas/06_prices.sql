@@ -500,6 +500,17 @@ DECLARE
   v_batch_seq   INT := 0;
   v_batch_start TIMESTAMPTZ;
   v_total_days  INT;
+  -- Promotion dimension IDs — resolved once before the loop
+  v_price_type_id      int;
+  v_finish_foil_id     smallint;
+  v_finish_default_id  smallint;
+  v_condition_id       smallint;
+  v_language_id        smallint;
+  -- Per-batch promotion counters
+  v_prom_rows          bigint;
+  v_prom_deleted       bigint;
+  total_promoted       bigint := 0;
+  total_staged_drained bigint := 0;
 
 BEGIN
   -- determine overall date range from raw data
@@ -548,12 +559,38 @@ BEGIN
   -- CREATE TABLE IF NOT EXISTS that used to live here was removed.
 
   v_start := v_min;
+
+  -- Resolve promotion dimension IDs once — stable across all batches.
+  v_finish_default_id := pricing.default_finish_id();
+  SELECT cf.finish_id INTO v_finish_foil_id
+  FROM pricing.card_finished cf
+  WHERE lower(cf.code) IN ('foil', 'foiled', 'premium')
+  ORDER BY cf.finish_id LIMIT 1;
+  IF v_finish_foil_id IS NULL THEN
+    v_finish_foil_id := v_finish_default_id;
+  END IF;
+  SELECT tt.transaction_type_id INTO v_price_type_id
+  FROM pricing.transaction_type tt
+  WHERE lower(tt.transaction_type_code) = 'sell'
+  ORDER BY tt.transaction_type_id LIMIT 1;
+  IF v_price_type_id IS NULL THEN
+    RAISE EXCEPTION 'No ''sell'' row in pricing.transaction_type';
+  END IF;
+  v_condition_id := pricing.default_condition_id();
+  v_language_id  := card_catalog.default_language_id();
+
   WHILE v_start <= v_max LOOP
     v_batch_seq   := v_batch_seq + 1;
     v_batch_start := clock_timestamp();
     v_end := LEAST(v_start + (batch_days - 1), v_max);
     v_ok :=false;
     BEGIN
+      -- Session locals are cleared by the previous COMMIT, so re-apply.
+      SET LOCAL work_mem                    = '512MB';
+      SET LOCAL maintenance_work_mem        = '1GB';
+      SET LOCAL synchronous_commit          = off;
+      SET LOCAL max_parallel_workers_per_gather = 4;
+
       RAISE NOTICE 'Loading raw -> staging for % to %', v_start, v_end;
       
       -- -------------------------------------------------------------------------
@@ -877,7 +914,104 @@ BEGIN
       GET DIAGNOSTICS cur_rows = ROW_COUNT;
       total_inserted := total_inserted + cur_rows;
 
-      RAISE NOTICE 'Inserted % rows for batch', cur_rows;
+      -- -----------------------------------------------------------------------
+      -- Inline promotion: drain staging rows for this date window immediately.
+      -- Keeps stg_price_observation from accumulating across the full run.
+      -- Uses distinct temp-table names (_prom_batch/_prom_dedup) to avoid
+      -- colliding with the _batch/_dedup names in load_prices_from_staged_batched.
+      -- -----------------------------------------------------------------------
+      DROP TABLE IF EXISTS _prom_batch;
+      CREATE TEMP TABLE _prom_batch ON COMMIT DROP AS
+      SELECT
+        s.stg_id,
+        s.ts_date,
+        s.source_product_id,
+        s.data_provider_id,
+        v_price_type_id::int                              AS price_type_id,
+        CASE WHEN s.is_foil THEN v_finish_foil_id
+             ELSE v_finish_default_id END                 AS finish_id,
+        v_condition_id                                    AS condition_id,
+        v_language_id                                     AS language_id,
+        s.list_low_cents,
+        s.list_avg_cents,
+        s.sold_avg_cents,
+        s.scraped_at
+      FROM pricing.stg_price_observation s
+      WHERE s.ts_date >= v_start
+        AND s.ts_date <= v_end
+        AND NOT (s.list_low_cents IS NULL
+             AND s.list_avg_cents IS NULL
+             AND s.sold_avg_cents IS NULL);
+
+      DROP TABLE IF EXISTS _prom_dedup;
+      CREATE TEMP TABLE _prom_dedup ON COMMIT DROP AS
+      SELECT *
+      FROM (
+        SELECT b.*,
+               row_number() OVER (
+                 PARTITION BY
+                   b.ts_date,
+                   b.source_product_id,
+                   b.price_type_id,
+                   b.finish_id,
+                   b.condition_id,
+                   b.language_id,
+                   b.data_provider_id
+                 ORDER BY b.scraped_at DESC, b.stg_id DESC
+               ) AS rn
+        FROM _prom_batch b
+      ) x
+      WHERE rn = 1;
+
+      INSERT INTO pricing.price_observation (
+        ts_date, source_product_id, price_type_id,
+        finish_id, condition_id, language_id, data_provider_id,
+        list_low_cents, list_avg_cents, sold_avg_cents,
+        scraped_at
+      )
+      SELECT
+        ts_date, source_product_id, price_type_id,
+        finish_id, condition_id, language_id, data_provider_id,
+        list_low_cents, list_avg_cents, sold_avg_cents,
+        scraped_at
+      FROM _prom_dedup
+      ORDER BY ts_date
+      ON CONFLICT (ts_date, source_product_id, price_type_id,
+                   finish_id, condition_id, language_id, data_provider_id)
+      DO UPDATE SET
+        list_low_cents = CASE
+          WHEN EXCLUDED.scraped_at >= pricing.price_observation.scraped_at
+               AND EXCLUDED.list_low_cents IS NOT NULL
+            THEN EXCLUDED.list_low_cents
+          ELSE pricing.price_observation.list_low_cents
+        END,
+        list_avg_cents = CASE
+          WHEN EXCLUDED.scraped_at >= pricing.price_observation.scraped_at
+               AND EXCLUDED.list_avg_cents IS NOT NULL
+            THEN EXCLUDED.list_avg_cents
+          ELSE pricing.price_observation.list_avg_cents
+        END,
+        sold_avg_cents = CASE
+          WHEN EXCLUDED.scraped_at >= pricing.price_observation.scraped_at
+               AND EXCLUDED.sold_avg_cents IS NOT NULL
+            THEN EXCLUDED.sold_avg_cents
+          ELSE pricing.price_observation.sold_avg_cents
+        END,
+        scraped_at = GREATEST(pricing.price_observation.scraped_at, EXCLUDED.scraped_at),
+        updated_at = now();
+
+      GET DIAGNOSTICS v_prom_rows = ROW_COUNT;
+      total_promoted := total_promoted + v_prom_rows;
+
+      DELETE FROM pricing.stg_price_observation s
+      USING _prom_batch b
+      WHERE s.stg_id = b.stg_id;
+
+      GET DIAGNOSTICS v_prom_deleted = ROW_COUNT;
+      total_staged_drained := total_staged_drained + v_prom_deleted;
+
+      RAISE NOTICE 'Batch % to %: staged %, promoted %, drained %',
+                   v_start, v_end, cur_rows, v_prom_rows, v_prom_deleted;
       v_ok := true;
     EXCEPTION WHEN OTHERS THEN
       RAISE WARNING 'Error processing batch % to %: %', v_start, v_end, SQLERRM;
@@ -905,7 +1039,8 @@ BEGIN
         0,
         ROUND(EXTRACT(EPOCH FROM (clock_timestamp() - v_batch_start)) * 1000)::int,
         jsonb_build_object('date_start', v_start::text, 'date_end', v_end::text,
-                           'total_inserted', total_inserted)
+                           'total_inserted', total_inserted,
+                           'promoted', v_prom_rows)
       FROM ops.ingestion_run_steps st
       WHERE st.ingestion_run_id = p_ingestion_run_id
         AND st.step_name = 'raw_to_staging'
@@ -920,7 +1055,8 @@ BEGIN
   END LOOP;
   -- stg_price_obs_date_spid_foil_idx is pre-created by 06_prices.sql schema section;
   -- CREATE INDEX IF NOT EXISTS removed — same reason as CREATE TABLE above.
-  RAISE NOTICE 'load_staging_prices_batched: total inserted % rows', total_inserted;
+  RAISE NOTICE 'load_staging_prices_batched: total staged %, promoted %, drained %',
+               total_inserted, total_promoted, total_staged_drained;
 END;
 $$;
 
@@ -1296,8 +1432,7 @@ BEGIN
       r.print_id,
       r.card_version_id
     FROM tmp_resolved r
-    WHERE r.print_id IS NOT NULL
-      AND r.card_version_id IS NOT NULL
+    WHERE r.card_version_id IS NOT NULL
       AND r.resolution_method <> 'PRINT_ID'
   ),
   unambiguous_print AS (
