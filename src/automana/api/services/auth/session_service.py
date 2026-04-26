@@ -41,6 +41,10 @@ async def validate_session_credentials(
         raise session_exceptions.SessionExpiredError(f"Session {session_id} is expired")
     return session
 
+@ServiceRegistry.register(
+    "auth.session.get_user_from_session",
+    db_repositories=["session", "user"],
+)
 async def get_user_from_session(
     session_repository,
     user_repository,
@@ -117,7 +121,7 @@ async def rotate_session_token(session_repository: SessionRepository
         settings = get_general_settings()
         refresh_token = create_access_token(data={"session_id": str(session_id)}
                                             , expires_delta=timedelta(days=7)
-                                            , secret_key=settings.secret_key
+                                            , secret_key=settings.jwt_secret_key
                                             , algorithm=settings.encrypt_algorithm
                                             )
         await session_repository.rotate_token(token_id
@@ -130,7 +134,7 @@ async def create_new_session(session_repository: SessionRepository, user: UserIn
     session_id = uuid4()
     settings = get_general_settings()
     logger.info(f"Creating new session for user {user.username} with ID {session_id} at IP {ip_address} and user agent {user_agent}")
-    refresh_token = create_access_token(data={"session_id": str(session_id)}, secret_key=settings.secret_key, algorithm=settings.encrypt_algorithm, expires_delta=timedelta(days=7))
+    refresh_token = create_access_token(data={"session_id": str(session_id)}, secret_key=settings.jwt_secret_key, algorithm=settings.encrypt_algorithm, expires_delta=timedelta(days=7))
     new_session = CreateSession(
         session_id=session_id,
         user_id=user.unique_id,

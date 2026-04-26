@@ -214,6 +214,30 @@ The nginx image selects the config at build time via a build arg:
 - dev uses `nginx.local.conf` (wired in `deploy/docker-compose.dev.yml`)
 - prod uses `nginx.prod.conf` (wired in `deploy/docker-compose.prod.yml`)
 
+### Proxy configuration
+
+The nginx config defines per-location proxy settings:
+
+| Location | Purpose | HTTP version | Timeouts |
+|----------|---------|--------------|----------|
+| `/health` | Backend health probe | 1.1 | 2s connect/send/read |
+| `/api/` | Application API + WebSocket | 1.1 | 60s connect/send/read |
+| `/flower/` | Celery task monitoring | 1.1 | 60s connect/send/read |
+| `/docs` | OpenAPI documentation | 1.1 | (default 60s) |
+| `/` | Catchall | 1.1 | (default 60s) |
+
+**Key note:** All locations use `proxy_http_version 1.1` to enable the upstream connection keepalive pool (32 connections), which would be unused under HTTP/1.0. The `/health` location has short 2-second timeouts to prevent cascading proxy restarts when the backend hiccups (the Docker healthcheck has a 5-second timeout).
+
+### Security headers
+
+All responses on HTTPS (port 443) include:
+
+- `Strict-Transport-Security: max-age=31536000; includeSubDomains` (HSTS)
+- `X-Frame-Options: SAMEORIGIN` (clickjacking protection)
+- `X-Content-Type-Options: nosniff` (MIME sniffing prevention)
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'`
+
 ## Flower (Celery monitoring)
 
 Flower provides a real-time web UI for inspecting Celery workers and tasks.

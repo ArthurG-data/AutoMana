@@ -117,6 +117,14 @@ class PriceRepository(AbstractRepository):
     async def copy_prices_mtgstock(self, df):
         await self._copy_to_table(df, "pricing", "raw_mtg_stock_price")
 
+    async def clear_raw_prices(self) -> int:
+        """Delete all rows from the raw landing table. Returns deleted row count."""
+        rows = await self.execute_query(
+            "WITH del AS (DELETE FROM pricing.raw_mtg_stock_price RETURNING 1) "
+            "SELECT count(*)::int AS n FROM del"
+        )
+        return rows[0]["n"] if rows else 0
+
     # ------------------------------------------------------------------
     # Metric-registry primitives
     # ------------------------------------------------------------------

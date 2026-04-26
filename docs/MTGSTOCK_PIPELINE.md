@@ -278,7 +278,7 @@ pricing.raw_mtg_stock_price
 
 **Why non-atomic:** the asyncpg pool's default `command_timeout` is 60 s (see `core/database.py`). A single COPY of a 10 000-folder batch can exceed that limit, which surfaces as `AttributeError: 'NoneType' object has no attribute 'done'` inside asyncpg's `base_protocol.py`. Running without an outer transaction also allows per-batch audit rows to commit incrementally rather than being held open for the entire bulk load.
 
-**Re-run idempotency caveat:** `pricing.raw_mtg_stock_price` has no primary key or uniqueness constraint, and `bulk_load` does not `TRUNCATE` the table before loading. If a run crashes mid-way and is re-run, duplicate rows accumulate in the raw landing table. Stage 2 (`load_staging_prices_batched`) pivots those duplicates forward into staging; Stage 4 (`load_prices_from_staged_batched`) deduplicates on the fact-table primary key before the upsert, so duplicates do not propagate to `pricing.price_observation`. This is a pre-existing design property of the landing table, not introduced by the timeout change.
+**Re-run idempotency:** `pricing.raw_mtg_stock_price` has no primary key or uniqueness constraint. `bulk_load` issues a `DELETE FROM pricing.raw_mtg_stock_price` before starting the folder traversal so each run starts from a clean landing table. If `bulk_load` crashes after the clear but before all folders are loaded, re-running will start clean again — no duplicate accumulation. Stage 4 (`load_prices_from_staged_batched`) deduplicates on the fact-table primary key regardless, so any duplicates that slipped through would not propagate to `pricing.price_observation`.
 
 ### Idempotency
 

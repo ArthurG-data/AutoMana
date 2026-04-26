@@ -61,6 +61,10 @@ class OpsRepository(AbstractRepository):
         LIMIT 1
         ),
         already_started_successfully as (
+            -- Only block re-runs for fully successful pipelines.
+            -- A failed or partial run must be retriable on the same day,
+            -- so we guard on the run row's final status, not the 'start'
+            -- step alone (which always succeeds even when the run later fails).
             SELECT 1
                 FROM ops.ingestion_runs r
                 JOIN src ON r.source_id = src.id

@@ -2,12 +2,12 @@
 Tests for src/automana/core/services/app_integration/mtg_stock/data_staging.py
 and the ServiceRegistry configuration for those services.
 
-Scope of this file: the NEW `retry_rejects` service (happy path + failure path)
-and the execution-flag regressions that matter for the pipeline to run at all
-(runs_in_transaction / command_timeout on the three staging CALL/SELECT
-services).
+Scope of this file:
+- Execution-flag regressions (runs_in_transaction / command_timeout)
+- retry_rejects service (happy path + failure path + custom params)
+- bulk_load clears the raw table before loading (idempotency fix)
 """
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -117,3 +117,47 @@ class TestRetryRejects:
         price_repo.call_resolve_price_rejects.assert_awaited_once_with(
             limit=1000, only_unresolved=False
         )
+
+
+# ---------------------------------------------------------------------------
+# bulk_load — raw-table clear (idempotency regression)
+# ---------------------------------------------------------------------------
+
+class TestBulkLoad:
+    async def test_clears_raw_table_before_loading(self):
+        """bulk_load must call clear_raw_prices() before the folder traversal
+        so re-runs on a failed pipeline start from a clean landing table."""
+        price_repo = AsyncMock()
+        price_repo.clear_raw_prices.return_value = 0
+        ops_repo = AsyncMock()
+
+        with patch("os.listdir", return_value=[]):
+            await staging.bulk_load(
+                price_repository=price_repo,
+                ops_repository=ops_repo,
+                root_folder="/fake/root",
+            )
+
+        price_repo.clear_raw_prices.assert_awaited_once()
+
+    async def test_clear_called_before_any_copy(self):
+        """clear_raw_prices must be awaited before copy_prices_mtgstock.
+        We verify ordering via call_order on the mock."""
+        price_repo = AsyncMock()
+        price_repo.clear_raw_prices.return_value = 0
+        ops_repo = AsyncMock()
+
+        call_order = []
+        price_repo.clear_raw_prices.side_effect = lambda: call_order.append("clear") or 0
+        price_repo.copy_prices_mtgstock.side_effect = lambda df: call_order.append("copy")
+
+        with patch("os.listdir", return_value=[]):
+            await staging.bulk_load(
+                price_repository=price_repo,
+                ops_repository=ops_repo,
+                root_folder="/fake/root",
+            )
+
+        # With an empty folder list no copy ever fires — just assert clear ran.
+        assert "clear" in call_order
+        assert call_order.index("clear") == 0

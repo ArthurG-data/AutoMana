@@ -62,21 +62,29 @@ insert_batch_card_query = """
 """
 
 delete_card_query = """
-                BEGIN;
-                WITH 
-                delete_card_version AS (
-                DELETE FROM card_catalog.card_version WHERE card_version_id = %s ON CASCADE
-                RETURNING unique_card_id AS deleted_card_id
-                ),
-                DELETE FROM unique_card_ref 
-                    WHERE unique_card_id IN (
-                        SELECT deleted_card_id FROM delete_card_version
-                    )
-                    AND NOT EXISTS (
-                        SELECT 1 FROM card_version
-                        WHERE card_id IN (
-                            SELECT deleted_card_id FROM delete_card_version
-                    )
-                );
-                COMMIT;
+    WITH
+    del_stats    AS (DELETE FROM card_catalog.card_version_stats        WHERE card_version_id = $1),
+    del_illus    AS (DELETE FROM card_catalog.card_version_illustration  WHERE card_version_id = $1),
+    del_games    AS (DELETE FROM card_catalog.games_card_version         WHERE card_version_id = $1),
+    del_promo    AS (DELETE FROM card_catalog.promo_card                 WHERE card_version_id = $1),
+    del_faces    AS (DELETE FROM card_catalog.card_faces                 WHERE card_version_id = $1),
+    del_ext_id   AS (DELETE FROM card_catalog.card_external_identifier   WHERE card_version_id = $1),
+    del_products AS (DELETE FROM pricing.mtg_card_products               WHERE card_version_id = $1),
+    del_prices_d AS (DELETE FROM pricing.print_price_daily               WHERE card_version_id = $1),
+    del_prices_w AS (DELETE FROM pricing.print_price_weekly              WHERE card_version_id = $1),
+    deleted_version AS (
+        DELETE FROM card_catalog.card_version
+        WHERE card_version_id = $1
+        RETURNING unique_card_id
+    ),
+    del_unique AS (
+        DELETE FROM card_catalog.unique_cards_ref
+        WHERE unique_card_id IN (SELECT unique_card_id FROM deleted_version)
+          AND NOT EXISTS (
+              SELECT 1 FROM card_catalog.card_version
+              WHERE unique_card_id IN (SELECT unique_card_id FROM deleted_version)
+                AND card_version_id != $1
+          )
+    )
+    SELECT unique_card_id FROM deleted_version
 """

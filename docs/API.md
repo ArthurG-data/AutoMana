@@ -140,8 +140,9 @@ Base: `/api/catalog/mtg`
 
 Card reference (`/api/catalog/mtg/card-reference`)
 
+- `GET /api/catalog/mtg/card-reference/suggest` — autocomplete card names (typo-tolerant, fuzzy matching via pg_trgm; `q` min 2 chars, `limit` 1-20; cached 10 min)
 - `GET /api/catalog/mtg/card-reference/{card_id}` — get card by id
-- `GET /api/catalog/mtg/card-reference/` — search cards (paginated)
+- `GET /api/catalog/mtg/card-reference/` — search cards (paginated; supports `name`, `oracle_text`, `format`, plus other filters; cached 60 min)
 - `POST /api/catalog/mtg/card-reference/` — insert a card
 - `POST /api/catalog/mtg/card-reference/bulk` — insert up to 50 cards
 - `POST /api/catalog/mtg/card-reference/upload-file` — upload large JSON file

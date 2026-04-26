@@ -36,6 +36,30 @@ Quick in-container check:
 docker exec -it automana-proxy-prod sh -lc "wget -qO- http://backend:8000/health || true"
 ```
 
+## Proxy healthcheck failing / proxy container repeatedly restarting
+
+The nginx proxy container's healthcheck (`wget ... /health`) is timing out or failing.
+
+Likely cause: Backend is slow or temporarily unresponsive. The nginx `/health` location has 2-second proxy timeouts (see `OPERATIONS.md` → "Service healthchecks"). If the backend takes longer, the healthcheck fails, and Docker restarts the proxy.
+
+Checks:
+
+```bash
+# Check proxy healthcheck logs
+docker compose -f deploy/docker-compose.dev.yml logs --tail 50 proxy
+
+# Check backend health directly
+curl http://localhost:8000/health
+
+# Check backend logs for slowness
+docker compose -f deploy/docker-compose.dev.yml logs --tail 100 backend
+```
+
+If the backend is slow:
+- Check database connectivity: `docker compose -f deploy/docker-compose.dev.yml logs --tail 50 postgres`
+- Verify asyncpg pool is initialized correctly (check `src/automana/core/database.py` pool settings)
+- Ensure Redis is healthy: `docker compose -f deploy/docker-compose.dev.yml logs --tail 50 redis`
+
 ## HTTPS issues / browser warnings
 
 Your default certs are mounted from `config/nginx/certs/` and may be self-signed.
@@ -62,6 +86,22 @@ Ensure `DATABASE_URL` (in `config/env/.env.prod`) uses `postgres` as host:
 
 - ✅ `...@postgres:5432/...`
 - ❌ `...@localhost:5432/...`
+
+## InterfaceError during long-running batch operations (e.g., bulk_load)
+
+Error: `InterfaceError: connection has been released back to the pool`
+
+Likely cause: The database connection was silently closed by the OS TCP stack during a long idle window (e.g., 30-50s of CPU-heavy batch processing with no DB activity).
+
+This is prevented by TCP keepalive settings configured in `src/automana/core/database.py`:
+- `tcp_keepalives_idle`: 60s before first probe
+- `tcp_keepalives_interval`: 10s between probes
+- `tcp_keepalives_count`: 5 probes before giving up
+
+If you still see this error:
+- Ensure the asyncpg pool is reinitialized (pool is created once at app startup via `init_async_pool()`)
+- Check that `max_inactive_connection_lifetime=3600` is set in the pool config
+- Verify the backend container is not being restarted mid-operation
 
 ## Postgres init scripts did not run
 

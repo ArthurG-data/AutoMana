@@ -127,7 +127,9 @@ async def login( user_repository: UserRepository
             "session_creation",
             extra={"action": "login", "username": username, "result": "create_session"},
         )
-        session_id, refresh_token = await create_new_session(session_repository, user, ip_address, user_agent, expire_time)
+        new_session = await create_new_session(session_repository, user, ip_address, user_agent, expire_time)
+        session_id = new_session["session_id"]
+        refresh_token = new_session["refresh_token"]
     # Create access token
     token_data = {
         "sub": user.username,
@@ -136,7 +138,7 @@ async def login( user_repository: UserRepository
     # Create JWT token with settings from configuration
     access_token = create_access_token(
         data=token_data,
-        secret_key=settings.secret_key,
+        secret_key=settings.jwt_secret_key,
         algorithm=settings.encrypt_algorithm,
         expires_delta=access_token_expires
     )
