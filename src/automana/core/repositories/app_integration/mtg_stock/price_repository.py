@@ -22,13 +22,6 @@ class PriceRepository(AbstractRepository):
         except Exception as e:
             logger.error("Error rolling back transaction: %s", e)
 
-    async def clear_raw_prices(self) -> int:
-        rows = await self.execute_query(
-            "WITH del AS (DELETE FROM pricing.raw_mtg_stock_price RETURNING 1) "
-            "SELECT count(*)::int AS n FROM del"
-        )
-        return rows[0]["n"] if rows else 0
-
     async def _copy_to_table(self, df, schema_name, table_name, timeout: float = 300):
         buf = io.BytesIO()
         df.to_csv(buf, index=False, header=True, encoding='utf-8')
@@ -97,19 +90,6 @@ class PriceRepository(AbstractRepository):
                 await self.connection.remove_listener('staging_log', _on_notify)
             except Exception:
                 pass
-
-    async def fetch_all_prices(self, schema_name, table_name):
-        """
-        Fetch all rows from the staging table for verification.
-        """
-        fetch_query = f"SELECT COUNT(*) FROM {schema_name}.{table_name};"
-        try:
-            count = await self.execute_query(fetch_query)
-            logger.info(f"Fetched {count} rows from {schema_name}.{table_name}.")
-            return count
-        except Exception as e:
-            logger.error(f"Error fetching data from {schema_name}.{table_name}: {e}")
-            return 0
 
     async def copy_prices(self, df):
         await self._copy_to_table(df, "pricing", "shopify_staging_raw")

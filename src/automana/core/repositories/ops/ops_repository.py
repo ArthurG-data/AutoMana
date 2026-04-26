@@ -1,6 +1,9 @@
 ﻿import json
+import logging
 from datetime import date as date_type
 from automana.core.repositories.abstract_repositories.AbstractDBRepository import AbstractRepository
+
+logger = logging.getLogger(__name__)
 from automana.core.repositories.ops.scryfall_data import update_bulk_scryfall_data_sql
 from automana.core.repositories.ops.integrity_check_sql import (
     scryfall_run_diff_sql,
@@ -45,8 +48,7 @@ class OpsRepository(AbstractRepository):
             query,
             batch_step.to_tuple()
         )
-    #beed to include the ressource upsert as well
-    async def start_run(self, 
+    async def start_run(self,
                         pipeline_name: str,
                           source_name: str,
                           run_key: str,
@@ -313,7 +315,7 @@ class OpsRepository(AbstractRepository):
             update_bulk_scryfall_data_sql,
             (json.dumps(items), ingestion_run_id)#source_id
         )
-        print("update_bulk_data_uri_return_new result:", result)
+        logger.debug("update_bulk_data_uri_return_new result: %s", result)
         record = result[0] if result and len(result) > 0 else None
         ressources_upserted = record.get("resources_upserted") if record else 0
         versions_inserted = record.get("versions_inserted") if record else 0
