@@ -210,8 +210,16 @@ async def retry_rejects(price_repository: PriceRepository,
         ingestion_run_id=ingestion_run_id, current_step=step_name, status="running"
     )
     try:
+        logger.info(
+            "retry_rejects: starting limit=%d only_unresolved=%s ingestion_run_id=%s",
+            limit, only_unresolved, ingestion_run_id,
+        )
         rows = await price_repository.call_resolve_price_rejects(
             limit=limit, only_unresolved=only_unresolved
+        )
+        logger.info(
+            "retry_rejects: resolved %d reject rows (limit=%d only_unresolved=%s)",
+            rows, limit, only_unresolved,
         )
         await ops_repository.update_run(
             ingestion_run_id=ingestion_run_id, current_step=step_name, status="success",
@@ -223,6 +231,7 @@ async def retry_rejects(price_repository: PriceRepository,
             ingestion_run_id=ingestion_run_id, current_step=step_name, status="failed",
             error_details={"error": str(e)},
         )
+        logger.error("retry_rejects: failed with %s", e)
         raise
 
 
