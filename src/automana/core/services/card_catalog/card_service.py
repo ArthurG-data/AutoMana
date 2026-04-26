@@ -128,13 +128,15 @@ async def search_cards(card_repository: CardReferenceRepository
                    , mana_cost: Optional[int] = None
                    , digital: Optional[bool] = None
                    , card_type: Optional[str] = None
+                   , oracle_text: Optional[str] = None
+                   , format: Optional[str] = None
                    # Pagination
                    , limit: int = 100
                    , offset: int = 0
                    , sort_by: str = "name"
                    , sort_order: str = "asc"
                    ) -> CardSearchResult:
-    logger.info("Searching cards", extra={"name": name, "color": color, "rarity": rarity, "card_id": str(card_id) if card_id else None, "set_name": set_name, "mana_cost": mana_cost, "digital": digital})
+    logger.info("Searching cards", extra={"card_name": name, "color": color, "rarity": rarity, "card_id": str(card_id) if card_id else None, "set_name": set_name, "mana_cost": mana_cost, "digital": digital})
     try:
         params = {
             "name": name,
@@ -147,6 +149,8 @@ async def search_cards(card_repository: CardReferenceRepository
             "mana_cost": mana_cost,
             "digital": digital,
             "card_type": card_type,
+            "oracle_text": oracle_text,
+            "format": format,
             "limit": limit,
             "offset": offset,
             "sort_by": sort_by,
@@ -179,6 +183,8 @@ async def search_cards(card_repository: CardReferenceRepository
                                                digital=digital,
                                                released_after=released_after,
                                                released_before=released_before,
+                                               oracle_text=oracle_text,
+                                               format=format,
                                                limit=limit,
                                                offset=offset,
                                                sort_by=sort_by,
@@ -223,7 +229,7 @@ async def suggest_cards(
 
     rows = await card_repository.suggest(query=query, limit=limit)
     suggestions = [CardSuggestion(**r) for r in rows]
-    set_to_cache(cache_key, [s.model_dump() for s in suggestions], expiry_seconds=600)
+    set_to_cache(cache_key, [s.model_dump(mode="json") for s in suggestions], expiry_seconds=600)
     return CardSuggestionResponse(suggestions=suggestions)
 
 

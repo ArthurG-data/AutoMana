@@ -1,7 +1,9 @@
+import os
 import redis
 import orjson, json
 
-redis_client = redis.Redis(host='localhost', port=6379, db=0)
+_broker_url = os.getenv("BROKER_URL", "redis://localhost:6379/0")
+redis_client = redis.Redis.from_url(_broker_url)
 
 
 def get_from_cache(key: str):

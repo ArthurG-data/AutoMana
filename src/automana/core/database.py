@@ -45,6 +45,13 @@ async def init_async_pool(settings:Settings) -> asyncpg.Pool:
                 min_size=2,
                 max_size=10,
                 command_timeout=60,
+                # Keep long-lived acquired connections alive across the
+                # CPU-heavy inter-batch windows in bulk_load (~30-50 s of
+                # no DB activity).  Without keepalive the OS TCP stack can
+                # silently drop the connection and asyncpg raises
+                # InterfaceError("connection has been released back to the
+                # pool") on the next query.
+                max_inactive_connection_lifetime=3600,
                 server_settings={
                     "client_encoding": "UTF8",
                     "search_path": _SEARCH_PATH,
@@ -61,6 +68,11 @@ async def init_async_pool(settings:Settings) -> asyncpg.Pool:
                     #   InvalidParameterValueError: "temp_buffers" cannot be
                     #   changed after any temporary tables have been accessed.
                     "temp_buffers": "32768",  # 32768 × 8 kB = 256 MB
+                    # OS-level TCP keepalive so Postgres doesn't close idle
+                    # connections silently during long Python-side batch work.
+                    "tcp_keepalives_idle": "60",
+                    "tcp_keepalives_interval": "10",
+                    "tcp_keepalives_count": "5",
                 },
             )
             logger.info("Async pool created")
