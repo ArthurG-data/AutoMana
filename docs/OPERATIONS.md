@@ -128,6 +128,32 @@ docker compose -f deploy/docker-compose.prod.yml start backend
 
 If your prod DB/user names differ, use the values from `config/env/.env.prod`.
 
+## Database connection pool (asyncpg)
+
+The backend application uses asyncpg's connection pool with TCP keepalive and timeout configuration to handle long-running batch operations (e.g., bulk pricing imports).
+
+### Pool settings (in `src/automana/core/database.py`)
+
+| Setting | Value | Purpose |
+|---------|-------|---------|
+| `min_size` | 2 | Minimum concurrent connections |
+| `max_size` | 10 | Maximum concurrent connections |
+| `command_timeout` | 60s | Default timeout per SQL command |
+| `max_inactive_connection_lifetime` | 3600s (1h) | Recycle idle connections to prevent stale state |
+| `server_settings.temp_buffers` | 32768 (256 MB) | Pre-allocate staging buffer for batch procedures; prevents `InvalidParameterValueError` on recycled connections |
+
+### TCP keepalive settings (PostgreSQL session-level)
+
+To prevent the OS TCP stack from silently dropping connections during long Python-side batch work (e.g., 30-50s CPU-heavy inter-batch windows in MTGStock bulk_load):
+
+| Setting | Value | Purpose |
+|---------|-------|---------|
+| `tcp_keepalives_idle` | 60s | Seconds before first keepalive probe |
+| `tcp_keepalives_interval` | 10s | Interval between probes |
+| `tcp_keepalives_count` | 5 | Probes before giving up |
+
+**Why this matters:** Without keepalive, idle connections can be closed by the OS or an intermediate proxy, causing `InterfaceError('connection has been released back to the pool')` on the next query, especially during multi-hour bulk pricing imports. These settings ensure the connection stays alive across long idle windows.
+
 ## Flower (Celery monitoring)
 
 Flower provides a real-time web UI for inspecting Celery workers and tasks.
@@ -237,9 +263,25 @@ All services in docker-compose.dev.yml have healthchecks configured:
 | `backend` | `python3 urllib.request.urlopen('http://localhost:8000/health')` | Direct to backend |
 | `postgres` | `pg_isready -U admin -d automana` | Database ready probe |
 | `redis` | `redis-cli ping` | Cache ready probe |
-| `proxy` | `wget -qO- --no-check-certificate https://localhost/health` | Reverse proxy ready; uses wget (curl not available) |
+| `proxy` | `wget -qO- --no-check-certificate https://localhost/health` | Reverse proxy ready; uses wget (curl not available); 5s timeout matches nginx `/health` timeouts |
 | `celery-beat` | `test -f /tmp/celerybeat.pid && kill -0 $(cat /tmp/celerybeat.pid)` | Process alive check |
 | `celery-worker` | `celery -A automana.worker.main:app inspect ping` | Worker responds to inspect |
 | `flower` | `python -c "import urllib.request; urllib.request.urlopen('http://localhost:5555/healthcheck')"` | Flower endpoint |
 
 All services except `schema-spy` have `restart: unless-stopped` configured.
+
+### Nginx proxy timeouts and keepalive
+
+The nginx reverse proxy in `deploy/docker/nginx/nginx.local.conf` has per-location timeout configuration:
+
+| Location | Timeouts | HTTP version | Notes |
+|----------|----------|--------------|-------|
+| `/health` | connect 2s, send 2s, read 2s | 1.1 | Short timeouts prevent cascade failures; matches 5s Docker healthcheck budget |
+| `/api/` | connect 60s, send 60s, read 60s | 1.1 | Long timeouts for API calls and WebSocket upgrades |
+| `/flower/` | connect 60s, send 60s, read 60s | 1.1 | Celery monitoring; supports WebSocket upgrades |
+| `/docs` | (no explicit timeouts) | 1.1 | Inherits nginx defaults; HTTP/1.1 enables upstream keepalive |
+| `/` (catchall) | (no explicit timeouts) | 1.1 | Inherits nginx defaults; HTTP/1.1 enables upstream keepalive |
+
+**Why HTTP/1.1 everywhere:** The `upstream fastapi_backend` block defines `keepalive 32`, which only works with HTTP/1.1. Prior versions defaulted to HTTP/1.0, making the keepalive pool ineffective. Setting `proxy_http_version 1.1` explicitly activates connection pooling for all locations.
+
+**Why `/health` has short timeouts:** The proxy container's Docker healthcheck (5s limit) must complete before timeout. If the backend hiccups and nginx waits the default 60s for a response, the healthcheck fails and the proxy restarts repeatedly, cascading failures. Short timeouts (2s) allow the healthcheck to fail fast and retry.

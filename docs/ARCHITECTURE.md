@@ -205,6 +205,18 @@ Important settings include:
 - `DATA_DIR` (base path for file storage)
 - `DISCORD_WEBHOOK_URL` (analytics notifications)
 
+## Caching
+
+**Application-level caching** uses Redis via a thin wrapper in [`src/automana/core/utils/redis_cache.py`](../src/automana/core/utils/redis_cache.py):
+
+- **Card search suggest** — 10-minute cache (TTL) for autocomplete queries; key is SHA256(query, limit)
+- **Card search full** — 60-minute cache for full search queries; key is SHA256 of all filter parameters
+- **Other services** — Register caches in the service via `service_manager.execute_service("path.to.cache_key", ...)`
+
+**Configuration:** `BROKER_URL` (e.g. `redis://redis:6379/0`) comes from environment; no hardcoded defaults.
+
+**Cache invalidation:** Pipeline tasks (`daily_scryfall_data_pipeline`, `daily_mtgjson_data_pipeline`) call `card_catalog.card_search.invalidate` and `card_catalog.card_search.refresh` after bulk card imports to clear and rebuild search indexes.
+
 ## Deployment
 
 ### Reverse proxy (nginx)
