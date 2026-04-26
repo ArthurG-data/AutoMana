@@ -25,6 +25,8 @@ def daily_scryfall_data_pipeline(self):
         run_service.s("card_catalog.set.process_large_sets_json"), 
         run_service.s("staging.scryfall.download_cards_bulk"),
         run_service.s("card_catalog.card.process_large_json"),
+        run_service.s("card_catalog.card_search.refresh"),
+        run_service.s("card_catalog.card_search.invalidate"),
         # Migrations must land AFTER the card import: `new_scryfall_id` values
         # reference rows we just upserted into `card_catalog.card_version`,
         # and any pipeline that resolves deprecated IDs via
@@ -122,6 +124,8 @@ def daily_mtgjson_data_pipeline(self):
         # resolved rows from staging. No parameters — operates over the
         # whole staging table.
         run_service.s("staging.mtgjson.promote_to_price_observation"),
+        run_service.s("card_catalog.card_search.refresh"),
+        run_service.s("card_catalog.card_search.invalidate"),
         # Sliding-window retention on the on-disk .xz archive. Runs inside
         # the tracked run so cleanup failures surface as a failed step
         # (rather than silently accumulating stale files).

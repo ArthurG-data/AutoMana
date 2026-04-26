@@ -1,9 +1,9 @@
 ﻿import os,tempfile, logging
 from typing import List
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status, BackgroundTasks
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status, BackgroundTasks
 from uuid import UUID
 from automana.api.schemas.StandardisedQueryResponse import ApiResponse, PaginatedResponse, PaginationInfo
-from automana.core.models.card_catalog.card import BaseCard, CreateCard, CreateCards
+from automana.core.models.card_catalog.card import BaseCard, CardSuggestionResponse, CreateCard, CreateCards
 from automana.api.dependancies.service_deps import ServiceManagerDep
 from automana.api.dependancies.query_deps import (sort_params
                                              ,card_search_params
@@ -22,6 +22,25 @@ card_reference_router = APIRouter(
                500: {'description': 'Internal Server Error'},
                }
 )
+
+@card_reference_router.get('/suggest', response_model=ApiResponse[CardSuggestionResponse])
+async def suggest_cards(
+    service_manager: ServiceManagerDep,
+    q: str = Query(..., min_length=2, description="Partial card name to autocomplete"),
+    limit: int = Query(10, ge=1, le=20, description="Maximum suggestions to return"),
+) -> ApiResponse[CardSuggestionResponse]:
+    try:
+        result = await service_manager.execute_service(
+            "card_catalog.card.suggest",
+            query=q,
+            limit=limit,
+        )
+        return ApiResponse(data=result, message="Suggestions retrieved successfully")
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
 
 @card_reference_router.get('/{card_id}', response_model=ApiResponse[BaseCard])
 async def get_card_info(card_id: UUID
@@ -62,19 +81,17 @@ async def get_cards(
             sort_order=sorting.sort_order,
             **search)
         cards = result.cards if result else []
-
         total_count = result.total_count if result else 0
-        if cards:
-            return PaginatedResponse[BaseCard](
-                data=cards,
-                pagination=PaginationInfo(
-                    limit=pagination.limit,
-                    offset=pagination.offset,
-                    total_count=total_count,
-                    has_next=len(cards) == pagination.limit,
-                    has_previous=pagination.offset > 0
-                )
+        return PaginatedResponse[BaseCard](
+            data=cards,
+            pagination=PaginationInfo(
+                limit=pagination.limit,
+                offset=pagination.offset,
+                total_count=total_count,
+                has_next=len(cards) == pagination.limit,
+                has_previous=pagination.offset > 0
             )
+        )
     except HTTPException:
         raise
     except Exception as e:

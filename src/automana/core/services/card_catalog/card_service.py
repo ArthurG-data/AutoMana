@@ -3,16 +3,18 @@ from datetime import datetime, timezone
 from dataclasses import dataclass
 from typing import  Optional, List, Dict, Any, Callable
 from pathlib import Path
+import hashlib
 import ijson, asyncio, logging, json
 from automana.core.repositories.ops.ops_repository import OpsRepository
 from automana.core.services.ops.pipeline_services import track_step
 from automana.core.models.card_catalog import card as card_schemas
 from automana.core.repositories.card_catalog.card_repository import CardReferenceRepository
-from automana.core.models.card_catalog.card import BaseCard
+from automana.core.models.card_catalog.card import BaseCard, CardSuggestion, CardSuggestionResponse
 from automana.core.exceptions.service_layer_exceptions.card_catalogue import card_exception
 from automana.core.service_registry import ServiceRegistry
 from automana.core.models.pipelines.mtg_stock import  MTGStockBatchStep
-from automana.core.storage import StorageService 
+from automana.core.storage import StorageService
+from automana.core.utils.redis_cache import get_from_cache, set_to_cache, redis_client
 
 logger = logging.getLogger(__name__)
 
@@ -134,14 +136,42 @@ async def search_cards(card_repository: CardReferenceRepository
                    ) -> CardSearchResult:
     logger.info("Searching cards", extra={"name": name, "color": color, "rarity": rarity, "card_id": str(card_id) if card_id else None, "set_name": set_name, "mana_cost": mana_cost, "digital": digital})
     try:
+        params = {
+            "name": name,
+            "color": color,
+            "rarity": rarity,
+            "card_id": str(card_id) if card_id else None,
+            "released_after": str(released_after) if released_after else None,
+            "released_before": str(released_before) if released_before else None,
+            "set_name": set_name,
+            "mana_cost": mana_cost,
+            "digital": digital,
+            "card_type": card_type,
+            "limit": limit,
+            "offset": offset,
+            "sort_by": sort_by,
+            "sort_order": sort_order,
+        }
+        params_hash = hashlib.sha256(
+            json.dumps(params, sort_keys=True, default=str).encode()
+        ).hexdigest()
+        cache_key = f"card_search:full:{params_hash}"
+
+        cached = get_from_cache(cache_key)
+        if cached is not None:
+            return CardSearchResult(
+                cards=[BaseCard.model_validate(c) for c in cached["cards"]],
+                total_count=cached["total_count"],
+            )
+
         if card_id:
             logger.info("Fetching card by ID", extra={"card_id": str(card_id)})
             card = await card_repository.get(card_id)
             if not card:
                 return CardSearchResult(cards=[], total_count=0)
-            return CardSearchResult(cards=[BaseCard.model_validate(card)], total_count=1)
-
-        result = await card_repository.search(name=name,
+            result = CardSearchResult(cards=[BaseCard.model_validate(card)], total_count=1)
+        else:
+            raw = await card_repository.search(name=name,
                                                color=color,
                                                rarity=rarity,
                                                set_name=set_name,
@@ -154,16 +184,73 @@ async def search_cards(card_repository: CardReferenceRepository
                                                sort_by=sort_by,
                                                card_type=card_type,
                                                sort_order=sort_order)
-        if not result:
-            raise card_exception.CardNotFoundError(f"No cards found for IDs {card_id}")
-        cards = result.get("cards", [])
-        total_count = result.get("total_count", 0)
-        return  CardSearchResult(cards=[BaseCard.model_validate(card) for card in cards], total_count=total_count)
+            if not raw:
+                raise card_exception.CardNotFoundError(f"No cards found for IDs {card_id}")
+            cards = raw.get("cards", [])
+            total_count = raw.get("total_count", 0)
+            result = CardSearchResult(
+                cards=[BaseCard.model_validate(card) for card in cards],
+                total_count=total_count,
+            )
+
+        set_to_cache(
+            cache_key,
+            {"cards": [c.model_dump() for c in result.cards], "total_count": result.total_count},
+            expiry_seconds=3600,
+        )
+        return result
 
     except card_exception.CardNotFoundError:
         raise
     except Exception as e:
         raise card_exception.CardRetrievalError(f"Failed to retrieve cards: {str(e)}")
+
+
+@ServiceRegistry.register(
+    "card_catalog.card.suggest",
+    db_repositories=["card"]
+)
+async def suggest_cards(
+    card_repository: CardReferenceRepository,
+    query: str,
+    limit: int = 10,
+    **kwargs,
+) -> CardSuggestionResponse:
+    cache_key = f"card_search:suggest:{query.lower()}:{limit}"
+    cached = get_from_cache(cache_key)
+    if cached is not None:
+        return CardSuggestionResponse(suggestions=[CardSuggestion(**s) for s in cached])
+
+    rows = await card_repository.suggest(query=query, limit=limit)
+    suggestions = [CardSuggestion(**r) for r in rows]
+    set_to_cache(cache_key, [s.model_dump() for s in suggestions], expiry_seconds=600)
+    return CardSuggestionResponse(suggestions=suggestions)
+
+
+@ServiceRegistry.register(
+    "card_catalog.card_search.invalidate",
+    db_repositories=[]
+)
+async def invalidate_search_cache(**kwargs) -> dict:
+    keys = list(redis_client.scan_iter("card_search:*"))
+    if keys:
+        redis_client.delete(*keys)
+    logger.info("Invalidated card search cache", extra={"keys_deleted": len(keys)})
+    return {"keys_deleted": len(keys)}
+
+
+@ServiceRegistry.register(
+    "card_catalog.card_search.refresh",
+    db_repositories=["card"]
+)
+async def refresh_card_search_views(
+    card_repository: CardReferenceRepository,
+    **kwargs,
+) -> dict:
+    await card_repository.connection.execute("CALL card_catalog.refresh_card_search_views()")
+    logger.info("Refreshed card search materialized views")
+    return {"refreshed": True}
+
 
 @ServiceRegistry.register(
     "card_catalog.card.get",
