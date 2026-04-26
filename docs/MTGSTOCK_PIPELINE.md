@@ -10,8 +10,8 @@ The pipeline is structured in **four stages**, each backed by a dedicated table 
 |---|---|---|---|
 | 1. Raw landing | Scraper output | Bulk insert | `pricing.raw_mtg_stock_price` |
 | 2. Resolve + stage | `raw_mtg_stock_price` | `pricing.load_staging_prices_batched` | `pricing.stg_price_observation` + `pricing.stg_price_observation_reject` |
-| 3. Load fact | `stg_price_observation` | `pricing.load_prices_from_staged_batched` | `pricing.price_observation` |
-| 4. Retry rejects | `stg_price_observation_reject` | `pricing.resolve_price_rejects` | Re-feeds back to `stg_price_observation` |
+| 3. Retry rejects | `stg_price_observation_reject` | `pricing.resolve_price_rejects` | Re-feeds resolved rows back to `stg_price_observation` in same run |
+| 4. Load fact | `stg_price_observation` | `pricing.load_prices_from_staged_batched` | `pricing.price_observation` |
 
 All DDL and routines live in [`src/automana/database/SQL/schemas/06_prices.sql`](../src/automana/database/SQL/schemas/06_prices.sql).
 
@@ -149,7 +149,7 @@ Resolved rows are inserted into `pricing.stg_price_observation` (wide model — 
 
 | Column | Notes |
 |---|---|
-| `stg_id BIGSERIAL PK` | Surrogate for the DELETE key in stage 3 |
+| `stg_id BIGSERIAL PK` | Surrogate for the DELETE key in stage 4 |
 | `ts_date`, `game_code`, `print_id` | From raw |
 | `list_low_cents`, `list_avg_cents`, `sold_avg_cents` | Nullable — each staging row may carry only a subset |
 | `is_foil` | Derived from which raw price column the row came from |
@@ -163,7 +163,35 @@ Indexes: `stg_price_obs_date_spid_foil_idx (ts_date, source_product_id, is_foil)
 
 ---
 
-## Stage 3 — Load fact table
+## Stage 3 — Retry rejects
+
+**Routine:** `pricing.resolve_price_rejects(p_limit INT DEFAULT 50000, p_only_unresolved BOOL DEFAULT TRUE)`
+
+Picks up to `p_limit` unresolved rejects and retries resolution. Takes fresh `scryfall_migration` data into account, so rejects from before a migration landed can be retroactively resolved. Runs **before** Stage 4 so that newly-resolved rows are promoted to `price_observation` in the same pipeline run.
+
+### Pipeline
+
+1. Slice candidates into `tmp_rejects` (`resolved_at IS NULL AND is_terminal IS FALSE`, or everything if `p_only_unresolved := FALSE`).
+2. Re-run the same resolution waterfall as stage 2 (`print_id` → external IDs → set+collector), producing `tmp_resolved`.
+3. Back-fill `card_external_identifier` for rows resolved via EXTERNAL_ID or SET_COLLECTOR so future runs hit the cheaper PRINT_ID path.
+4. Ensure `product_ref` + `mtg_card_products` for any newly-resolved `card_version_id`.
+5. Ensure `source_product` for each `(product_id, mtgstocks source_id)` pair.
+6. **Re-feed** resolved rejects into `stg_price_observation` — with the full wide payload. Skips rows where all three cents columns are NULL.
+7. **Mark** the reject row terminal:
+   - Successful retries → `terminal_reason = 'Resolved via <METHOD> mapping'`.
+   - Rows whose `scryfall_id` is in `scryfall_migration` with `migration_strategy = 'delete'` → `terminal_reason = 'Scryfall migration delete and no alternative identifiers'`.
+
+### Match key for the terminal update
+
+The reject table has no surrogate key. The match predicate is `(ts_date, print_id, is_foil, source_code, data_provider_id, scraped_at)`. If this is ever not unique in practice, add `rej_id BIGSERIAL PRIMARY KEY` to `stg_price_observation_reject` and carry it through `tmp_rejects → tmp_resolved`.
+
+### Returns
+
+`bigint` — number of rows re-fed into `stg_price_observation`. Those rows are then promoted to `price_observation` by Stage 4 in the same run.
+
+---
+
+## Stage 4 — Load fact table
 
 **Routine:** `pricing.load_prices_from_staged_batched(batch_days INT DEFAULT 30)`
 
@@ -202,34 +230,6 @@ Moves resolved staging rows into `pricing.price_observation`.
 ### Known ceiling: compressed chunks
 
 If staging ever carries rows older than 180 days, the upsert fails with `cannot update compressed chunk`. Mitigation is architectural: keep staging drained inside the compression window, or add an explicit decompression step for out-of-window batches.
-
----
-
-## Stage 4 — Retry rejects
-
-**Routine:** `pricing.resolve_price_rejects(p_limit INT DEFAULT 50000, p_only_unresolved BOOL DEFAULT TRUE)`
-
-Picks up to `p_limit` unresolved rejects and retries resolution. Takes fresh `scryfall_migration` data into account, so rejects from before a migration landed can be retroactively resolved.
-
-### Pipeline
-
-1. Slice candidates into `tmp_rejects` (`resolved_at IS NULL AND is_terminal IS FALSE`, or everything if `p_only_unresolved := FALSE`).
-2. Re-run the same resolution waterfall as stage 2 (`print_id` → external IDs → set+collector), producing `tmp_resolved`.
-3. Ensure `product_ref` + `mtg_card_products` for any newly-resolved `card_version_id`.
-4. Ensure `source_product` for each `(product_id, mtgstocks source_id)` pair.
-5. **Re-feed** resolved rejects into `stg_price_observation` — with the full wide payload (`list_low_cents`, `list_avg_cents`, `sold_avg_cents`, `is_foil`, `data_provider_id`, `value`, and all audit metadata). Skips rows where all three cents columns are NULL.
-6. **Mark** the reject row terminal:
-   - Successful retries → `terminal_reason = 'Resolved via <METHOD> mapping'`.
-   - Rows whose `scryfall_id` is in `scryfall_migration` with `migration_strategy = 'delete'` and no alternative identifiers → `terminal_reason = 'Scryfall migration delete and no alternative identifiers'`.
-
-### Match key for the terminal update
-
-The reject table has no surrogate key yet. The match predicate is
-`(ts_date, print_id, is_foil, source_code, data_provider_id, scraped_at)` — one natural row per scrape per `(day, product, foil, provider)`. If this is ever not unique in practice, add `rej_id BIGSERIAL PRIMARY KEY` to `stg_price_observation_reject` and carry it through `tmp_rejects → tmp_resolved`.
-
-### Returns
-
-`bigint` — number of rows re-fed into `stg_price_observation`. After a successful retry those rows go through stage 3 normally on the next run.
 
 ---
 
@@ -278,23 +278,23 @@ pricing.raw_mtg_stock_price
 
 **Why non-atomic:** the asyncpg pool's default `command_timeout` is 60 s (see `core/database.py`). A single COPY of a 10 000-folder batch can exceed that limit, which surfaces as `AttributeError: 'NoneType' object has no attribute 'done'` inside asyncpg's `base_protocol.py`. Running without an outer transaction also allows per-batch audit rows to commit incrementally rather than being held open for the entire bulk load.
 
-**Re-run idempotency caveat:** `pricing.raw_mtg_stock_price` has no primary key or uniqueness constraint, and `bulk_load` does not `TRUNCATE` the table before loading. If a run crashes mid-way and is re-run, duplicate rows accumulate in the raw landing table. Stage 2 (`load_staging_prices_batched`) pivots those duplicates forward into staging; Stage 3 (`load_prices_from_staged_batched`) deduplicates on the fact-table primary key before the upsert, so duplicates do not propagate to `pricing.price_observation`. This is a pre-existing design property of the landing table, not introduced by the timeout change.
+**Re-run idempotency caveat:** `pricing.raw_mtg_stock_price` has no primary key or uniqueness constraint, and `bulk_load` does not `TRUNCATE` the table before loading. If a run crashes mid-way and is re-run, duplicate rows accumulate in the raw landing table. Stage 2 (`load_staging_prices_batched`) pivots those duplicates forward into staging; Stage 4 (`load_prices_from_staged_batched`) deduplicates on the fact-table primary key before the upsert, so duplicates do not propagate to `pricing.price_observation`. This is a pre-existing design property of the landing table, not introduced by the timeout change.
 
 ### Idempotency
 
-- Stage 2 is idempotent on a per-row basis: re-inserting the same `(ts_date, print_id, scraped_at)` produces a duplicate staging row, but stage 3's dedup collapses them before the upsert. Still, avoid re-running stage 2 over the same raw window without draining staging first — it wastes work.
-- Stage 3 is strictly idempotent: the ON CONFLICT clause ensures re-running over the same window is a no-op if nothing has changed.
-- Stage 4 is safe to run repeatedly — it only picks rejects that are not yet terminal.
+- Stage 2 is idempotent on a per-row basis: re-inserting the same `(ts_date, print_id, scraped_at)` produces a duplicate staging row, but stage 4's dedup collapses them before the upsert. Still, avoid re-running stage 2 over the same raw window without draining staging first — it wastes work.
+- Stage 3 is safe to run repeatedly — it only picks rejects that are not yet terminal.
+- Stage 4 is strictly idempotent: the ON CONFLICT clause ensures re-running over the same window is a no-op if nothing has changed.
 
 ### Chaining under Celery
 
-The Celery chain that drives this pipeline (once wired) should follow the pattern established by [`docs/MTGJSON_PIPELINE.md`](MTGJSON_PIPELINE.md):
+The active Celery chain in `worker/tasks/pipelines.py::mtgStock_download_pipeline`:
 
 1. `ops.pipeline_services.start_run`
-2. (scraper service — writes to `raw_mtg_stock_price`)
-3. `staging.mtgstock.load_to_staging` → calls `load_staging_prices_batched`
-4. `staging.mtgstock.load_to_fact` → calls `load_prices_from_staged_batched`
-5. `staging.mtgstock.retry_rejects` → calls `resolve_price_rejects` (optional, periodic)
+2. `mtg_stock.data_staging.bulk_load` → COPY parquet files into `raw_mtg_stock_price`
+3. `mtg_stock.data_staging.from_raw_to_staging` → calls `load_staging_prices_batched`
+4. `mtg_stock.data_staging.retry_rejects` → calls `resolve_price_rejects`
+5. `mtg_stock.data_staging.from_staging_to_prices` → calls `load_prices_from_staged_batched`
 6. `ops.pipeline_services.finish_run`
 
 Context keys between steps must match parameter names (the `run_service` dispatcher filters by signature — see [`CLAUDE.md`](../CLAUDE.md)).
