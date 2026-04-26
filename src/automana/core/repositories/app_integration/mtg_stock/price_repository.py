@@ -33,15 +33,21 @@ class PriceRepository(AbstractRepository):
             format='csv',
             header=True)
 
-    async def call_load_stage_from_raw(self, source_name: str = "mtgstocks", batch_days: int = 30):
-        """Call pricing.load_staging_prices_batched(source_name, batch_days).
+    async def call_load_stage_from_raw(
+        self, source_name: str = "mtgstocks", batch_days: int = 30,
+        ingestion_run_id: Optional[int] = None,
+    ):
+        """Call pricing.load_staging_prices_batched(source_name, batch_days, ingestion_run_id).
 
         `source_name` must match a row in `pricing.price_source.code`. Migration
-        16 made `source_name` a required positional argument."""
+        16 made `source_name` a required positional argument.
+        When `ingestion_run_id` is provided, the procedure writes per-batch rows
+        to `ops.ingestion_step_batches` and updates `ops.ingestion_run_steps.progress`."""
         await self.connection.execute(
-            "CALL pricing.load_staging_prices_batched($1::varchar, $2::int);",
+            "CALL pricing.load_staging_prices_batched($1::varchar, $2::int, $3::int);",
             source_name,
             batch_days,
+            ingestion_run_id,
         )
 
     async def call_resolve_price_rejects(
