@@ -152,7 +152,7 @@ class ApiPanel(Vertical):
         tree.root.expand()
         viewer.show_info(f"Loaded {sum(len(v) for v in groups.values())} endpoints.")
 
-    def on_tree_node_selected(self, event: Tree.NodeSelected) -> None:
+    async def on_tree_node_selected(self, event: Tree.NodeSelected) -> None:
         node: TreeNode = event.node
         if not node.data:
             return
@@ -170,7 +170,7 @@ class ApiPanel(Vertical):
 
         # Rebuild param inputs
         params_area: Vertical = self.query_one("#params-area", Vertical)
-        params_area.remove_children()
+        await params_area.remove_children()
         self._param_names = []
 
         parameters = operation.get("parameters", [])
