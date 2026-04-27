@@ -202,15 +202,21 @@ MTGStock (`/api/integrations/mtg_stock`)
 - `POST /api/integrations/mtg_stock/load_ids`
 - `GET /api/integrations/mtg_stock/load` — accepts either `print_ids[]=...` or `range_start` + `range_end`
 
-### Logs
+### Ops / Integrity
 
-Base: `/api/logs`
+Base: `/api/ops`
 
-- `GET /api/logs/` — fetch logs with optional filters (`start_date`, `end_date`, `level`, `task_name`, `service_type`, `user`, `status`, `search`, `limit`, `offset`)
+Integrity (`/api/ops/integrity`)
+
+- `GET /api/ops/integrity/scryfall/run-diff?ingestion_run_id=<id>` — post-run diagnostic report for the most recent (or specified) Scryfall pipeline run; reads `ops.ingestion_runs`, `ops.ingestion_run_steps`, and `ops.ingestion_run_metrics`
+- `GET /api/ops/integrity/scryfall/checks` — runs 24 orphan/loose-data checks across `card_catalog`, `ops`, and `pricing` schemas; returns `errors` and `warnings` lists
+- `GET /api/ops/integrity/public-schema-leak` — confirms no app objects have leaked into the public schema (tables, views, sequences, functions, `search_path`); extension-owned objects excluded
+
+All three endpoints are pure SELECTs (zero side effects) and always return HTTP 200; severity is conveyed in the payload's `errors` and `warnings` arrays.
 
 ## What to keep updated
 
-- If you add/remove routers under `backend/api/*`, update the “Endpoints” section.
+- If you add/remove routers under `src/automana/api/routers/`, update the “Endpoints” section.
 - If auth changes (JWT header vs cookie), update the “Authentication” section and examples.
 - If you standardize error responses, update “Errors” with the canonical shape.
 

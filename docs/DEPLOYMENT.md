@@ -31,17 +31,21 @@ Example env files:
 - `config/env/.env.staging`
 - `config/env/.env.prod`
 
-Start from `config/env/.env.example` and fill the required values (notably `DATABASE_URL`).
+Start from `config/env/.env.example` and fill the required values.
 
-### Database URL
+### Database connection
 
-The backend expects `DATABASE_URL` in the form:
+The backend composes its connection URL from individual env vars (not a single `DATABASE_URL` string):
 
-```
-postgresql+asyncpg://USER:PASSWORD@HOST:PORT/DB
-```
+| Env var | Alias in settings | Default | Purpose |
+|---------|-------------------|---------|---------|
+| `POSTGRES_HOST` | `DB_HOST` | `localhost` | Postgres host |
+| `POSTGRES_PORT` | `DB_PORT` | `5432` | Postgres port |
+| `DB_NAME` | `DB_NAME` | `automana` | Database name |
+| `APP_BACKEND_DB_USER` | `DB_USER` | `app_backend` | Application DB user |
+| `DB_PASSWORD` | (cascade) | — | Password (file path, env var, or well-known path) |
 
-In Docker Compose, `HOST` should be the **service name** (for example `postgres`).
+In Docker Compose, `POSTGRES_HOST` is overridden to the service name (`postgres`) in the `environment:` block of the `backend` and `celery-*` services. Host-side tools (e.g., psql, pgAdmin) use `localhost:5433` (the published port in dev).
 
 ## Local development (Docker Compose)
 
@@ -265,6 +269,6 @@ Task history is persisted via a named Docker volume (`flower-data-dev` or `flowe
 ## Operational notes / caveats
 
 - The backend container currently starts uvicorn with `--reload` (see `deploy/docker/backend/Backend.Dockerfile`). For production you usually want to remove `--reload`.
-- Cookie security flags in auth routes may be set to `secure=False` in code; in production behind HTTPS, you typically want `Secure` cookies.
-- Celery configuration currently loads a dev env file in `celery_app/celeryconfig.py`. If you deploy Celery for prod, align it with `ENV=prod` and your prod env file.
+- Cookie `secure` flag is set dynamically: `True` in all environments except `dev` (`get_settings().env != "dev"`). In dev, cookies are sent over plain HTTP; in staging/prod (behind the nginx TLS terminator) the `Secure` flag is active automatically.
+- Celery configuration lives at `src/automana/worker/celeryconfig.py`. The active env is determined by the `ENV` env var — ensure `ENV=prod` (and the corresponding `config/env/.env.prod`) is set when running Celery in production.
 

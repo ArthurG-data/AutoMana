@@ -55,12 +55,25 @@ class PriceRepository(AbstractRepository):
         16 made `source_name` a required positional argument.
         When `ingestion_run_id` is provided, the procedure writes per-batch rows
         to `ops.ingestion_step_batches` and updates `ops.ingestion_run_steps.progress`."""
+        # The procedure inserts into the compressed price_observation hypertable
+        # via ON CONFLICT DO UPDATE. Historical chunks require decompression to
+        # check for conflicts; the default limit (100 000 tuples) is exceeded on
+        # every 30-day batch of historical data. Disable the guard for this
+        # session-scoped bulk load, then reset so the pooled connection is clean.
         await self.connection.execute(
-            "CALL pricing.load_staging_prices_batched($1::varchar, $2::int, $3::int);",
-            source_name,
-            batch_days,
-            ingestion_run_id,
+            "SET timescaledb.max_tuples_decompressed_per_dml_transaction = 0"
         )
+        try:
+            await self.connection.execute(
+                "CALL pricing.load_staging_prices_batched($1::varchar, $2::int, $3::int);",
+                source_name,
+                batch_days,
+                ingestion_run_id,
+            )
+        finally:
+            await self.connection.execute(
+                "RESET timescaledb.max_tuples_decompressed_per_dml_transaction"
+            )
 
     async def call_resolve_price_rejects(
         self,
