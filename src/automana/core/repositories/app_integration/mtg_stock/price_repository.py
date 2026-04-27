@@ -1,5 +1,5 @@
 ﻿from automana.core.repositories.abstract_repositories.AbstractDBRepository import AbstractRepository
-import io, logging
+import asyncio, io, logging
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -23,13 +23,20 @@ class PriceRepository(AbstractRepository):
             logger.error("Error rolling back transaction", extra={"error": str(e)})
 
     async def _copy_to_table(self, df, schema_name, table_name):
-        buf = io.BytesIO()
-        df.to_csv(buf, index=False, header=True, encoding='utf-8')
-        buf.seek(0)
+        # Serialise to CSV in a thread so the event loop stays alive during
+        # what can be several minutes of CPU work on a 20M+ row DataFrame.
+        # Blocking the event loop here lets asyncpg's internal pool keepalive
+        # fire and reclaim the connection, causing InterfaceError on the next
+        # copy_to_table call.
+        def _to_csv():
+            buf = io.BytesIO()
+            df.to_csv(buf, index=False, header=True, encoding='utf-8')
+            buf.seek(0)
+            return buf
+
+        buf = await asyncio.to_thread(_to_csv)
         # No explicit timeout: inherits conn._config.command_timeout, which
         # ServiceManager overrides per-service (3 600 s for bulk_load).
-        # A hardcoded 300 s ceiling fires before large historical-price batches
-        # finish, leaves PostgreSQL in COPY-IN mode, and breaks the connection.
         await self.connection.copy_to_table(
             table_name=table_name,
             schema_name=schema_name,
