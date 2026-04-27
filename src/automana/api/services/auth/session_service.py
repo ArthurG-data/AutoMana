@@ -27,15 +27,14 @@ async def validate_session_credentials(
     Returns:
         dict: The session data if found, otherwise None.
     """
-    # Get session from repository
     try:
         session = await repository.validate_session_credentials(session_id, ip_address, user_agent)
         session = session[0] if session else None
-    
     except Exception as e:
-        logger.error(f"Error fetching session: {str(e)}")
+        logger.error("session_fetch_failed", extra={"session_id": str(session_id), "error": str(e)})
         raise session_exceptions.SessionError("Failed to fetch session")
-    # Check if session is expired
+    if session is None:
+        raise session_exceptions.SessionNotFoundError(f"Session {session_id} not found")
     session_expires_at = session.get("session_expires_at")
     if session_expires_at < datetime.now(timezone.utc):
         raise session_exceptions.SessionExpiredError(f"Session {session_id} is expired")
@@ -105,12 +104,11 @@ async def insert_session(session_repository: SessionRepository, new_session : Cr
     await session_repository.add(values)
     result = await session_repository.get(new_session.session_id)
     if result:
-        print(f"Session inserted successfully: {result}")
+        logger.debug("session_inserted", extra={"session_id": str(new_session.session_id)})
         raw_result = result[0]
         return raw_result['session_id'], raw_result['refresh_token']
-    else:
-        logger.error(f"Failed to insert session: {new_session.session_id}")
-        return None
+    logger.error("session_insert_failed", extra={"session_id": str(new_session.session_id)})
+    raise RuntimeError(f"Failed to persist session {new_session.session_id}")
 
 
 async def rotate_session_token(session_repository: SessionRepository
@@ -122,7 +120,7 @@ async def rotate_session_token(session_repository: SessionRepository
         refresh_token = create_access_token(data={"session_id": str(session_id)}
                                             , expires_delta=timedelta(days=7)
                                             , secret_key=settings.jwt_secret_key
-                                            , algorithm=settings.encrypt_algorithm
+                                            , algorithm=settings.jwt_algorithm
                                             )
         await session_repository.rotate_token(token_id
                                       ,session_id
@@ -133,8 +131,8 @@ async def rotate_session_token(session_repository: SessionRepository
 async def create_new_session(session_repository: SessionRepository, user: UserInDB, ip_address: str, user_agent: str, expire_time: str):
     session_id = uuid4()
     settings = get_general_settings()
-    logger.info(f"Creating new session for user {user.username} with ID {session_id} at IP {ip_address} and user agent {user_agent}")
-    refresh_token = create_access_token(data={"session_id": str(session_id)}, secret_key=settings.jwt_secret_key, algorithm=settings.encrypt_algorithm, expires_delta=timedelta(days=7))
+    logger.info("session_creating", extra={"username": user.username, "session_id": str(session_id), "ip_address": ip_address})
+    refresh_token = create_access_token(data={"session_id": str(session_id)}, secret_key=settings.jwt_secret_key, algorithm=settings.jwt_algorithm, expires_delta=timedelta(days=7))
     new_session = CreateSession(
         session_id=session_id,
         user_id=user.unique_id,

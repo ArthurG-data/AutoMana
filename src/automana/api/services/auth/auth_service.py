@@ -3,18 +3,15 @@ from fastapi import HTTPException, Request
 from datetime import timedelta, datetime, timezone
 from fastapi.security import OAuth2PasswordBearer
 from uuid import UUID
-from automana.core.settings import Settings,  get_settings as get_general_settings
+from automana.core.settings import get_settings as get_general_settings
 from automana.api.services.auth.session_service import rotate_session_token, create_new_session
 from automana.api.repositories.user_management.user_repository import UserRepository
 from automana.api.repositories.auth.session_repository import SessionRepository
 from automana.api.schemas.user_management.user import UserInDB
 from automana.core.service_registry import ServiceRegistry
+from automana.api.services.auth.auth import (verify_password, create_access_token, decode_access_token)
 
 logger = logging.getLogger(__name__)
-
-from automana.api.services.auth.auth import (verify_password
-                                         ,create_access_token
-                                         ,decode_access_token)
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/token")
@@ -78,7 +75,7 @@ async def logout(
 
 @ServiceRegistry.register(
         'auth.auth.login',
-        db_repositories=['session']
+        db_repositories=['user', 'session']
 )
 async def login( user_repository: UserRepository
                 , session_repository: SessionRepository  
@@ -103,7 +100,7 @@ async def login( user_repository: UserRepository
             "login_failed",
             extra={"action": "login", "username": username, "ip_address": ip_address, "user_agent": user_agent},
         )
-        return {"error": "Invalid username or password"}
+        raise HTTPException(status_code=401, detail="Invalid credentials")
     
     # Get or create session
     return_value = await session_repository.get_by_user_id(user.unique_id)
@@ -114,14 +111,14 @@ async def login( user_repository: UserRepository
             "session_rotation",
             extra={"action": "login", "username": username, "result": "rotate_session"},
         )
-        await rotate_session_token(session_repository
+        rotated = await rotate_session_token(session_repository
                                    ,session_info['session_id']
                                    ,session_info['refresh_token']
                                    ,expire_time
                                    ,session_info['token_id']
                                    )
-        session_id = session_info['session_id']
-        refresh_token = session_info['refresh_token']
+        session_id = rotated['session_id']
+        refresh_token = rotated['refresh_token']
     else:
         logger.info(
             "session_creation",
@@ -139,7 +136,7 @@ async def login( user_repository: UserRepository
     access_token = create_access_token(
         data=token_data,
         secret_key=settings.jwt_secret_key,
-        algorithm=settings.encrypt_algorithm,
+        algorithm=settings.jwt_algorithm,
         expires_delta=access_token_expires
     )
     return {
