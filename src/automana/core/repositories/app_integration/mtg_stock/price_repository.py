@@ -22,17 +22,21 @@ class PriceRepository(AbstractRepository):
         except Exception as e:
             logger.error("Error rolling back transaction", extra={"error": str(e)})
 
-    async def _copy_to_table(self, df, schema_name, table_name, timeout: float = 300):
+    async def _copy_to_table(self, df, schema_name, table_name):
         buf = io.BytesIO()
         df.to_csv(buf, index=False, header=True, encoding='utf-8')
         buf.seek(0)
+        # No explicit timeout: inherits conn._config.command_timeout, which
+        # ServiceManager overrides per-service (3 600 s for bulk_load).
+        # A hardcoded 300 s ceiling fires before large historical-price batches
+        # finish, leaves PostgreSQL in COPY-IN mode, and breaks the connection.
         await self.connection.copy_to_table(
             table_name=table_name,
             schema_name=schema_name,
             source=buf,
             format='csv',
             header=True,
-            timeout=timeout)
+        )
 
     async def call_load_stage_from_raw(
         self, source_name: str = "mtgstocks", batch_days: int = 30,
