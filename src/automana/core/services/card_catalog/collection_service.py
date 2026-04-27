@@ -7,6 +7,9 @@ from uuid import UUID
 from automana.api.schemas.StandardisedQueryResponse import ApiResponse
 from automana.core.exceptions.service_layer_exceptions.card_catalogue import card_catalog_exceptions
 from automana.core.service_registry import ServiceRegistry
+import logging
+
+logger = logging.getLogger(__name__)
 
 @ServiceRegistry.register(
     "card_catalog.collection.add",
@@ -20,7 +23,6 @@ async def add_collection(user_collection_repository: CollectionRepository
         result = await user_collection_repository.add(created_collection.collection_name
                                                  , created_collection.description
                                                  , user.unique_id)
-        print(f"Collection created with result: {result}")
         if not result:
             raise card_catalog_exceptions.CollectionCreationError("Failed to create collection")
         return result
@@ -56,11 +58,9 @@ async def get_all_collections(user_collection_repository: CollectionRepository, 
     """Get all collections for a user"""
     try:
         collections = await user_collection_repository.get_all(user_id)
-        if not collections or len(collections) == 0:
-            raise card_catalog_exceptions.CollectionNotFoundError(f"No collections found for user {user_id}")
+        if not collections:
+            return []
         return [CollectionInDB.model_validate(c) for c in collections]
-    except card_catalog_exceptions.CollectionNotFoundError:
-        raise
     except Exception as e:
         raise card_catalog_exceptions.CollectionRetrievalError(f"Failed to retrieve collections: {str(e)}")
 

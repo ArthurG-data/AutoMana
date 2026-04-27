@@ -22,16 +22,9 @@ router = APIRouter(
     responses={404:{'description' : 'Not found'}}
 )
 
-@router.get('/me', response_model= UserPublic)
+@router.get('/me', response_model=UserPublic)
 async def get_me_user(current_user: CurrentUserDep):
-    try:
-        return ApiResponse(data=current_user)
-    except session_exceptions.SessionAccessDeniedError as e:
-        raise HTTPException(status_code=401, detail="Access denied")
-    except session_exceptions.SessionUserNotFoundError as e:
-        raise HTTPException(status_code=404, detail="User not found")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+    return current_user
 
 
 @router.get('/', response_model=PaginatedResponse[UserInDB])
@@ -72,7 +65,6 @@ async def get_users(
 @router.post('/')
 async def add_user( user: BaseUser
                    , service_manager : ServiceManagerDep ):
-    print(user)
     try:
         result = await service_manager.execute_service("auth.auth.register", user=user)
         return ApiResponse(data=result)
@@ -100,7 +92,7 @@ async def modify_user( user_update: UserUpdatePublic
 @router.delete('/{user_id}', status_code=204)
 async def delete_user(user_id: UUID, service_manager: ServiceManagerDep):
     try:
-        await service_manager.execute_service("user_management.user.delete_user", user_id=user_id)
+        await service_manager.execute_service("user_management.user.delete", user_id=user_id)
         return ApiResponse(data=None)
     except HTTPException:
         raise

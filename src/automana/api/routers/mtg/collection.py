@@ -58,8 +58,8 @@ async def get_collection(
         raise HTTPException(status_code=404, detail="Collection not found")
     return ApiResponse(data=result)
 
-@router.get('/', response_model=List[PublicCollection])
-async def get_collection(
+@router.get('/', response_model=PaginatedResponse)
+async def list_collections(
     current_user: CurrentUserDep,
     service_manager: ServiceManagerDep,
     collection_ids: Optional[List[UUID]] = Query(None, description="Specific collection IDs to retrieve"),
@@ -67,15 +67,12 @@ async def get_collection(
     offset: int = Query(0, ge=0, description="Number of collections to skip")
 ):
     try:
-        # Determine which service method to call based on parameters
         if collection_ids:
-            # Get specific collections by IDs
             result = await service_manager.execute_service(
                 "card_catalog.collection.get_many",
-                user_id=UUID(current_user.unique_id),
-                collection_ids=collection_ids
+                user_id=current_user.unique_id,
+                collection_id=collection_ids,
             )
-            # Format as paginated response for consistency
             return PaginatedResponse(
                 success=True,
                 data=result,
@@ -84,34 +81,29 @@ async def get_collection(
                     offset=0,
                     total_count=len(result),
                     has_next=False,
-                    has_previous=False
+                    has_previous=False,
                 ),
-                message=f"Retrieved {len(result)} specific collections"
+                message=f"Retrieved {len(result)} specific collections",
             )
         else:
-            # Get all collections with optional name filter
             result = await service_manager.execute_service(
                 "card_catalog.collection.get_all",
-                user_id=UUID(current_user.unique_id),
-                limit=limit,
-                offset=offset,
+                user_id=current_user.unique_id,
             )
-            
-            collections = result.get("collections", [])
-            total_count = result.get("total_count", 0)
-            
             return PaginatedResponse(
                 success=True,
-                data=collections,
+                data=result,
                 pagination=PaginationInfo(
                     limit=limit,
                     offset=offset,
-                    total_count=total_count,
-                    has_next=offset + limit < total_count,
-                    has_previous=offset > 0
+                    total_count=len(result),
+                    has_next=False,
+                    has_previous=offset > 0,
                 ),
-                message="Collections retrieved successfully"
+                message="Collections retrieved successfully",
             )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
