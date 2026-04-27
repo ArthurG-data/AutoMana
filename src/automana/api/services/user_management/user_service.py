@@ -129,6 +129,17 @@ async def delete_user(user_repository  : UserRepository, user_id : UUID) :
     return None
 
 
+@ServiceRegistry.register(
+    "user_management.user.get_by_username",
+    db_repositories=["user"]
+)
+async def get_by_username(user_repository: UserRepository, username: str) -> Optional[UserInDB]:
+    user = await user_repository.get(username)
+    if not user:
+        return None
+    return UserInDB.model_validate(user)
+
+
 async def get_user(user_repository: UserRepository, username: str) -> UserInDB:
     user =  await user_repository.get(username)
     if user:

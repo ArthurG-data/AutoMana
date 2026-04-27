@@ -1,13 +1,14 @@
 ﻿from fastapi import FastAPI, Request
 import time, logging, uuid
 #from backend.modules.ebay import routers as ebay_router
-#from backend import api 
+#from backend import api
 from contextlib import asynccontextmanager
 from automana.core.settings import get_settings
 #for fasvicon
 from pathlib import Path
 from fastapi import HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
+from automana.api.dependancies.auth.users import BrowserAuthRequired, LOGIN_URL
 
 from automana.core.logging_config import configure_logging
 from automana.core.logging_context import set_request_id, set_service_path
@@ -135,6 +136,14 @@ async def log_requests(request: Request, call_next):
             extra={"method": request.method, "path": request.url.path, "elapsed_ms": int(elapsed * 1000)},
         )
         raise
+# ==========================================
+# Exception handlers
+# ==========================================
+
+@app.exception_handler(BrowserAuthRequired)
+async def browser_auth_handler(request: Request, exc: BrowserAuthRequired):
+    return RedirectResponse(url=LOGIN_URL)
+
 # ==========================================
 # Routes
 # ==========================================
