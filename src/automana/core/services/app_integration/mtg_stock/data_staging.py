@@ -61,7 +61,7 @@ async def process_prices_file(path, id_dict):
 async def bulk_load(price_repository: PriceRepository
                     , ops_repository: OpsRepository
                     , root_folder
-                    , batch_size=10000
+                    , batch_size=2000
                     , ingestion_run_id: int = None
                     , market: str = "tcg"):
     """TODO: include scryfall_id, card_name, set_abbr, collector_number in the
@@ -103,6 +103,9 @@ async def bulk_load(price_repository: PriceRepository
                 logger.warning("Error processing folder", extra={"folder": folder, "error": str(e)})
             if i % batch_size == 0 and price_rows:
                 big_price_df = pd.concat(price_rows, ignore_index=True)
+                # Release the per-folder DFs immediately — keeping them alive
+                # alongside big_price_df and the CSV buffer triples peak memory.
+                price_rows.clear()
                 start = time.perf_counter()
                 if ingestion_run_id is not None:
                     await ops_repository.update_run(ingestion_run_id=ingestion_run_id, current_step=step_name, status="running")
@@ -130,11 +133,11 @@ async def bulk_load(price_repository: PriceRepository
                 batch_number += 1
                 folder_errors = 0
                 logger.info("copy_prices batch complete", extra={"elapsed_s": round(elapsed, 3), "rows": len(big_price_df)})
-                price_rows.clear()
         # Leftover tail — flush anything remaining and record the final batch
         # step so the ops audit reflects the full load.
         if price_rows:
             big_price_df = pd.concat(price_rows, ignore_index=True)
+            price_rows.clear()
             start = time.perf_counter()
             await price_repository.copy_prices_mtgstock(big_price_df)
             if ingestion_run_id is not None:
