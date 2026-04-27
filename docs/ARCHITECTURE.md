@@ -13,7 +13,7 @@ AutoMana is a FastAPI application backed by PostgreSQL (+ TimescaleDB + pgvector
 
 ### Layer Diagram
 
-![Architecture Layers](diagrams/layer_diagramm.jpg)
+![Architecture Layers](diagrams/layer_Diagramm.jpg)
 
 ### Production topology (Docker)
 
