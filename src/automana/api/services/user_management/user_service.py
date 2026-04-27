@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 @ServiceRegistry.register(
     "auth.auth.register",
-    db_repositories=["auth", "user"]
+    db_repositories=["user"]
 )
 async def register(user_repository: UserRepository, user : Annotated[BaseUser, Body(
     examples=[
