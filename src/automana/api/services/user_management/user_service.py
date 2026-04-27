@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 @ServiceRegistry.register(
     "auth.auth.register",
-    db_repositories=["auth", "user"]
+    db_repositories=["user"]
 )
 async def register(user_repository: UserRepository, user : Annotated[BaseUser, Body(
     examples=[
@@ -127,6 +127,17 @@ async def delete_user(user_repository  : UserRepository, user_id : UUID) :
 
     await user_repository.delete(user_id)
     return None
+
+
+@ServiceRegistry.register(
+    "user_management.user.get_by_username",
+    db_repositories=["user"]
+)
+async def get_by_username(user_repository: UserRepository, username: str) -> Optional[UserInDB]:
+    user = await user_repository.get(username)
+    if not user:
+        return None
+    return UserInDB.model_validate(user)
 
 
 async def get_user(user_repository: UserRepository, username: str) -> UserInDB:

@@ -43,6 +43,9 @@ class SessionRepository(AbstractRepository):
         query = "SELECT * FROM user_management.v_active_sessions WHERE user_id = $1"
         return await self.execute_query(query, (user_id,))
 
+    async def update(self, item):
+        raise NotImplementedError("Use rotate_token or invalidate_session for session updates")
+
     async def rotate_token(self, token_id: UUID, session_id: UUID, refresh_token: str, expire_time: datetime):
         query = 'SELECT user_management.rotate_refresh_token($1, $2, $3, $4);'
         await self.execute_command(query, (token_id, session_id, refresh_token, expire_time))

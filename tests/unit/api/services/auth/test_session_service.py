@@ -23,13 +23,13 @@ _ALGO = "HS256"
 
 
 class _StrictSettings:
-    """Settings substitute with jwt_secret_key but deliberately no secret_key.
+    """Settings substitute with jwt_secret_key and jwt_algorithm but no secret_key.
 
-    If any code path accesses settings.secret_key it will raise AttributeError,
-    proving it uses the wrong field.
+    Any access to settings.secret_key raises AttributeError, proving the code
+    uses the correct field.
     """
     jwt_secret_key = _JWT_SECRET
-    encrypt_algorithm = _ALGO
+    jwt_algorithm = _ALGO
 
 
 # ---------------------------------------------------------------------------

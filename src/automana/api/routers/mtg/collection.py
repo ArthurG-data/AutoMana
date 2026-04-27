@@ -4,11 +4,12 @@ from uuid import UUID
 from automana.core.models.collections.collection import CreateCollection, UpdateCollection, PublicCollection, PublicCollectionEntry, UpdateCollectionEntry, NewCollectionEntry
 from automana.api.dependancies.service_deps import ServiceManagerDep
 from automana.api.schemas.StandardisedQueryResponse import ApiResponse, PaginatedResponse, ErrorResponse, PaginationInfo
-from automana.api.dependancies.auth.users import CurrentUserDep
+from automana.api.dependancies.auth.users import CurrentUserDep, get_current_active_user
 
 router = APIRouter(
      prefix='/collection',
     tags=['collection'],
+    dependencies=[Depends(get_current_active_user)],
     responses={401: {'description': 'Unauthorized', 'model': ErrorResponse},
         403: {'description': 'Forbidden', 'model': ErrorResponse},
         404: {'description': 'Not found', 'model': ErrorResponse},
