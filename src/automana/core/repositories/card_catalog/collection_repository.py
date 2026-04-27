@@ -35,11 +35,11 @@ class CollectionRepository(AbstractRepository):
         return await self.execute_command(query, (values.collection_name, values.description,    values.user_id))
 
     async def get_all(self, user_id: UUID) -> List[dict]:
-        query = """ SELECT u.username, c.collection_name, c.is_active 
-                    FROM user_collection.collections c JOIN user_management.users u 
-                    ON c.user_id = u.unique_id 
+        query = """ SELECT u.username, c.collection_name, c.is_active
+                    FROM user_collection.collections c JOIN user_management.users u
+                    ON c.user_id = u.unique_id
                     WHERE c.user_id = $1 AND c.is_active = True;"""
-        return await self.execute_query(query, user_id)
+        return await self.execute_query(query, (user_id,))
     
     async def get_many(self, user,  collection_id :List[UUID]):
         counter = 1
@@ -63,7 +63,6 @@ class CollectionRepository(AbstractRepository):
         counter = 1
         query = "UPDATE user_collection.collections SET " + ", ".join(f"{k} = ${counter + i}" for i, k in enumerate(update_fields.keys())) + f" WHERE collection_id = ${counter + len(update_fields)} AND user_id =${counter+len(update_fields)+1}"
         values = (*update_fields.values(), collection_id, user_id)
-        print(values)
         return await self.execute_command(query, values)
 
     async def list():

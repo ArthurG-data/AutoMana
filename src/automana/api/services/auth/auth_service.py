@@ -55,22 +55,19 @@ async def logout(
         session_id: UUID,
         ip_address: str,
 ):
-    #check that the user is matches the user in the session
-    if session_id:
-        # Invalidate the session in the database
-        await session_repository.invalidate_session(session_id, ip_address)
-        logger.info(
-            "session_invalidated",
-            extra={"action": "logout", "session_id": str(session_id)},
-        )
-    #check the session status
+    await session_repository.invalidate_session(session_id, ip_address)
+    # Verify the session is gone from active sessions
     row = await session_repository.get(session_id)
-    if not row:
+    if row:
         logger.warning(
-            "session_not_found",
+            "logout_invalidation_failed",
             extra={"action": "logout", "session_id": str(session_id)},
         )
-        return {"status": "error", "message": "Session not found"}
+        return {"status": "error", "message": "Failed to invalidate session"}
+    logger.info(
+        "logout_success",
+        extra={"action": "logout", "session_id": str(session_id)},
+    )
     return {"status": "success", "message": "Logged out successfully"}
 
 @ServiceRegistry.register(
