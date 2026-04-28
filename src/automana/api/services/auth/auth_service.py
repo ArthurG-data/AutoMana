@@ -44,6 +44,8 @@ async def authenticate_user(repository : UserRepository
         return None
     if not verify_password(password, user['hashed_password']):
         return None
+    if user.get('disabled'):
+        return None
     return UserInDB.model_validate(user)
 
 @ServiceRegistry.register(

@@ -21,11 +21,12 @@ class BaseUser(UserPublic):
 
 class UserInDB(BaseUser):
     unique_id : UUID
-    disabled : bool | None = Field(
-    default=False, title='Is the user account still active'
-)
+    disabled : bool | None = Field(default=False, title='Is the user account still active')
     created_at : Optional[datetime]=None
     updated_at : Optional[datetime]=None
+    hashed_password: str = Field(exclude=True)  # never serialise the hash in any response
+
+    model_config = ConfigDict(from_attributes=True)
    
 class UserAdminPublic(BaseModel):
     unique_id: UUID
