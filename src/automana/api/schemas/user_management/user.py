@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, EmailStr, model_validator
+from pydantic import BaseModel, ConfigDict, Field, EmailStr, model_validator
 from typing import Optional
 from uuid import UUID, uuid4
 from enum import Enum
@@ -27,6 +27,18 @@ class UserInDB(BaseUser):
     created_at : Optional[datetime]=None
     updated_at : Optional[datetime]=None
    
+class UserAdminPublic(BaseModel):
+    unique_id: UUID
+    username: str
+    email: Optional[str] = None
+    fullname: Optional[str] = None
+    disabled: Optional[bool] = False
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class UserUpdatePublic(BaseModel):
     username: str | None=None
     email: str | None=None

@@ -74,11 +74,9 @@ async def search_users(user_repository : UserRepository,
     # Sorting
     sort_by: str = "username",
     sort_order: str = "asc",) -> Union[list[UserPublic], UserPublic]:
-    print(f"Searching users with parameters: {locals()}")
     try:
         # If searching for specific user ID, use get method
         if user_id:
-            print("Fetching user by ID")
             user = await user_repository.get_by_id(user_id)
             if not user:
                 return {"users": [], "total_count": 0}

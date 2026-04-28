@@ -1,6 +1,7 @@
 from typing import Annotated, NoReturn, Optional
 
 from fastapi import Cookie, Depends, HTTPException, Request, status
+from fastapi.security import OAuth2PasswordBearer
 
 from automana.api.dependancies.general import ipDep
 from automana.api.dependancies.service_deps import ServiceManagerDep
@@ -14,6 +15,11 @@ import logging
 logger = logging.getLogger(__name__)
 
 LOGIN_URL = "/login"
+
+# auto_error=False: the function handles its own 401s; this declaration
+# exists solely so FastAPI emits an OAuth2 security scheme in OpenAPI,
+# enabling the Swagger UI padlock.
+_oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/users/auth/token", auto_error=False)
 
 
 class BrowserAuthRequired(Exception):
@@ -31,9 +37,14 @@ async def get_current_active_user(
     request: Request,
     ip_address: ipDep,
     service_manager: ServiceManagerDep,
-    session_id: Optional[str] = Cookie(None),
+    session_cookie: Optional[str] = Cookie(None, alias="session_id"),
+    _token: Optional[str] = Depends(_oauth2_scheme),
 ) -> UserInDB:
     user_agent = request.headers.get("User-Agent", "")
+    # session_cookie holds the value of the 'session_id' cookie (alias keeps
+    # the cookie name intact while avoiding a name clash with /{session_id}
+    # path parameters in routes that use this dependency).
+    session_id = session_cookie
 
     # --- Cookie path ---
     if session_id:
@@ -46,7 +57,10 @@ async def get_current_active_user(
             )
             if not user:
                 _raise_auth_error(request, "Invalid session")
-            return UserInDB.model_validate(user)
+            validated = UserInDB.model_validate(user)
+            if validated.disabled:
+                _raise_auth_error(request, "Account is disabled")
+            return validated
         except session_exceptions.SessionError:
             _raise_auth_error(request, "Invalid or expired session")
 
@@ -77,6 +91,11 @@ async def get_current_active_user(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="User not found",
             )
+        if user.disabled:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Account is disabled",
+            )
         return user
 
     # --- No credentials ---
@@ -84,3 +103,22 @@ async def get_current_active_user(
 
 
 CurrentUserDep = Annotated[UserInDB, Depends(get_current_active_user)]
+
+
+async def require_admin(
+    current_user: CurrentUserDep,
+    service_manager: ServiceManagerDep,
+) -> UserInDB:
+    is_admin_user = await service_manager.execute_service(
+        "user_management.role.is_admin",
+        user=current_user,
+    )
+    if not is_admin_user:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+    return current_user
+
+
+AdminUserDep = Annotated[UserInDB, Depends(require_admin)]

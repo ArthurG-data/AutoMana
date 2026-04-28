@@ -14,7 +14,7 @@ from automana.api.services.auth.auth import (verify_password, create_access_toke
 logger = logging.getLogger(__name__)
 
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/users/auth/token")
 
 async def check_token_validity(request : Request):
     # Accepts Bearer tokens only. Session-cookie auth for HTML/browser clients

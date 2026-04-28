@@ -66,6 +66,7 @@ class Settings(BaseSettings):
     modules_namespace: str = Field(default="backend", alias="MODULES_NAMESPACE")
 
     ALLOW_DESTRUCTIVE_ENDPOINTS: bool = False
+    ALLOWED_ORIGINS: list[str] = Field(default=["http://localhost:8080"])
     # Security / JWT
     jwt_secret_key: Optional[str] = Field(default_factory=lambda: read_secret("jwt_secret_key"))
     jwt_algorithm: str = "HS256"

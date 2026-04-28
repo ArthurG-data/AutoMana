@@ -125,8 +125,14 @@ class UserRepository(AbstractRepository):
         # Build WHERE clause
         where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
         
+        # Whitelist-guard sort_by to prevent SQL injection
+        _SORTABLE_COLUMNS = {"username", "email", "created_at", "updated_at", "fullname"}
+        if sort_by not in _SORTABLE_COLUMNS:
+            sort_by = "username"
+        sort_order = sort_order.upper() if sort_order.upper() in ("ASC", "DESC") else "ASC"
+
         # Build ORDER BY clause
-        order_clause = f"ORDER BY {sort_by} {sort_order.upper()}"
+        order_clause = f"ORDER BY {sort_by} {sort_order}"
         
         # Get users
         query = f"""
