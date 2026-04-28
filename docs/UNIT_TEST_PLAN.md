@@ -720,26 +720,13 @@ the definition site. This is standard `unittest.mock` behaviour.
 
 Tests are ordered by value-per-effort. Each phase is independently mergeable.
 
-### Phase 1 — Tooling and Pure Logic (0 bugs, immediate value)
+### Phase 1 — Tooling and Pure Logic — **SHIPPED**
 
-**Goal:** CI is green, coverage infrastructure works, high-ROI pure-logic tests exist.
-
-**Work items:**
-1. Add `pytest-asyncio`, `pytest-mock`, `pytest-cov` to `pyproject.toml`
-2. Add `asyncio_mode = auto` to `pytest.ini`
-3. Add coverage config to `pyproject.toml`
-4. Create `tests/` directory structure with `__init__.py` files
-5. Write `tests/conftest.py` and `tests/unit/conftest.py`
-6. `tests/unit/api/services/auth/test_auth.py` — `verify_password`, `get_hash_password`, `create_access_token`, `decode_access_token`
-7. `tests/unit/core/services/analytics/test_strategies.py` — all three strategies + manager
-8. `tests/unit/core/services/analytics/test_utils.py` — `parse_title_for_condition`, `parsed_description_for_condition`
-9. `tests/unit/core/services/ops/test_integrity_checks.py` — `_build_report` + three service wrappers
-
-**Expected coverage after Phase 1:**
-- `auth.py`: ~95%
-- `strategies.py`: ~95%
-- `utils.py`: ~90%
-- `integrity_checks.py`: ~90%
+All Phase 1 work items are complete and merged to main. Tests exist at:
+- `tests/unit/api/services/auth/test_auth.py`
+- `tests/unit/core/services/analytics/test_strategies.py`
+- `tests/unit/core/services/analytics/test_utils.py`
+- `tests/unit/core/services/ops/test_integrity_checks.py`
 
 ---
 
@@ -756,15 +743,17 @@ Tests are ordered by value-per-effort. Each phase is independently mergeable.
 
 ---
 
-### Phase 3 — Auth Services and Session Layer (requires bug fixes)
+### Phase 3 — Auth Services and Session Layer — **PARTIALLY SHIPPED**
 
-**Prerequisites:** `auth_service.login` bug fixed (§8.1), `token_service.py` bugs fixed (§8.2).
+Auth and session tests are complete and merged. User and role service tests are still pending.
 
-**Work items:**
-1. `tests/unit/api/services/auth/test_auth_service.py`
-2. `tests/unit/api/services/auth/test_session_service.py`
-3. `tests/unit/api/services/user_management/test_user_service.py`
-4. `tests/unit/api/services/user_management/test_role_service.py`
+**Shipped:**
+- `tests/unit/api/services/auth/test_auth_service.py`
+- `tests/unit/api/services/auth/test_session_service.py`
+
+**Remaining work items:**
+1. `tests/unit/api/services/user_management/test_user_service.py`
+2. `tests/unit/api/services/user_management/test_role_service.py`
 
 ---
 
@@ -781,134 +770,7 @@ Tests are ordered by value-per-effort. Each phase is independently mergeable.
 
 ## 8. Known Bugs Blocking Tests
 
-These bugs exist in the production code today. The tests cannot be written correctly
-until the bugs are fixed. Do not paper over them with workarounds in test fixtures —
-fix the source, then write the test against the fixed behavior.
-
-### 8.1 `auth_service.py` — `login` uses `settings = get_general_settings` (missing call parentheses)
-
-**Status: FIXED**
-
-**Location:** `src/automana/api/services/auth/auth_service.py`, line 95
-
-**Bug:**
-```python
-settings = get_general_settings   # BUG: assigns the function object, not the result
-access_token_expires = timedelta(minutes=int(settings.access_token_expiry))  # AttributeError at runtime
-```
-
-**Fix:**
-```python
-settings = get_general_settings()
-```
-
-**Impact:** `login` always fails at runtime. No test can assert a successful login response until this is fixed. All tests of `login` are deferred to Phase 3.
-
----
-
-### 8.2 `token_service.py` — Duplicate function definition and undefined names
-
-**Status: FIXED**
-
-**Location:** `src/automana/api/services/auth/token_service.py`
-
-**Bugs:**
-1. `refresh_tokens` is defined twice; the second definition silently shadows the first.
-2. Both definitions reference `TokenRepository` and `UserRepository` which are either
-   not imported or do not exist as named.
-
-**Impact:** The entire module is currently unusable. Defer all tests of `token_service.py`
-until a refactor is complete. Do not write tests that mask or work around the broken state.
-
----
-
-### 8.3 `analytics/strategies.py` + `analytics/pricing.py` — Hard circular import
-
-**Status: FIXED**
-
-**Location:** `src/automana/core/services/analytics/strategies.py` line 3,
-`src/automana/core/services/analytics/pricing.py` line 3
-
-**Bug:**
-```python
-# strategies.py
-from automana.core.services.analytics.pricing import PricingResult  # imports pricing
-# pricing.py
-from automana.core.services.analytics.strategies import PricingStrategy, PricingStrategyManager  # imports strategies
-```
-
-These two modules form a circular import cycle. Neither can be imported standalone.
-Production code happens to load them in an order that avoids the cycle at app startup
-(pricing.py is always the entry point), but direct import of `strategies.py` fails.
-
-**Impact on tests:** `test_strategies.py` cannot `import strategies` directly without
-triggering the cycle. Workaround applied: a `sys.modules` stub for
-`automana.core.services.analytics.pricing` is injected at module level in the test file
-before the import fires, providing just `PricingResult`. This is a fragile workaround.
-
-**Fix:** Extract `PricingResult` into a standalone module (e.g., `analytics/models.py`)
-that neither `strategies.py` nor `pricing.py` imports from each other for.
-
----
-
-### 8.4 `passlib 1.7.4` incompatible with `bcrypt >= 4.0`
-
-**Status: FIXED**
-
-**Location:** `pyproject.toml` — dependency versions
-`src/automana/api/services/auth/auth.py` — uses `CryptContext(schemes=["bcrypt"])`
-
-**Bug:** `passlib 1.7.4` reads `bcrypt.__about__.__version__` to detect the bcrypt
-version. `bcrypt >= 4.0` removed the `__about__` submodule. The combination raises
-`AttributeError` at hash time, making `verify_password` and `get_hash_password`
-completely non-functional in production.
-
-**Impact on tests:** Six bcrypt-dependent tests in `test_auth.py` are marked
-`@pytest.mark.xfail(strict=True)` with this reason. They will automatically
-start passing once the dependency is fixed.
-
-**Fix (choose one):**
-- Pin `bcrypt<4.0` in `pyproject.toml` (quick, but bcrypt 3.x has known security issues)
-- Upgrade to `passlib>=1.7.5` (not yet released as of 2026-04-24; passlib is effectively abandoned)
-- Replace passlib with direct `bcrypt` calls: `bcrypt.hashpw(pwd.encode(), bcrypt.gensalt())`
-
----
-
-### 8.5 `PricingResult.description` annotated as `float`, used as `str`
-
-**Status: FIXED**
-
-**Location:** `src/automana/core/services/analytics/pricing.py`, `PricingResult` dataclass
-
-**Bug:**
-```python
-@dataclass
-class PricingResult:
-    description: float   # annotation is wrong — all usages pass strings
-```
-
-**Impact:** No runtime failure (Python dataclasses don't enforce annotations at runtime),
-but static type checkers will flag every usage in `strategies.py`. Not a test blocker
-but should be corrected before adding type checking to CI.
-
-**Fix:** Change annotation to `str`.
-
----
-
-### 8.6 `analytics/pricing.py` — `enhanced_pricing_analysis` defined twice
-
-**Status: FIXED**
-
-**Location:** `src/automana/core/services/analytics/pricing.py`
-
-**Bug:** The function `enhanced_pricing_analysis` is defined twice in the same module.
-The second definition silently shadows the first (identical behavior in this case, but
-a maintenance hazard).
-
-**Impact:** No immediate runtime failure. Any call site invokes the second definition.
-Not a test blocker.
-
-**Fix:** Remove the duplicate definition.
+All bugs that were previously documented in this section have been fixed and merged to main. No active blockers remain.
 
 ---
 

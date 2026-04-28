@@ -2,28 +2,8 @@
 
 **Author:** Weasel (Integration Testing Master persona, claude-sonnet-4-6)
 **Date:** 2026-04-24
-**Status:** Phase 0 shipped (commit `67cc231`); Phase 1 blocked on `auth_service.login` bugfix
-**Target branch:** `feat/mtgjson-pipeline` → `main`
-
----
-
-## Phase 0 Shipped — What Actually Landed
-
-Phase 0 scaffolding was implemented and verified end-to-end on 2026-04-24. The smoke test at `tests/integration/api/test_health.py` proves the full rig — containers → env override → migration runner → FastAPI lifespan → ASGI transport → HTTP response — works cold in ~17 s and warm in ~5 s.
-
-**Key deviations from the original plan** (document below has been updated accordingly):
-
-1. **Migration source paths are not `database/SQL/schemas/` + `migrations/`.** The real layout is `src/automana/database/SQL/schemas/` (11 numbered + `integrity_checks.sql`) + `src/automana/database/SQL/analytics/` + `infra/db/init/migrations/` with extensions bootstrapped via `infra/db/init/00-extensions.sql`. See §2.6.
-2. **Test image defaults to the local `timescale-pgvector:pg17`** (258 MB, built by `deploy/docker/postgres/Dockerfile`) instead of the multi-gigabyte `timescale/timescaledb-ha:pg17-all`. Override via `AUTOMANA_TEST_TIMESCALE_IMAGE` env var in CI. See §2.2.
-3. **Migration runner uses sync psycopg2**, not async asyncpg — avoids session-scoped async event-loop scoping headaches with pytest-asyncio 1.3. See §6.2.
-4. **httpx 0.28 requires `ASGITransport(app=app)`**, not `AsyncClient(app=app)` — the old form was removed. See §6.3.
-5. **Module-level automana imports from unit-test collection freeze the `get_settings()` lru_cache** before the container-env fixture primes it. The `_test_env` fixture now purges `sys.modules['automana.*']` and calls `get_settings.cache_clear()` to guarantee fresh reads. See §6.1.
-6. **`pytest -m integration` alone does not work** because unit-test module imports trigger before the env fixture. The working invocation is `pytest tests/integration/` — this is what `addopts = -m "not integration and not slow"` in pytest.ini enables (bare `pytest` stays the fast unit loop). See §2.5.
-7. **Production SQL bug fixed as a prerequisite.** `infra/db/init/migrations/0001_ops_schema.sql` had two `INSERT` statements missing terminators — would fail any fresh dev DB init. Fixed with proper `ON CONFLICT (source_id, external_type, external_id) WHERE canonical_key IS NULL DO NOTHING` clauses matching the partial unique index `ux_resources_no_canonical_key`. See §8.5.
-
-**Open items discovered during Phase 0**, tracked for follow-up phases:
-
-- **Redis client version drift.** `pyproject.toml` pins `redis==5.0.1`, but `pip install 'testcontainers[redis]'` transitively bumps the local venv to `redis==7.4.0`. Phase 4 eBay idempotency tests run against a redis-py 7 client while prod ships 5. Decision needed before Phase 4: bump the main pin, constrain the integration extra, or add a CI job that runs integration under the prod pin. See §10 Risk 7.
+**Status:** Phase 0 complete; Phases 1–5 pending
+**Target branch:** `feat/integration-tests-phase1` → `main`
 
 ---
 
@@ -78,7 +58,7 @@ The following are concrete codebase incidents, not abstract arguments. Each one 
 
 ### 2.1 The Infrastructure Gap — RESOLVED (Phase 0)
 
-Before Phase 0, `deploy/docker-compose.test.yml` defined only `backend` and `nginx`. Phase 0 added `timescaledb` and `redis` services with healthchecks so CI without Docker-in-Docker can still provision the test infra via compose. See §8.3.
+Before Phase 0, `deploy/docker-compose.test.yml` defined only `backend` and `nginx`. Phase 0 added `timescaledb` and `redis` services with healthchecks so CI without Docker-in-Docker can still provision the test infra via compose.
 
 ### 2.2 Infra Choice: Testcontainers-Python (Primary) + Compose (CI Fallback)
 
@@ -837,34 +817,11 @@ async def seeded_scryfall_run(db_conn):
 
 Phases are ordered by security value, coverage ROI, and dependency order. Each phase is independently mergeable.
 
-### Phase 0 — Infrastructure and Scaffolding — **SHIPPED 2026-04-24 (commit `67cc231`)**
+### Phase 0 — Infrastructure and Scaffolding — **SHIPPED (commit `67cc231`)**
 
-**Goal:** the whole rig works end-to-end — containers → env override → migrations → FastAPI lifespan → ASGI transport → HTTP 200. Met.
+All scaffolding is live: testcontainers fixtures, sync-psycopg2 migration runner, `LifespanManager`-wrapped app, `httpx.AsyncClient` with `ASGITransport`, `.coveragerc-integration`, `pytest.ini` markers, and the smoke test at `tests/integration/api/test_health.py`. One deferred item remains:
 
-**Work items completed:**
-1. ✅ `integration` optional-dependency group added to `pyproject.toml`.
-2. ✅ `asyncio_mode = auto`, 4 new markers (`pipeline`, `ebay`, `slow`, refined `integration`), and `addopts = -m "not integration and not slow"` added to `pytest.ini`.
-3. ✅ `.coveragerc-integration` created with `data_file = .coverage.integration`.
-4. ✅ `tests/integration/` directory tree created (`api/routers/`, `repositories/`, `pipelines/`, `services/`, `fixtures/mtgjson/`).
-5. ✅ `tests/conftest.py` exists from the unit plan — kept for shared AsyncMock repositories. Integration-specific fixtures live in `tests/integration/conftest.py`.
-6. ✅ `tests/integration/conftest.py` written: session-scoped containers, env override + `sys.modules` purge + `get_settings.cache_clear()`, sync-psycopg2 migration runner, `LifespanManager`-wrapped app, `httpx.AsyncClient` with `ASGITransport`.
-7. ✅ `deploy/docker-compose.test.yml` updated with `timescaledb` + `redis` services (healthchecks, correct `app-network`).
-8. ⏳ `tests/integration/fixtures/mtgjson/AllPricesToday_minimal.json.xz` — deferred to Phase 3 (not needed for Phase 0 smoke).
-9. ✅ Migration runner verified against fresh container. Applied 11 schemas + analytics + seed migration in ~2 s.
-
-**Over-and-above during Phase 0:**
-
-- Discovered and fixed production SQL bug in `infra/db/init/migrations/0001_ops_schema.sql` (two INSERT statements missing `;` terminators). Would fail any fresh dev-DB init. See §8.5.
-- `tests/integration/api/test_health.py` smoke test added (not originally scoped for Phase 0, but is the canary that proves the rig works). Run with `pytest tests/integration/`.
-- `AUTOMANA_TEST_TIMESCALE_IMAGE` and `AUTOMANA_TEST_REDIS_IMAGE` env vars wired so CI can override without code changes.
-
-**Verified invocations:**
-
-- `pytest` → 130 unit tests pass in ~2.8 s, no Docker required
-- `pytest tests/integration/` → 1 smoke test passes in ~5 s warm / ~17 s cold
-- Unit + integration coexist without interfering
-
-**Actual effort:** ~half a working session (vs. the 2–3 day estimate). The over-delivery was the SQL migration fix and the smoke test canary.
+- ⏳ `tests/integration/fixtures/mtgjson/AllPricesToday_minimal.json.xz` — needed for Phase 3 MTGJson chain test.
 
 ---
 
@@ -876,8 +833,6 @@ Phases are ordered by security value, coverage ROI, and dependency order. Each p
 1. `tests/integration/api/routers/test_auth_router.py` — login scenarios, cookie header assertions, logout, Bearer token path.
 2. `tests/integration/api/routers/test_users_router.py` — full user CRUD through router.
 3. `tests/integration/repositories/test_session_repository.py` — schema-qualified stored function assertions.
-
-**Prerequisite:** `auth_service.login` bug (unit plan §8.1) must be fixed before Phase 1 tests can pass.
 
 **Expected coverage after Phase 1:**
 - `api/routers/auth.py`: ~90%
@@ -950,43 +905,21 @@ Phases are ordered by security value, coverage ROI, and dependency order. Each p
 
 ## 8. Known Bugs and Infrastructure Blockers
 
-### 8.1 `auth_service.login` Bug (Carried from Unit Plan §8.1)
+### 8.1 `auth_service.login` Bug
 
-**Status:** Active bug. **Blocks:** Phase 1 (all login-path integration tests).
+**Status:** Fixed and merged. Login-path integration tests in Phase 1 are unblocked.
 
-The `settings = get_general_settings` bug means `login` always raises `AttributeError` at runtime. No integration test can assert a successful login response until the fix (`settings = get_general_settings()`) is applied.
+### 8.2 `token_service.py` Bugs
 
-**Integration test impact beyond the unit plan:** The bug blocks not just the login test itself but also every downstream test that relies on a `client` fixture with a valid `session_id` cookie, because the fixture itself cannot log in through the router. The workaround is to insert session rows directly via the `db_conn` fixture for Phase 0–1 setup, but the login router path must be unblocked before Phase 1 ships.
+**Status:** Fixed and merged. The refresh endpoint is unblocked. Phase 1 tests for `POST /api/users/auth/token/refresh` can now be written.
 
-### 8.2 `token_service.py` Bugs (Carried from Unit Plan §8.2)
-
-**Status:** Active bugs (duplicate function definition, undefined references). **Blocks:** Any test of the `POST /api/users/auth/token/refresh` endpoint.
-
-Do not write tests for the refresh endpoint until `token_service.py` is rewritten. Document the blocker in `test_auth_router.py` as a skipped test with `@pytest.mark.skip(reason="token_service.py has active bugs — see unit plan §8.2")`.
-
-### 8.3 `deploy/docker-compose.test.yml` Missing Services (Infrastructure Blocker)
-
-**Status:** ✅ **RESOLVED in Phase 0.** `deploy/docker-compose.test.yml` now includes `timescaledb` (with healthcheck + port 5433) and `redis` (with healthcheck + port 6379) services on the `app-network`. The `backend` service was extended with env vars pointing at these services. A Celery worker service is **deferred** — Phase 0–2 do not need a running broker (we use `CELERY_TASK_ALWAYS_EAGER` for in-process pipeline verification). The celery_worker service will be added when Phase 3 pipeline tests land, along with a dedicated `Dockerfile.worker` if needed.
-
-### 8.4 `ops.resources` Seed Row for `check_version`
+### 8.3 `ops.resources` Seed Row for `check_version`
 
 **Status:** Known operational requirement from `docs/MTGJSON_PIPELINE.md`: "The `ops.resources` row with `canonical_key = 'mtgjson.all_printings'` must exist for this service to function. It is not seeded automatically."
 
 **Impact:** `staging.mtgjson.check_version` integration tests will fail with a NOT FOUND error unless the migration runner or test fixture inserts this seed row.
 
 **Resolution:** Add a fixture seed step to `_apply_migrations` in `tests/integration/conftest.py` that inserts the required `ops.resources` row after migrations complete.
-
-### 8.5 Production Migration SQL Bug (FIXED in Phase 0)
-
-**Status:** ✅ **FIXED 2026-04-24 (commit `67cc231`).**
-
-**Discovered during:** the Phase 0 smoke test. The migration runner applied schemas cleanly but choked on `infra/db/init/migrations/0001_ops_schema.sql` with `syntax error at or near "INSERT"` at line 15.
-
-**Root cause:** Two `INSERT` statements (the Scryfall `all_bulk_data` resource at lines 2–13 and the `all_sets` resource at lines 15–22) were missing their terminating `;` and `ON CONFLICT` clauses. PostgreSQL parsed the whole file as one invalid multi-statement. This bug would also fail any fresh dev-DB init — it had never been exercised since landing, or dev DBs were seeded via a different path.
-
-**Fix:** Added matching `ON CONFLICT (source_id, external_type, external_id) WHERE canonical_key IS NULL DO NOTHING;` clauses after each INSERT, matching the partial unique index `ux_resources_no_canonical_key` defined in `09_ops_schema.sql`. Migration is now idempotent and applies cleanly to fresh or repopulated schemas.
-
-**Lesson:** landing Phase 0 with a smoke test — rather than the plan's original "empty infra, no test collected" deliverable — caught a production bug that had been dormant in the repo. The "infra + one canary" pattern is recommended for every future phase.
 
 ---
 
