@@ -21,12 +21,6 @@ CREATE TABLE Customers (
 */
 BEGIN;
 CREATE SCHEMA IF NOT EXISTS user_collection;
--- Reference: Card Conditions
-CREATE TABLE IF NOT EXISTS user_collection.ref_condition (
-    condition_code SERIAL PRIMARY KEY,
-    condition_description VARCHAR(10) UNIQUE NOT NULL
-);
-
 
 CREATE TABLE IF NOT EXISTS user_collection.collections (
     collection_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -40,14 +34,16 @@ CREATE TABLE IF NOT EXISTS user_collection.collections (
 
 
 -- Collection Items (Tracks Owned Cards)
-CREATE TABLE  IF NOT EXISTS user_collection.collection_items (
+CREATE TABLE IF NOT EXISTS user_collection.collection_items (
     item_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     collection_id UUID REFERENCES user_collection.collections(collection_id) ON DELETE CASCADE,
     unique_card_id UUID REFERENCES card_catalog.card_version(card_version_id) ON DELETE CASCADE,
-    is_foil BOOLEAN DEFAULT FALSE,
+    finish_id SMALLINT NOT NULL DEFAULT 1 REFERENCES pricing.card_finished(finish_id),
     purchase_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    purchase_price DECIMAL(10,2),  -- Using DECIMAL for better financial precision
-    condition INT REFERENCES user_collection.ref_condition(condition_code) DEFAULT 1  -- Assuming 1 = NM (Near Mint)
+    purchase_price DECIMAL(10,2),
+    condition VARCHAR(5) NOT NULL DEFAULT 'NM' REFERENCES pricing.card_condition(code),
+    currency_code VARCHAR(3) NOT NULL DEFAULT 'USD' REFERENCES pricing.currency_ref(currency_code),
+    language_id INT REFERENCES card_catalog.language_ref(language_id)
 );
 
 

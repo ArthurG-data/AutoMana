@@ -94,22 +94,44 @@ class CardReferenceRepository(AbstractRepository[Any]):
         return result[0] if result else None
 
     async def suggest(self, query: str, limit: int = 10) -> list[dict]:
-        """Return fuzzy name suggestions from the trigram-indexed suggest view.
-
-        Uses pg_trgm ``%`` operator for similarity matching and orders results
-        by descending ``word_similarity`` score. Callers should treat the
-        results as display hints, not authoritative search results.
-        """
         sql = """
-            SELECT card_version_id, card_name, set_code, rarity_name,
-                   word_similarity($1, card_name) AS score
-            FROM card_catalog.v_card_name_suggest
-            WHERE $1 % card_name
+            SELECT v.card_version_id, v.card_name, v.set_code, v.rarity_name,
+                   cv.collector_number,
+                   cei.value AS scryfall_id,
+                   word_similarity($1, v.card_name) AS score
+            FROM card_catalog.v_card_name_suggest v
+            JOIN card_catalog.card_version cv ON cv.card_version_id = v.card_version_id
+            LEFT JOIN card_catalog.card_external_identifier cei
+                ON cei.card_version_id = v.card_version_id AND cei.card_identifier_ref_id = 1
+            WHERE $1 % v.card_name
             ORDER BY score DESC
             LIMIT $2
         """
         rows = await self.execute_query(sql, (query, limit))
         return [dict(r) for r in rows]
+
+    async def get_version_by_scryfall_id(self, scryfall_id: str) -> Optional[dict]:
+        sql = """
+            SELECT cv.card_version_id, uc.card_name, s.set_code, cv.collector_number
+            FROM card_catalog.card_external_identifier cei
+            JOIN card_catalog.card_version cv ON cv.card_version_id = cei.card_version_id
+            JOIN card_catalog.unique_cards_ref uc ON uc.unique_card_id = cv.unique_card_id
+            JOIN card_catalog.sets s ON s.set_id = cv.set_id
+            WHERE cei.card_identifier_ref_id = 1 AND cei.value = $1
+        """
+        rows = await self.execute_query(sql, (scryfall_id,))
+        return dict(rows[0]) if rows else None
+
+    async def get_version_by_set_collector(self, set_code: str, collector_number: str) -> Optional[dict]:
+        sql = """
+            SELECT cv.card_version_id, uc.card_name, s.set_code, cv.collector_number
+            FROM card_catalog.card_version cv
+            JOIN card_catalog.sets s ON s.set_id = cv.set_id
+            JOIN card_catalog.unique_cards_ref uc ON uc.unique_card_id = cv.unique_card_id
+            WHERE s.set_code = $1 AND cv.collector_number = $2
+        """
+        rows = await self.execute_query(sql, (set_code, collector_number))
+        return dict(rows[0]) if rows else None
 
     async def search(
             self,

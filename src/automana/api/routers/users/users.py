@@ -1,38 +1,72 @@
-
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
-from automana.api.schemas.StandardisedQueryResponse import ApiResponse, PaginatedResponse, PaginationInfo
+from automana.api.schemas.StandardisedQueryResponse import ApiResponse, PaginatedResponse, PaginationInfo, ErrorResponse
 from automana.api.schemas.user_management.user import BaseUser, UserPublic, UserUpdatePublic, UserInDB
 from automana.api.dependancies.service_deps import ServiceManagerDep
 from automana.api.dependancies.auth.users import CurrentUserDep
 from automana.api.schemas.user_management.role import AssignRoleRequest, Role
-from automana.api.dependancies.query_deps import (sort_params,
-                                                   user_search_params,
-                                                   pagination_params,
-                                                   PaginationParams,
-                                                   SortParams)
+from automana.api.dependancies.query_deps import (
+    sort_params,
+    user_search_params,
+    pagination_params,
+    PaginationParams,
+    SortParams,
+)
 import logging
 
 logger = logging.getLogger(__name__)
 
+_USER_ERRORS = {
+    401: {"description": "Not authenticated", "model": ErrorResponse},
+    403: {"description": "Insufficient permissions", "model": ErrorResponse},
+    422: {"description": "Validation error — malformed or missing fields"},
+    500: {"description": "Internal server error", "model": ErrorResponse},
+}
+
 router = APIRouter(
-    prefix='/users',
-    tags=['users'],
-    responses={404: {'description': 'Not found'}}
+    prefix='',
+    tags=['Users'],
+    responses={404: {'description': 'Not found'}},
 )
 
 
-@router.get('/me', response_model=UserPublic)
-async def get_me_user(current_user: CurrentUserDep):
+@router.get(
+    '/me',
+    summary="Get the currently authenticated user",
+    description=(
+        "Returns the profile of the user identified by the `session_id` cookie. "
+        "Requires an active session. The response excludes sensitive fields such as "
+        "`hashed_password`."
+    ),
+    response_model=UserPublic,
+    response_model_exclude_unset=True,
+    operation_id="users_get_me",
+    responses={
+        401: {"description": "Not authenticated — missing or expired session cookie", "model": ErrorResponse},
+        **{k: v for k, v in _USER_ERRORS.items() if k not in (401,)},
+    },
+)
+async def get_me(current_user: CurrentUserDep):
     return current_user
 
 
-@router.get('/', response_model=PaginatedResponse[UserInDB])
-async def get_users(
+@router.get(
+    '/',
+    summary="Search and list users (paginated)",
+    description=(
+        "Returns a paginated list of users. Supports filtering by username, email, "
+        "or other search fields, plus common sort and pagination controls. "
+        "Intended for admin use."
+    ),
+    response_model=PaginatedResponse[UserInDB],
+    operation_id="users_list",
+    responses=_USER_ERRORS,
+)
+async def list_users(
     service_manager: ServiceManagerDep,
     pagination: PaginationParams = Depends(pagination_params),
     sorting: SortParams = Depends(sort_params),
-    search: dict = Depends(user_search_params)
+    search: dict = Depends(user_search_params),
 ):
     try:
         result = await service_manager.execute_service(
@@ -64,8 +98,23 @@ async def get_users(
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
-@router.post('/')
-async def add_user(user: BaseUser, service_manager: ServiceManagerDep):
+@router.post(
+    '/',
+    summary="Register a new user",
+    description=(
+        "Creates a new user account. The `hashed_password` field must be provided "
+        "pre-hashed by the caller. Returns the newly created user record wrapped in "
+        "an `ApiResponse` envelope."
+    ),
+    response_model=ApiResponse,
+    status_code=status.HTTP_201_CREATED,
+    operation_id="users_register",
+    responses={
+        409: {"description": "Username or email already exists"},
+        **_USER_ERRORS,
+    },
+)
+async def register_user(user: BaseUser, service_manager: ServiceManagerDep):
     try:
         result = await service_manager.execute_service("auth.auth.register", user=user)
         return ApiResponse(data=result)
@@ -76,8 +125,22 @@ async def add_user(user: BaseUser, service_manager: ServiceManagerDep):
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
-@router.put('/')
-async def modify_user(
+@router.put(
+    '/',
+    summary="Update the currently authenticated user",
+    description=(
+        "Updates mutable profile fields (`username`, `email`, `fullname`) for the "
+        "user identified by the active session cookie. Partial updates are supported "
+        "— only provided fields are changed."
+    ),
+    response_model=ApiResponse,
+    operation_id="users_update_me",
+    responses={
+        401: {"description": "Not authenticated", "model": ErrorResponse},
+        **_USER_ERRORS,
+    },
+)
+async def update_user(
     user_update: UserUpdatePublic,
     service_manager: ServiceManagerDep,
     current_user: CurrentUserDep,
@@ -96,11 +159,23 @@ async def modify_user(
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
-@router.delete('/{user_id}', status_code=204)
+@router.delete(
+    '/{user_id}',
+    summary="Delete a user by ID",
+    description=(
+        "Permanently deletes the user account identified by `user_id`. "
+        "This action is irreversible. Returns 204 No Content on success."
+    ),
+    status_code=status.HTTP_204_NO_CONTENT,
+    operation_id="users_delete",
+    responses={
+        404: {"description": "User not found"},
+        **_USER_ERRORS,
+    },
+)
 async def delete_user(user_id: UUID, service_manager: ServiceManagerDep):
     try:
         await service_manager.execute_service("user_management.user.delete", user_id=user_id)
-        return ApiResponse(data=None)
     except HTTPException:
         raise
     except Exception as e:
@@ -108,7 +183,23 @@ async def delete_user(user_id: UUID, service_manager: ServiceManagerDep):
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
-@router.post('/{user_id}/roles', status_code=status.HTTP_201_CREATED)
+@router.post(
+    '/{user_id}/roles',
+    summary="Assign a role to a user",
+    description=(
+        "Grants the specified role to the target user. The caller must be "
+        "authenticated and have sufficient privileges (typically `admin`). "
+        "The role assignment can optionally include an expiry date and an "
+        "effective-from date."
+    ),
+    status_code=status.HTTP_201_CREATED,
+    operation_id="users_assign_role",
+    responses={
+        404: {"description": "User not found"},
+        409: {"description": "Role already assigned to this user"},
+        **_USER_ERRORS,
+    },
+)
 async def assign_role(
     user_id: UUID,
     role: AssignRoleRequest,
@@ -129,7 +220,21 @@ async def assign_role(
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
-@router.delete('/{user_id}/roles/{role_name}', status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    '/{user_id}/roles/{role_name}',
+    summary="Revoke a role from a user",
+    description=(
+        "Removes the specified role from the target user. The caller must be "
+        "authenticated and have sufficient privileges. Returns 204 No Content "
+        "on success."
+    ),
+    status_code=status.HTTP_204_NO_CONTENT,
+    operation_id="users_revoke_role",
+    responses={
+        404: {"description": "User or role assignment not found"},
+        **_USER_ERRORS,
+    },
+)
 async def revoke_role(
     user_id: UUID,
     role_name: Role,

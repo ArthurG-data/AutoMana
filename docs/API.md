@@ -122,7 +122,7 @@ Sessions (`/api/users/session`)
 
 - `GET /api/users/session/{session_id}` — get one session
 - `GET /api/users/session/` — search sessions (paginated)
-- `DELETE /api/users/session/{session_id}/desactivate` — deactivate a session
+- `DELETE /api/users/session/{session_id}/deactivate` — deactivate a session
 
 Users (`/api/users/users`)
 
