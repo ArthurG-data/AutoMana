@@ -58,11 +58,12 @@ async def login(
     if result is None:
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
+    settings = get_settings()
     token_response = TokenResponse(
         access_token=result["access_token"],
         refresh_token=result["refresh_token"],
         token_type="bearer",
-        expires_in=3600,
+        expires_in=settings.access_token_expiry * 60,
     )
     json_response = JSONResponse(
         content=token_response.model_dump(),
@@ -103,16 +104,36 @@ async def login(
 )
 async def refresh_token(
     ip_address: ipDep,
-    response: Response,
     request: Request,
+    response: Response,
     service_manager: ServiceManagerDep,
 ):
-    return await service_manager.execute_service(
-        'auth.cookie.read_cookie',
+    session_id = request.cookies.get("session_id")
+    if not session_id:
+        raise HTTPException(status_code=401, detail="No session cookie")
+    user_agent = request.headers.get("User-Agent", "")
+    result = await service_manager.execute_service(
+        "auth.session.refresh",
+        session_id=session_id,
         ip_address=ip_address,
-        response=response,
-        request=request,
+        user_agent=user_agent,
     )
+    token_response = TokenResponse(
+        access_token=result["access_token"],
+        refresh_token=result["refresh_token"],
+        token_type="bearer",
+        expires_in=result["expires_in"],
+    )
+    secure_cookies = get_settings().env != "dev"
+    response.set_cookie(
+        key="session_id",
+        value=result["session_id"],
+        httponly=True,
+        secure=secure_cookies,
+        samesite="strict",
+        max_age=60 * 60 * 24 * 7,
+    )
+    return token_response
 
 
 @authentification_router.post(

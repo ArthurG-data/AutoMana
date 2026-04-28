@@ -65,3 +65,57 @@ class SessionRepository(AbstractRepository):
     async def invalidate_session(self, session_id: UUID, ip_address: str):
         query = "SELECT user_management.inactivate_session($1, $2)"
         return await self.execute_query(query, (session_id, ip_address))
+
+    async def search(
+        self,
+        user_id=None,
+        username: str = None,
+        session_id_filter=None,
+        ip_address: str = None,
+        user_agent: str = None,
+        token_id=None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> dict:
+        conditions = []
+        values = []
+        counter = 1
+
+        if user_id is not None:
+            conditions.append(f"user_id = ${counter}")
+            values.append(user_id)
+            counter += 1
+        if username is not None:
+            conditions.append(f"username ILIKE ${counter}")
+            values.append(f"%{username}%")
+            counter += 1
+        if session_id_filter is not None:
+            conditions.append(f"session_id = ${counter}")
+            values.append(session_id_filter)
+            counter += 1
+        if ip_address is not None:
+            conditions.append(f"ip_address = ${counter}")
+            values.append(ip_address)
+            counter += 1
+        if user_agent is not None:
+            conditions.append(f"user_agent ILIKE ${counter}")
+            values.append(f"%{user_agent}%")
+            counter += 1
+        if token_id is not None:
+            conditions.append(f"token_id = ${counter}")
+            values.append(token_id)
+            counter += 1
+
+        where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
+        query = f"""
+            SELECT *, COUNT(*) OVER() AS total_count
+            FROM user_management.v_active_sessions
+            {where_clause}
+            ORDER BY created_at DESC
+            LIMIT ${counter} OFFSET ${counter + 1}
+        """
+        values.extend([limit, offset])
+        rows = await self.execute_query(query, tuple(values))
+        total_count = rows[0]["total_count"] if rows else 0
+        sessions = [{k: v for k, v in dict(r).items() if k != "total_count"} for r in rows]
+        return {"sessions": sessions, "total_count": total_count}

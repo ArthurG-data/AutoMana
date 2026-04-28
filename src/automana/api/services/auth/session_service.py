@@ -1,4 +1,5 @@
 ﻿from automana.api.repositories.auth.session_repository import SessionRepository
+from automana.api.repositories.user_management.user_repository import UserRepository
 from uuid import UUID, uuid4
 from automana.api.schemas.auth.session import CreateSession
 from automana.api.services.auth.auth import create_access_token, decode_access_token
@@ -172,6 +173,77 @@ async def read_session(session_repository: SessionRepository, session_id: UUID):
     """Reads a session from the database."""
     session = await session_repository.get(session_id)
     if not session:
-        logger.error(f"Session not found: {session_id}")
+        logger.error("session_not_found", extra={"session_id": str(session_id)})
         return None
     return session
+
+
+@ServiceRegistry.register(
+    "auth.session.search_sessions",
+    db_repositories=["session"],
+)
+async def search_sessions(
+    session_repository: SessionRepository,
+    search_params: dict,
+    pagination,
+    sorting,
+    date_range,
+) -> dict:
+    """Returns a paginated list of sessions matching the supplied filters."""
+    return await session_repository.search(
+        user_id=search_params.get("user_id"),
+        username=search_params.get("username"),
+        session_id_filter=search_params.get("session_id"),
+        ip_address=search_params.get("ip_address"),
+        user_agent=search_params.get("user_agent"),
+        token_id=search_params.get("token_id"),
+        limit=pagination.limit,
+        offset=pagination.offset,
+    )
+
+
+@ServiceRegistry.register(
+    "auth.session.refresh",
+    db_repositories=["session", "user"],
+)
+async def refresh_session(
+    session_repository: SessionRepository,
+    user_repository: UserRepository,
+    session_id: str,
+    ip_address: str,
+    user_agent: str,
+) -> dict:
+    """Validates a session, rotates the refresh token, and issues a new access token."""
+    settings = get_general_settings()
+    try:
+        session = await validate_session_credentials(
+            session_repository, UUID(session_id), ip_address, user_agent
+        )
+    except session_exceptions.SessionError:
+        raise
+
+    user_id = session.get("user_id")
+    user = await user_repository.get_by_id(user_id)
+    if not user:
+        raise session_exceptions.SessionUserNotFoundError("User not found for session")
+
+    expire_time = datetime.now(timezone.utc) + timedelta(days=7)
+    rotated = await rotate_session_token(
+        session_repository,
+        session["session_id"],
+        session["refresh_token"],
+        expire_time,
+        session["token_id"],
+    )
+    access_token = create_access_token(
+        data={"sub": user["username"], "user_id": str(user["unique_id"])},
+        secret_key=settings.jwt_secret_key,
+        algorithm=settings.jwt_algorithm,
+        expires_delta=timedelta(minutes=int(settings.access_token_expiry)),
+    )
+    return {
+        "session_id": str(rotated["session_id"]),
+        "refresh_token": rotated["refresh_token"],
+        "access_token": access_token,
+        "expires_in": settings.access_token_expiry * 60,
+    }
