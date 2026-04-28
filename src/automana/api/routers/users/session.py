@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from uuid import UUID
 from automana.api.dependancies.service_deps import ServiceManagerDep
 from automana.api.schemas.StandardisedQueryResponse import ApiResponse, PaginatedResponse, PaginationInfo, ErrorResponse
+from automana.api.dependancies.auth.users import get_current_active_user, CurrentUserDep
+from automana.api.dependancies.general import ipDep
 
 from automana.api.dependancies.query_deps import (
     session_search_params,
@@ -30,8 +32,7 @@ _SESSION_ERRORS = {
     summary="Retrieve a session by ID",
     description=(
         "Returns metadata for a single session identified by its UUID. "
-        "If the session does not exist, an empty `data` field is returned "
-        "with a descriptive message rather than a 404."
+        "Raises 404 if the session does not exist."
     ),
     response_model=ApiResponse,
     operation_id="sessions_get_by_id",
@@ -43,6 +44,7 @@ _SESSION_ERRORS = {
 async def get_session(
     session_id: UUID,
     service_manager: ServiceManagerDep,
+    _current_user: CurrentUserDep,
 ):
     try:
         result = await service_manager.execute_service(
@@ -50,12 +52,12 @@ async def get_session(
             session_id=session_id,
         )
         if not result:
-            return ApiResponse(data=result, message="Session not found")
+            raise HTTPException(status_code=404, detail="Session not found")
         return ApiResponse(data=result, message="Session retrieved successfully")
     except HTTPException:
         raise
     except Exception:
-        raise
+        raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
 @session_router.get(
@@ -76,6 +78,7 @@ async def get_session(
 )
 async def list_sessions(
     service_manager: ServiceManagerDep,
+    _current_user: CurrentUserDep,
     search_params: dict = Depends(session_search_params),
     pagination: PaginationParams = Depends(pagination_params),
     sorting: SortParams = Depends(sort_params),
@@ -93,7 +96,7 @@ async def list_sessions(
             return PaginatedResponse(
                 data=results,
                 message="Sessions retrieved successfully",
-                pagination_info=PaginationInfo(
+                pagination=PaginationInfo(
                     limit=pagination.limit,
                     offset=pagination.offset,
                     total_count=len(results),
@@ -127,13 +130,23 @@ async def list_sessions(
 async def deactivate_session(
     session_id: UUID,
     service_manager: ServiceManagerDep,
+    current_user: CurrentUserDep,
+    ip_address: ipDep,
 ):
     try:
+        existing = await service_manager.execute_service(
+            "auth.session.read",
+            session_id=session_id,
+        )
+        if not existing:
+            raise HTTPException(status_code=404, detail="Session not found")
         await service_manager.execute_service(
             "auth.session.delete",
             session_id=session_id,
+            user_id=current_user.unique_id,
+            ip_address=ip_address,
         )
     except HTTPException:
         raise
     except Exception:
-        raise
+        raise HTTPException(status_code=500, detail="Internal Server Error")

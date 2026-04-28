@@ -67,3 +67,14 @@ async def has_role(repository: RoleRepository, role : str,user : user.UserInDB )
             raise
         except Exception as e:
             raise role_exceptions.RoleRepositoryError(f"Error checking role: {str(e)}")
+
+
+@ServiceRegistry.register(
+    "user_management.role.is_admin",
+    db_repositories=["role"]
+)
+async def is_admin(role_repository: RoleRepository, user: user.UserInDB) -> bool:
+    result = await role_repository.user_has_role(user.unique_id, "admin")
+    if not result:
+        return False
+    return bool(result[0].get("exists", False))

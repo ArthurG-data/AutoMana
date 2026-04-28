@@ -1,9 +1,9 @@
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from automana.api.schemas.StandardisedQueryResponse import ApiResponse, PaginatedResponse, PaginationInfo, ErrorResponse
-from automana.api.schemas.user_management.user import BaseUser, UserPublic, UserUpdatePublic, UserInDB
+from automana.api.schemas.user_management.user import BaseUser, UserPublic, UserUpdatePublic, UserInDB, UserAdminPublic
 from automana.api.dependancies.service_deps import ServiceManagerDep
-from automana.api.dependancies.auth.users import CurrentUserDep
+from automana.api.dependancies.auth.users import CurrentUserDep, AdminUserDep
 from automana.api.schemas.user_management.role import AssignRoleRequest, Role
 from automana.api.dependancies.query_deps import (
     sort_params,
@@ -34,9 +34,10 @@ router = APIRouter(
     '/me',
     summary="Get the currently authenticated user",
     description=(
-        "Returns the profile of the user identified by the `session_id` cookie. "
-        "Requires an active session. The response excludes sensitive fields such as "
-        "`hashed_password`."
+        "Returns the profile of the currently authenticated user. "
+        "Authentication is accepted via the `session_id` cookie or an "
+        "`Authorization: Bearer <token>` header. "
+        "The response excludes sensitive fields such as `hashed_password`."
     ),
     response_model=UserPublic,
     response_model_exclude_unset=True,
@@ -54,15 +55,15 @@ async def get_me(current_user: CurrentUserDep):
     '/',
     summary="Search and list users (paginated)",
     description=(
-        "Returns a paginated list of users. Supports filtering by username, email, "
-        "or other search fields, plus common sort and pagination controls. "
-        "Intended for admin use."
+        "Admin-only. Returns a paginated list of users. Supports filtering by username, "
+        "email, or other search fields, plus common sort and pagination controls."
     ),
-    response_model=PaginatedResponse[UserInDB],
+    response_model=PaginatedResponse[UserAdminPublic],
     operation_id="users_list",
     responses=_USER_ERRORS,
 )
 async def list_users(
+    _admin: AdminUserDep,
     service_manager: ServiceManagerDep,
     pagination: PaginationParams = Depends(pagination_params),
     sorting: SortParams = Depends(sort_params),
@@ -81,7 +82,7 @@ async def list_users(
         total_count = result.get("total_count", 0) if isinstance(result, dict) else len(users)
         return PaginatedResponse(
             success=True,
-            data=[UserInDB.model_validate(user) for user in users],
+            data=[UserAdminPublic.model_validate(user) for user in users],
             pagination=PaginationInfo(
                 limit=pagination.limit,
                 offset=pagination.offset,
@@ -102,9 +103,9 @@ async def list_users(
     '/',
     summary="Register a new user",
     description=(
-        "Creates a new user account. The `hashed_password` field must be provided "
-        "pre-hashed by the caller. Returns the newly created user record wrapped in "
-        "an `ApiResponse` envelope."
+        "Creates a new user account. Pass the plain-text password in `hashed_password` "
+        "— the server hashes it on receipt. Returns the newly created user record "
+        "wrapped in an `ApiResponse` envelope."
     ),
     response_model=ApiResponse,
     status_code=status.HTTP_201_CREATED,
@@ -163,7 +164,7 @@ async def update_user(
     '/{user_id}',
     summary="Delete a user by ID",
     description=(
-        "Permanently deletes the user account identified by `user_id`. "
+        "Admin-only. Permanently deletes the user account identified by `user_id`. "
         "This action is irreversible. Returns 204 No Content on success."
     ),
     status_code=status.HTTP_204_NO_CONTENT,
@@ -173,7 +174,7 @@ async def update_user(
         **_USER_ERRORS,
     },
 )
-async def delete_user(user_id: UUID, service_manager: ServiceManagerDep):
+async def delete_user(user_id: UUID, _admin: AdminUserDep, service_manager: ServiceManagerDep):
     try:
         await service_manager.execute_service("user_management.user.delete", user_id=user_id)
     except HTTPException:
@@ -187,8 +188,7 @@ async def delete_user(user_id: UUID, service_manager: ServiceManagerDep):
     '/{user_id}/roles',
     summary="Assign a role to a user",
     description=(
-        "Grants the specified role to the target user. The caller must be "
-        "authenticated and have sufficient privileges (typically `admin`). "
+        "Admin-only. Grants the specified role to the target user. "
         "The role assignment can optionally include an expiry date and an "
         "effective-from date."
     ),
@@ -203,7 +203,7 @@ async def delete_user(user_id: UUID, service_manager: ServiceManagerDep):
 async def assign_role(
     user_id: UUID,
     role: AssignRoleRequest,
-    current_user: CurrentUserDep,
+    current_user: AdminUserDep,
     service_manager: ServiceManagerDep,
 ):
     try:
@@ -224,9 +224,8 @@ async def assign_role(
     '/{user_id}/roles/{role_name}',
     summary="Revoke a role from a user",
     description=(
-        "Removes the specified role from the target user. The caller must be "
-        "authenticated and have sufficient privileges. Returns 204 No Content "
-        "on success."
+        "Admin-only. Removes the specified role from the target user. "
+        "Returns 204 No Content on success."
     ),
     status_code=status.HTTP_204_NO_CONTENT,
     operation_id="users_revoke_role",
@@ -238,7 +237,7 @@ async def assign_role(
 async def revoke_role(
     user_id: UUID,
     role_name: Role,
-    current_user: CurrentUserDep,
+    current_user: AdminUserDep,
     service_manager: ServiceManagerDep,
 ):
     try:
