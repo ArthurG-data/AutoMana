@@ -6,42 +6,31 @@ Standard procedure for manual API testing using curl. Always use a throwaway tes
 
 ## 1. Create a test user
 
-The `hashed_password` field must be bcrypt-hashed by the caller before sending.
+Pass a plain-text password in the `hashed_password` field — the server bcrypt-hashes it on receipt.
 
 ```bash
-# Generate a bcrypt hash for a known test password
-TEST_PASS="test-$(date +%s)"
-HASHED=$(python3 -c "import bcrypt; print(bcrypt.hashpw(b'${TEST_PASS}', bcrypt.gensalt()).decode())")
-echo "Password: $TEST_PASS"
-echo "Hash:     $HASHED"
+TEST_PASS="Testpass123!"
+TEST_USER="apitest_$$"
 
-# Register the user
 curl -s -X POST http://localhost:8000/api/users/ \
   -H "Content-Type: application/json" \
-  -d "{\"username\": \"apitest_$$\", \"email\": \"apitest_$$@test.local\", \"hashed_password\": \"$HASHED\"}" \
+  -d "{\"username\": \"${TEST_USER}\", \"email\": \"${TEST_USER}@automana.dev\", \"hashed_password\": \"${TEST_PASS}\"}" \
   | python3 -m json.tool
 ```
 
-Save the returned `user_id` for the cleanup step.
+Save the returned `unique_id` for the cleanup step.
 
 ---
 
-## 2. Log in and capture tokens
+## 2. Log in and capture the access token
 
 ```bash
-# Login — returns access_token (Bearer) + sets session_id cookie
-curl -s -c /tmp/apitest_cookies.txt \
+ACCESS_TOKEN=$(curl -s \
   -X POST http://localhost:8000/api/users/auth/token \
   -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "username=apitest_$$&password=${TEST_PASS}" \
-  | python3 -m json.tool
-
-# Extract the access token
-ACCESS_TOKEN=$(curl -s -c /tmp/apitest_cookies.txt \
-  -X POST http://localhost:8000/api/users/auth/token \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "username=apitest_$$&password=${TEST_PASS}" \
+  -d "username=${TEST_USER}&password=${TEST_PASS}" \
   | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+echo "Token: ${ACCESS_TOKEN:0:20}..."
 ```
 
 ---
@@ -66,19 +55,21 @@ curl -s -X DELETE \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   http://localhost:8000/api/users/<USER_ID>
 
-# Remove local cookie jar
-rm -f /tmp/apitest_cookies.txt
+unset TEST_PASS TEST_USER ACCESS_TOKEN
+```
 
-# Clear shell variables holding the password
-unset TEST_PASS HASHED ACCESS_TOKEN
+Or delete directly in psql:
+```bash
+docker exec automana-postgres-dev psql -U app_admin -d automana -c \
+  "DELETE FROM user_management.users WHERE username LIKE 'apitest%' RETURNING username;"
 ```
 
 ---
 
-## Collection test example (full round-trip)
+## Collection + entries round-trip
 
 ```bash
-# Create collection
+# Create a collection (returns collection_id, collection_name, user_id)
 COLLECTION_ID=$(curl -s -X POST \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
@@ -87,17 +78,39 @@ COLLECTION_ID=$(curl -s -X POST \
   | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['collection_id'])")
 echo "Collection: $COLLECTION_ID"
 
-# Get a card version ID to insert
-CARD_ID=$(docker exec automana-postgres-dev psql -U app_admin -d automana -t -c \
-  "SELECT card_version_id FROM card_catalog.card_version LIMIT 1;" | tr -d ' \n')
+# Find a card via typeahead suggest
+curl -s "http://localhost:8000/api/catalog/mtg/card/suggest?query=Sheoldred" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" | python3 -m json.tool
 
-# Add a card entry  (endpoint not yet implemented — placeholder)
+# Add a card entry — three supported identifier strategies:
+
+# (a) by card_version_id (from suggest)
 curl -s -X POST \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
-  -d "{\"unique_card_id\": \"$CARD_ID\", \"is_foil\": false, \"purchase_price\": \"1.50\", \"condition\": \"NM\", \"currency_code\": \"USD\"}" \
+  -d '{"card_version_id": "<uuid>", "condition": "NM", "finish": "NONFOIL", "purchase_price": "15.99"}' \
   http://localhost:8000/api/catalog/mtg/collection/${COLLECTION_ID}/entries \
   | python3 -m json.tool
+
+# (b) by scryfall_id
+curl -s -X POST \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"scryfall_id": "<uuid>", "condition": "LP", "finish": "FOIL", "purchase_price": "22.50"}' \
+  http://localhost:8000/api/catalog/mtg/collection/${COLLECTION_ID}/entries \
+  | python3 -m json.tool
+
+# (c) by set_code + collector_number
+curl -s -X POST \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"set_code": "dmu", "collector_number": "107", "condition": "MP", "finish": "NONFOIL", "purchase_price": "8.00"}' \
+  http://localhost:8000/api/catalog/mtg/collection/${COLLECTION_ID}/entries \
+  | python3 -m json.tool
+
+# List all entries
+curl -s "http://localhost:8000/api/catalog/mtg/collection/${COLLECTION_ID}/entries" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" | python3 -m json.tool
 
 # Delete the collection
 curl -s -X DELETE \
@@ -110,7 +123,8 @@ echo "Deleted collection $COLLECTION_ID"
 
 ## Notes
 
-- `bcrypt` must be available: `pip show bcrypt` or `docker exec automana-backend-dev pip show bcrypt`
+- `hashed_password` in the registration request is a misnomer — pass the **plain** password, the server hashes it
+- Valid `condition` values: `NM`, `LP`, `SP`, `MP`, `HP`, `DMG`
+- Valid `finish` values: `NONFOIL`, `FOIL`, `ETCHED`
 - The backend runs on port `8000` in dev; nginx proxies `80/443` in all other envs
-- Cookie jar (`/tmp/apitest_cookies.txt`) holds the `session_id` — delete it at end of session
 - Never commit test passwords; always `unset` them when done

@@ -11,7 +11,7 @@ from automana.core.models.collections.collection import (
     PublicCollection,
     PublicCollectionEntry,
     UpdateCollectionEntry,
-    NewCollectionEntry,
+    AddCollectionEntryRequest,
 )
 from automana.api.dependancies.service_deps import ServiceManagerDep
 from automana.api.schemas.StandardisedQueryResponse import (
@@ -227,43 +227,71 @@ async def delete_collection(
         raise HTTPException(status_code=404, detail="Collection not found")
 
 
-# ---------------------------------------------------------------------------
-# Collection entry endpoints (TODO: incomplete — service calls use positional
-# args which is incorrect; paths were also missing a leading slash which caused
-# malformed routes. Both issues are flagged; routing is fixed here.)
-# ---------------------------------------------------------------------------
-
-@router.delete(
-    '/{collection_id}/{entry_id}',
-    summary="[TODO] Delete a collection entry",
+@router.post(
+    '/{collection_id}/entries',
+    summary="Add a card to a collection",
     description=(
-        "**Incomplete endpoint.** Removes a single entry from a collection. "
-        "The service call currently passes positional arguments; this must be fixed "
-        "before this endpoint is production-ready."
+        "Adds a card version to the specified collection. The card can be identified by "
+        "`card_version_id` (from `/suggest`), by `scryfall_id`, or by `set_code` + "
+        "`collector_number`. Returns the created entry with resolved card details."
     ),
-    operation_id="collection_entries_delete",
-    responses=_COLLECTION_ERRORS,
+    response_model=ApiResponse,
+    status_code=status.HTTP_201_CREATED,
+    operation_id="collection_entries_add",
+    responses={
+        404: {"description": "Collection or card not found"},
+        **_COLLECTION_ERRORS,
+    },
 )
-async def delete_entry(
-    collection_id: str,
-    entry_id: UUID,
+async def add_entry(
+    collection_id: UUID,
+    request: AddCollectionEntryRequest,
+    current_user: CurrentUserDep,
     service_manager: ServiceManagerDep,
 ):
-    return await service_manager.execute_service(
-        "card_catalog.collection.delete_entry", collection_id, entry_id
-    )
+    try:
+        result = await service_manager.execute_service(
+            "card_catalog.collection.add_entry",
+            collection_id=collection_id,
+            user=current_user,
+            request=request,
+        )
+        return ApiResponse(data=result)
+    except CollectionNotFoundError:
+        raise HTTPException(status_code=404, detail="Collection not found")
 
 
 @router.get(
-    '/{collection_id}/{entry_id}',
-    summary="[TODO] Get a collection entry",
-    description=(
-        "**Incomplete endpoint.** Returns a single entry from a collection. "
-        "The service call currently passes positional arguments; this must be fixed "
-        "before this endpoint is production-ready."
-    ),
-    response_model=PublicCollectionEntry,
-    response_model_exclude_unset=True,
+    '/{collection_id}/entries',
+    summary="List all entries in a collection",
+    description="Returns all cards in the specified collection owned by the authenticated user.",
+    response_model=ApiResponse,
+    operation_id="collection_entries_list",
+    responses={
+        404: {"description": "Collection not found"},
+        **_COLLECTION_ERRORS,
+    },
+)
+async def list_entries(
+    collection_id: UUID,
+    current_user: CurrentUserDep,
+    service_manager: ServiceManagerDep,
+):
+    try:
+        result = await service_manager.execute_service(
+            "card_catalog.collection.list_entries",
+            collection_id=collection_id,
+            user=current_user,
+        )
+        return ApiResponse(data=result)
+    except CollectionNotFoundError:
+        raise HTTPException(status_code=404, detail="Collection not found")
+
+
+@router.get(
+    '/{collection_id}/entries/{entry_id}',
+    summary="Get a single collection entry",
+    response_model=ApiResponse,
     operation_id="collection_entries_get",
     responses={
         404: {"description": "Entry not found"},
@@ -271,10 +299,45 @@ async def delete_entry(
     },
 )
 async def get_entry(
-    collection_id: str,
+    collection_id: UUID,
     entry_id: UUID,
+    current_user: CurrentUserDep,
     service_manager: ServiceManagerDep,
 ):
-    return await service_manager.execute_service(
-        "card_catalog.collection.get_entry", collection_id, entry_id
-    )
+    try:
+        result = await service_manager.execute_service(
+            "card_catalog.collection.get_entry",
+            collection_id=collection_id,
+            entry_id=entry_id,
+            user=current_user,
+        )
+        return ApiResponse(data=result)
+    except CollectionNotFoundError:
+        raise HTTPException(status_code=404, detail="Entry not found")
+
+
+@router.delete(
+    '/{collection_id}/entries/{entry_id}',
+    summary="Remove a card from a collection",
+    status_code=status.HTTP_204_NO_CONTENT,
+    operation_id="collection_entries_delete",
+    responses={
+        404: {"description": "Entry not found"},
+        **_COLLECTION_ERRORS,
+    },
+)
+async def delete_entry(
+    collection_id: UUID,
+    entry_id: UUID,
+    current_user: CurrentUserDep,
+    service_manager: ServiceManagerDep,
+):
+    try:
+        await service_manager.execute_service(
+            "card_catalog.collection.delete_entry",
+            collection_id=collection_id,
+            entry_id=entry_id,
+            user=current_user,
+        )
+    except CollectionNotFoundError:
+        raise HTTPException(status_code=404, detail="Entry not found")

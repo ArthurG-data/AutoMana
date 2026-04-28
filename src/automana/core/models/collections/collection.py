@@ -1,9 +1,9 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from enum import Enum
 from typing import Optional
 from datetime import date, datetime
 from decimal import Decimal
-from uuid import UUID, uuid4
+from uuid import UUID
 
 ### Collections schemas
 
@@ -52,26 +52,75 @@ class Conditions(str, Enum):
     DMG = 'DMG'
     SP = 'SP'
 
-class PublicCollectionEntry(BaseModel):
-    unique_card_id: UUID = Field(title='The card version ID')
-    is_foil: bool = Field(default=False, title='Is the card foil')
-    purchase_date: date = Field(default_factory=date.today)
+
+class Finish(str, Enum):
+    NONFOIL = 'NONFOIL'
+    FOIL = 'FOIL'
+    ETCHED = 'ETCHED'
+
+
+class AddCollectionEntryRequest(BaseModel):
+    """
+    Identifies a card version by one of three strategies, then attaches entry metadata.
+    Exactly one identifier group must be provided.
+    """
+    # --- identifier (one of the three must be set) ---
+    card_version_id: Optional[UUID] = Field(default=None, description="Internal card_version_id (returned by /suggest)")
+    scryfall_id: Optional[str] = Field(default=None, description="Scryfall UUID for the printing")
+    set_code: Optional[str] = Field(default=None, max_length=10, description="Set code (e.g. 'dmu'), use with collector_number")
+    collector_number: Optional[str] = Field(default=None, max_length=50, description="Collector number (e.g. '108'), use with set_code")
+
+    # --- entry metadata ---
+    condition: Conditions = Field(default=Conditions.NM)
+    finish: Finish = Field(default=Finish.NONFOIL)
     purchase_price: Decimal = Field(ge=0, decimal_places=2)
-    condition: Conditions = Field(default=Conditions.NM, title='Card condition')
-    currency_code: str = Field(default='USD', max_length=3, title='Purchase currency')
-    language_id: Optional[int] = Field(default=None, title='Card language (language_id from card_catalog.language_ref)')
+    currency_code: str = Field(default='USD', max_length=3)
+    purchase_date: date = Field(default_factory=date.today)
+    language_id: Optional[int] = Field(default=None)
 
-class NewCollectionEntry(PublicCollectionEntry):
-    collection_id: UUID = Field(title='The collection ID')
+    @model_validator(mode='after')
+    def check_identifier(self) -> 'AddCollectionEntryRequest':
+        has_internal = self.card_version_id is not None
+        has_scryfall = self.scryfall_id is not None
+        has_tuple = self.set_code is not None and self.collector_number is not None
+        if not (has_internal or has_scryfall or has_tuple):
+            raise ValueError(
+                "Provide one of: card_version_id, scryfall_id, or set_code+collector_number"
+            )
+        return self
 
-class CollectionEntryInDB(NewCollectionEntry):
+
+class PublicCollectionEntry(BaseModel):
     item_id: UUID
+    card_version_id: UUID
+    card_name: str
+    set_code: str
+    collector_number: str
+    finish: Finish
+    purchase_date: date
+    purchase_price: Decimal
+    condition: Conditions
+    currency_code: str
+    language_id: Optional[int] = None
+
 
 class UpdateCollectionEntry(BaseModel):
-    is_foil: Optional[bool] = None
+    finish: Optional[Finish] = None
     purchase_date: Optional[date] = None
     purchase_price: Optional[Decimal] = None
     condition: Optional[Conditions] = None
     currency_code: Optional[str] = Field(default=None, max_length=3)
+    language_id: Optional[int] = None
+
+
+class CollectionEntryInDB(BaseModel):
+    item_id: UUID
+    collection_id: UUID
+    card_version_id: UUID
+    finish_id: int
+    purchase_date: date
+    purchase_price: Decimal
+    condition: str
+    currency_code: str
     language_id: Optional[int] = None
    

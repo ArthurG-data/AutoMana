@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS user_collection.collection_items (
     item_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     collection_id UUID REFERENCES user_collection.collections(collection_id) ON DELETE CASCADE,
     unique_card_id UUID REFERENCES card_catalog.card_version(card_version_id) ON DELETE CASCADE,
-    is_foil BOOLEAN DEFAULT FALSE,
+    finish_id SMALLINT NOT NULL DEFAULT 1 REFERENCES pricing.card_finished(finish_id),
     purchase_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     purchase_price DECIMAL(10,2),
     condition VARCHAR(5) NOT NULL DEFAULT 'NM' REFERENCES pricing.card_condition(code),

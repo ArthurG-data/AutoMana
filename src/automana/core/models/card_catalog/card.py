@@ -332,7 +332,9 @@ class CardSuggestion(BaseModel):
     card_version_id: UUID
     card_name: str
     set_code: str
+    collector_number: str
     rarity_name: str
+    scryfall_id: Optional[str] = None
     score: float
 
 
