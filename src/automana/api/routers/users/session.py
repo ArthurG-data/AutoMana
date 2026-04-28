@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from uuid import UUID
 from automana.api.dependancies.service_deps import ServiceManagerDep
 from automana.api.schemas.StandardisedQueryResponse import ApiResponse, PaginatedResponse, PaginationInfo, ErrorResponse
-from automana.api.dependancies.auth.users import get_current_active_user, CurrentUserDep
+from automana.api.dependancies.auth.users import get_current_active_user, CurrentUserDep, AdminUserDep
 from automana.api.dependancies.general import ipDep
 
 from automana.api.dependancies.query_deps import (
@@ -31,6 +31,7 @@ _SESSION_ERRORS = {
     '/{session_id}',
     summary="Retrieve a session by ID",
     description=(
+        "Admin-only. "
         "Returns metadata for a single session identified by its UUID. "
         "Raises 404 if the session does not exist."
     ),
@@ -44,7 +45,7 @@ _SESSION_ERRORS = {
 async def get_session(
     session_id: UUID,
     service_manager: ServiceManagerDep,
-    _current_user: CurrentUserDep,
+    _admin: AdminUserDep,
 ):
     try:
         result = await service_manager.execute_service(
@@ -64,6 +65,7 @@ async def get_session(
     '/',
     summary="Search and list sessions (paginated)",
     description=(
+        "Admin-only. "
         "Returns a paginated list of sessions filtered by the provided query "
         "parameters. Supports searching by user, status, date range, and common "
         "sort/pagination controls. Returns 404 when no sessions match the filter."
@@ -78,34 +80,35 @@ async def get_session(
 )
 async def list_sessions(
     service_manager: ServiceManagerDep,
-    _current_user: CurrentUserDep,
+    _admin: AdminUserDep,
     search_params: dict = Depends(session_search_params),
     pagination: PaginationParams = Depends(pagination_params),
     sorting: SortParams = Depends(sort_params),
     date_range: DateRangeParams = Depends(date_range_params),
 ):
     try:
-        results = await service_manager.execute_service(
+        result = await service_manager.execute_service(
             "auth.session.search_sessions",
             search_params=search_params,
             pagination=pagination,
             sorting=sorting,
             date_range=date_range,
         )
-        if results:
-            return PaginatedResponse(
-                data=results,
-                message="Sessions retrieved successfully",
-                pagination=PaginationInfo(
-                    limit=pagination.limit,
-                    offset=pagination.offset,
-                    total_count=len(results),
-                    has_next=len(results) == pagination.limit,
-                    has_previous=pagination.offset > 0,
-                ),
-            )
-        else:
+        sessions = result.get("sessions", []) if isinstance(result, dict) else []
+        total_count = result.get("total_count", 0) if isinstance(result, dict) else 0
+        if not sessions:
             raise HTTPException(status_code=404, detail="No sessions found")
+        return PaginatedResponse(
+            data=sessions,
+            message="Sessions retrieved successfully",
+            pagination=PaginationInfo(
+                limit=pagination.limit,
+                offset=pagination.offset,
+                total_count=total_count,
+                has_next=pagination.offset + pagination.limit < total_count,
+                has_previous=pagination.offset > 0,
+            ),
+        )
     except HTTPException:
         raise
     except Exception:
@@ -116,6 +119,7 @@ async def list_sessions(
     '/{session_id}/deactivate',
     summary="Deactivate a session",
     description=(
+        "Admin-only. "
         "Marks the specified session as inactive, effectively invalidating it. "
         "This is distinct from logout — the session record is retained for audit "
         "purposes. Returns 204 No Content on success."
@@ -130,7 +134,7 @@ async def list_sessions(
 async def deactivate_session(
     session_id: UUID,
     service_manager: ServiceManagerDep,
-    current_user: CurrentUserDep,
+    current_user: AdminUserDep,
     ip_address: ipDep,
 ):
     try:
