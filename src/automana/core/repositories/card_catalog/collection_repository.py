@@ -13,21 +13,22 @@ class CollectionRepository(AbstractRepository):
         return "CollectionRepository"
     
     async def get(self, collection_id: UUID, user_id: UUID) -> Optional[dict]:
-        query = """ SELECT u.username, c.description, c.collection_name, c.is_active 
-                    FROM user_collection.collections c JOIN user_management.users u 
-                    ON c.user_id = u.unique_id 
+        query = """ SELECT c.collection_id, u.username, c.description, c.collection_name,
+                           c.created_at, c.is_active
+                    FROM user_collection.collections c JOIN user_management.users u
+                    ON c.user_id = u.unique_id
                     WHERE c.user_id = $1
                     AND c.is_active = True
-                    AND c.collection_id =  $2;"""
+                    AND c.collection_id = $2;"""
         result = await self.execute_query(query, (user_id, collection_id))
         return result[0] if result else None
 
     async def add(self
                   , collection_name:str
                   , description: str
-                  , user_id: UUID) -> Optional[UUID]:
-        query = "INSERT INTO user_collection.collections (collection_name, description, user_id) VALUES ($1, $2, $3)  RETURNING collection_id ;"
-        result =await self.execute_command(query, (collection_name, description, user_id))
+                  , user_id: UUID) -> Optional[dict]:
+        query = "INSERT INTO user_collection.collections (collection_name, description, user_id) VALUES ($1, $2, $3) RETURNING collection_id;"
+        result = await self.execute_query(query, (collection_name, description, user_id))
         return result[0] if result else None
 
     async def add_many(self, values: List[CreateCollection]):
@@ -35,20 +36,22 @@ class CollectionRepository(AbstractRepository):
         return await self.execute_command(query, (values.collection_name, values.description,    values.user_id))
 
     async def get_all(self, user_id: UUID) -> List[dict]:
-        query = """ SELECT u.username, c.collection_name, c.is_active
+        query = """ SELECT c.collection_id, c.user_id, u.username, c.collection_name,
+                           c.description, c.created_at, c.is_active
                     FROM user_collection.collections c JOIN user_management.users u
                     ON c.user_id = u.unique_id
                     WHERE c.user_id = $1 AND c.is_active = True;"""
         return await self.execute_query(query, (user_id,))
     
-    async def get_many(self, user,  collection_id :List[UUID]):
-        counter = 1
-        query = f""" SELECT u.username, c.collection_name, c.is_active 
-                    FROM user_collection.collections c JOIN user_management.users u 
-                    ON c.user_id = u.unique_id 
-                    WHERE c.user_id = ${counter} AND c.is_active = True AND c.collection_id IN ({', '.join([f'${counter + i}' for i in range(len(collection_id))])});"""
-        values= (user.unique_id, *collection_id)
-        return await self.execute_query( query, values=values)
+    async def get_many(self, user_id: UUID, collection_id: List[UUID]):
+        placeholders = ', '.join(f'${i + 2}' for i in range(len(collection_id)))
+        query = f""" SELECT c.collection_id, c.user_id, u.username, c.collection_name,
+                           c.description, c.created_at, c.is_active
+                    FROM user_collection.collections c JOIN user_management.users u
+                    ON c.user_id = u.unique_id
+                    WHERE c.user_id = $1 AND c.is_active = True AND c.collection_id IN ({placeholders});"""
+        values = (user_id, *collection_id)
+        return await self.execute_query(query, values=values)
    
         
     async def delete(self, collection_id : UUID, user_id : UUID):
@@ -56,8 +59,9 @@ class CollectionRepository(AbstractRepository):
         return await self.execute_command(query, (collection_id, user_id))
 
     async def delete_many(self, collection_ids: List[UUID], user_id: UUID):
-        query = "UPDATE user_collection.collections SET is_active = False WHERE collection_id IN ($1) AND user_id = $2;"
-        return self.execute_command(query, (collection_ids, user_id))
+        placeholders = ', '.join(f'${i + 2}' for i in range(len(collection_ids)))
+        query = f"UPDATE user_collection.collections SET is_active = False WHERE collection_id IN ({placeholders}) AND user_id = $1;"
+        return await self.execute_command(query, (user_id, *collection_ids))
     
     async def update(self, update_fields, collection_id, user_id):
         counter = 1
