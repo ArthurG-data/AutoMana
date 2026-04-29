@@ -55,6 +55,52 @@ class MtgjsonRepository(AbstractRepository):
         )
         return len(records)
 
+    async def upsert_mtgjson_id_mappings(self, pairs: list[tuple[str, str]]) -> int:
+        """Insert mtgjson_uuid → card_version_id rows into card_external_identifier.
+
+        Accepts (mtgjson_uuid, scryfall_uuid) pairs from AllIdentifiers.json.
+        Resolves card_version_id by joining via existing scryfall_id rows, then
+        inserts with identifier_name='mtgjson_id'. Idempotent — the PK
+        (card_version_id, card_identifier_ref_id) conflict is silently ignored.
+
+        Uses UNNEST over two text arrays to avoid temp-table/transaction coupling.
+        Returns the number of rows actually inserted (0 on a re-run).
+        """
+        if not pairs:
+            return 0
+        mtgjson_uuids = [p[0] for p in pairs]
+        scryfall_uuids = [p[1] for p in pairs]
+        count = await self.connection.fetchval("""
+            WITH pairs AS (
+                SELECT
+                    unnest($1::text[]) AS mtgjson_uuid,
+                    unnest($2::text[]) AS scryfall_uuid
+            ),
+            inserted AS (
+                INSERT INTO card_catalog.card_external_identifier
+                    (card_identifier_ref_id, card_version_id, value)
+                SELECT
+                    mtgjson_ref.card_identifier_ref_id,
+                    scryfall_cei.card_version_id,
+                    p.mtgjson_uuid
+                FROM pairs p
+                JOIN card_catalog.card_external_identifier scryfall_cei
+                    ON scryfall_cei.value = p.scryfall_uuid
+                JOIN card_catalog.card_identifier_ref scryfall_ref
+                    ON scryfall_ref.card_identifier_ref_id = scryfall_cei.card_identifier_ref_id
+                   AND scryfall_ref.identifier_name = 'scryfall_id'
+                CROSS JOIN (
+                    SELECT card_identifier_ref_id
+                    FROM card_catalog.card_identifier_ref
+                    WHERE identifier_name = 'mtgjson_id'
+                ) mtgjson_ref
+                ON CONFLICT (card_version_id, card_identifier_ref_id) DO NOTHING
+                RETURNING 1
+            )
+            SELECT COUNT(*) FROM inserted
+        """, mtgjson_uuids, scryfall_uuids)
+        return count or 0
+
     async def promote_staging_to_production(self) -> None:
         """Call the batched promoter proc to move staged rows into price_observation.
 

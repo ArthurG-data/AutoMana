@@ -71,6 +71,52 @@ async def stage_mtgjson_data(
     return {"file_path_prices": str(dest_path)}
 
 
+@ServiceRegistry.register(
+    "staging.mtgjson.sync_uuid_mappings",
+    db_repositories=["mtgjson"],
+    storage_services=["mtgjson"],
+)
+async def sync_uuid_mappings(
+    mtgjson_repository: MtgjsonRepository,
+    storage_service: StorageService,
+    identifiers_filename: str = "AllIdentifiers.json",
+) -> dict:
+    """Populate card_external_identifier.mtgjson_id from AllIdentifiers.json.
+
+    AllIdentifiers.json (downloaded from MTGJson) maps each card UUID to its
+    scryfallId and other external identifiers. This service extracts
+    (mtgjson_uuid, scryfallId) pairs and upserts them via the existing
+    scryfall_id rows in card_external_identifier, giving the promoter proc
+    the UUID→card_version_id mapping it needs to resolve staged price rows.
+
+    Prerequisites: Scryfall catalog must be loaded first (scryfall_id rows
+    must exist). Operation is idempotent — safe to re-run after catalog updates.
+
+    Default filename resolves to {DATA_DIR}/mtgjson/raw/AllIdentifiers.json.
+    Pass --identifiers_filename to override.
+    """
+    logger.info("Loading MTGJson identifier mappings", extra={"file": identifiers_filename})
+    raw = await storage_service.load_json(identifiers_filename)
+
+    data = raw.get("data", raw)
+    pairs: list[tuple[str, str]] = []
+    for mtgjson_uuid, card_data in data.items():
+        scryfall_id = card_data.get("identifiers", {}).get("scryfallId")
+        if scryfall_id:
+            pairs.append((mtgjson_uuid, scryfall_id))
+
+    logger.info(
+        "MTGJson UUID pairs extracted",
+        extra={"total_uuids": len(data), "with_scryfall_id": len(pairs)},
+    )
+    inserted = await mtgjson_repository.upsert_mtgjson_id_mappings(pairs)
+    logger.info(
+        "mtgjson_id mappings upserted",
+        extra={"inserted": inserted, "skipped": len(pairs) - inserted},
+    )
+    return {"mappings_inserted": inserted}
+
+
 def _iter_card_rows(card_uuid: str, card: Any) -> list[tuple]:
     """Fan out one MTGJson card entry into rows for the staging table.
 
