@@ -225,6 +225,35 @@ Returns `{"files_deleted": <int>}`.
 
 ## Additional registered services (not in active chain)
 
+### `staging.mtgjson.sync_uuid_mappings` *(prerequisite — run once before first pipeline execution)*
+
+**File:** `src/automana/core/services/app_integration/mtgjson/data_loader.py`
+**Repositories:** `db_repositories=["mtgjson"]`
+**Storage:** `storage_services=["mtgjson"]`
+**Parameter:** `identifiers_filename: str = "AllIdentifiers.json"`
+
+Populates `card_catalog.card_external_identifier` with `identifier_name='mtgjson_id'` rows. The promotion proc resolves each staged row's `card_uuid` (a MTGJson UUID) to a `card_version_id` by joining via these rows. Without them every staging row is unresolvable and promotion produces 0 results.
+
+**Prerequisite:** The Scryfall catalog must be loaded first — `scryfall_id` rows in `card_external_identifier` must exist. The service bridges: `AllIdentifiers.json` → `(mtgjson_uuid, scryfallId)` pairs → join to existing scryfall rows → insert mtgjson rows.
+
+**Input file:** `AllIdentifiers.json` (downloaded separately from `https://mtgjson.com/api/v5/AllIdentifiers.json`) must be placed at `{DATA_DIR}/mtgjson/raw/AllIdentifiers.json` before running.
+
+Execution flow:
+
+1. Loads `AllIdentifiers.json` via `StorageService.load_json(identifiers_filename)`.
+2. Iterates `data.<mtgjson_uuid>.identifiers.scryfallId` to build `(mtgjson_uuid, scryfall_id)` pairs.
+3. Calls `MtgjsonRepository.upsert_mtgjson_id_mappings(pairs)` — a single SQL statement using `UNNEST` arrays to join to existing `scryfall_id` rows and insert with `ON CONFLICT DO NOTHING`.
+
+Returns `{"mappings_inserted": <int>}`.
+
+**When to re-run:** After a Scryfall catalog refresh that adds new cards, or when the MTGJson `AllIdentifiers.json` is updated with new UUID→scryfallId mappings.
+
+**Manual invocation:**
+
+```bash
+PYTHONPATH=src python -m automana.tools.cli run_service staging.mtgjson.sync_uuid_mappings
+```
+
 ### `mtgjson.data.download.last90`
 
 Streams the 90-day price history (`AllPrices.json.xz`) to disk. Returns `{"file_path_prices": "<absolute_path>"}`.
@@ -292,6 +321,8 @@ An earlier flat staging table. Not written by the current pipeline services.
 **`pricing.load_price_observation_from_mtgjson_staging_batched(batch_days int DEFAULT 30)`**
 
 Promotes data from `pricing.mtgjson_card_prices_staging` into the hypertable `pricing.price_observation`. See Stage 3.2 above.
+
+> **Note (migration 18):** Price values are capped at INT4 max (~$21.4M) via `LEAST(round(price_value * 100), 2147483647)::int` before storing as `price_cents`. MTGJson's AllPrices archive occasionally includes outlier sealed-product prices that exceed this threshold; capping prevents the batch from aborting on overflow.
 
 ---
 
