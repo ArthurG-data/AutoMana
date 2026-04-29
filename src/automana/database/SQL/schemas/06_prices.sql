@@ -65,6 +65,14 @@ CREATE TABLE IF NOT EXISTS pricing.card_finished(
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Maps MTGStocks name suffixes (e.g. "Surge Foil") to their finish_id.
+-- Used by load_staging_prices_batched, load_prices_from_staged_batched, and
+-- resolve_price_rejects to assign granular finishes instead of generic FOIL.
+CREATE TABLE IF NOT EXISTS pricing.mtgstock_name_finish_suffix (
+    suffix     TEXT PRIMARY KEY,
+    finish_id  SMALLINT NOT NULL REFERENCES pricing.card_finished(finish_id)
+);
+
 CREATE TABLE IF NOT EXISTS pricing.card_game (
   game_id     SMALLSERIAL PRIMARY KEY,
   code        TEXT UNIQUE NOT NULL,   -- 'mtg','yugioh','pokemon', etc.
@@ -115,10 +123,22 @@ ON CONFLICT (code) DO NOTHING;
 
 -- Finishes
 INSERT INTO pricing.card_finished (code, description) VALUES
-  ('NONFOIL', 'Nonfoil'),
-  ('FOIL',    'Foil'),
-  ('ETCHED',  'Etched')
+  ('NONFOIL',      'Nonfoil'),
+  ('FOIL',         'Foil'),
+  ('ETCHED',       'Etched'),
+  ('SURGE_FOIL',   'Surge Foil'),
+  ('RIPPLE_FOIL',  'Ripple Foil'),
+  ('RAINBOW_FOIL', 'Rainbow Foil')
 ON CONFLICT (code) DO NOTHING;
+
+INSERT INTO pricing.mtgstock_name_finish_suffix (suffix, finish_id) VALUES
+  ('Surge Foil',    (SELECT finish_id FROM pricing.card_finished WHERE code = 'SURGE_FOIL')),
+  ('Ripple Foil',   (SELECT finish_id FROM pricing.card_finished WHERE code = 'RIPPLE_FOIL')),
+  ('Rainbow Foil',  (SELECT finish_id FROM pricing.card_finished WHERE code = 'RAINBOW_FOIL')),
+  ('Foil Etched',   (SELECT finish_id FROM pricing.card_finished WHERE code = 'ETCHED')),
+  ('Ripper Foil',   (SELECT finish_id FROM pricing.card_finished WHERE code = 'FOIL')),
+  ('Textured Foil', (SELECT finish_id FROM pricing.card_finished WHERE code = 'FOIL'))
+ON CONFLICT (suffix) DO NOTHING;
 
 INSERT INTO pricing.price_source (code, name, currency_code) VALUES
   ('tcg', 'tcgplayer', 'USD'),
@@ -724,7 +744,12 @@ BEGIN
     ON uc.unique_card_id = cv.unique_card_id
   WHERE u.set_abbr IS NOT NULL
     AND u.collector_number IS NOT NULL
-    AND (u.card_name IS NULL OR uc.card_name IS NULL OR lower(uc.card_name) = lower(u.card_name));
+    AND (
+        u.card_name IS NULL
+        OR uc.card_name IS NULL
+        OR lower(uc.card_name) = lower(u.card_name)
+        OR lower(u.card_name) LIKE (lower(uc.card_name) || ' (%')
+    );
 
   -- 3d) Final resolved rows — built from tmp_batch_foil_split so that each row
   --     already carries the foil-split price columns (list_low_cents, list_avg_cents,
@@ -928,8 +953,11 @@ BEGIN
         s.source_product_id,
         s.data_provider_id,
         v_price_type_id::int                              AS price_type_id,
-        CASE WHEN s.is_foil THEN v_finish_foil_id
-             ELSE v_finish_default_id END                 AS finish_id,
+        COALESCE(
+            fsm.finish_id,
+            CASE WHEN s.is_foil THEN v_finish_foil_id
+                 ELSE v_finish_default_id END
+        )                                                 AS finish_id,
         v_condition_id                                    AS condition_id,
         v_language_id                                     AS language_id,
         s.list_low_cents,
@@ -937,6 +965,9 @@ BEGIN
         s.sold_avg_cents,
         s.scraped_at
       FROM pricing.stg_price_observation s
+      LEFT JOIN pricing.mtgstock_name_finish_suffix fsm
+          ON s.card_name ~ '\([^)]+\)$'
+         AND fsm.suffix = regexp_replace(s.card_name, '^.+\s+\(([^)]+)\)$', '\1')
       WHERE s.ts_date >= v_start
         AND s.ts_date <= v_end
         AND NOT (s.list_low_cents IS NULL
@@ -1160,8 +1191,11 @@ BEGIN
         s.source_product_id,
         s.data_provider_id,
         v_price_type_id::int                          AS price_type_id,
-        CASE WHEN s.is_foil THEN v_finish_foil_id
-             ELSE v_finish_default_id END             AS finish_id,
+        COALESCE(
+            fsm.finish_id,
+            CASE WHEN s.is_foil THEN v_finish_foil_id
+                 ELSE v_finish_default_id END
+        )                                             AS finish_id,
         v_condition_id                                AS condition_id,
         v_language_id                                 AS language_id,
         s.list_low_cents,
@@ -1169,6 +1203,9 @@ BEGIN
         s.sold_avg_cents,
         s.scraped_at
       FROM pricing.stg_price_observation s
+      LEFT JOIN pricing.mtgstock_name_finish_suffix fsm
+          ON s.card_name ~ '\([^)]+\)$'
+         AND fsm.suffix = regexp_replace(s.card_name, '^.+\s+\(([^)]+)\)$', '\1')
       WHERE s.ts_date >= v_start
         AND s.ts_date <= v_end
         AND NOT (s.list_low_cents IS NULL
@@ -1398,7 +1435,12 @@ BEGIN
       ON uc.unique_card_id = cv.unique_card_id
     WHERE r.set_abbr IS NOT NULL
       AND r.collector_number IS NOT NULL
-      AND (r.card_name IS NULL OR uc.card_name IS NULL OR lower(uc.card_name) = lower(r.card_name))
+      AND (
+          r.card_name IS NULL
+          OR uc.card_name IS NULL
+          OR lower(uc.card_name) = lower(r.card_name)
+          OR lower(r.card_name) LIKE (lower(uc.card_name) || ' (%')
+      )
   )
   SELECT
     r.*,
