@@ -115,13 +115,15 @@ This table is a landing zone. It is neither cleaned nor deduplicated — the nex
 
 ---
 
-## Stage 2 — Resolve + stage
+## Stage 2 — Resolve, stage, and promote (inline)
 
-**Routine:** `pricing.load_staging_prices_batched(source_name VARCHAR, batch_days INT DEFAULT 30)`
+**Routine:** `pricing.load_staging_prices_batched(source_name VARCHAR, batch_days INT DEFAULT 30, p_ingestion_run_id INT DEFAULT NULL)`
 
-Reads `raw_mtg_stock_price`, resolves each row's `print_id` to a `card_version_id`, ensures the product/source-product rows exist, and writes the result to `stg_price_observation`. Anything it can't resolve goes to `stg_price_observation_reject`.
+Reads `raw_mtg_stock_price`, resolves each row's `print_id` to a `card_version_id`, ensures the product/source-product rows exist, writes resolved rows to `stg_price_observation`, and **immediately promotes them into `pricing.price_observation` within the same batch transaction**. Unresolvable rows go to `stg_price_observation_reject`. After promotion, the staging rows are deleted, so `stg_price_observation` is empty at the end of the run.
 
 **Batched by date** (default 30-day windows) with per-batch `BEGIN/EXCEPTION/COMMIT` so a bad window doesn't poison the run.
+
+> **Note on Stage 4:** Because Stage 2 now performs inline promotion, `stg_price_observation` is drained after every batch. The separate `from_staging_to_prices` pipeline step (`load_prices_from_staged_batched`) is therefore a no-op on a normal run and exists only as a safety net for edge cases where staging retains leftover rows (e.g. a crashed mid-batch restart). **Wall-clock time for a full historical backfill is ~4 hours** (single-core), not the ~30 hours previously documented for a two-pass approach.
 
 ### Resolution waterfall
 
@@ -191,11 +193,11 @@ The reject table has no surrogate key. The match predicate is `(ts_date, print_i
 
 ---
 
-## Stage 4 — Load fact table
+## Stage 4 — Load fact table (safety net only)
 
 **Routine:** `pricing.load_prices_from_staged_batched(batch_days INT DEFAULT 30)`
 
-Moves resolved staging rows into `pricing.price_observation`.
+Moves any remaining staging rows into `pricing.price_observation`. On a normal run this is a no-op because Stage 2 already drained `stg_price_observation` via inline promotion. It is retained as a safety net for edge cases (e.g. a row landed in staging outside the normal pipeline).
 
 ### Pre-flight (once per call)
 
@@ -246,31 +248,41 @@ pricing.raw_mtg_stock_price
    │    • back-fill card_external_identifier (mtgstock_id → card_version_id)
    │    • ensure product_ref + mtg_card_products + source_product
    │    ├──── unresolved ────►  pricing.stg_price_observation_reject
-   │    │                                 │
-   │    │                                 │  pricing.resolve_price_rejects(limit, only_unresolved)
-   │    │                                 │    • retries resolution with fresh mappings
-   │    │                                 │    • marks terminal on success or scryfall delete
-   │    │                                 └── resolved ─────┐
-   │    └── resolved ─────────────────────────────────────► │
-   │                                                        ▼
-   │                                           pricing.stg_price_observation
-   │                                                        │
-   │  pricing.load_prices_from_staged_batched(batch_days)   │
-   │    • build _batch → dedup on fact PK → upsert fact ────┤
-   │    • DELETE consumed staging rows by stg_id            │
-   │                                                        ▼
-   │                                           pricing.price_observation  (Tier 1)
-   │                                                        │
-   │  (future rollup)                                       ▼
-   │                                           pricing.print_price_daily  (Tier 2)
-   │                                                        │
-   │  (future rollup)                                       ▼
-   │                                           pricing.print_price_weekly (Tier 3)
+   │    └── resolved ─────────► pricing.stg_price_observation
+   │                                        │
+   │          (inline, same batch tx)       │ dedup → upsert → DELETE staging
+   │                                        ▼
+   │                           pricing.price_observation  (Tier 1)
+   │
+   │  pricing.resolve_price_rejects(limit, only_unresolved)   [between stages]
+   │    • retries resolution with fresh mappings
+   │    • re-feeds resolved rows → stg_price_observation → price_observation
+   │    • marks terminal on success or scryfall delete
+   │
+   │  pricing.load_prices_from_staged_batched(batch_days)  [safety net — usually no-op]
+   │    • promotes any leftover stg rows not drained by Stage 2
+   │
+   │  (future rollup)                       ▼
+   │                           pricing.print_price_daily  (Tier 2)
+   │
+   │  (future rollup)                       ▼
+   │                           pricing.print_price_weekly (Tier 3)
 ```
 
 ---
 
 ## Operational notes
+
+### Observed performance (full historical backfill, 228 M raw rows, 2012–2026)
+
+| Step | Wall time | Notes |
+|---|---|---|
+| `bulk_load` | ~38 min | COPY parquet → `raw_mtg_stock_price` |
+| `from_raw_to_staging` | ~4 hours | Inline resolve + stage + promote + drain per 30-day batch |
+| `retry_rejects` | ~6 s | Resolves up to 50 000 reject rows; 0 resolved on initial backfill (see § Retry rejects) |
+| `from_staging_to_prices` | no-op | Staging already drained by Stage 2 |
+
+---
 
 ### `bulk_load` service — non-atomic execution and extended timeout
 
