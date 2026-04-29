@@ -716,7 +716,7 @@ BEGIN
     cv.card_version_id
   FROM tmp_raw_batch u
   JOIN card_catalog.sets sr
-    ON sr.set_code = u.set_abbr
+    ON LOWER(sr.set_code) = LOWER(u.set_abbr)
   JOIN card_catalog.card_version cv
     ON cv.set_id = sr.set_id
   AND cv.collector_number::text = u.collector_number
@@ -1390,7 +1390,7 @@ BEGIN
     SELECT DISTINCT r.set_abbr, r.collector_number, cv.card_version_id
     FROM tmp_rejects r
     JOIN card_catalog.sets s
-      ON s.set_code = r.set_abbr
+      ON LOWER(s.set_code) = LOWER(r.set_abbr)
     JOIN card_catalog.card_version cv
       ON cv.set_id = s.set_id
      AND cv.collector_number::text = r.collector_number

@@ -224,7 +224,8 @@ async def retry_rejects(price_repository: PriceRepository,
 )
 async def from_staging_to_prices(price_repository: PriceRepository
                                  , ops_repository: OpsRepository
-                                 , ingestion_run_id: int = None):
+                                 , ingestion_run_id: int = None
+                                 , **_kwargs):
     """Promote stg_price_observation rows into the pricing.price_observation
     hypertable via pricing.load_prices_from_staged_batched(). The previously
     separate `from_staging_to_dim` step has been removed — no
