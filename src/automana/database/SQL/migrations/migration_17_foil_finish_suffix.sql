@@ -999,5 +999,7 @@ $$;
 -- Grant SELECT on new table to read roles
 GRANT SELECT ON pricing.mtgstock_name_finish_suffix TO app_readonly;
 GRANT SELECT, INSERT, UPDATE ON pricing.mtgstock_name_finish_suffix TO app_celery;
+-- app_rw covers app_backend and other standard read/write roles
+GRANT SELECT, INSERT, UPDATE, DELETE ON pricing.mtgstock_name_finish_suffix TO app_rw, app_admin;
 
 COMMIT;
