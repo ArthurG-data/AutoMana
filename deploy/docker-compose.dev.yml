@@ -227,7 +227,7 @@ services:
     restart: unless-stopped
     environment:
       NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
-    command: http --domain=trolling-linseed-giddy.ngrok-free.dev proxy:8080
+    command: http --url=trolling-linseed-giddy.ngrok-free.dev --pooling-enabled proxy:8080
     networks:
       - backend-network
     depends_on:
