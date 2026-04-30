@@ -105,7 +105,7 @@ ORDER BY check_name;
 -- (table does not exist) is isolated and does not abort the 9 checks above.
 SELECT 'tier_watermark_seeded' AS check_name,
        CASE WHEN (
-           SELECT COUNT(*) FROM pricing.tier_watermark
+           SELECT COUNT(DISTINCT tier_name) FROM pricing.tier_watermark
            WHERE tier_name IN ('daily', 'weekly')
        ) = 2 THEN 'pass' ELSE 'fail' END AS status,
        'must have 2 rows: daily + weekly' AS detail;

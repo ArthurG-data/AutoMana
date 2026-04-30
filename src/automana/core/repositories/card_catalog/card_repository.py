@@ -632,17 +632,19 @@ class CardReferenceRepository(AbstractRepository[Any]):
         card_version_id for identifiers that upstream guarantees are per-printing unique.
 
         The ``UNIQUE (card_identifier_ref_id, value)`` constraint was dropped intentionally
-        to allow tcgplayer_id and cardmarket_id to be shared by foil/non-foil pairs of the
-        same physical product.  However, identifiers that upstream guarantees are strictly
-        one-per-printing — ``scryfall_id``, ``multiverse_id``, ``tcgplayer_etched_id``, and
-        ``mtgjson_id`` — should never collide.  Any non-zero count here indicates a real bug:
-        either a duplicate ingest, a pipeline retry that produced duplicate rows, or an
-        upstream data error that slipped past validation.
+        to allow tcgplayer_id, cardmarket_id, and tcgplayer_etched_id to be shared by
+        foil/non-foil (or ★/non-★) pairs of the same physical product.  Identifiers that
+        are strictly one-per-printing — ``scryfall_id``, ``multiverse_id``, ``mtgjson_id``
+        — should never collide.  Any non-zero count here indicates a real bug: either a
+        duplicate ingest, a pipeline retry that produced duplicate rows, or an upstream
+        data error that slipped past validation.
 
         Identifiers intentionally excluded (expected multi-card_version sharing):
-        - oracle_id      — one value per abstract card, shared across all printings
-        - tcgplayer_id   — one product per physical SKU; foil/non-foil pairs share
-        - cardmarket_id  — same sharing pattern as tcgplayer_id
+        - oracle_id           — one value per abstract card, shared across all printings
+        - tcgplayer_id        — one product per physical SKU; foil/non-foil pairs share
+        - cardmarket_id       — same sharing pattern as tcgplayer_id
+        - tcgplayer_etched_id — Secret Lair ★ variants share the same etched product ID
+                                as the base variant (confirmed upstream behavior, not a bug)
         """
         query = """
         SELECT COUNT(*)::int AS n
@@ -652,7 +654,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
             JOIN card_catalog.card_identifier_ref cir
               ON cir.card_identifier_ref_id = cei.card_identifier_ref_id
             WHERE cir.identifier_name IN (
-                'scryfall_id', 'multiverse_id', 'tcgplayer_etched_id', 'mtgjson_id'
+                'scryfall_id', 'multiverse_id', 'mtgjson_id'
             )
             GROUP BY cei.card_identifier_ref_id, cei.value
             HAVING COUNT(DISTINCT cei.card_version_id) > 1

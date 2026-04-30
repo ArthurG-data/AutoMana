@@ -18,7 +18,9 @@ async def track_step(
     - No-op when ops_repository or ingestion_run_id is None (standalone / test mode).
     - On entry:    marks the step as 'running'.
     - On clean exit: marks the step as 'success'.
-    - On exception: marks the step as 'failed' with error details, then re-raises.
+    - On exception: marks the step as 'failed' (step row) + 'failed' (run row), then re-raises.
+      Both writes are needed: update_run closes the step; fail_run closes the parent run so
+      it does not stay stuck as 'running' when the Celery chain halts on this exception.
     """
     if not ops_repository or not ingestion_run_id:
         yield
@@ -36,6 +38,11 @@ async def track_step(
             current_step=step_name,
             error_code=error_code,
             error_details={"message": str(e)},
+        )
+        await ops_repository.fail_run(
+            ingestion_run_id,
+            error_code=error_code,
+            error_details={"message": str(e), "step": step_name},
         )
         raise
     else:
