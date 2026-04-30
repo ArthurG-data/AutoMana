@@ -216,7 +216,7 @@ services:
       --db=/home/appuser/flower/flower.db
       --logging=${CELERY_LOGLEVEL:-info}"
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:5555/healthcheck')\" || exit 1"]
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:5555/flower/healthcheck')\" || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
