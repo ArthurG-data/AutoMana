@@ -1,157 +1,150 @@
-﻿import token
-from automana.core.models.ebay import  listings as listings_model
-from fastapi import APIRouter, HTTPException, Query, Depends
-from typing import Annotated, List
+from automana.core.models.ebay import listings as listings_model
+from fastapi import APIRouter, HTTPException, Query, Header
+from typing import Annotated, Optional
 from automana.api.dependancies.service_deps import ServiceManagerDep
 from automana.api.dependancies.auth.users import CurrentUserDep
-from automana.api.schemas.StandardisedQueryResponse import ApiResponse,PaginatedResponse,PaginationInfo
-
+from automana.api.schemas.StandardisedQueryResponse import (
+    ApiResponse,
+    PaginatedResponse,
+    PaginationInfo,
+)
 
 ebay_listing_router = APIRouter(prefix='/listing', tags=['listings'])
 
-"""
-@ebay_listing_router.get("/active/bulk", response_model=listings_model.ActiveListingResponse, description='get all the active listings')#chnege the location
-async def do_api_call(limit : Annotated[int , Query(gt=1, le=50)]=10 
-                      , offset :  Annotated[int , Query(ge=0,)]=0
-                      , service_manager : ServiceManager = Depends(get_service_manager)
-                      , user = Depends(get_current_active_user)
-                      ): 
-    try:
-       listings = await service_manager.execute_service(
-           'integration.ebay.listings'
-           ,)
-       active_listings : listings_model.ActiveListingResponse = await listings.obtain_all_active_listings(token.access_token)   
-    return active_listings
 
-@ebay_listing_router.get("/active/{item_id}", description='get a specific listing')
-async def do_api_call(item_id : str, token = Depends(authentificate.check_validity)):
-    return await listings.obtain_item(token.access_token, item_id)
-
-"""
-@ebay_listing_router.post("/", description="posting a new listing")
-async def do_api_call(listing : listings_model.ItemModel, 
-                        user: CurrentUserDep,
-                      service_manager : ServiceManagerDep,
-                      app_code : str = Query(..., description="The application code for the eBay integration"),
-                      ):
+@ebay_listing_router.post("/", description="Post a new listing")
+async def create_listing(
+    listing: listings_model.ItemModel,
+    user: CurrentUserDep,
+    service_manager: ServiceManagerDep,
+    app_code: str = Query(..., description="eBay application code"),
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
+):
+    if not idempotency_key:
+        raise HTTPException(status_code=400, detail="Idempotency-Key header is required")
     try:
-        payload = {
-            "item": listing,
-            "app_code": app_code,
-            "user_id": user.unique_id
-        }
         result = await service_manager.execute_service(
-            "integrations.ebay.selling",
-            action="create",
-            payload=payload,
-            #environment=environment
-        )
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@ebay_listing_router.get('/active', description='get the active listings of a user'""", response_model=PaginatedResponse""")
-async def do_api_call(         user: CurrentUserDep,
-                        service_manager: ServiceManagerDep,
-    limit: Annotated[int, Query(gt=0, le=100)] = 10,
-                        offset: Annotated[int, Query(ge=0)] = 0,
-                        app_code = str
-                
-                        ):
-    try:
-        env = await service_manager.execute_service(
-            "integrations.ebay.get_environment",
+            "integrations.ebay.selling.listings.create",
+            user_id=user.unique_id,
             app_code=app_code,
-            user_id=user.unique_id
+            item=listing,
+            idempotency_key=idempotency_key,
         )
-        if not env:
-            raise HTTPException(status_code=404, detail="Environment not found")
-        result = await service_manager.execute_service(
-            "integrations.ebay.selling",
-            action="get_active",
-            environment=env,
-            payload={
-                "app_code": app_code,
-                "user_id": user.unique_id,
-                "limit": limit,
-                "offset": offset
-            }
+        return ApiResponse(data=result, message="Listing created successfully")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@ebay_listing_router.get("/active", description="Get the active listings of a user")
+async def get_active_listings(
+    user: CurrentUserDep,
+    service_manager: ServiceManagerDep,
+    app_code: str = Query(..., description="eBay application code"),
+    limit: Annotated[int, Query(gt=0, le=100)] = 10,
+    offset: Annotated[int, Query(ge=0)] = 0,
+):
+    try:
+        result: listings_model.PaginatedListings = await service_manager.execute_service(
+            "integrations.ebay.selling.listings.active",
+            user_id=user.unique_id,
+            app_code=app_code,
+            limit=limit,
+            offset=offset,
         )
-        result = listings_model.ActiveListingResponse(items=result['GetMyeBaySellingResponse']['ActiveList']['ItemArray']['Item'])
         return PaginatedResponse(
             message="Active listings retrieved successfully",
             data=result.items,
             pagination=PaginationInfo(
                 limit=limit,
                 offset=offset,
-                total_count=len(result.items),
-                has_next=offset + limit < len(result.items),
-                has_previous=offset > 0
-            )
+                total_count=result.total if result.total is not None else len(result.items),
+                has_next=result.has_more,
+                has_previous=offset > 0,
+            ),
         )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
 
-@ebay_listing_router.get('/history', description='get the history of a listing', response_model=PaginatedResponse)
-async def do_api_call(
-                        user: CurrentUserDep,
-                        service_manager: ServiceManagerDep,
+
+@ebay_listing_router.get("/history", description="Get the order fulfillment history")
+async def get_order_history(
+    user: CurrentUserDep,
+    service_manager: ServiceManagerDep,
+    app_code: str = Query(..., description="eBay application code"),
     limit: Annotated[int, Query(gt=0, le=100)] = 10,
-                        offset: Annotated[int, Query(ge=0)] = 0,
-                        app_code = str):
+    offset: Annotated[int, Query(ge=0)] = 0,
+):
     try:
-        env = await service_manager.execute_service(
-            "integrations.ebay.get_environment",
+        result: listings_model.PaginatedOrders = await service_manager.execute_service(
+            "integrations.ebay.selling.fulfillment.history",
+            user_id=user.unique_id,
             app_code=app_code,
-            user_id=user.unique_id
+            limit=limit,
+            offset=offset,
         )
-        if not env:
-            raise HTTPException(status_code=404, detail="Environment not found")
-        result = await service_manager.execute_service(
-            "integrations.ebay.selling",
-            action="get_history",
-            environment=env,
-            payload={
-                "app_code": app_code,
-                "user_id": user.unique_id,
-                "limit": limit,
-                "offset": offset
-            }
-        )
-        validated_result = listings_model.ListingHistoryResponse.model_validate(result)
         return PaginatedResponse(
-            message="History retrieved successfully",
-            data=validated_result.orders,
+            message="Order history retrieved successfully",
+            data=result.items,
             pagination=PaginationInfo(
-                limit=validated_result.limit,
-                offset=validated_result.offset,
-                total_count=len(validated_result),
-                has_next=offset + limit < len(validated_result),
-                has_previous=offset > 0
-            )
+                limit=limit,
+                offset=offset,
+                total_count=result.total if result.total is not None else len(result.items),
+                has_next=result.has_more,
+                has_previous=offset > 0,
+            ),
         )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
 
-@ebay_listing_router.put("/{item_id}", description="updates a item")
-async def do_api_call(updatedItem : listings_model.ItemModel,
-                          user: CurrentUserDep,
-                    service_manager: ServiceManagerDep,
-                      item_id : str,
-                      app_code: str
-                ):
-    if updatedItem.ItemID != item_id:
+
+@ebay_listing_router.put("/{item_id}", description="Update an existing listing")
+async def update_listing(
+    updated_item: listings_model.ItemModel,
+    user: CurrentUserDep,
+    service_manager: ServiceManagerDep,
+    item_id: str,
+    app_code: str = Query(..., description="eBay application code"),
+):
+    if updated_item.ItemID != item_id:
         raise HTTPException(status_code=400, detail="Item ID in URL and body must match")
     try:
         result = await service_manager.execute_service(
-            "integrations.ebay.selling",
-            action="update",
-            payload={
-                "app_code": app_code,
-                "user_id": user.unique_id,
-                "item": updatedItem
-            }
+            "integrations.ebay.selling.listings.update",
+            user_id=user.unique_id,
+            app_code=app_code,
+            item=updated_item,
         )
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return ApiResponse(data=result, message="Listing updated successfully")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@ebay_listing_router.delete("/{item_id}", description="End an existing listing")
+async def end_listing(
+    user: CurrentUserDep,
+    service_manager: ServiceManagerDep,
+    item_id: str,
+    app_code: str = Query(..., description="eBay application code"),
+    ending_reason: Optional[str] = Query(None, description="Reason for ending the listing"),
+):
+    try:
+        result = await service_manager.execute_service(
+            "integrations.ebay.selling.listings.end",
+            user_id=user.unique_id,
+            app_code=app_code,
+            item_id=item_id,
+            ending_reason=ending_reason or "NotAvailable",
+        )
+        return ApiResponse(data=result, message="Listing ended successfully")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))

@@ -1,4 +1,4 @@
-/*
+1/*
 -- Customers Table
 CREATE TABLE Customers (
     customer_id SERIAL PRIMARY KEY,
