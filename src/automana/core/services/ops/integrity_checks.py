@@ -1,8 +1,8 @@
 """
 Integrity-check services for the ops domain.
 
-Three read-only diagnostic services that execute SQL sanity-check scripts
-against the live database and return structured reports.  All three are pure
+Seven read-only diagnostic services that execute SQL sanity-check scripts
+against the live database and return structured reports.  All are pure
 SELECT workloads — zero side effects — safe to invoke from any role with
 SELECT privileges on the relevant schemas.
 
@@ -13,6 +13,14 @@ Registered service keys:
                                          card_catalog, ops, and pricing.
     ops.integrity.public_schema_leak   — confirms no app objects leaked into
                                          the public schema.
+    ops.integrity.pricing_run_diff     — post-run diff for the most recent
+                                         mtgStock_download_pipeline run.
+    ops.integrity.pricing_integrity    — 10 orphan / loose-data checks across
+                                         the pricing domain.
+    ops.integrity.mtgjson_run_diff     — post-run diff for the most recent
+                                         mtgjson_daily pipeline run.
+    ops.integrity.mtgjson_integrity    — 7 orphan / loose-data checks across
+                                         the MTGJson pipeline domain.
 
 Each service returns a report dict with the following shape::
 
@@ -126,3 +134,104 @@ async def public_schema_leak(
     """
     rows = await ops_repository.run_public_schema_leak_check()
     return _build_report("public_schema_leak", rows)
+
+
+@ServiceRegistry.register(
+    "ops.integrity.pricing_run_diff",
+    db_repositories=["ops"],
+)
+async def pricing_run_diff(
+    ops_repository: OpsRepository,
+    ingestion_run_id: int | None = None,
+) -> dict:
+    """Post-run diff report for the most recent mtgStock_download_pipeline run.
+
+    Covers run metadata, per-step status, batch-level counters (items_ok /
+    items_failed per step), reject table summary (open vs terminal counts with
+    top reject reasons), rows promoted to price_observation during the run
+    window, and a fast hypertable size heuristic.
+
+    ``ingestion_run_id`` is accepted for forward-compatibility; the underlying
+    SQL targets the most recent run via an internal CTE and does not yet
+    accept a bind-parameter to override it.
+
+    Returns the standard integrity report envelope (see module docstring).
+    """
+    rows = await ops_repository.run_pricing_run_diff()
+    return _build_report("pricing_run_diff", rows)
+
+
+@ServiceRegistry.register(
+    "ops.integrity.pricing_integrity",
+    db_repositories=["ops"],
+)
+async def pricing_integrity(
+    ops_repository: OpsRepository,
+) -> dict:
+    """Run the 10-check orphan / loose-data integrity scan for the pricing domain.
+
+    Checks:
+      - source_product rows with no product_ref (FK orphan)
+      - price_observation rows with no source_product (FK orphan)
+      - MTG product_ref rows with no mtg_card_products row (dimension gap)
+      - Composite-PK violations in price_observation
+      - Residual rows in stg_price_observation (should be 0 after inline drain)
+      - Open reject row count (informational; large during backfill)
+      - Core card_finished codes present (NONFOIL, FOIL, ETCHED)
+      - mtgstock_name_finish_suffix seed-data row count (≥ 6 rows expected)
+      - Stuck pipeline runs (running > 4 h)
+      - Failed steps in most recent run
+
+    Returns the standard integrity report envelope (see module docstring).
+    """
+    rows = await ops_repository.run_pricing_integrity_checks()
+    return _build_report("pricing_integrity", rows)
+
+
+@ServiceRegistry.register(
+    "ops.integrity.mtgjson_run_diff",
+    db_repositories=["ops"],
+)
+async def mtgjson_run_diff(
+    ops_repository: OpsRepository,
+    ingestion_run_id: int | None = None,
+) -> dict:
+    """Post-run diff report for the most recent mtgjson_daily run.
+
+    Covers run metadata, per-step status, batch-level counters
+    (stream_to_staging and promote_to_price_observation), staging residual
+    (fast reltuples estimate), and the resource version consumed.
+
+    ``ingestion_run_id`` is accepted for forward-compatibility; the underlying
+    SQL targets the most recent run via an internal CTE.
+
+    Returns the standard integrity report envelope (see module docstring).
+    """
+    rows = await ops_repository.run_mtgjson_run_diff()
+    return _build_report("mtgjson_run_diff", rows)
+
+
+@ServiceRegistry.register(
+    "ops.integrity.mtgjson_integrity",
+    db_repositories=["ops"],
+)
+async def mtgjson_integrity(
+    ops_repository: OpsRepository,
+) -> dict:
+    """Run the 7-check orphan / loose-data integrity scan for the MTGJson pipeline.
+
+    Checks:
+      - pricing.data_provider row with code='mtgjson' present
+      - Residual rows in pricing.mtgjson_card_prices_staging (should be 0 after run)
+      - Legacy pricing.mtgjson_staging should be empty
+      - card_external_identifier coverage for identifier_name='mtgjson_id'
+      - ops.resources row for canonical_key='mtgjson.all_printings' present
+      - Stuck pipeline runs (running > 4 h)
+      - Failed steps in most recent run
+
+    No price_observation scans (hypertable shm constraint).
+
+    Returns the standard integrity report envelope (see module docstring).
+    """
+    rows = await ops_repository.run_mtgjson_integrity_checks()
+    return _build_report("mtgjson_integrity", rows)

@@ -7,6 +7,10 @@ from automana.core.repositories.ops.integrity_check_sql import (
     scryfall_run_diff_sql,
     scryfall_integrity_checks_sql,
     public_schema_leak_check_sql,
+    pricing_run_diff_sql,
+    pricing_integrity_checks_sql,
+    mtgjson_run_diff_sql,
+    mtgjson_integrity_checks_sql,
 )
 from automana.core.models.pipelines.mtg_stock import MTGStockBatchStep
 
@@ -462,6 +466,63 @@ class OpsRepository(AbstractRepository):
             ``details`` (dict).
         """
         raw = await self.execute_query(public_schema_leak_check_sql)
+        return self._parse_check_rows(raw)
+
+    async def run_pricing_run_diff(self) -> list[dict]:
+        """Post-run diff report for the most recent ``mtgStock_download_pipeline`` run.
+
+        Returns run metadata, per-step status, batch-level counters, reject
+        table summary, promotion volume, and hypertable size heuristic.
+
+        Returns a list of dicts with keys:
+            ``check_name`` (str), ``severity`` (str), ``row_count`` (int),
+            ``details`` (dict).
+        """
+        raw = await self.execute_query(pricing_run_diff_sql)
+        return self._parse_check_rows(raw)
+
+    async def run_pricing_integrity_checks(self) -> list[dict]:
+        """Run the 10-check orphan / loose-data integrity scan for the pricing domain.
+
+        Covers source_product, product_ref, mtg_card_products, price_observation,
+        stg_price_observation, reject table, card_finished, and
+        mtgstock_name_finish_suffix.  All checks are pure SELECTs — zero side
+        effects — safe to run from any read-only role.
+
+        Returns a list of dicts with keys:
+            ``check_name`` (str), ``severity`` (str), ``row_count`` (int),
+            ``details`` (dict).
+        """
+        raw = await self.execute_query(pricing_integrity_checks_sql)
+        return self._parse_check_rows(raw)
+
+    async def run_mtgjson_run_diff(self) -> list[dict]:
+        """Post-run diff report for the most recent ``mtgjson_daily`` run.
+
+        Returns run metadata, per-step status, batch-level counters,
+        staging residual (fast reltuples estimate), and the resource version
+        consumed.
+
+        Returns a list of dicts with keys:
+            ``check_name`` (str), ``severity`` (str), ``row_count`` (int),
+            ``details`` (dict).
+        """
+        raw = await self.execute_query(mtgjson_run_diff_sql)
+        return self._parse_check_rows(raw)
+
+    async def run_mtgjson_integrity_checks(self) -> list[dict]:
+        """Run the 7-check orphan / loose-data integrity scan for the MTGJson pipeline.
+
+        Covers data_provider presence, staging residual, legacy staging table,
+        card_external_identifier coverage, resource row, stuck pipeline runs,
+        and failed steps in the most recent run.  No price_observation scans
+        (hypertable shm constraint).
+
+        Returns a list of dicts with keys:
+            ``check_name`` (str), ``severity`` (str), ``row_count`` (int),
+            ``details`` (dict).
+        """
+        raw = await self.execute_query(mtgjson_integrity_checks_sql)
         return self._parse_check_rows(raw)
 
     # ------------------------------------------------------------------
