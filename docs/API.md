@@ -179,10 +179,14 @@ eBay (`/api/integrations/ebay`)
 - `GET /api/integrations/ebay/auth/callback` — OAuth callback
 - `POST /api/integrations/ebay/auth/exange_token` — exchange refresh token, sets `ebay_access_{app_code}` cookie
 - `GET /api/integrations/ebay/search/` — search listings (requires `app_code` and `q`)
-- `POST /api/integrations/ebay/listing/` — create listing (requires user session)
-- `GET /api/integrations/ebay/listing/active` — active listings (requires user session)
-- `GET /api/integrations/ebay/listing/history` — listing history (requires user session)
-- `PUT /api/integrations/ebay/listing/{item_id}` — update listing (requires user session)
+
+Listing endpoints (all require a user session and an `app_code` query parameter):
+
+- `POST /api/integrations/ebay/listing/` — create listing; requires `Idempotency-Key` header (400 if absent); uses Redis SETNX to short-circuit duplicate creates
+- `GET /api/integrations/ebay/listing/active` — paginated active listings (`limit`, `offset`); returns `PaginatedResponse`
+- `GET /api/integrations/ebay/listing/history` — paginated order fulfillment history (`limit`, `offset`); returns `PaginatedResponse`
+- `PUT /api/integrations/ebay/listing/{item_id}` — update an existing listing; body `ItemID` must match the URL `item_id`
+- `DELETE /api/integrations/ebay/listing/{item_id}` — end a listing; optional `ending_reason` query param (default `NotAvailable`)
 
 Shopify (`/api/integrations/shopify`)
 

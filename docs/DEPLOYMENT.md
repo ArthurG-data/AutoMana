@@ -56,8 +56,9 @@ What it does:
 - `backend` publishes `8000:8000`
 - `postgres` publishes `5433:5432` (convenience for local tools)
 - `redis` publishes `6379:6379`
-- `proxy` publishes `80:80` and `443:443`
+- `proxy` publishes `80:80`, `443:443`, and `8080:8080`
 - `flower` is not directly exposed (only via nginx proxy)
+- `ngrok` tunnels external traffic to `proxy:8080` (see [ngrok tunnel setup](#ngrok-tunnel-setup) below)
 
 Run:
 
@@ -78,9 +79,10 @@ Service access:
 |---------|-----|-------|
 | Backend API | `http://localhost:8000` | Direct; also exposed through proxy |
 | Backend API (proxy) | `https://localhost/api/` | Through nginx reverse proxy (HTTPS) |
+| Backend API (tunnel) | `http://localhost:8080/api/` | Through nginx port 8080 — HTTP basic auth required |
 | OpenAPI docs | `https://localhost/docs` | Through nginx reverse proxy |
-| Health check | `https://localhost/health` | Through nginx reverse proxy |
-| Flower | `https://localhost/flower/` | Through nginx proxy; auth: `admin:changeme_dev` (from `FLOWER_BASIC_AUTH`) |
+| Health check | `https://localhost/health` | Through nginx reverse proxy; `/health` on port 8080 is auth-exempt |
+| Flower | `https://localhost/flower/` | Through nginx proxy (443 and 8080); auth: `admin:changeme_dev` (from `FLOWER_BASIC_AUTH`) |
 | Postgres | `localhost:5433` | Host-side access (`.env.dev` default); containers use `postgres:5432` |
 | Redis | `localhost:6379` | Host-side access; containers use `redis:6379` |
 
@@ -101,6 +103,30 @@ Stop:
 ```bash
 docker compose -f deploy/docker-compose.dev.yml down
 ```
+
+### ngrok tunnel setup
+
+The dev stack includes an `ngrok` container that exposes the app to the internet through nginx port 8080 for eBay OAuth callbacks and external testing.
+
+**How it works:**
+
+- nginx port 8080 listens as a plain-HTTP tunnel endpoint; it sets `X-Forwarded-Proto: https` so the app sees HTTPS even though the upstream connection is plain HTTP.
+- HTTP basic auth is enforced on all requests to port 8080 (except `/health`). Credentials are stored in `config/nginx/htpasswd` (gitignored).
+- Flower gets a dedicated `limit_req_zone` on both 443 and 8080 (5 r/m, burst 3), separate from the general per-IP zone.
+- Security headers (X-Frame-Options, X-Content-Type-Options, Referrer-Policy, CSP) are present on the 8080 block. HSTS is intentionally absent (port 8080 is plain HTTP).
+
+**Prerequisites:**
+
+1. Set `NGROK_AUTHTOKEN` in `config/env/.env.dev`.
+2. Create `config/nginx/htpasswd` from the example:
+   ```bash
+   # see config/nginx/htpasswd.example for the generation command
+   cp config/nginx/htpasswd.example config/nginx/htpasswd
+   # edit htpasswd and replace the placeholder hash with a real one
+   ```
+3. `config/nginx/htpasswd` is gitignored — never commit it.
+
+The `ngrok` service in `deploy/docker-compose.dev.yml` connects to `proxy:8080` using a fixed free-tier domain (`--pooling-enabled` lets it rejoin if a terminal session already holds the domain).
 
 ## Production (Docker Compose)
 
@@ -242,6 +268,8 @@ All responses on HTTPS (port 443) include:
 - `Referrer-Policy: strict-origin-when-cross-origin`
 - `Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'`
 
+Responses on the plain-HTTP tunnel (port 8080) include the same headers except HSTS (omitted deliberately — HSTS on a plain-HTTP port has no effect and can cause browser confusion).
+
 ## Flower (Celery monitoring)
 
 Flower provides a real-time web UI for inspecting Celery workers and tasks.
@@ -252,7 +280,8 @@ Flower is only exposed through the nginx reverse proxy (not directly on port 555
 
 | Environment | URL | Auth |
 |-------------|-----|------|
-| Dev (proxy) | https://localhost/flower/ | `admin:changeme_dev` (from `FLOWER_BASIC_AUTH` in `.env.dev`) |
+| Dev (proxy HTTPS) | https://localhost/flower/ | `admin:changeme_dev` (from `FLOWER_BASIC_AUTH` in `.env.dev`) |
+| Dev (tunnel HTTP) | http://localhost:8080/flower/ | HTTP basic auth (htpasswd) + `FLOWER_BASIC_AUTH` |
 | Prod (proxy) | https://your-domain/flower/ | Configure via `FLOWER_BASIC_AUTH` in `.env.prod` |
 
 ### Persistence

@@ -35,6 +35,31 @@ FastAPI backend (internal network only)
 
 Reference compose file: `deploy/docker-compose.prod.yml`.
 
+### Dev topology (Docker)
+
+In development, nginx publishes three ports and ngrok provides a public tunnel:
+
+```
+Internet
+	|
+	v
+ngrok (fixed free-tier domain, --pooling-enabled)
+	|
+	v (HTTP)
+nginx proxy
+	|-- port 80  → redirects to 443
+	|-- port 443 → TLS termination (self-signed cert)
+	|-- port 8080 → plain-HTTP tunnel endpoint; HTTP basic auth; X-Forwarded-Proto: https
+	|
+	v
+FastAPI backend (internal network only, port 8000)
+	|
+	+--> Postgres (published to host as localhost:5433)
+	+--> Redis (published to host as localhost:6379)
+```
+
+Port 8080 is the entry point for ngrok traffic. All requests require HTTP basic auth (credentials in `config/nginx/htpasswd`, gitignored) except `GET /health`. See [`docs/DEPLOYMENT.md`](DEPLOYMENT.md) for setup details.
+
 ## Backend runtime
 
 ### Entry point and lifespan
@@ -175,7 +200,11 @@ Integrations are exposed under `/api/integrations/...` and implemented via servi
 
 Current integration areas include:
 
-- **eBay** (OAuth + listing/search/selling)
+- **eBay** (OAuth + listing/search/selling) — the selling side is split along CQS lines into three registered service modules:
+  - `listings_read_service` — `integrations.ebay.selling.listings.get`, `integrations.ebay.selling.listings.active`
+  - `listings_write_service` — `integrations.ebay.selling.listings.create`, `integrations.ebay.selling.listings.update`, `integrations.ebay.selling.listings.end`
+  - `fulfillment_service` — `integrations.ebay.selling.fulfillment.history`
+  - `selling_services` is kept as an unregistered import-time shim that emits `DeprecationWarning` and delegates to the typed modules above; it will be removed in a follow-up PR.
 - **Shopify** (metadata ingestion, market/collection/theme)
 - **MTGStock** (staging/loading/pricing)
 - **Scryfall** (daily ETL pipeline — see [`docs/SCRYFALL_PIPELINE.md`](SCRYFALL_PIPELINE.md))
