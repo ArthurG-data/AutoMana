@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS app_integration.app_info(
     --needs to be updated, maybe add cient id??
     app_id TEXT PRIMARY KEY,
     app_name VARCHAR(100) NOT NULL,
-    redirect_uri VARCHAR(50) NOT NULL,
+    redirect_uri VARCHAR(255) NOT NULL,
     response_type VARCHAR(20) NOT NULL,
     client_secret_encrypted TEXT NOT NULL,
     environment TEXT NOT NULL DEFAULT 'SANDBOX',
