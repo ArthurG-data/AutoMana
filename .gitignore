@@ -95,6 +95,7 @@ docs/db-schema/
 CLAUDE.md
 .claude/
 plans/
+!docs/superpowers/plans/
 
 # rebuild_dev_db.sh per-stage logs
 logs/
