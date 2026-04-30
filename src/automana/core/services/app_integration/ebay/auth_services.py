@@ -16,6 +16,7 @@ from automana.core.service_registry import ServiceRegistry
 
 @ServiceRegistry.register(
         'integrations.ebay.start_oauth_flow',
+        db_repositories=['auth'],
         api_repositories=['auth_oauth']
 )
 async def request_auth_code(
@@ -48,8 +49,7 @@ async def request_auth_code(
 
 @ServiceRegistry.register(
         'integrations.ebay.get_environment_callback',
-        db_repositories=['auth'],
-        api_repositories=['auth_oauth']
+        db_repositories=['auth']
 )
 async def get_environment_callback(auth_repository: EbayAuthRepository
                           , state: str
@@ -65,7 +65,7 @@ async def get_environment_callback(auth_repository: EbayAuthRepository
         raise app_exception.EbayAuthRequestException(f"Failed to get eBay environment: {str(e)}")
 
 @ServiceRegistry.register(
-        'integrations.ebay.Pprocess_callback',
+        'integrations.ebay.process_callback',
         db_repositories=['auth'],
         api_repositories=['auth_oauth']
 )

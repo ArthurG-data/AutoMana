@@ -563,6 +563,42 @@ class ListingHistoryResponse(BaseModel):
     orders: List[FulfillmentResponse|None]
 
 
+class PaginatedOrders(BaseModel):
+    """Paginated order history page from the eBay Fulfillment API.
+
+    Mirrors the shape of ``PaginatedListings`` so router code is symmetric
+    across both resource types. ``from_parts`` computes ``has_more`` from the
+    upstream ``total`` when available, falling back to a page-full heuristic.
+    """
+    items: List[FulfillmentResponse]
+    total: Optional[int]
+    offset: int
+    limit: int
+    has_more: bool
+
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+
+    @classmethod
+    def from_parts(
+        cls,
+        items: List[FulfillmentResponse],
+        total: Optional[int],
+        offset: int,
+        limit: int,
+    ) -> "PaginatedOrders":
+        if total is not None:
+            has_more = (offset + len(items)) < total
+        else:
+            has_more = len(items) >= limit
+        return cls(
+            items=items,
+            total=total,
+            offset=offset,
+            limit=limit,
+            has_more=has_more,
+        )
+
+
 class PaginatedListings(BaseModel):
     """Paginated active-listings page.
 

@@ -63,8 +63,8 @@ async def login(
                 "authorization_url": result.get("authorization_url"),
             }
         )
-    except:
-        pass
+    except Exception:
+        raise
 
 @ebay_auth_router.get("/callback")
 async def handle_ebay_callback(request: Request,
@@ -77,46 +77,32 @@ async def handle_ebay_callback(request: Request,
     logger.info(f"Received eBay callback: code={bool(code)}, state={state}, error={error}")
     try:
         if error:
-            logger.error(f"eBay callback error: {error}, description: {error_description}")
-        #next from the request_id, get the session
+            logger.error("ebay_callback_error", extra={"error": error, "description": error_description})
+            raise HTTPException(status_code=400, detail=error_description or error)
         if not code or not state:
-            logger.error(f"eBay callback missing parameters: code={code}, state={state}")
-            raise HTTPException(status_code=400, detail="Missing code or state in eBay callback")#create exception
-    ## try:
-        #get the environment
+            logger.error("ebay_callback_missing_params", extra={"has_code": bool(code), "has_state": bool(state)})
+            raise HTTPException(status_code=400, detail="Missing code or state in eBay callback")
         env = await service_manager.execute_service(
             "integrations.ebay.get_environment_callback",
             state=state,
             user_id=None
         )
-        print("env:",env)
+        logger.info("ebay_callback_env", extra={"env": env})
         auth = await service_manager.execute_service(
-            "integrations.ebay.process_callback"
-            ,code=code
-            ,state=state
-            ,environment=env
+            "integrations.ebay.process_callback",
+            code=code,
+            state=state,
+            environment=env
         )
-        #session_id, app_id = auth.check_auth_request(conn, request_id)
-        #user = await get_info_session(conn, session_id)
-        #user = user.get('user_id')
-        logger.info(f"eBay callback processed successfully: {auth}")
-        #except Exception as e:
-        #    raise HTTPException(status_code=400, detail=f"Cannot confirm request info: {e}")
+        logger.info("ebay_callback_success", extra={"state": state})
+        return ApiResponse(
+            message="eBay authorization successful",
+            data={"status": "authorized", "state": state}
+        )
     except HTTPException:
         raise
-"""
-    #next from the session get user and app
-    if code and request_id:
-        return await auth.exange_auth(conn, user_id=user, code=code, app_id=app_id)
-    return {'error' : 'authorization not found'}
-"""
-"""
-#change to add a scope to a user
-@ebay_auth_router.post('/scopes', description='add a scope to a user')
-async def add_user_scope(scope : str, user_id : UUID = Path(...), queryExecutor:  QueryExecutor = Depends(get_sync_query_executor)):
-    assign_scope(queryExecutor,  user_id, scope)
-
-"""
+    except Exception:
+        raise
 from automana.api.schemas.auth.cookie import AccessTokenCookie, RefreshTokenResponse
 @ebay_auth_router.post('/exange_token')
 async def do_exange_refresh_token( response: Response
