@@ -1,6 +1,10 @@
 -- verify_migration_18.sql
 -- Run BEFORE migration to confirm failures, AFTER to confirm passes.
 -- Every check outputs: check_name, status ('pass'/'fail'), detail
+--
+-- NOTE: tier_watermark_seeded is a separate statement at the end of this file.
+-- Pre-migration it will error (table does not exist) — that is expected.
+-- The 9 checks above still execute and report.
 
 SELECT 'print_price_daily_exists' AS check_name,
        CASE WHEN EXISTS (
@@ -75,15 +79,6 @@ SELECT 'print_price_latest_exists',
 
 UNION ALL
 
-SELECT 'tier_watermark_seeded',
-       CASE WHEN (
-           SELECT COUNT(*) FROM pricing.tier_watermark
-           WHERE tier_name IN ('daily', 'weekly')
-       ) = 2 THEN 'pass' ELSE 'fail' END,
-       'must have 2 rows: daily + weekly'
-
-UNION ALL
-
 SELECT 'refresh_daily_prices_exists',
        CASE WHEN EXISTS (
            SELECT 1 FROM pg_proc p
@@ -105,3 +100,12 @@ SELECT 'archive_to_weekly_exists',
        'procedure must exist'
 
 ORDER BY check_name;
+
+-- tier_watermark_seeded is a separate statement so a pre-migration planner error
+-- (table does not exist) is isolated and does not abort the 9 checks above.
+SELECT 'tier_watermark_seeded' AS check_name,
+       CASE WHEN (
+           SELECT COUNT(*) FROM pricing.tier_watermark
+           WHERE tier_name IN ('daily', 'weekly')
+       ) = 2 THEN 'pass' ELSE 'fail' END AS status,
+       'must have 2 rows: daily + weekly' AS detail;
