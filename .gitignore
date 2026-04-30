@@ -100,3 +100,4 @@ plans/
 # rebuild_dev_db.sh per-stage logs
 logs/
 
+config/nginx/htpasswd

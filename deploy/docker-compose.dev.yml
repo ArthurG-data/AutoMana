@@ -88,6 +88,7 @@ services:
       - "8080:8080"
     volumes:
       - ../config/nginx/certs:/etc/nginx/certs:ro
+      - ../config/nginx/htpasswd:/etc/nginx/htpasswd:ro
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- --no-check-certificate https://localhost/health > /dev/null || exit 1"]
       interval: 10s
@@ -220,6 +221,19 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: automana-ngrok-dev
+    restart: unless-stopped
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
+    command: http --domain=trolling-linseed-giddy.ngrok-free.dev proxy:8080
+    networks:
+      - backend-network
+    depends_on:
+      proxy:
+        condition: service_healthy
+
   schema-spy:
     build:
       context: ..
