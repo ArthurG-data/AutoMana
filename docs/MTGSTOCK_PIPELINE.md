@@ -49,7 +49,7 @@ pricing.price_observation             Time-series fact table (TimescaleDB hypert
 | `mtg_card_products` | Bridge `card_version` ⇄ `product_ref` | Keeps MTG-specific join logic out of the game-agnostic `product_ref`. 1-to-1 (`UNIQUE(card_version_id)`). |
 | `product_ref` | Game-agnostic product | Pricing schema stays TCG-neutral — sources, conditions, finishes are shared machinery. |
 | `source_product` | Product × Source | Same product on multiple marketplaces = different price histories. Observations FK on `source_product_id`, not `product_id`. |
-| `price_observation` | Raw time series | Per-source, per-day, TimescaleDB hypertable. Rolled up nightly into `print_price_daily` (Tier 2). |
+| `price_observation` | Raw time series | Per `(source_product_id, data_provider_id)`, per day, TimescaleDB hypertable (Tier 1). Rolled into `print_price_daily` (Tier 2) by `refresh_daily_prices()`. |
 
 ### Dimension reference tables
 
@@ -81,13 +81,15 @@ One row = one *(date, product-on-source, transaction type, foil, condition, lang
 
 ### Rollup tiers
 
-| Tier | Table | Grain | Retention |
-|---|---|---|---|
-| 1 | `pricing.price_observation` | Per source, per day | Live + compressed after 180 days |
-| 2 | `pricing.print_price_daily` | Per `card_version_id`, per day (aggregated across sources) | ~5 years |
-| 3 | `pricing.print_price_weekly` | Per `card_version_id`, per week (Monday-anchored) | Older than 5 years |
+| Tier | Table | Grain | Population | Retention |
+|---|---|---|---|---|
+| 1 | `pricing.price_observation` | Per `(source_product_id, data_provider_id)`, per day | Inline during Stage 2 | Live + compressed after 180 days |
+| 2 | `pricing.print_price_daily` | Per `(card_version_id, source_id)`, per day | `refresh_daily_prices()` via Celery beat (daily) | ~5 years; 7-day chunks, compressed after 30 days |
+| 3 | `pricing.print_price_weekly` | Per `(card_version_id, source_id)`, per week (Monday-anchored) | `archive_to_weekly()` via Celery beat (monthly) | Indefinite; 28-day chunks, compressed after 7 days |
+| — | `pricing.print_price_latest` | One row per `(card_version_id, source_id, …)` dimension key | Upserted by `refresh_daily_prices()` | Always the most recent price across all tiers |
+| — | `pricing.tier_watermark` | One row per tier name (`daily`, `weekly`) | Updated per batch by each procedure | Enables crash-safe resume |
 
-Tiers 2 and 3 collapse the `source_product_id` dimension — "what was this print worth on day X" rather than "what was it worth on TCGplayer on day X". Columns: `min`, `max`, `median`, `p25`, `p75`, `avg`, `n_sources`.
+**Source identity is preserved at every tier.** Tier 2 and 3 aggregate across `data_provider_id` only (multiple providers may report the same source on the same day) — `source_id` stays in the primary key so per-market signals remain intact. Aggregation semantics: `MIN(list_low_cents)`, `AVG(list_avg_cents)::int`, `AVG(sold_avg_cents)::int`, `COUNT(DISTINCT data_provider_id)` as `n_providers`.
 
 ---
 
@@ -262,11 +264,18 @@ pricing.raw_mtg_stock_price
    │  pricing.load_prices_from_staged_batched(batch_days)  [safety net — usually no-op]
    │    • promotes any leftover stg rows not drained by Stage 2
    │
-   │  (future rollup)                       ▼
-   │                           pricing.print_price_daily  (Tier 2)
+   │  pricing.refresh_daily_prices()   [Celery beat — daily, after pipeline]
+   │    • 30-day batches from tier_watermark; aggregates across data_provider_id
+   │    • source_id preserved in PK — no cross-market aggregation
+   │                                        ▼
+   │                           pricing.print_price_daily  (Tier 2, hypertable)
+   │                           pricing.print_price_latest (current-price snapshot)
    │
-   │  (future rollup)                       ▼
-   │                           pricing.print_price_weekly (Tier 3)
+   │  pricing.archive_to_weekly()     [Celery beat — monthly]
+   │    • rolls up daily rows older than 5 years into tier 3
+   │    • deletes processed daily rows after successful upsert
+   │                                        ▼
+   │                           pricing.print_price_weekly (Tier 3, hypertable)
 ```
 
 ---

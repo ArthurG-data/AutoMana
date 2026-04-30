@@ -279,6 +279,34 @@ chk_10_last_run_failed_steps AS (
         ORDER BY started_at DESC
         LIMIT 1
     )
+),
+
+chk_11_watermark_staleness AS (
+    SELECT
+        'tier-watermark-daily-staleness'::TEXT            AS check_name,
+        CASE WHEN w.last_processed_date < CURRENT_DATE - 2 THEN 1 ELSE 0 END::BIGINT
+                                                          AS bad_count,
+        jsonb_build_object(
+            'last_processed_date', w.last_processed_date,
+            'days_behind', (CURRENT_DATE - w.last_processed_date),
+            'note', 'daily watermark should be within 2 days of today'
+        )                                                 AS details
+    FROM pricing.tier_watermark w
+    WHERE w.tier_name = 'daily'
+),
+
+chk_12_daily_is_hypertable AS (
+    SELECT
+        'print-price-daily-is-hypertable'::TEXT           AS check_name,
+        CASE WHEN EXISTS (
+            SELECT 1
+            FROM timescaledb_information.hypertables
+            WHERE hypertable_schema = 'pricing'
+              AND hypertable_name   = 'print_price_daily'
+        ) THEN 0 ELSE 1 END::BIGINT                       AS bad_count,
+        jsonb_build_object(
+            'note', 'print_price_daily must be a TimescaleDB hypertable'
+        )                                                 AS details
 )
 
 -- ---------------------------------------------------------------------------
@@ -305,6 +333,10 @@ SELECT
         WHEN check_name = 'reject-open-count'     THEN 'info'
         WHEN check_name = 'mtgstock-suffix-seed-count'
             THEN CASE WHEN bad_count > 0 THEN 'warn' ELSE 'ok' END
+        WHEN check_name = 'tier-watermark-daily-staleness'
+            THEN CASE WHEN bad_count > 0 THEN 'warn' ELSE 'ok' END
+        WHEN check_name = 'print-price-daily-is-hypertable'
+            THEN CASE WHEN bad_count > 0 THEN 'error' ELSE 'ok' END
         ELSE CASE WHEN bad_count > 0 THEN 'warn' ELSE 'ok' END
     END                                                   AS severity,
     bad_count                                             AS row_count,
@@ -329,6 +361,10 @@ FROM (
     SELECT check_name, bad_count, details FROM chk_09_stuck_pipeline_runs
     UNION ALL
     SELECT check_name, bad_count, details FROM chk_10_last_run_failed_steps
+    UNION ALL
+    SELECT check_name, bad_count, details FROM chk_11_watermark_staleness
+    UNION ALL
+    SELECT check_name, bad_count, details FROM chk_12_daily_is_hypertable
 ) all_checks
 ;
 -- No ORDER BY — the Python service layer partitions rows by severity
