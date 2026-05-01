@@ -5,6 +5,11 @@ from automana.api.dependancies.service_deps import ServiceManagerDep
 from automana.api.dependancies.auth.users import CurrentUserDep
 from automana.core.models.ebay.auth import AppRegistrationRequest, CreateAppRequest
 from automana.api.schemas.StandardisedQueryResponse import ApiResponse
+from pydantic import BaseModel
+
+
+class UpdateRedirectUriRequest(BaseModel):
+    redirect_uri: str
 import logging
 
 logger = logging.getLogger(__name__)
@@ -103,6 +108,33 @@ async def handle_ebay_callback(request: Request,
         raise
     except Exception:
         raise
+@ebay_auth_router.patch(
+    '/admin/apps/{app_code}/redirect-uri',
+    description='Update the redirect URI for a registered eBay app',
+    status_code=status.HTTP_200_OK,
+)
+async def update_redirect_uri(
+    app_code: str,
+    body: UpdateRedirectUriRequest,
+    user: CurrentUserDep,
+    service_manager: ServiceManagerDep,
+):
+    try:
+        await service_manager.execute_service(
+            "integrations.ebay.update_app_redirect_uri",
+            app_code=app_code,
+            redirect_uri=body.redirect_uri,
+        )
+        return ApiResponse(
+            message="Redirect URI updated successfully",
+            data={
+                "app_code": app_code,
+                "redirect_uri": body.redirect_uri,
+            },
+        )
+    except Exception:
+        raise
+
 from automana.api.schemas.auth.cookie import AccessTokenCookie, RefreshTokenResponse
 @ebay_auth_router.post('/exange_token')
 async def do_exange_refresh_token( response: Response

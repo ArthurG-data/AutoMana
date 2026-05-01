@@ -38,3 +38,11 @@ assign_scope_query = """
                             FROM scopes
                             WHERE scope_url = $2
                             ON CONFLICT (scope_id, app_id) DO NOTHING; """
+
+update_redirect_uri_query = """
+UPDATE app_integration.app_info
+SET redirect_uri = $1,
+    updated_at   = now()
+WHERE app_code = $2
+RETURNING app_code;
+"""

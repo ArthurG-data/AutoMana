@@ -199,6 +199,23 @@ async def get_environment(auth_repository: EbayAuthRepository
     except app_exception.EbayEnvironmentException as e:
         raise app_exception.EbayEnvironmentException(f"Failed to get environment: {str(e)}")
 
+@ServiceRegistry.register(
+    'integrations.ebay.update_app_redirect_uri',
+    db_repositories=['app']
+)
+async def update_app_redirect_uri(
+    app_repository: EbayAppRepository,
+    app_code: str,
+    redirect_uri: str,
+) -> bool:
+    """Update the redirect_uri stored for an eBay app."""
+    updated = await app_repository.update_redirect_uri(app_code, redirect_uri)
+    if not updated:
+        raise app_exception.EbayAppNotFoundException(
+            f"eBay app with code {app_code!r} not found"
+        )
+    return updated
+
 """
     async def assign_scope(self, newScope: AssignScope) -> bool | None:
      
