@@ -101,3 +101,6 @@ plans/
 logs/
 
 config/nginx/htpasswd
+
+# VPS frp secrets
+deploy/vps/.env.vps

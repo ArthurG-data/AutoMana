@@ -1,0 +1,16 @@
+serverAddr = "{{ .Envs.FRP_SERVER_ADDR }}"
+serverPort = 7000
+
+auth.method = "token"
+auth.token = "{{ .Envs.FRP_TOKEN }}"
+
+transport.tls.enable = true
+
+log.level = "info"
+
+[[proxies]]
+name = "automana"
+type = "tcp"
+localIP = "proxy"
+localPort = 8080
+remotePort = 8888

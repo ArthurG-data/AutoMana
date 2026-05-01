@@ -1,0 +1,38 @@
+services:
+  frps:
+    image: snowdreamtech/frps:0.61.0
+    container_name: automana-frps
+    restart: unless-stopped
+    env_file:
+      - .env.vps
+    volumes:
+      - ./frps.toml:/etc/frp/frps.toml:ro
+    ports:
+      - "7000:7000"   # frp tunnel control port (local frpc connects here)
+    networks:
+      - proxy-network
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: automana-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"   # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - proxy-network
+    depends_on:
+      - frps
+
+networks:
+  proxy-network:
+    driver: bridge
+
+volumes:
+  caddy-data:
+  caddy-config:
