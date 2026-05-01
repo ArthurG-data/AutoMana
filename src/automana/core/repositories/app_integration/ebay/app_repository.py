@@ -57,7 +57,14 @@ class EbayAppRepository(AbstractRepository):
     def create(self, values):
         raise NotImplementedError("Method 'create' is not implemented in EbayAccountRepository")    
     def update(self, values):
-        raise NotImplementedError("Method 'update' is not implemented in EbayAccountRepository")    
+        raise NotImplementedError("Method 'update' is not implemented in EbayAccountRepository")
+
+    async def update_redirect_uri(self, app_code: str, redirect_uri: str) -> bool:
+        result = await self.execute_query(
+            app_queries.update_redirect_uri_query,
+            (redirect_uri, app_code)
+        )
+        return bool(result)
     def delete(self, values):
         raise NotImplementedError("Method 'delete' is not implemented in EbayAccountRepository")
 
