@@ -79,9 +79,10 @@ Service access:
 |---------|-----|-------|
 | Backend API | `http://localhost:8000` | Direct; also exposed through proxy |
 | Backend API (proxy) | `https://localhost/api/` | Through nginx reverse proxy (HTTPS) |
-| Backend API (tunnel) | `http://localhost:8080/api/` | Through nginx port 8080 — HTTP basic auth required |
+| Backend API (tunnel) | `https://automana.duckdns.org/api/` | Via VPS relay → nginx:8080 — HTTP basic auth required |
 | OpenAPI docs | `https://localhost/docs` | Through nginx reverse proxy |
 | Health check | `https://localhost/health` | Through nginx reverse proxy; `/health` on port 8080 is auth-exempt |
+| Health check (external) | `https://automana.duckdns.org/health` | Auth-exempt, no credentials needed |
 | Flower | `https://localhost/flower/` | Through nginx proxy (443 and 8080); auth: `admin:changeme_dev` (from `FLOWER_BASIC_AUTH`) |
 | Postgres | `localhost:5433` | Host-side access (`.env.dev` default); containers use `postgres:5432` |
 | Redis | `localhost:6379` | Host-side access; containers use `redis:6379` |
@@ -104,9 +105,13 @@ Stop:
 docker compose -f deploy/docker-compose.dev.yml down
 ```
 
-### ngrok tunnel setup
+### VPS tunnel relay
 
-The dev stack includes an `ngrok` container that exposes the app to the internet through nginx port 8080 for eBay OAuth callbacks and external testing.
+The dev stack includes a `frpc` container that exposes the app to the internet through nginx port 8080 for eBay OAuth callbacks and external testing. Traffic flows:
+
+```
+https://automana.duckdns.org → Caddy (VPS, TLS) → frps (VPS) → frpc (local) → nginx:8080 → FastAPI
+```
 
 **How it works:**
 
@@ -117,16 +122,27 @@ The dev stack includes an `ngrok` container that exposes the app to the internet
 
 **Prerequisites:**
 
-1. Set `NGROK_AUTHTOKEN` in `config/env/.env.dev`.
+1. Set `FRP_TOKEN` and `FRP_SERVER_ADDR` in `config/env/.env.dev`:
+   ```bash
+   FRP_TOKEN=<generate with: openssl rand -hex 32>
+   FRP_SERVER_ADDR=103.6.171.115
+   ```
 2. Create `config/nginx/htpasswd` from the example:
    ```bash
-   # see config/nginx/htpasswd.example for the generation command
    cp config/nginx/htpasswd.example config/nginx/htpasswd
    # edit htpasswd and replace the placeholder hash with a real one
    ```
 3. `config/nginx/htpasswd` is gitignored — never commit it.
 
-The `ngrok` service in `deploy/docker-compose.dev.yml` connects to `proxy:8080` using a fixed free-tier domain (`--pooling-enabled` lets it rejoin if a terminal session already holds the domain).
+**VPS relay setup** (one-time, files in `deploy/vps/`):
+
+1. Copy files to VPS: `scp -r deploy/vps/. root@103.6.171.115:~/automana-vps/`
+2. Create `~/automana-vps/.env.vps` with the same `FRP_TOKEN`
+3. Run firewall: `bash ~/automana-vps/setup-ufw.sh`
+4. Start relay: `docker compose -f ~/automana-vps/docker-compose.vps.yml up -d`
+5. Point `automana.duckdns.org` DNS A record to `103.6.171.115`
+
+The VPS relay runs only frps + Caddy — no application data, no database.
 
 ## Production (Docker Compose)
 
