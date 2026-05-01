@@ -221,13 +221,14 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-  ngrok:
-    image: ngrok/ngrok:latest
-    container_name: automana-ngrok-dev
+  frpc:
+    image: snowdreamtech/frpc:0.61.0
+    container_name: automana-frpc-dev
     restart: unless-stopped
-    environment:
-      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
-    command: http --url=trolling-linseed-giddy.ngrok-free.dev --pooling-enabled proxy:8080
+    env_file:
+      - ../config/env/.env.dev
+    volumes:
+      - ./docker/frpc/frpc.toml:/etc/frp/frpc.toml:ro
     networks:
       - backend-network
     depends_on:

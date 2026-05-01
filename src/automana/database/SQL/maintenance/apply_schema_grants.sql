@@ -92,9 +92,9 @@ BEGIN
        GRANT EXECUTE ON FUNCTIONS TO app_ro, agent_reader;', s);
   END LOOP;
 
-  -- Belt-and-suspenders function grant to app_celery
+  -- Belt-and-suspenders routine grant to app_celery (ALL ROUTINES covers both functions and procedures)
   IF EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'card_catalog') THEN
-    EXECUTE 'GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA card_catalog TO app_celery';
+    EXECUTE 'GRANT EXECUTE ON ALL ROUTINES IN SCHEMA card_catalog TO app_celery';
   END IF;
 
   -- Prod override: revoke agent access to user/billing/app-integration/pricing

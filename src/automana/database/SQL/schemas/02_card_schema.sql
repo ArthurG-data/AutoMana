@@ -1193,12 +1193,17 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE PROCEDURE card_catalog.refresh_card_search_views()
-LANGUAGE plpgsql AS $$
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = card_catalog, pg_catalog
+AS $$
 BEGIN
     REFRESH MATERIALIZED VIEW CONCURRENTLY card_catalog.v_card_versions_complete;
     REFRESH MATERIALIZED VIEW CONCURRENTLY card_catalog.v_card_name_suggest;
 END;
 $$;
+
+GRANT EXECUTE ON PROCEDURE card_catalog.refresh_card_search_views() TO app_celery, app_rw, app_admin;
 
 -- Per-row trigger removed: fired on every INSERT/UPDATE/DELETE during bulk ETL
 -- (30k+ full view recomputes per pipeline run). Views refreshed once per

@@ -58,7 +58,7 @@ What it does:
 - `redis` publishes `6379:6379`
 - `proxy` publishes `80:80`, `443:443`, and `8080:8080`
 - `flower` is not directly exposed (only via nginx proxy)
-- `ngrok` tunnels external traffic to `proxy:8080` (see [ngrok tunnel setup](#ngrok-tunnel-setup) below)
+- `frpc` tunnels external traffic to `proxy:8080` via the VPS relay (see [VPS tunnel relay](#vps-tunnel-relay) below)
 
 Run:
 
