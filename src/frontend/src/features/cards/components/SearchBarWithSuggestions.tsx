@@ -52,7 +52,7 @@ export function SearchBarWithSuggestions() {
   }
 
   const handleSelectSuggestion = (suggestion: CardSuggestion) => {
-    navigate({ to: '/search', search: { q: suggestion.name } })
+    navigate({ to: '/search', search: { q: suggestion.card_name } })
     setShowDropdown(false)
     setQuery('')
   }

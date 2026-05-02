@@ -41,14 +41,14 @@ export function SuggestionsDropdown({
       <ul className={styles.list}>
         {suggestions.map((suggestion, index) => (
           <button
-            key={suggestion.id}
+            key={suggestion.card_version_id}
             className={[styles.item, index === selectedIndex ? styles.selected : ''].join(' ')}
             onClick={() => onSelect(suggestion)}
             type="button"
           >
             <div className={styles.itemText}>
-              <span className={styles.itemName}>{suggestion.name}</span>
-              <span className={styles.itemSet}>{suggestion.set}</span>
+              <span className={styles.itemName}>{suggestion.card_name}</span>
+              <span className={styles.itemSet}>{suggestion.set_code}</span>
             </div>
           </button>
         ))}

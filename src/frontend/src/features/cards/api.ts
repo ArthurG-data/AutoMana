@@ -6,7 +6,7 @@ import type { CardDetail, CardSearchParams, CardSearchResponse, CardSuggestParam
 export function cardSearchQueryOptions(params: CardSearchParams) {
   return queryOptions({
     queryKey: ['cards', 'search', params],
-    queryFn: () => {
+    queryFn: async () => {
       const qs = new URLSearchParams()
       if (params.q)        qs.set('q', params.q)
       if (params.set)      qs.set('set', params.set)
@@ -15,7 +15,17 @@ export function cardSearchQueryOptions(params: CardSearchParams) {
       if (params.minPrice != null) qs.set('min_price', String(params.minPrice))
       if (params.maxPrice != null) qs.set('max_price', String(params.maxPrice))
       if (params.page)     qs.set('page', String(params.page))
-      return apiClient<CardSearchResponse>(`/cards/search?${qs}`)
+
+      const response = await apiClient<any>(`/catalog/mtg/card-reference/?${qs}`)
+
+      // apiClient extracts the 'data' field, so response here is the list of cards
+      // We need to wrap it back into the expected format
+      return {
+        cards: Array.isArray(response) ? response : [],
+        total: 0,
+        page: 1,
+        per_page: 20,
+      } as CardSearchResponse
     },
   })
 }
@@ -23,7 +33,7 @@ export function cardSearchQueryOptions(params: CardSearchParams) {
 export function cardDetailQueryOptions(id: string) {
   return queryOptions({
     queryKey: ['cards', id],
-    queryFn: () => apiClient<CardDetail>(`/cards/${id}`),
+    queryFn: () => apiClient<CardDetail>(`/catalog/mtg/card-reference/${id}`),
   })
 }
 
@@ -34,7 +44,7 @@ export function cardSuggestQueryOptions(params: CardSuggestParams) {
       const qs = new URLSearchParams()
       qs.set('q', params.q)
       if (params.limit) qs.set('limit', String(params.limit))
-      return apiClient<CardSuggestResponse>(`/cards/suggest?${qs}`)
+      return apiClient<CardSuggestResponse>(`/catalog/mtg/card-reference/suggest?${qs}`)
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
     gcTime: 1000 * 60 * 10, // 10 minutes
