@@ -135,16 +135,222 @@ graph TB
 
 ## Cross-System Data Flows
 
-[TO BE COMPLETED IN TASK 4]
+### Flow 1: User Login & Collection Sync
+
+```mermaid
+sequenceDiagram
+    participant Browser
+    participant Frontend as Frontend (React)
+    participant API as API (FastAPI)
+    participant Repo as Repository
+    participant DB as PostgreSQL
+    participant Redis
+    
+    Browser->>Frontend: User enters credentials
+    Frontend->>API: POST /auth/login
+    API->>Repo: verify_credentials()
+    Repo->>DB: SELECT * FROM auth.users
+    DB-->>Repo: user data
+    Repo->>Repo: bcrypt verify
+    API->>Redis: SET session:{id}
+    API-->>Frontend: session cookie
+    Frontend->>Browser: Redirect to dashboard
+    Frontend->>API: GET /api/collections
+    API->>Redis: GET cache:user:{id}:collections
+    Redis-->>API: cache miss
+    API->>Repo: get_user_collections()
+    Repo->>DB: SELECT * FROM user_collections
+    DB-->>Repo: card records
+    API->>Redis: SET cache:user:{id}:collections (1hr TTL)
+    API-->>Frontend: collection data
+    Frontend->>Browser: Render collection
+```
+
+**Data moved:** User ID → session token → cached collection data
+
+---
+
+### Flow 2: Nightly ETL Pipeline (Pricing)
+
+```mermaid
+sequenceDiagram
+    participant Beat as Celery Beat
+    participant Queue as Redis Queue
+    participant Worker as Celery Worker
+    participant Service as PricingService
+    participant External as External API
+    participant Repo as Repository
+    participant DB as PostgreSQL
+    
+    Beat->>Queue: Enqueue pricing:mtgstock:ingest (9pm UTC)
+    Worker->>Queue: Pick task
+    Worker->>Service: run_service('pricing.mtgstock.ingest')
+    Service->>External: GET /api/prices (latest 1000 cards)
+    External-->>Service: CSV prices
+    Service->>Repo: load_staging_prices_batched(prices)
+    Repo->>DB: INSERT INTO pricing.price_staging
+    Repo->>DB: CALL pricing.load_staging_prices_batched()
+    DB->>DB: INSERT INTO pricing.price_observations (hypertable)
+    DB-->>Repo: 1000 rows inserted
+    Repo-->>Service: success
+    Service->>Repo: log_ingestion_run(status='success')
+    Repo->>DB: INSERT INTO ops.ingestion_runs
+    DB-->>Repo: logged
+    Worker-->>Beat: Task complete
+```
+
+**Data moved:** External prices → staging → time-series database → price cache invalidation
+
+---
+
+### Flow 3: eBay Integration (User Manual Sync)
+
+```mermaid
+sequenceDiagram
+    participant Browser
+    participant Frontend
+    participant API as API (FastAPI)
+    participant eBayAPI as eBay API
+    participant Repo
+    participant DB as PostgreSQL
+    
+    Browser->>Frontend: Click "Sync with eBay"
+    Frontend->>API: POST /api/integrations/ebay/sync
+    API->>Repo: get_user_ebay_token()
+    Repo->>DB: SELECT token FROM integrations.ebay_user_scopes
+    DB-->>Repo: OAuth token
+    Repo-->>API: token
+    API->>eBayAPI: GET /sell/inventory/v1/inventory
+    eBayAPI-->>API: 500 listing records (JSON)
+    API->>Repo: upsert_ebay_listings(listings)
+    Repo->>DB: INSERT/UPDATE integrations.ebay_listings
+    DB-->>Repo: 500 rows upserted
+    Repo->>DB: CALL sync_ebay_to_collections(user_id)
+    DB-->>Repo: 500 collections updated
+    API-->>Frontend: {status: 'success', synced: 500}
+    Frontend->>Browser: Show confirmation
+```
+
+**Data moved:** eBay API → database → user collection sync
 
 ---
 
 ## Critical Paths & Dependencies
 
-[TO BE COMPLETED IN TASK 5]
+### Path 1: API → Database
+
+All user-facing API requests depend on:
+1. **nginx** (routing, TLS)
+2. **FastAPI** (request handling, dependency injection via ServiceManager)
+3. **PostgreSQL** (data persistence)
+4. **Redis** (session storage, caching)
+
+**Failure impact:** Entire system unavailable
+
+---
+
+### Path 2: Celery Workers → Database
+
+Background jobs depend on:
+1. **Redis** (task queue, broker)
+2. **Celery** (workers, scheduler)
+3. **PostgreSQL** (data updates)
+
+**Failure impact:** Nightly ETL pipelines fail, pricing data stale
+
+---
+
+### Path 3: Integrations → Database
+
+External data ingestion depends on:
+1. **External APIs** (Scryfall, MTGJson, MTGStock, eBay, Shopify)
+2. **Celery** (scheduled tasks)
+3. **PostgreSQL** (data storage)
+
+**Failure impact:** Specific pipelines fail (prices not updated, cards not synced, etc.)
+
+---
+
+### Dependency Bottlenecks
+
+| Bottleneck | Impact | Mitigation |
+|---|---|---|
+| PostgreSQL max connections | All requests blocked if pool exhausted | Monitor pool usage, tune connection limits |
+| Redis memory | Cache eviction, session loss | Monitor memory, implement eviction policy |
+| Celery worker count | Slow pipeline execution | Scale workers based on queue depth |
+| External API rate limits | Ingest failures | Implement retry + backoff, stagger requests |
 
 ---
 
 ## Documentation Navigator
 
-[TO BE COMPLETED IN TASK 6]
+### Frontend Documentation
+
+**Master Index:** [docs/FRONTEND.md](FRONTEND.md)
+
+| Topic | Document | Folder |
+|---|---|---|
+| **Architecture & Patterns** | | |
+| Component architecture & design system | `docs/frontend/architecture/COMPONENTS.md` | architecture |
+| Routing & navigation | `docs/frontend/architecture/ROUTING.md` | architecture |
+| State management | `docs/frontend/architecture/STATE_MANAGEMENT.md` | architecture |
+| **Integration & Data** | | |
+| API integration & data fetching | `docs/frontend/integration/API_INTEGRATION.md` | integration |
+| Authentication & authorization | `docs/frontend/integration/AUTHENTICATION.md` | integration |
+| **User Experience** | | |
+| Forms & validation | `docs/frontend/user-experience/FORMS.md` | user-experience |
+| **Quality & Deployment** | | |
+| Testing strategy | `docs/frontend/quality-operations/TESTING.md` | quality-operations |
+| Build, deployment & performance | `docs/frontend/quality-operations/BUILD_DEPLOYMENT.md` | quality-operations |
+
+---
+
+### Backend Documentation
+
+**Master Index:** [docs/BACKEND.md](BACKEND.md)
+
+| Topic | Document | Folder |
+|---|---|---|
+| **Architecture & Patterns** | | |
+| Layered architecture | `docs/backend/architecture/LAYERED_ARCHITECTURE.md` | architecture |
+| Service discovery & dependency injection | `docs/backend/architecture/SERVICE_DISCOVERY.md` | architecture |
+| Request flows (HTTP, Celery) | `docs/backend/architecture/REQUEST_FLOWS.md` | architecture |
+| **Data Layer** | | |
+| Database schema design | `docs/backend/data-layer/DATABASE_SCHEMA.md` | data-layer |
+| Repository pattern | `docs/backend/data-layer/REPOSITORY_PATTERN.md` | data-layer |
+| Migrations | `docs/backend/data-layer/MIGRATIONS.md` | data-layer |
+| **Integrations** | | |
+| eBay integration | `docs/backend/integrations/EBAY_INTEGRATION.md` | integrations |
+| Shopify integration | `docs/backend/integrations/SHOPIFY_INTEGRATION.md` | integrations |
+| Scryfall ETL pipeline | `docs/backend/integrations/SCRYFALL_PIPELINE.md` | integrations |
+| MTGJson ETL pipeline | `docs/backend/integrations/MTGJSON_PIPELINE.md` | integrations |
+| MTGStock ETL pipeline | `docs/backend/integrations/MTGSTOCK_PIPELINE.md` | integrations |
+| **Background Jobs** | | |
+| Celery architecture | `docs/backend/background-jobs/CELERY_ARCHITECTURE.md` | background-jobs |
+| Pipeline patterns | `docs/backend/background-jobs/PIPELINE_PATTERNS.md` | background-jobs |
+| Monitoring & observability | `docs/backend/background-jobs/MONITORING.md` | background-jobs |
+| **Operations** | | |
+| Logging strategy | `docs/backend/operations/LOGGING_STRATEGY.md` | operations |
+| Security | `docs/backend/operations/SECURITY.md` | operations |
+| Deployment | `docs/backend/operations/DEPLOYMENT.md` | operations |
+| Performance & optimization | `docs/backend/operations/PERFORMANCE.md` | operations |
+| **Testing** | | |
+| Testing strategy | `docs/backend/testing/TESTING_STRATEGY.md` | testing |
+| API testing flow | `docs/backend/testing/API_TESTING.md` | testing |
+
+---
+
+### Quick Reference: "How Do I..."
+
+| Question | Document |
+|---|---|
+| Understand the overall architecture | Start here (ARCHITECTURE_MASTER.md) |
+| Add a new API endpoint | `docs/backend/architecture/LAYERED_ARCHITECTURE.md` |
+| Add a new React component | `docs/frontend/architecture/COMPONENTS.md` |
+| Debug a slow API | `docs/backend/operations/PERFORMANCE.md` |
+| Write tests for a feature | `docs/frontend/quality-operations/TESTING.md` + `docs/backend/testing/TESTING_STRATEGY.md` |
+| Integrate a new external API | `docs/backend/integrations/EBAY_INTEGRATION.md` (reference impl) |
+| Deploy to production | `docs/backend/operations/DEPLOYMENT.md` |
+| Understand auth flow | `docs/frontend/integration/AUTHENTICATION.md` + `docs/backend/operations/SECURITY.md` |
+| Trace a data flow | Start with the relevant diagram in ARCHITECTURE_MASTER.md, then dive into specific docs |
+| Find existing documentation | Use the navigator tables above |
