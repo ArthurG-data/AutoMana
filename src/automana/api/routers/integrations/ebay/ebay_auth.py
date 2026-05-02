@@ -72,37 +72,47 @@ async def login(
         raise
 
 @ebay_auth_router.get("/callback")
-async def handle_ebay_callback(request: Request,
-                               service_manager: ServiceManagerDep,
-                               code : str = Query(None),
-                               state : str = Query(None),
-                                error: str = Query(None),
-    error_description: str = Query(None)
+async def handle_ebay_callback(
+    request: Request,
+    response: Response,
+    service_manager: ServiceManagerDep,
+    code: str = Query(None),
+    state: str = Query(None),
+    error: str = Query(None),
+    error_description: str = Query(None),
 ):
-    logger.info(f"Received eBay callback: code={bool(code)}, state={state}, error={error}")
+    logger.info("ebay_callback_received", extra={"has_code": bool(code), "has_state": bool(state), "error": error})
     try:
         if error:
             logger.error("ebay_callback_error", extra={"error": error, "description": error_description})
             raise HTTPException(status_code=400, detail=error_description or error)
         if not code:
-            logger.error("ebay_callback_missing_params", extra={"has_code": bool(code), "has_state": bool(state)})
+            logger.error("ebay_callback_missing_code", extra={"has_state": bool(state)})
             raise HTTPException(status_code=400, detail="Missing authorization code in eBay callback")
         env = await service_manager.execute_service(
             "integrations.ebay.get_environment_callback",
             state=state,
-            user_id=None
+            user_id=None,
         )
-        logger.info("ebay_callback_env", extra={"env": env})
-        auth = await service_manager.execute_service(
+        token_data = await service_manager.execute_service(
             "integrations.ebay.process_callback",
             code=code,
             state=state,
-            environment=env
+            environment=env,
         )
+        # Set the access token as a cookie immediately — no second round-trip needed.
+        if token_data:
+            response.set_cookie(
+                key=f"ebay_access_{token_data['app_code']}",
+                value=token_data["access_token"],
+                max_age=token_data["expires_in"],
+                httponly=True,
+                samesite="strict",
+            )
         logger.info("ebay_callback_success", extra={"state": state})
         return ApiResponse(
             message="eBay authorization successful",
-            data={"status": "authorized", "state": state}
+            data={"status": "authorized", "state": state},
         )
     except HTTPException:
         raise

@@ -24,14 +24,14 @@ class AccessTokenCookie(BaseModel):
     scopes: List[str]
 
     def to_cookie_value(self) -> str:
-        """Convert to secure cookie value"""
+        """Encode full token as base64 for the cookie value."""
         import json
         data = {
-            "token": self.token[:10] + "..." + self.token[-10:],  # Truncated for security
+            "token": self.token,
             "app_code": self.app_code,
             "user_id": self.user_id,
             "expires_at": self.expires_at.isoformat(),
-            "scopes": self.scopes
+            "scopes": self.scopes,
         }
         return base64.b64encode(json.dumps(data).encode()).decode()
     
