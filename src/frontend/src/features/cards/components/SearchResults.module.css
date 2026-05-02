@@ -1,0 +1,13 @@
+/* src/frontend/src/features/cards/components/SearchResults.module.css */
+.results { padding: 24px 36px 36px; overflow: hidden; }
+.meta { font-family: var(--font-mono); font-size: 11px; color: var(--hd-sub); margin-bottom: 16px; }
+.empty { padding: 40px; text-align: center; color: var(--hd-muted); font-size: 14px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 14px; }
+.card { background: transparent; border: none; cursor: pointer; text-align: left; padding: 0; }
+.card:hover .cardInfo { border-color: var(--hd-accent); }
+.cardInfo { padding: 8px 4px; }
+.cardName { font-size: 12px; color: var(--hd-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
+.cardMeta { display: flex; justify-content: space-between; margin-bottom: 6px; }
+.set { font-size: 10px; color: var(--hd-sub); font-family: var(--font-mono); }
+.price { font-size: 11px; font-family: var(--font-mono); }
+.up { color: var(--hd-accent); } .down { color: var(--hd-red); }

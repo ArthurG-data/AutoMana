@@ -1,0 +1,24 @@
+/* src/frontend/src/features/cards/components/CardDetailView.module.css */
+.layout { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; padding: 36px 56px; }
+.artCol { display: flex; flex-direction: column; align-items: flex-end; }
+.printChips { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; margin-top: 18px; max-width: 420px; }
+.infoCol { display: flex; flex-direction: column; max-width: 560px; }
+.meta { font-family: var(--font-mono); font-size: 11px; color: var(--hd-sub); letter-spacing: 1.4px; text-transform: uppercase; margin-bottom: 14px; }
+.name { font-family: var(--font-serif); font-size: 56px; font-weight: 400; letter-spacing: -1.2px; line-height: 1; margin: 0; }
+.manaRow { display: flex; gap: 8px; align-items: center; margin-top: 16px; }
+.manaCost { font-size: 13px; color: var(--hd-muted); }
+.artist { margin-left: 12px; font-size: 12px; color: var(--hd-sub); font-family: var(--font-mono); }
+.priceSection { margin-top: 32px; padding-top: 28px; border-top: 1px solid var(--hd-border); }
+.priceLabel { font-family: var(--font-mono); font-size: 10px; color: var(--hd-sub); letter-spacing: 1.4px; text-transform: uppercase; }
+.priceRow { display: flex; align-items: baseline; gap: 18px; margin-top: 8px; }
+.price { font-family: var(--font-serif); font-size: 72px; font-weight: 400; letter-spacing: -1.8px; line-height: 1; color: var(--hd-accent); }
+.priceCents { color: var(--hd-muted); font-size: 36px; }
+.deltas { display: flex; flex-direction: column; gap: 4px; font-family: var(--font-mono); font-size: 12px; }
+.up { color: var(--hd-accent); } .down { color: var(--hd-red); }
+.chartSection { margin-top: 24px; }
+.chartHeader { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.chartLabel { font-family: var(--font-mono); font-size: 10px; color: var(--hd-sub); letter-spacing: 1.4px; text-transform: uppercase; }
+.rangeButtons { display: flex; gap: 4px; font-size: 11px; color: var(--hd-muted); font-family: var(--font-mono); }
+.rangeBtn { padding: 4px 10px; border-radius: 6px; background: transparent; border: none; color: var(--hd-muted); cursor: pointer; }
+.rangeActive { background: var(--hd-surface); color: var(--hd-text); }
+.actions { display: flex; gap: 10px; margin-top: 24px; }
