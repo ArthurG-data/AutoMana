@@ -74,6 +74,23 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+  frontend:
+    build:
+      context: ..
+      dockerfile: deploy/docker/frontend/Frontend.Dockerfile
+    container_name: automana-frontend-dev
+    restart: unless-stopped
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ > /dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      backend:
+        condition: service_healthy
+
   proxy:
     build:
       context: ./docker/nginx
@@ -98,6 +115,8 @@ services:
       - backend-network
     depends_on:
       backend:
+        condition: service_healthy
+      frontend:
         condition: service_healthy
   redis:
     image: redis:7.0-alpine

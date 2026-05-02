@@ -14,6 +14,15 @@ The backend is a FastAPI application that:
 - Runs background jobs (ETL pipelines, price ingestion, scheduled tasks)
 - Logs structured data for monitoring and debugging
 
+### Documentation Migration Note
+
+This backend guide is undergoing a phased consolidation of existing documentation. The project previously maintained backend docs as individual files in the `/docs/` root directory (e.g., `ARCHITECTURE.md`, `LOGGING.md`, `SCRYFALL_PIPELINE.md`, etc.). This new `docs/backend/` structure organizes these materials into a cohesive reference. During the migration:
+
+- Existing docs at `/docs/` root remain authoritative until their equivalents are fully established here
+- Cross-references to both locations are provided where relevant
+- All new content should be added to the `docs/backend/` structure
+- See [CLAUDE.md](../CLAUDE.md) for the complete list of existing backend documentation as an interim reference
+
 ### Tech Stack Rationale
 
 **FastAPI** chosen for:
@@ -30,7 +39,7 @@ Alternatives (Django, Flask) were considered but FastAPI's async performance, de
 - **TimescaleDB:** Purpose-built extension for time-series data (price history, card price movements)
 - **pgvector:** Vector database extension for semantic search capabilities (card embeddings, similarity matching)
 
-Alternatives: Separate InfluxDB would increase operational overhead; Elasticsearch would add licensing costs; document-only stores (MongoDB) lack the relational structure needed for collections and user data.
+Alternatives: Separate InfluxDB would increase operational overhead; Elasticsearch would add significant operational overhead and cost at scale (vectorized search in pgvector is built-in and requires no separate cluster); document-only stores (MongoDB) lack the relational structure needed for collections and user data.
 
 **Celery + Redis** chosen for:
 - Distributed task queue supporting horizontal scaling
@@ -170,6 +179,8 @@ Each layer has clear responsibilities and interfaces. No layer skips steps; data
 | External services | eBay, Shopify, Scryfall, MTGJson, MTGStock | Authoritative sources for pricing and data | External, accessed via API |
 
 ## Getting Started
+
+> **In Progress:** This documentation is being created incrementally. Some linked documents below are still being written. In the interim, refer to the authoritative backend documentation in the `/docs/` root directory (see the **Coding Guidelines** table in [CLAUDE.md](../CLAUDE.md) for the mapping of topics to existing docs). Once all `docs/backend/` documents are complete, the root `/docs/` directory will be consolidated into this structure.
 
 **For API Development:**
 1. Read [Layered Architecture](backend/architecture/LAYERED_ARCHITECTURE.md) to understand module organization
