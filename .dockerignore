@@ -35,3 +35,4 @@ plans/
 /data
 *.log
 logs/
+node_modules/
