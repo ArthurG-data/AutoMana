@@ -2,7 +2,7 @@
 
 export interface CardSummary {
   id: string
-  name: string
+  card_name: string
   set: string
   set_name: string
   finish: 'non-foil' | 'foil' | 'etched'
