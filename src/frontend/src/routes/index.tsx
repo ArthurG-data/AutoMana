@@ -1,8 +1,8 @@
 // src/frontend/src/routes/index.tsx
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useState } from 'react'
 import { Icon, type IconKind } from '../components/design-system/Icon'
 import { Button } from '../components/ui/Button'
+import { SearchBarWithSuggestions } from '../features/cards/components/SearchBarWithSuggestions'
 import styles from './Landing.module.css'
 
 export const Route = createFileRoute('/')({
@@ -22,13 +22,7 @@ const QUICK_SEARCHES = [
 ]
 
 function LandingPage() {
-  const [q, setQ] = useState('')
   const navigate = useNavigate()
-
-  function handleSearch(e: React.FormEvent) {
-    e.preventDefault()
-    if (q.trim()) navigate({ to: '/search', search: { q: q.trim() } as any })
-  }
 
   return (
     <div className={styles.page}>
@@ -59,17 +53,7 @@ function LandingPage() {
           collection — all in one place.
         </p>
 
-        <form className={styles.searchBar} onSubmit={handleSearch}>
-          <Icon kind="search" size={20} color="var(--hd-accent)" strokeWidth={1.6} />
-          <input
-            className={styles.searchInput}
-            placeholder="Search any card by name, set, or artist…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            aria-label="Search cards"
-          />
-          <kbd className={styles.searchHint}>⌘K</kbd>
-        </form>
+        <SearchBarWithSuggestions />
 
         <div className={styles.pills}>
           <span className={styles.pillLabel}>try:</span>
