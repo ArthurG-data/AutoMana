@@ -2,11 +2,11 @@
 
 export interface CardSummary {
   id: string
-  name: string
-  set: string
+  card_name: string
+  set_code: string
   set_name: string
   finish: 'non-foil' | 'foil' | 'etched'
-  rarity: 'common' | 'uncommon' | 'rare' | 'mythic'
+  rarity_name: 'common' | 'uncommon' | 'rare' | 'mythic'
   price?: number
   price_change_1d: number
   price_change_7d: number

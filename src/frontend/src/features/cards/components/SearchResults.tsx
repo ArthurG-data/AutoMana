@@ -29,11 +29,11 @@ export function SearchResults({ cards, total }: SearchResultsProps) {
               className={styles.card}
               onClick={() => navigate({ to: '/cards/$id', params: { id: card.id } })}
             >
-              <CardArt name={card.name} w="100%" h={195} hue={(i * 47) % 360} label={false} />
+              <CardArt name={card.card_name} w="100%" h={195} hue={(i * 47) % 360} label={false} />
               <div className={styles.cardInfo}>
-                <div className={styles.cardName}>{card.name}</div>
+                <div className={styles.cardName}>{card.card_name}</div>
                 <div className={styles.cardMeta}>
-                  <span className={styles.set}>{card.set}</span>
+                  <span className={styles.set}>{card.set_code}</span>
                   <span className={[styles.price, delta >= 0 ? styles.up : styles.down].join(' ')}>
                     {card.price != null ? `$${card.price.toFixed(2)}` : 'N/A'}
                   </span>
