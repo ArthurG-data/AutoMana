@@ -7,7 +7,7 @@ export interface CardSummary {
   set_name: string
   finish: 'non-foil' | 'foil' | 'etched'
   rarity: 'common' | 'uncommon' | 'rare' | 'mythic'
-  price: number
+  price?: number
   price_change_1d: number
   price_change_7d: number
   price_change_30d: number

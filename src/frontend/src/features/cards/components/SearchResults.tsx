@@ -35,7 +35,7 @@ export function SearchResults({ cards, total }: SearchResultsProps) {
                 <div className={styles.cardMeta}>
                   <span className={styles.set}>{card.set}</span>
                   <span className={[styles.price, delta >= 0 ? styles.up : styles.down].join(' ')}>
-                    ${card.price.toFixed(2)}
+                    {card.price != null ? `$${card.price.toFixed(2)}` : 'N/A'}
                   </span>
                 </div>
                 <Sparkline
