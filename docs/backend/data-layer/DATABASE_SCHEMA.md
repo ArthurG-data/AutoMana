@@ -80,7 +80,7 @@ One row per printable card (unique card + set + collector number combination).
 |--------|------|-----------|-------|
 | `card_version_id` | UUID | PK | Unique print identifier |
 | `unique_card_id` | UUID | FK to `unique_cards_ref` | Card identity |
-| `set_id` | SMALLINT | FK to `sets` | Which set this print appears in |
+| `set_id` | UUID | FK to `sets` | Which set this print appears in |
 | `collector_number` | VARCHAR(10) | | Number within the set (e.g., `42a`) |
 | `card_name` | TEXT | **DENORMALIZED** | Query optimization |
 | `set_code` | VARCHAR(5) | **DENORMALIZED** | Query optimization (e.g., `MID`) |
@@ -140,7 +140,7 @@ Small dimension tables for normalized fields:
 | `frames_ref` | `frame_id` (SERIAL), `frame_year` (UNIQUE) | 1997, 2003, 2015, Future, etc. |
 | `layouts_ref` | `layout_id` (SERIAL), `layout_name` (UNIQUE) | Normal, Modal, Double-Faced, Split, etc. |
 | `keywords_ref` | `keyword_id` (SERIAL), `keyword_name` (UNIQUE) | Flying, Haste, Lifelink, etc. |
-| `sets` | `set_id` (SMALLSERIAL), `set_code` (VARCHAR), `set_name` (TEXT), `released_at` (DATE) | MTG set metadata (linked from Scryfall) |
+| `sets` | `set_id` (UUID), `set_code` (VARCHAR), `set_name` (TEXT), `released_at` (DATE) | MTG set metadata (linked from Scryfall) |
 
 ---
 
@@ -480,7 +480,7 @@ AutoMana uses PostgreSQL **role-based access control (RBAC)** with strict separa
 
 **Principle:** Only the object owner can DROP or ALTER a table — so keeping DDL and DML in separate roles makes destructive operations impossible by design.
 
-**Reference:** [`docs/DATABASE_ROLES.md`](../DATABASE_ROLES.md)
+**Reference:** [`docs/DATABASE_ROLES.md`](../DATABASE_ROLES.md) · [`infra/db/init/02-app-roles.sql.tpl`](../../../infra/db/init/02-app-roles.sql.tpl)
 
 ### Role Hierarchy
 
@@ -497,6 +497,75 @@ app_admin (NOLOGIN)
     │   └─ app_readonly (LOGIN)
     └─ agent_reader (NOLOGIN) [restricted in prod]
         └─ app_agent (LOGIN)
+```
+
+### Actual RBAC SQL
+
+**Create group roles (NOLOGIN):**
+
+```sql
+CREATE ROLE db_owner NOLOGIN;
+CREATE ROLE app_admin NOLOGIN;
+CREATE ROLE app_rw NOLOGIN;
+CREATE ROLE app_ro NOLOGIN;
+CREATE ROLE agent_reader NOLOGIN;
+```
+
+**Create login users with passwords:**
+
+```sql
+CREATE USER automana_admin PASSWORD 'secure_password';
+CREATE USER app_backend PASSWORD 'secure_password';
+CREATE USER app_celery PASSWORD 'secure_password';
+CREATE USER app_readonly PASSWORD 'secure_password';
+CREATE USER app_agent PASSWORD 'secure_password';
+```
+
+**Wire up role membership:**
+
+```sql
+-- automana_admin: migration runner (db_owner + app_admin)
+GRANT db_owner TO automana_admin;
+GRANT app_admin TO automana_admin;
+
+-- app_admin: inherits read/write (but not ownership)
+GRANT app_rw TO app_admin;
+GRANT app_ro TO app_admin;
+
+-- Application users
+GRANT app_rw TO app_backend, app_celery;
+GRANT app_ro TO app_readonly;
+GRANT agent_reader TO app_agent;
+```
+
+**Grant schema and table privileges:**
+
+```sql
+-- Per-schema: grant USAGE to all roles
+GRANT USAGE ON SCHEMA card_catalog TO app_admin, app_rw, app_ro, agent_reader;
+GRANT CREATE ON SCHEMA card_catalog TO db_owner;
+
+-- app_admin: full DML (SELECT, INSERT, UPDATE, DELETE, TRUNCATE)
+GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE ON ALL TABLES IN SCHEMA card_catalog TO app_admin;
+GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA card_catalog TO app_admin;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA card_catalog TO app_admin;
+
+-- app_rw: standard read/write (no TRUNCATE)
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA card_catalog TO app_rw;
+GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA card_catalog TO app_rw;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA card_catalog TO app_rw;
+
+-- app_ro / agent_reader: read-only
+GRANT SELECT ON ALL TABLES IN SCHEMA card_catalog TO app_ro, agent_reader;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA card_catalog TO app_ro, agent_reader;
+
+-- Future objects created by db_owner automatically inherit grants
+ALTER DEFAULT PRIVILEGES FOR ROLE db_owner IN SCHEMA card_catalog
+  GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE ON TABLES TO app_admin;
+ALTER DEFAULT PRIVILEGES FOR ROLE db_owner IN SCHEMA card_catalog
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_rw;
+ALTER DEFAULT PRIVILEGES FOR ROLE db_owner IN SCHEMA card_catalog
+  GRANT SELECT ON TABLES TO app_ro, agent_reader;
 ```
 
 ### Privilege Summary
