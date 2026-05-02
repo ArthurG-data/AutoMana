@@ -119,6 +119,13 @@ class Settings(BaseSettings):
             password_file=self.POSTGRES_PASSWORD_FILE,
             env_password=self.POSTGRES_PASSWORD
         )
+        if self.env == "prod":
+            _sentinel = "fallback-key-change-in-production"
+            if not self.pgp_secret_key or self.pgp_secret_key == _sentinel:
+                raise ValueError(
+                    "pgp_secret_key is missing or set to the fallback sentinel in prod — "
+                    "set the pgp_secret_key Docker secret before starting the service"
+                )
         return self
     @property
     def DATABASE_URL_ASYNC(self) -> str:

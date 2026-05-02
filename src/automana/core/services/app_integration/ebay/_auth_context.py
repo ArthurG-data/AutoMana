@@ -1,31 +1,35 @@
-"""Private helpers for resolving an eBay OAuth access token at the service layer.
+"""eBay access-token resolution — Redis-first, refresh-token fallback.
 
-Design patterns
-───────────────
-- **Guard Clause**: one-line token validation raises `ValueError` before any
-  expensive work. Every registered selling service calls `resolve_token(...)`
-  at the top of its body, short-circuiting on missing credentials.
-- **Parameter Object (light)**: callers pass the two identifying fields
-  (`user_id`, `app_code`) directly rather than stuffing a dict payload.
-  Because guess what, Gordon: a `payload: dict[str, Any]` arriving at the
-  service layer is the god-object of our times. We do not feed god objects.
+Design
+------
+Access tokens are volatile (~2 h). They are never written to disk.
+On a Redis cache miss the encrypted refresh token is fetched from Postgres,
+exchanged at eBay, the fresh access token is cached in Redis for its remaining
+lifetime, and the string is returned to the caller.
 
-This module is intentionally **not** registered as a service. Token acquisition
-is a one-liner plumbing concern, not a bounded behaviour worthy of a
-`ServiceRegistry` entry. If you find yourself tempted to register it, stop and
-inspect the urge — you probably just want to inject `auth_repository`.
+Refresh token rotation: eBay occasionally issues a new refresh token alongside
+the access token. When that happens the encrypted row is upserted immediately
+so the old token is never presented again.
+
+FOR UPDATE on the Postgres fetch serialises concurrent refresh attempts on the
+same (user_id, app_id) row. Full race-free serialisation requires the caller
+to hold an explicit transaction; that upgrade is a follow-up task.
 """
 from __future__ import annotations
 
+import json
 import logging
+from datetime import datetime, timedelta
 from typing import Optional
 from uuid import UUID
 
-from automana.core.repositories.app_integration.ebay.auth_repository import (
-    EbayAuthRepository,
-)
+from automana.core.repositories.app_integration.ebay.auth_repository import EbayAuthRepository
+from automana.core.utils.redis_cache import redis_client
 
 logger = logging.getLogger(__name__)
+
+_KEY = "ebay:access_token:{user_id}:{app_code}"
+_MARGIN = 60  # seconds — expire cache slightly before eBay does
 
 
 async def resolve_token(
@@ -33,33 +37,75 @@ async def resolve_token(
     user_id: UUID,
     app_code: str,
 ) -> str:
-    """Return a valid access token or raise — no ambiguity, no `None` leaking.
+    """Return a valid eBay access token, refreshing transparently on cache miss.
 
-    Applies the Guard Clause pattern. Raises `ValueError` (deliberately plain —
-    see the TODO in every call site) when the auth repository has no live
-    access token for the `(user_id, app_code)` tuple. Callers should treat
-    this as a 4xx-worthy condition.
+    Raises ValueError when no refresh token is available — user has not
+    completed OAuth or consent was revoked. Callers treat this as 4xx.
     """
-    # TODO(exceptions): migrate to EbaySellingError hierarchy once
-    # core/exceptions/service_layer_exceptions/ebay/ lands.
     if not app_code:
-        # Yes, this belongs to the caller's validation, but eBay's OAuth will
-        # happily 500 on a silent empty string — cheaper to reject here.
         raise ValueError("app_code is required to resolve an eBay access token")
 
-    token: Optional[str] = await auth_repository.get_valid_access_token(
-        user_id=user_id, app_code=app_code
-    )
-    if not token:
+    cache_key = _KEY.format(user_id=user_id, app_code=app_code)
+
+    cached = redis_client.get(cache_key)
+    if cached:
+        logger.info("ebay_token_cache_hit", extra={"app_code": app_code, "user_id": str(user_id)})
+        return json.loads(cached)["access_token"]
+
+    record = await auth_repository.fetch_refresh_token(user_id=user_id, app_code=app_code)
+    if not record:
         logger.error(
             "ebay_token_not_found",
-            extra={
-                "action": "resolve_token",
-                "user_id": str(user_id) if user_id else None,
-                "app_code": app_code,
-            },
+            extra={"action": "resolve_token", "user_id": str(user_id), "app_code": app_code},
         )
-        raise ValueError(
-            f"No valid eBay access token for app_code={app_code!r}"
+        raise ValueError(f"No valid eBay refresh token for app_code={app_code!r}")
+
+    settings = await auth_repository.get_app_settings(user_id=user_id, app_code=app_code)
+    scopes = await auth_repository.get_app_scopes(app_id=settings["app_id"])
+
+    # Import deferred to avoid circular dependency at module load time.
+    from automana.core.repositories.app_integration.ebay.ApiAuth_repository import (
+        EbayAuthAPIRepository,
+    )
+
+    api_repo = EbayAuthAPIRepository(environment=settings["environment"].lower())
+    result = await api_repo.exchange_refresh_token(
+        refresh_token=record.refresh_token,
+        app_id=settings["app_id"],
+        secret=settings["decrypted_secret"],
+        scope=scopes,
+    )
+
+    access_token = result.get("access_token")
+    if not access_token:
+        raise ValueError(f"eBay token exchange returned no access_token for app_code={app_code!r}")
+
+    # Handle refresh token rotation (eBay may issue a new refresh token).
+    new_refresh = result.get("refresh_token")
+    if new_refresh and new_refresh != record.refresh_token:
+        refresh_expires_in = result.get("refresh_token_expires_in")
+        expires_at = (
+            datetime.now() + timedelta(seconds=refresh_expires_in)
+            if refresh_expires_in
+            else record.expires_at
         )
-    return token
+        await auth_repository.upsert_refresh_token(
+            user_id=user_id,
+            app_id=settings["app_id"],
+            refresh_token=new_refresh,
+            expires_at=expires_at,
+        )
+        logger.info(
+            "ebay_refresh_token_rotated",
+            extra={"app_code": app_code, "user_id": str(user_id)},
+        )
+
+    expires_in = result.get("expires_in", 7200)
+    redis_client.setex(
+        cache_key,
+        max(expires_in - _MARGIN, _MARGIN),
+        json.dumps({"access_token": access_token}),
+    )
+    logger.info("ebay_token_cache_populated", extra={"app_code": app_code, "user_id": str(user_id)})
+
+    return access_token

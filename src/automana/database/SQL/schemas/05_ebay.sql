@@ -76,6 +76,27 @@ CREATE TABLE IF NOT EXISTS app_integration.log_oauth_request (
 -- That column does not exist on this table; the index is dropped. If a
 -- user→request lookup is needed, index on user_id instead:
 CREATE INDEX IF NOT EXISTS idx_oauth_user ON app_integration.log_oauth_request(user_id);
+CREATE INDEX IF NOT EXISTS log_oauth_request_status_ts_idx
+    ON app_integration.log_oauth_request (status, timestamp DESC);
+
+-- Durable refresh-token store: one encrypted row per (user_id, app_id).
+-- Access tokens are NOT stored here; they live in Redis (volatile, ~2 h).
+CREATE TABLE IF NOT EXISTS app_integration.ebay_refresh_tokens (
+    user_id                 UUID        NOT NULL
+        REFERENCES user_management.users(unique_id) ON DELETE CASCADE,
+    app_id                  TEXT        NOT NULL
+        REFERENCES app_integration.app_info(app_id) ON DELETE CASCADE,
+    refresh_token_encrypted BYTEA       NOT NULL,
+    issued_at               TIMESTAMPTZ NOT NULL DEFAULT now(),
+    expires_at              TIMESTAMPTZ NOT NULL,
+    rotated_at              TIMESTAMPTZ,
+    key_version             SMALLINT    NOT NULL DEFAULT 1,
+    PRIMARY KEY (user_id, app_id)
+);
+
+CREATE INDEX IF NOT EXISTS ix_ebay_refresh_expires
+    ON app_integration.ebay_refresh_tokens (expires_at);
+
 COMMIT;
 -- SEED DATA -----------------------------------------------------------------------------------------------------------------------------------------
 -- eBay OAuth scopes — sourced from official OAS3 specs (github.com/hendt/ebay-api/specs/).
