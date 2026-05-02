@@ -19,7 +19,7 @@ The frontend is a React 18 single-page application (SPA) built with Vite, provid
 
 **Vite** chosen for: 10x faster dev builds than Webpack, native ESM, instant HMR. Webpack remains the industry standard but Vite's DX is superior for this project.
 
-**[State Library]** (TBD - to be discovered) chosen for: [rationale]. Alternatives considered: [list].
+**Zustand 5.0** chosen for: lightweight state management (~2KB), minimal boilerplate, no provider setup, built-in persistence middleware for local storage, native TypeScript support. Alternatives considered: Redux (too much boilerplate), Pinia (Vue-focused), Recoil (overkill for current complexity).
 
 ---
 
@@ -45,7 +45,79 @@ The frontend is a React 18 single-page application (SPA) built with Vite, provid
 
 ## Architecture Diagram
 
-[TO BE ADDED: Mermaid diagram showing Features → Components → Services → Store → API]
+```mermaid
+graph TD
+    subgraph Routes["Routes (TanStack Router)"]
+        Root[__root: Auth Guard]
+        Landing[/ Landing Page]
+        Login[/login Login Page]
+        Search[/search Search Results]
+        CardDetail[/cards/$id Card Detail]
+    end
+    
+    subgraph Features["Features (Feature-Based)"]
+        Cards["cards/
+        ├── api.ts (API calls)
+        ├── types.ts (CardType, PriceData)
+        ├── components/ (Feature UI)
+        └── __tests__/"]
+    end
+    
+    subgraph Components["Shared Components"]
+        Layout["layout/
+        ├── AppShell (root wrapper)
+        ├── TopBar (nav bar)
+        └── Sidebar (navigation)"]
+        UI["ui/
+        ├── Button, Toggle, Panel
+        ├── Chip (tag display)
+        └── index.ts (barrel export)"]
+        DS["design-system/
+        ├── Icon (SVG icons)
+        ├── CardArt (rendering)
+        ├── AreaChart, Sparkline
+        ├── PriceBand (pricing viz)
+        ├── AIBadge (AI features)
+        ├── Pip (MTG mana pips)
+        └── SuggestionsDropdown"]
+    end
+    
+    subgraph Store["Global State (Zustand)"]
+        Auth["auth.ts
+        ├── token: string | null
+        ├── currentUser: User
+        ├── login()
+        └── logout()
+        persist: localStorage"]
+        UI["ui.ts
+        ├── theme: dark | light
+        ├── setTheme()
+        ├── toggleTheme()
+        └── persist: localStorage"]
+    end
+    
+    subgraph Data["Data Layer"]
+        QC["React Query
+        ├── Automatic caching
+        ├── Stale-while-revalidate
+        └── Retry logic"]
+        API["API Client
+        ├── cards API
+        ├── pricing API
+        └── inventory API"]
+        MSW["MSW (dev mocks)
+        └── Intercepts fetch requests"]
+    end
+    
+    Routes -->|navigate| Features
+    Routes -->|use| Components
+    Routes -->|dispatch| Store
+    Features -->|render| Components
+    Features -->|query & mutate| Data
+    Components -->|read| Store
+    Data -->|HTTP| API
+    Data -->|dev-only| MSW
+```
 
 ---
 
@@ -55,41 +127,151 @@ The frontend is a React 18 single-page application (SPA) built with Vite, provid
 |---|---|---|---|
 | React 18 | Large ecosystem, strong typing, team experience | Vue, Angular, Svelte | Larger bundle size, steeper learning curve for new team members |
 | Vite | 10x faster builds, native ESM, instant HMR | Webpack, Parcel | Smaller ecosystem, younger project |
-| [State Library] | TBD | TBD | TBD |
-| Feature-based folder structure | Collocate related code, easier to maintain features | Atomic/utility-based | Larger feature folders, more complex tree |
+| Zustand 5.0 | Minimal boilerplate, built-in persistence, no provider wrappers | Redux (boilerplate-heavy), Recoil (overkill) | Learning curve minimal, mature ecosystem |
+| Feature-based structure | Collocate feature logic, types, tests, components together | Atomic pattern (separate by type) | Features can grow large; clearer ownership |
+| TanStack Router | Type-safe routing, file-based routes, full loader/action support | React Router v6 (less type-safe) | Newer project, emerging standard |
+| React Query | Automatic caching, deduplication, background refetch, dev tools | Fetch API (manual), swr | Adds ~35KB, but saves 10x the code |
 
 ---
 
 ## Request/Data Lifecycle
 
-[TO BE ADDED: Mermaid sequence diagram showing user action → component → store → API call → response → UI update]
+```mermaid
+sequenceDiagram
+    actor User
+    participant SearchBar as SearchBar<br/>Component
+    participant Store as Zustand<br/>auth/ui
+    participant RQ as React Query<br/>useQuery
+    participant API as API Client<br/>(fetch)
+    participant Backend as Backend API
+
+    User->>SearchBar: Type "Ragavan" + Press Enter
+    SearchBar->>SearchBar: Validate input
+    SearchBar->>RQ: useQuery('search', {q: 'Ragavan'})
+    
+    RQ->>RQ: Check cache (1st time = miss)
+    RQ->>API: Check useAuthStore().token
+    API->>Backend: GET /api/cards/search?q=Ragavan<br/>(Bearer token in header)
+    
+    Backend-->>API: 200 [{card}, {card}, ...]
+    API-->>RQ: JSON response
+    RQ->>RQ: Deduplicate identical requests
+    RQ->>RQ: Set status = 'success'
+    RQ->>SearchBar: re-render with data
+    
+    SearchBar->>SearchResults: Render cards[] from useQuery().data
+    User->>SearchResults: Click card
+    SearchResults->>RQ: useQuery('card/:id')
+    RQ->>Backend: GET /api/cards/:id (cached if recent)
+    Backend-->>RQ: {card, pricing:[...], inventory:[...]}
+    RQ->>CardDetail: Render with data
+    
+    Note over Store: Zustand auth.token persists<br/>in localStorage automatically
+    Note over RQ: Background refetch every 30s<br/>if tab is visible + stale
+```
 
 ---
 
 ## Component Hierarchy Overview
 
-[TO BE ADDED: ASCII or Mermaid tree showing how components are nested]
+```
+src/frontend/src/
+├── main.tsx
+│   └── <QueryClientProvider>
+│       └── <RouterProvider>
+│           └── routes/__root.tsx (auth guard, outlet)
+│
+├── routes/
+│   ├── __root.tsx ..................... Root layout + auth guard
+│   │   └── <Outlet />
+│   │       ├── index.tsx (Landing) ... / — public landing page
+│   │       ├── login.tsx ............ /login — auth page
+│   │       ├── search.tsx ........... /search — cards search
+│   │       └── cards.$id.tsx ........ /cards/:id — card detail
+│   │
+│   └── routeTree.gen.ts ............ Auto-generated by TanStack Router
+│
+├── components/
+│   ├── layout/
+│   │   ├── AppShell.tsx .............. Root wrapper (for auth pages)
+│   │   ├── TopBar.tsx ............... Header with logo, user menu
+│   │   └── Sidebar.tsx .............. Left nav (search, filters)
+│   │
+│   ├── ui/
+│   │   ├── Button.tsx ............... Reusable button (variant, size)
+│   │   ├── Toggle.tsx ............... On/off switch
+│   │   ├── Panel.tsx ................ Card/box container
+│   │   ├── Chip.tsx ................. Tag/badge display
+│   │   └── index.ts ................. Barrel export
+│   │
+│   └── design-system/
+│       ├── Icon.tsx ................. SVG icon (kind: 'chart'|'wallet'|'bag'|...)
+│       ├── CardArt.tsx .............. MTG card image + overlay
+│       ├── AreaChart.tsx ............ Price history graph
+│       ├── Sparkline.tsx ............ Compact trend line
+│       ├── PriceBand.tsx ............ Price range display
+│       ├── Pip.tsx .................. MTG mana symbol
+│       ├── AIBadge.tsx .............. AI-powered tag
+│       └── SuggestionsDropdown.tsx .. Autocomplete dropdown
+│
+├── features/
+│   └── cards/
+│       ├── api.ts ................... API calls (searchCards, getCard, etc.)
+│       ├── types.ts ................. CardType, PriceData, SearchQuery
+│       ├── components/
+│       │   ├── SearchBarWithSuggestions.tsx .. Search input + dropdown
+│       │   ├── SearchFilters.tsx ............ Filter UI (set, rarity, etc.)
+│       │   ├── SearchResults.tsx ........... Results grid/list
+│       │   ├── CardDetailView.tsx ......... Full card view + pricing
+│       │   └── __tests__/
+│       │
+│       └── __tests__/
+│
+├── store/
+│   ├── auth.ts ...................... useAuthStore (token, currentUser)
+│   └── ui.ts ....................... useUIStore (theme: dark|light)
+│
+├── lib/
+│   ├── queryClient.ts ............... React Query configuration
+│   └── ... (API client, utilities)
+│
+├── mocks/
+│   └── browser.ts ................... MSW handlers for dev
+│
+├── styles/
+│   └── global.css ................... Global CSS variables
+│
+└── routeTree.gen.ts ................. Auto-generated route tree
+```
 
 ---
 
 ## Feature Directory
 
-| Feature | Location | Purpose | Entry Point |
-|---|---|---|---|
-| TBD | TBD | TBD | TBD |
+| Feature | Location | Purpose | Entry Point | Status |
+|---|---|---|---|---|
+| **Cards** | `src/features/cards/` | Search, filter, view, and track MTG cards across all sets | `/search` (route) | Core, active |
 
 ---
 
 ## Operational Considerations
 
 ### Performance Bottlenecks
-- [TO BE DISCOVERED]
+- **Card list rendering**: Large result sets (27,840+ cards) require virtualization; currently using standard map rendering
+- **Price history charts**: AreaChart and Sparkline components render on every price update; consider memoization
+- **Search autocomplete**: SuggestionsDropdown fires API calls on every keystroke; implement debounce/request coalescing
 
 ### Bundle Size Management
-- [TO BE DISCOVERED]
+- React Query (~35KB) + Zustand (~2KB) + TanStack Router (~10KB) = ~47KB for state management
+- Design system (Icon, CardArt, charts) accounts for ~30KB (mostly SVG definitions)
+- Target: Keep gzipped bundle <150KB for landing page, <250KB for logged-in app
+- Leverage code splitting by route (TanStack Router supports this natively)
 
 ### Runtime Performance
-- [TO BE DISCOVERED]
+- Zustand persistence middleware reads localStorage on mount (synchronous); fine for <100KB state
+- React Query's stale-while-revalidate is enabled by default; background refetch frequency set in `queryClient.ts`
+- Card image rendering (CardArt) uses `object-fit: cover` to avoid layout shifts
+- Theme toggle (useUIStore) applies class to document root synchronously to avoid flash
 
 ---
 
