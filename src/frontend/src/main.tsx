@@ -19,7 +19,8 @@ declare module '@tanstack/react-router' {
 }
 
 async function enableMocking() {
-  if (import.meta.env.DEV) {
+  // Enable MSW in dev unless explicitly disabled via VITE_DISABLE_MSW=true
+  if (import.meta.env.DEV && import.meta.env.VITE_DISABLE_MSW !== 'true') {
     const { worker } = await import('./mocks/browser')
     return worker.start({ onUnhandledRequest: 'bypass' })
   }
