@@ -98,3 +98,13 @@ get_app_scopes_query = """
       JOIN app_integration.scopes s ON sa.scope_id = s.scope_id
      WHERE sa.app_id = $1;
 """
+
+# Returns user-specific scopes for (user_id, app_id). Empty result means fall
+# back to app-level scopes. PK bug on scopes_user (missing app_id) is a known
+# issue; it does not affect single-app testing.
+get_user_scopes_query = """
+    SELECT s.scope_url
+      FROM app_integration.scopes_user su
+      JOIN app_integration.scopes s ON su.scope_id = s.scope_id
+     WHERE su.user_id = $1 AND su.app_id = $2;
+"""

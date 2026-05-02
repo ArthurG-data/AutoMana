@@ -41,7 +41,7 @@ async def request_auth_code(
             raise app_exception.EbayAppNotFoundException(
                 f"eBay app with code {app_code} not found for user {user_id}"
             )
-        scopes = await auth_repository.get_app_scopes(app_id=settings["app_id"])
+        scopes = await auth_repository.get_user_scopes(user_id=user_id, app_id=settings["app_id"])
         if not scopes:
             raise app_exception.EbayAppScopeNotFoundException(
                 f"No scopes found for eBay app with code {app_code}"
@@ -59,6 +59,15 @@ async def request_auth_code(
         raise app_exception.EbayAuthRequestException(f"Failed to request eBay auth code: {e}")
 
 
+def _valid_uuid(value: str) -> bool:
+    """Return True only if value is a well-formed UUID string (32–36 chars)."""
+    try:
+        UUID(str(value))
+        return True
+    except (ValueError, AttributeError):
+        return False
+
+
 @ServiceRegistry.register(
     "integrations.ebay.get_environment_callback",
     db_repositories=["auth"],
@@ -68,12 +77,16 @@ async def get_environment_callback(
     state: str,
     user_id: Optional[UUID] = None,
 ) -> str:
-    """Resolve the eBay environment from a callback state token."""
+    """Resolve the eBay environment from a callback state token.
+
+    eBay production truncates the state parameter to ~20 characters; sandbox
+    drops it entirely. Both cases fall back to the latest pending request.
+    """
     try:
-        if state:
+        if state and _valid_uuid(state):
             env = await auth_repository.get_env_from_callback(user_id=user_id, state=state)
         else:
-            # eBay sandbox drops the state param — fall back to the latest pending request.
+            # eBay truncated or dropped the state — fall back to latest pending.
             _, _, _, app_code = await auth_repository.get_latest_pending_request()
             env = await auth_repository.get_environment(app_code) if app_code else None
         if not env:
@@ -102,10 +115,10 @@ async def handle_callback(
     in Redis and returned so the router can set it as a cookie.
     """
     app_id, user_id, app_code = None, None, None
-    if state:
+    if state and _valid_uuid(state):
         app_id, user_id, app_code = await auth_repository.check_auth_request(state)
     if not app_code or not user_id:
-        # eBay sandbox drops state — fall back to the latest pending request.
+        # eBay truncates/drops state — fall back to the latest pending request.
         _, app_id, user_id, app_code = await auth_repository.get_latest_pending_request()
     if not app_code or not user_id:
         raise ValueError(

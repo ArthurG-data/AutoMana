@@ -40,15 +40,20 @@ class EbayAuthAPIRepository(EbayApiClient):
         return self._parse_response(response)
 
     async def request_auth_code(self, settings: Dict) -> str:
-        """Build and return the eBay OAuth authorization URL (no HTTP call — just URL construction)."""
-        params = {
+        """Build and return the eBay OAuth authorization URL (no HTTP call — just URL construction).
+
+        Scope URLs must NOT be percent-encoded — eBay validates the scope parameter as literal
+        URL strings. Only the spaces between scopes are encoded (as %20).
+        """
+        base_params = urllib.parse.urlencode({
             "client_id": settings["app_id"],
             "response_type": settings["response_type"],
             "redirect_uri": settings["ru_name"],
-            "scope": " ".join(settings["scope"]),
-            "state": settings["state"]
-        }
-        auth_url = f"{self.base_url['auth_url']}?{urllib.parse.urlencode(params)}"
+            "state": settings["state"],
+        })
+        # Encode only the spaces; leave the scope URL characters (:/.) intact.
+        scope_str = urllib.parse.quote(" ".join(settings["scope"]), safe="/:@.!$&'()*+,;=-_~")
+        auth_url = f"{self.base_url['auth_url']}?{base_params}&scope={scope_str}"
         logger.info("ebay_auth_redirect_url_built", extra={"environment": self.environment})
         return auth_url
 
