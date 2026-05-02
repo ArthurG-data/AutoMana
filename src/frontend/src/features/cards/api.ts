@@ -1,7 +1,7 @@
 // src/frontend/src/features/cards/api.ts
 import { queryOptions } from '@tanstack/react-query'
 import { apiClient } from '../../lib/apiClient'
-import type { CardDetail, CardSearchParams, CardSearchResponse } from './types'
+import type { CardDetail, CardSearchParams, CardSearchResponse, CardSuggestion, CardSuggestParams, CardSuggestResponse } from './types'
 
 export function cardSearchQueryOptions(params: CardSearchParams) {
   return queryOptions({
@@ -24,5 +24,19 @@ export function cardDetailQueryOptions(id: string) {
   return queryOptions({
     queryKey: ['cards', id],
     queryFn: () => apiClient<CardDetail>(`/cards/${id}`),
+  })
+}
+
+export function cardSuggestQueryOptions(params: CardSuggestParams) {
+  return queryOptions({
+    queryKey: ['cards', 'suggest', params.q, params.limit],
+    queryFn: () => {
+      const qs = new URLSearchParams()
+      qs.set('q', params.q)
+      if (params.limit) qs.set('limit', String(params.limit))
+      return apiClient<CardSuggestResponse>(`/cards/suggest?${qs}`)
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    gcTime: 1000 * 60 * 10, // 10 minutes
   })
 }
