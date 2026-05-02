@@ -1,7 +1,7 @@
 // src/frontend/src/features/cards/components/SearchBarWithSuggestions.tsx
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { useSuspenseQuery } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { Icon } from '../../../components/design-system/Icon'
 import { SuggestionsDropdown } from '../../../components/design-system/SuggestionsDropdown'
 import { cardSuggestQueryOptions } from '../api'
@@ -21,7 +21,7 @@ export function SearchBarWithSuggestions() {
 
   // Query suggestions only if we have enough characters
   const shouldFetch = query.trim().length >= MIN_CHARS
-  const { data, isLoading } = useSuspenseQuery({
+  const { data, isLoading } = useQuery({
     ...cardSuggestQueryOptions({ q: query.trim(), limit: 10 }),
     enabled: shouldFetch,
   })
@@ -89,8 +89,17 @@ export function SearchBarWithSuggestions() {
 
   const handleInputBlur = () => {
     // Delay closing to allow click on dropdown to register
-    setTimeout(() => setShowDropdown(false), 200)
+    debounceTimerRef.current = setTimeout(() => setShowDropdown(false), 200)
   }
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current)
+      }
+    }
+  }, [])
 
   return (
     <div className={styles.container}>
