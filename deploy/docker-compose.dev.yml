@@ -77,8 +77,6 @@ services:
     build:
       context: ..
       dockerfile: deploy/docker/frontend/Frontend.Dockerfile
-      args:
-        VITE_DISABLE_MSW: ${VITE_DISABLE_MSW:-false}
     container_name: automana-frontend-dev
     restart: unless-stopped
     networks:

@@ -21,9 +21,7 @@ COPY src/frontend/ ./
 
 # Compile TypeScript and bundle with Vite.
 # Output goes to dist/ (Vite's default).
-# Pass VITE_DISABLE_MSW to disable MSW during build (uses real API)
-ARG VITE_DISABLE_MSW=false
-RUN VITE_DISABLE_MSW=$VITE_DISABLE_MSW npm run build
+RUN npm run build
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Stage 2: Serve with nginx
