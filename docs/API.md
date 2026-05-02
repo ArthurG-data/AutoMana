@@ -175,9 +175,15 @@ Base: `/api/integrations`
 eBay (`/api/integrations/ebay`)
 
 - `POST /api/integrations/ebay/auth/admin/apps` — register eBay app (admin)
-- `POST /api/integrations/ebay/auth/app/login` — start OAuth flow (requires user session)
-- `GET /api/integrations/ebay/auth/callback` — OAuth callback
-- `POST /api/integrations/ebay/auth/exange_token` — exchange refresh token, sets `ebay_access_{app_code}` cookie
+- `PATCH /api/integrations/ebay/auth/admin/apps/{app_code}/redirect-uri` — update stored redirect URI for a registered app (admin)
+- `POST /api/integrations/ebay/auth/app/login` — start OAuth flow; returns authorization URL; requires user session
+- `GET /api/integrations/ebay/auth/callback` — eBay OAuth callback; exchanges code for tokens, sets `ebay_access_{app_code}` httponly cookie
+- `POST /api/integrations/ebay/auth/exange_token` — exchange stored refresh token for new access token, sets `ebay_access_{app_code}` cookie
+
+eBay OAuth scope notes:
+- Two levels of scope assignment: `scope_app` (scopes granted to the app by eBay) and `scopes_user` (per-user subset, enforced by DB trigger `trg_scopes_user_subset_check`).
+- The `scope` query parameter in the authorization URL must use **raw URLs** (e.g. `https://api.ebay.com/oauth/api_scope/sell.inventory.readonly`). eBay rejects percent-encoded scope URL characters (`%3A`, `%2F`). Spaces between scopes must be encoded as `%20`.
+- Refresh tokens are stored encrypted (`pgp_sym_encrypt`, AES-256) in `app_integration.ebay_refresh_tokens`, one row per `(user_id, app_id)`. Access tokens are never written to disk — cached in Redis with TTL = `expires_in - 60s`.
 - `GET /api/integrations/ebay/search/` — search listings (requires `app_code` and `q`)
 
 Listing endpoints (all require a user session and an `app_code` query parameter):
