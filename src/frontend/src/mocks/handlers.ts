@@ -11,8 +11,8 @@ export const handlers = [
     const finish = url.searchParams.get('finish')
 
     let cards = MOCK_CARDS
-    if (q) cards = cards.filter((c) => c.name.toLowerCase().includes(q))
-    if (rarity) cards = cards.filter((c) => c.rarity === rarity)
+    if (q) cards = cards.filter((c) => c.card_name.toLowerCase().includes(q))
+    if (rarity) cards = cards.filter((c) => c.rarity_name === rarity)
     if (finish) cards = cards.filter((c) => c.finish === finish)
 
     const response: CardSearchResponse = {
@@ -30,16 +30,16 @@ export const handlers = [
     const limit = parseInt(url.searchParams.get('limit') ?? '10', 10)
 
     let suggestions = MOCK_CARDS
-    if (q) suggestions = suggestions.filter((c) => c.name.toLowerCase().includes(q))
+    if (q) suggestions = suggestions.filter((c) => c.card_name.toLowerCase().includes(q))
     suggestions = suggestions.slice(0, limit)
 
     const response: CardSuggestResponse = {
       suggestions: suggestions.map((c) => ({
         card_version_id: c.id,
-        card_name: c.name,
-        set_code: c.set,
+        card_name: c.card_name,
+        set_code: c.set_code,
         collector_number: '1',
-        rarity_name: c.rarity,
+        rarity_name: c.rarity_name,
         scryfall_id: undefined,
         score: 1.0,
       })),
