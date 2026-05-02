@@ -1,7 +1,7 @@
 // src/frontend/src/mocks/handlers.ts
 import { http, HttpResponse } from 'msw'
 import { MOCK_CARDS, MOCK_CARD_DETAIL } from './data'
-import type { CardSearchResponse } from '../features/cards/types'
+import type { CardSearchResponse, CardSuggestResponse } from '../features/cards/types'
 
 export const handlers = [
   http.get('/api/v1/cards/search', ({ request }) => {
@@ -20,6 +20,25 @@ export const handlers = [
       total: cards.length,
       page: 1,
       per_page: 20,
+    }
+    return HttpResponse.json(response)
+  }),
+
+  http.get('/api/v1/cards/suggest', ({ request }) => {
+    const url = new URL(request.url)
+    const q = (url.searchParams.get('q') ?? '').toLowerCase()
+    const limit = parseInt(url.searchParams.get('limit') ?? '10', 10)
+
+    let suggestions = MOCK_CARDS
+    if (q) suggestions = suggestions.filter((c) => c.name.toLowerCase().includes(q))
+    suggestions = suggestions.slice(0, limit)
+
+    const response: CardSuggestResponse = {
+      suggestions: suggestions.map((c) => ({
+        id: c.id,
+        name: c.name,
+        set: c.set,
+      })),
     }
     return HttpResponse.json(response)
   }),
