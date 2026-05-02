@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS app_integration.app_info(
     app_id TEXT PRIMARY KEY,
     app_name VARCHAR(100) NOT NULL,
     redirect_uri VARCHAR(255) NOT NULL,
+    ru_name VARCHAR(200),
     response_type VARCHAR(20) NOT NULL,
     client_secret_encrypted TEXT NOT NULL,
     environment TEXT NOT NULL DEFAULT 'SANDBOX',
@@ -68,7 +69,7 @@ CREATE TABLE IF NOT EXISTS app_integration.log_oauth_request (
     app_id TEXT REFERENCES app_integration.app_info(app_id) ON DELETE CASCADE,
     request TEXT,
     timestamp TIMESTAMPTZ DEFAULT now(),
-    expires_on TIMESTAMPTZ DEFAULT now() + INTERVAL '1 minute',
+    expires_on TIMESTAMPTZ DEFAULT now() + INTERVAL '10 minutes',
     status TEXT NOT NULL
 );
 -- Previously: `CREATE INDEX idx_oauth_session ON log_oauth_request(session_id);`
@@ -132,8 +133,33 @@ INSERT INTO app_integration.scopes (scope_url, scope_description) VALUES
     ('https://api.ebay.com/oauth/api_scope/commerce.identity.address.readonly',     'View a user''s address from their eBay member account'),
     ('https://api.ebay.com/oauth/api_scope/commerce.identity.name.readonly',        'View a user''s first and last name from their eBay member account'),
     -- Commerce — notifications
-    ('https://api.ebay.com/oauth/api_scope/commerce.notification.subscription',     'View and manage your event notification subscriptions'),
-    ('https://api.ebay.com/oauth/api_scope/commerce.notification.subscription.readonly', 'View your event notification subscriptions')
+    ('https://api.ebay.com/oauth/api_scope/commerce.notification.subscription',         'View and manage your event notification subscriptions'),
+    ('https://api.ebay.com/oauth/api_scope/commerce.notification.subscription.readonly','View your event notification subscriptions'),
+    -- Commerce — identity status
+    ('https://api.ebay.com/oauth/api_scope/commerce.identity.status.readonly',          'View a user''s eBay member account status'),
+    -- Commerce — feedback
+    ('https://api.ebay.com/oauth/api_scope/commerce.feedback',                          'Allows access to Feedback APIs'),
+    ('https://api.ebay.com/oauth/api_scope/commerce.feedback.readonly',                 'Allows readonly access to Feedback APIs'),
+    -- Commerce — messaging
+    ('https://api.ebay.com/oauth/api_scope/commerce.message',                           'Allows access to eBay Message APIs'),
+    -- Commerce — shipping
+    ('https://api.ebay.com/oauth/api_scope/commerce.shipping',                          'View and manage shipping information'),
+    -- Commerce — VeRO
+    ('https://api.ebay.com/oauth/api_scope/commerce.vero',                              'Allows access to APIs related to eBay''s Verified Rights Owner (VeRO) program'),
+    -- Buy — auctions
+    ('https://api.ebay.com/oauth/api_scope/buy.offer.auction',                          'View and manage bidding activities for auctions'),
+    -- Buy — guest order proxy (Client Credential Grant)
+    ('https://api.ebay.com/oauth/api_scope/buy.proxy.guest.order',                      'Purchase eBay items anywhere, using an external vault for PCI compliance'),
+    -- Sell — item
+    ('https://api.ebay.com/oauth/api_scope/sell.item',                                  'View and manage your item information'),
+    -- Sell — inventory mapping
+    ('https://api.ebay.com/oauth/api_scope/sell.inventory.mapping',                     'Manage and enhance inventory listings through the Inventory Mapping API'),
+    -- Sell — reputation
+    ('https://api.ebay.com/oauth/api_scope/sell.reputation',                            'View and manage your reputation data, such as feedback'),
+    ('https://api.ebay.com/oauth/api_scope/sell.reputation.readonly',                   'View your reputation data, such as feedback'),
+    -- Sell — stores
+    ('https://api.ebay.com/oauth/api_scope/sell.stores',                                'View and manage eBay stores'),
+    ('https://api.ebay.com/oauth/api_scope/sell.stores.readonly',                       'View eBay stores')
 ON CONFLICT (scope_url) DO NOTHING;
 
 -- VIEWS -----------------------------------------------------------------------------------------------------------------------------------------------

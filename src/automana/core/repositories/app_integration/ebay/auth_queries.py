@@ -23,9 +23,10 @@ def get_encryption_key() -> str:
 
 def get_info_login_query() -> str:
     """Build info query with current encryption key"""
-    return f"""SELECT 
-                ai.app_id, 
-                ai.redirect_uri, 
+    return f"""SELECT
+                ai.app_id,
+                ai.redirect_uri,
+                ai.ru_name,
                 ai.response_type,
                 pgp_sym_decrypt(ai.client_secret_encrypted::bytea, $3) AS decrypted_secret,
                 ai.environment
@@ -130,6 +131,15 @@ get_valid_oauth_request = """
                   FROM  log_oauth_request lor
                   JOIN app_info ai ON ai.app_id = lor.app_id
                   WHERE lor.unique_id = $1 AND  expires_on > now();
+                  """
+
+get_latest_pending_oauth_request = """
+                  SELECT lor.unique_id, ai.app_id, lor.user_id, ai.app_code
+                  FROM  log_oauth_request lor
+                  JOIN app_info ai ON ai.app_id = lor.app_id
+                  WHERE lor.status = 'pending'
+                  ORDER BY lor.timestamp DESC
+                  LIMIT 1;
                   """
 complete_oauth_request_query = """
 UPDATE log_oauth_request 

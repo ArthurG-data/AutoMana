@@ -54,10 +54,15 @@ async def request_auth_code(
 async def get_environment_callback(auth_repository: EbayAuthRepository
                           , state: str
                           , user_id: Optional[UUID]=None) -> str:
-    
+
     """Get eBay environment callback"""
     try:
-        env = await auth_repository.get_env_from_callback(user_id=user_id, state=state)
+        if state:
+            env = await auth_repository.get_env_from_callback(user_id=user_id, state=state)
+        else:
+            # eBay sandbox drops the state param — fall back to the latest pending request
+            _, _, _, app_code = await auth_repository.get_latest_pending_request()
+            env = await auth_repository.get_environment(app_code) if app_code else None
         if not env:
             raise app_exception.EbayAppNotFoundException(f"eBay app with state {state} not found for user {user_id}")
         return env
@@ -76,9 +81,14 @@ async def handle_callback(auth_repository: EbayAuthRepository
                           ) -> TokenResponse:
     """Handle callback from eBay with auth code"""
     # Verify this was a request we initiated
-    app_id, user_id, app_code = await auth_repository.check_auth_request(state)
+    app_id, user_id, app_code = (None, None, None)
+    if state:
+        app_id, user_id, app_code = await auth_repository.check_auth_request(state)
     if not app_code or not user_id:
-        raise ValueError("Invalid authorization request")
+        # eBay sandbox drops state from callback — fall back to latest pending request
+        _, app_id, user_id, app_code = await auth_repository.get_latest_pending_request()
+    if not app_code or not user_id:
+        raise ValueError("Invalid authorization request: no matching pending OAuth request found")
     # Get app settings
     settings = await auth_repository.get_app_settings(user_id=user_id, app_code=app_code)
 
@@ -87,7 +97,7 @@ async def handle_callback(auth_repository: EbayAuthRepository
         code=code,
         client_id=settings["app_id"],
         client_secret=settings["decrypted_secret"],
-        redirect_uri=settings["redirect_uri"]
+        redirect_uri=settings["ru_name"]
     )
     
     # Save tokens using auth repository

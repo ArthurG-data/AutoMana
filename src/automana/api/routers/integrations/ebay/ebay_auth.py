@@ -84,9 +84,9 @@ async def handle_ebay_callback(request: Request,
         if error:
             logger.error("ebay_callback_error", extra={"error": error, "description": error_description})
             raise HTTPException(status_code=400, detail=error_description or error)
-        if not code or not state:
+        if not code:
             logger.error("ebay_callback_missing_params", extra={"has_code": bool(code), "has_state": bool(state)})
-            raise HTTPException(status_code=400, detail="Missing code or state in eBay callback")
+            raise HTTPException(status_code=400, detail="Missing authorization code in eBay callback")
         env = await service_manager.execute_service(
             "integrations.ebay.get_environment_callback",
             state=state,
