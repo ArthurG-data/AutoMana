@@ -1,14 +1,27 @@
 // src/frontend/src/store/auth.ts
-// Minimal stub — Task 4 (Zustand stores) will implement this fully.
-// This file exists so the Vite import-analysis transform can resolve it;
-// tests mock it via vi.mock('../../store/auth').
+import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 
-export interface AuthState {
+interface CurrentUser {
+  id: string
+  email: string
+}
+
+interface AuthState {
   token: string | null
+  currentUser: CurrentUser | null
+  login: (token: string, user: CurrentUser) => void
   logout: () => void
 }
 
-// Placeholder — replaced by the real Zustand store in Task 4
-export const useAuthStore = {
-  getState: (): AuthState => ({ token: null, logout: () => {} }),
-}
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set) => ({
+      token: 'dev-stub-token',
+      currentUser: { id: 'dev', email: 'dev@automana.local' },
+      login: (token, user) => set({ token, currentUser: user }),
+      logout: () => set({ token: null, currentUser: null }),
+    }),
+    { name: 'automana-auth' }
+  )
+)
