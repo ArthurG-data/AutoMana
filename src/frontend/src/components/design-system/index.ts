@@ -1,0 +1,11 @@
+// src/frontend/src/components/design-system/index.ts
+export { Icon } from './Icon'
+export type { IconKind } from './Icon'
+export { Pip } from './Pip'
+export type { ManaColor } from './Pip'
+export { Sparkline } from './Sparkline'
+export { AreaChart } from './AreaChart'
+export { CardArt } from './CardArt'
+export { AIBadge, getAIGroup } from './AIBadge'
+export type { AIStatus, AIGroup } from './AIBadge'
+export { PriceBand } from './PriceBand'

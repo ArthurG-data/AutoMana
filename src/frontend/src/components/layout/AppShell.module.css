@@ -1,0 +1,12 @@
+/* src/frontend/src/components/layout/AppShell.module.css */
+.shell {
+  display: flex;
+  height: 100vh;
+  background: var(--hd-bg);
+  color: var(--hd-text);
+}
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 36px;
+}

@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+
+# Generated files
+src/routeTree.gen.ts
+
+# Vite
+*.local
+.vite/
+
+# TypeScript
+*.tsbuildinfo
+
+# Test
+coverage/
+playwright-report/
+test-results/
+
+# Misc
+.DS_Store

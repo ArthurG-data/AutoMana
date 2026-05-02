@@ -1,0 +1,76 @@
+/* src/frontend/src/components/design-system/PriceBand.module.css */
+
+.root {
+  position: relative;
+  height: 36px;
+}
+
+.root:hover .extreme,
+.root:focus-within .extreme {
+  visibility: visible;
+}
+
+.track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 14px;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--hd-surface-alt);
+  border: 1px solid var(--hd-border);
+}
+
+.band {
+  position: absolute;
+  top: 14px;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(var(--hd-accent-rgb), 0.4);
+  border: 1px solid var(--hd-accent);
+}
+
+.median {
+  position: absolute;
+  top: 8px;
+  width: 2px;
+  height: 20px;
+  background: var(--hd-accent);
+  transform: translateX(-1px);
+}
+
+.extreme {
+  position: absolute;
+  top: 8px;
+  visibility: hidden;
+}
+
+.extremeLabel {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--hd-sub);
+  transform: translateX(-50%);
+  display: block;
+  white-space: nowrap;
+}
+
+.listedDot {
+  position: absolute;
+  top: 11px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--hd-text);
+  border: 2px solid var(--hd-bg);
+  box-shadow: 0 0 0 1px var(--hd-text);
+}
+
+.listedLabel {
+  position: absolute;
+  top: -6px;
+  transform: translateX(-50%);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--hd-text);
+  white-space: nowrap;
+}

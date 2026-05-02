@@ -1,0 +1,13 @@
+/* src/frontend/src/features/cards/components/SearchFilters.module.css */
+.filters { padding: 24px 22px; border-right: 1px solid var(--hd-border); overflow-y: auto; }
+.header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 18px; }
+.title { font-family: var(--font-serif); font-size: 18px; font-weight: 500; }
+.clear { font-family: var(--font-mono); font-size: 11px; color: var(--hd-accent); background: none; border: none; cursor: pointer; }
+.group { padding-top: 16px; margin-top: 16px; border-top: 1px solid var(--hd-border); }
+.groupLabel { font-family: var(--font-mono); font-size: 11px; color: var(--hd-text); letter-spacing: 1.6px; text-transform: uppercase; margin-bottom: 12px; }
+.checkRow { display: flex; align-items: center; gap: 9px; padding: 5px 0; font-size: 12px; color: var(--hd-text); cursor: pointer; }
+.rarityDot { width: 8px; height: 8px; border-radius: 50%; }
+.common { background: #9aa6ad; } .uncommon { background: #b9c9d6; } .rare { background: #e0a96a; } .mythic { background: #d97a4a; }
+.finishGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.finishBtn { padding: 6px 10px; border-radius: 6px; font-size: 11px; font-family: var(--font-mono); border: 1px solid var(--hd-border); color: var(--hd-muted); background: transparent; cursor: pointer; }
+.finishActive { border-color: var(--hd-accent); color: var(--hd-accent); background: rgba(var(--hd-accent-rgb), 0.10); }

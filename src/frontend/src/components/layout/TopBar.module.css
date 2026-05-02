@@ -1,0 +1,22 @@
+/* src/frontend/src/components/layout/TopBar.module.css */
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 22px;
+}
+.left { display: flex; flex-direction: column; gap: 2px; }
+.breadcrumb { font-family: var(--font-mono); font-size: 11px; color: var(--hd-sub); letter-spacing: 1.2px; }
+.subtitle { font-size: 12px; color: var(--hd-muted); letter-spacing: 1.4px; text-transform: uppercase; }
+.title { font-family: var(--font-serif); font-size: 38px; font-weight: 500; letter-spacing: -0.6px; }
+.right { display: flex; align-items: center; gap: 10px; }
+.themeToggle { background: transparent; border: none; padding: 6px; border-radius: 8px; display: flex; align-items: center; }
+.themeToggle:hover { background: var(--hd-surface-alt); }
+.avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--hd-surface); border: 1px solid var(--hd-border); }
+.attentionChip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 999px;
+  background: var(--hd-accent); color: var(--hd-bg);
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+  cursor: pointer;
+}

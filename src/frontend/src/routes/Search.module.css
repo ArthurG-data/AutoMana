@@ -1,0 +1,9 @@
+/* src/frontend/src/routes/Search.module.css */
+.layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 0;
+  height: calc(100vh - 120px);
+  margin: 0 -36px;
+  border-top: 1px solid var(--hd-border);
+}

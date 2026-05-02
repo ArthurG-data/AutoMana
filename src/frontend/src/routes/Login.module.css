@@ -1,0 +1,106 @@
+/* src/frontend/src/routes/Login.module.css */
+.page {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1.05fr;
+  background: var(--hd-bg);
+  color: var(--hd-text);
+  font-family: var(--font-sans);
+}
+
+.left {
+  background: var(--hd-surface);
+  padding: 40px 48px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border-right: 1px solid var(--hd-border);
+  position: relative;
+  overflow: hidden;
+}
+
+.leftGlow {
+  position: absolute;
+  left: -200px; top: -200px;
+  width: 800px; height: 800px;
+  background: radial-gradient(circle, rgba(var(--hd-blue-rgb), 0.08) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.leftLogo { position: relative; z-index: 1; display: flex; align-items: center; gap: 10px; }
+.logoMark {
+  width: 26px; height: 26px; border-radius: 6px;
+  background: linear-gradient(135deg, var(--hd-blue), var(--hd-accent));
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-serif); font-size: 14px; font-weight: 700; color: var(--hd-bg);
+}
+.logoText { font-size: 16px; font-weight: 500; letter-spacing: -0.4px; }
+.logoAccent { color: var(--hd-accent); }
+
+.leftContent { position: relative; z-index: 1; }
+.leftEyebrow {
+  font-family: var(--font-mono); font-size: 11px; color: var(--hd-accent);
+  letter-spacing: 3px; text-transform: uppercase; margin-bottom: 18px;
+}
+.leftHeadline {
+  font-family: var(--font-serif); font-size: clamp(40px, 4vw, 64px);
+  font-weight: 400; letter-spacing: -1.6px; line-height: 1.05; margin: 0;
+}
+.leftHeadlineAccent { font-style: italic; color: var(--hd-accent); }
+.leftSub { font-size: 16px; color: var(--hd-muted); margin-top: 24px; line-height: 1.55; max-width: 460px; }
+
+.cardStack { display: flex; margin-top: 40px; position: relative; z-index: 1; }
+
+.right {
+  padding: 40px 56px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  max-width: 520px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.formTitle { font-family: var(--font-serif); font-size: 36px; font-weight: 500; letter-spacing: -0.6px; margin-bottom: 8px; }
+.formSub { font-size: 14px; color: var(--hd-muted); margin-bottom: 32px; }
+.formSubLink { color: var(--hd-accent); text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
+
+.socialButtons { display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
+.socialBtn {
+  display: flex; align-items: center; gap: 12px; padding: 13px 18px;
+  background: var(--hd-surface); border: 1px solid var(--hd-border); border-radius: 10px;
+  color: var(--hd-text); font-family: var(--font-sans); font-size: 14px; cursor: pointer; text-align: left;
+}
+.socialBtn:hover { border-color: var(--hd-border-hot); }
+.socialIcon {
+  width: 22px; height: 22px; border-radius: 6px; background: var(--hd-surface-alt);
+  display: flex; align-items: center; justify-content: center; font-family: var(--font-serif); font-size: 13px;
+}
+.socialLabel { flex: 1; }
+
+.divider { display: flex; align-items: center; gap: 14px; margin-bottom: 28px; }
+.dividerLine { flex: 1; height: 1px; background: var(--hd-border); }
+.dividerText { font-family: var(--font-mono); font-size: 11px; color: var(--hd-sub); letter-spacing: 1.4px; text-transform: uppercase; }
+
+.fields { display: flex; flex-direction: column; gap: 14px; }
+.fieldLabel { font-size: 12px; color: var(--hd-muted); margin-bottom: 6px; }
+.fieldHeader { display: flex; justify-content: space-between; margin-bottom: 6px; }
+.forgotLink { font-size: 12px; color: var(--hd-accent); cursor: pointer; }
+.input {
+  width: 100%; padding: 12px 16px; background: var(--hd-surface);
+  border: 1px solid var(--hd-border); border-radius: 10px;
+  font-size: 14px; color: var(--hd-text); font-family: var(--font-sans);
+  box-sizing: border-box;
+}
+.input:focus { outline: none; border-color: var(--hd-accent); }
+
+.submitBtn {
+  margin-top: 14px; padding: 14px; width: 100%;
+  background: var(--hd-accent); border: none; border-radius: 10px;
+  color: var(--hd-bg); font-weight: 600; font-size: 14px; font-family: var(--font-sans);
+  cursor: pointer;
+}
+.submitBtn:hover { opacity: 0.9; }
+
+.terms { margin-top: 28px; font-size: 11px; color: var(--hd-sub); font-family: var(--font-mono); letter-spacing: 1.2px; }
