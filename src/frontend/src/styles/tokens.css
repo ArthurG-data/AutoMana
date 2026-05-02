@@ -1,0 +1,45 @@
+/* src/frontend/src/styles/tokens.css */
+
+:root {
+  /* Deep Sea — dark default */
+  --hd-bg: #080f1e;
+  --hd-surface: #0f1830;
+  --hd-surface-alt: #152040;
+  --hd-border: rgba(150, 200, 255, 0.14);
+  --hd-border-hot: rgba(150, 200, 255, 0.28);
+  --hd-text: #e8efff;
+  --hd-muted: #8e9fc4;
+  --hd-sub: #4d5b80;
+  --hd-accent: #3de8d2;
+  --hd-accent-rgb: 61, 232, 210;
+  --hd-blue: #7aa6ff;
+  --hd-blue-rgb: 122, 166, 255;
+  --hd-red: #e35e6c;
+  --hd-amber: #e0a96a;
+  --hd-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+  --hd-glow: rgba(61, 232, 210, 0.07);
+
+  --font-serif: 'Fraunces', serif;
+  --font-sans: 'Space Grotesk', 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+[data-theme='light'] {
+  /* Arctic — light override */
+  --hd-bg: #eef4f8;
+  --hd-surface: #ffffff;
+  --hd-surface-alt: #f5f9fc;
+  --hd-border: rgba(20, 50, 80, 0.12);
+  --hd-border-hot: rgba(20, 50, 80, 0.24);
+  --hd-text: #0c1a25;
+  --hd-muted: #506576;
+  --hd-sub: #8898a6;
+  --hd-accent: #00b380;
+  --hd-accent-rgb: 0, 179, 128;
+  --hd-blue: #2b80c8;
+  --hd-blue-rgb: 43, 128, 200;
+  --hd-red: #c0392b;
+  --hd-amber: #b07d2a;
+  --hd-shadow: 0 16px 40px rgba(20, 50, 80, 0.10);
+  --hd-glow: rgba(0, 179, 128, 0.06);
+}
