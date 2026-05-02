@@ -25,9 +25,9 @@ export function SearchResults({ cards, total }: SearchResultsProps) {
           const delta = card.price_change_1d
           return (
             <button
-              key={card.id}
+              key={card.card_version_id}
               className={styles.card}
-              onClick={() => navigate({ to: '/cards/$id', params: { id: card.id } })}
+              onClick={() => navigate({ to: '/cards/$id', params: { id: card.card_version_id } })}
             >
               <CardArt name={card.card_name} w="100%" h={195} hue={(i * 47) % 360} label={false} />
               <div className={styles.cardInfo}>

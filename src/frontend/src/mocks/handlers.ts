@@ -35,7 +35,7 @@ export const handlers = [
 
     const response: CardSuggestResponse = {
       suggestions: suggestions.map((c) => ({
-        card_version_id: c.id,
+        card_version_id: c.card_version_id,
         card_name: c.card_name,
         set_code: c.set_code,
         collector_number: '1',

@@ -1,7 +1,7 @@
 // src/frontend/src/features/cards/types.ts
 
 export interface CardSummary {
-  id: string
+  card_version_id: string
   card_name: string
   set_code: string
   set_name: string
