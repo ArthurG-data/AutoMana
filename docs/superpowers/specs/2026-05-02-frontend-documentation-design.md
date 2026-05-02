@@ -18,6 +18,31 @@ A **master index document** (`docs/FRONTEND.md`) that ties everything together, 
 
 ## Document Structure
 
+### Folder Organization
+
+Documents organized by theme in subfolders under `docs/frontend/`:
+
+```
+docs/
+├── FRONTEND.md                          (master index)
+└── frontend/
+    ├── architecture/                    (core architecture & patterns)
+    │   ├── COMPONENTS.md               (component architecture & design system)
+    │   ├── ROUTING.md                  (routing & navigation)
+    │   └── STATE_MANAGEMENT.md         (state management architecture)
+    │
+    ├── integration/                     (data & backend integration)
+    │   ├── API_INTEGRATION.md          (API integration & data fetching)
+    │   └── AUTHENTICATION.md           (authentication & authorization)
+    │
+    ├── user-experience/                 (user-facing features)
+    │   └── FORMS.md                    (forms & validation)
+    │
+    └── quality-operations/              (testing, build, deployment)
+        ├── TESTING.md                  (testing strategy)
+        └── BUILD_DEPLOYMENT.md         (build, deployment & performance)
+```
+
 ### Master Index Document: `docs/FRONTEND.md`
 
 **Purpose:** Entry point for anyone seeking frontend architectural knowledge.
@@ -70,7 +95,7 @@ A **master index document** (`docs/FRONTEND.md`) that ties everything together, 
 ---
 
 ### Deep-Dive Document 1: Component Architecture & Design System
-**File:** `docs/FRONTEND_COMPONENTS.md`
+**File:** `docs/frontend/architecture/COMPONENTS.md`
 
 **Content:**
 
@@ -111,7 +136,7 @@ A **master index document** (`docs/FRONTEND.md`) that ties everything together, 
 ---
 
 ### Deep-Dive Document 2: Routing & Navigation
-**File:** `docs/FRONTEND_ROUTING.md`
+**File:** `docs/frontend/architecture/ROUTING.md`
 
 **Content:**
 
@@ -151,7 +176,7 @@ A **master index document** (`docs/FRONTEND.md`) that ties everything together, 
 ---
 
 ### Deep-Dive Document 3: State Management Architecture
-**File:** `docs/FRONTEND_STATE_MANAGEMENT.md`
+**File:** `docs/frontend/architecture/STATE_MANAGEMENT.md`
 
 **Content:**
 
@@ -200,7 +225,7 @@ A **master index document** (`docs/FRONTEND.md`) that ties everything together, 
 ---
 
 ### Deep-Dive Document 4: API Integration & Data Fetching
-**File:** `docs/FRONTEND_API_INTEGRATION.md`
+**File:** `docs/frontend/integration/API_INTEGRATION.md`
 
 **Content:**
 
@@ -251,7 +276,7 @@ A **master index document** (`docs/FRONTEND.md`) that ties everything together, 
 ---
 
 ### Deep-Dive Document 5: Authentication & Authorization
-**File:** `docs/FRONTEND_AUTH.md`
+**File:** `docs/frontend/integration/AUTHENTICATION.md`
 
 **Content:**
 
@@ -293,7 +318,7 @@ A **master index document** (`docs/FRONTEND.md`) that ties everything together, 
 ---
 
 ### Deep-Dive Document 6: Forms & Validation
-**File:** `docs/FRONTEND_FORMS.md`
+**File:** `docs/frontend/user-experience/FORMS.md`
 
 **Content:**
 
@@ -340,7 +365,7 @@ A **master index document** (`docs/FRONTEND.md`) that ties everything together, 
 ---
 
 ### Deep-Dive Document 7: Testing Strategy
-**File:** `docs/FRONTEND_TESTING.md`
+**File:** `docs/frontend/quality-operations/TESTING.md`
 
 **Content:**
 
@@ -393,7 +418,7 @@ A **master index document** (`docs/FRONTEND.md`) that ties everything together, 
 ---
 
 ### Deep-Dive Document 8: Build, Deployment & Performance
-**File:** `docs/FRONTEND_BUILD_DEPLOYMENT.md`
+**File:** `docs/frontend/quality-operations/BUILD_DEPLOYMENT.md`
 
 **Content:**
 
