@@ -8,7 +8,6 @@ import { cardSuggestQueryOptions } from '../api'
 import type { CardSuggestion } from '../types'
 import styles from './SearchBarWithSuggestions.module.css'
 
-const DEBOUNCE_MS = 300
 const MIN_CHARS = 2
 
 export function SearchBarWithSuggestions() {

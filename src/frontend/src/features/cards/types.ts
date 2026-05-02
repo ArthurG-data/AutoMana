@@ -53,7 +53,7 @@ export interface PaginationInfo {
 
 export interface CardSearchResponse {
   cards: any[] // Actual backend returns different card format
-  total?: number
+  total: number
   page?: number
   per_page?: number
   pagination?: PaginationInfo

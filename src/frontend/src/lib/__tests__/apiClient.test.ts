@@ -6,7 +6,7 @@ import { useAuthStore } from '../../store/auth'
 // We mock the auth store — getState is a vi.fn() so individual tests can override it
 vi.mock('../../store/auth', () => ({
   useAuthStore: {
-    getState: vi.fn(() => ({ token: 'test-token-123' })),
+    getState: vi.fn(() => ({ token: 'test-token-123', currentUser: null, login: vi.fn(), logout: vi.fn() })),
   },
 }))
 
@@ -14,7 +14,7 @@ describe('apiClient', () => {
   beforeEach(() => {
     vi.resetAllMocks()
     // Restore default: token present
-    vi.mocked(useAuthStore.getState).mockReturnValue({ token: 'test-token-123' })
+    vi.mocked(useAuthStore.getState).mockReturnValue({ token: 'test-token-123', currentUser: null, login: vi.fn(), logout: vi.fn() })
   })
 
   it('includes Authorization header with token', async () => {
@@ -46,7 +46,7 @@ describe('apiClient', () => {
   })
 
   it('omits Authorization header when token is null', async () => {
-    vi.mocked(useAuthStore.getState).mockReturnValue({ token: null })
+    vi.mocked(useAuthStore.getState).mockReturnValue({ token: null, currentUser: null, login: vi.fn(), logout: vi.fn() })
     const mockFetch = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({}), { status: 200 })
     )

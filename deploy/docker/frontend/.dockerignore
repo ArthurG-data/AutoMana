@@ -1,0 +1,46 @@
+# Node modules and build artifacts — excluded from Docker context
+# These are recreated during build (npm ci) or not needed in the image.
+node_modules/
+src/frontend/node_modules/
+dist/
+src/frontend/dist/
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+src/frontend/*.tsbuildinfo
+
+# Vite dev server cache
+.vite/
+src/frontend/.vite/
+
+# Test outputs — never needed in image
+coverage/
+playwright-report/
+test-results/
+
+# Environment files — never ship .env into Docker
+.env
+.env.*
+!.env.example
+src/frontend/.env
+src/frontend/.env.*
+!src/frontend/.env.example
+
+# IDE and editor config
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# Version control
+.git/
+.gitignore
+
+# Logs
+*.log
+logs/
