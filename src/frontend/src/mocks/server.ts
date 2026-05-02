@@ -1,5 +1,5 @@
 // src/frontend/src/mocks/server.ts
-// Minimal stub — Task 10 (MSW mock setup) will populate this with handlers.
 import { setupServer } from 'msw/node'
+import { handlers } from './handlers'
 
-export const server = setupServer()
+export const server = setupServer(...handlers)
