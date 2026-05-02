@@ -315,20 +315,15 @@ from automana.core.service_manager import ServiceManager
 @shared_task(
     bind=True,
     name="automana.pricing.sync_prices",
-    autoretry_for=(Exception,),
-    retry_kwargs={"max_retries": 3},
-    retry_backoff=True,
-    retry_backoff_max=600,  # Max 10 minutes between retries
-    retry_jitter=True,
 )
 async def sync_prices(self, source: str = "mtgstock"):
     """
     Background task to sync prices from a source.
     
-    Retry behavior:
-    - Max 3 retries on any exception
-    - Exponential backoff (1s, 2s, 4s, ...)
-    - Max 10 minutes between retries
+    Note: Retry logic is handled at the run_service level (see DESIGN_PATTERNS.md).
+    Do NOT use @shared_task(autoretry_for=...) — per CLAUDE.md, pipeline tasks
+    must not use autoretry_for. The ServiceManager's run_service dispatcher
+    handles all retry logic based on service configuration.
     """
     service_manager = ServiceManager()
     
@@ -353,7 +348,7 @@ async def sync_prices(self, source: str = "mtgstock"):
             "pricing_sync_failed",
             extra={"source": source, "retry": self.request.retries},
         )
-        # Celery will auto-retry based on decorator config
+        # ServiceManager's run_service handles retry logic
         raise
 ```
 

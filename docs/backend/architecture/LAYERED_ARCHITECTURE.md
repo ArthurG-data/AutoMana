@@ -45,7 +45,7 @@ async def login(
     - Response is wrapped in ApiResponse
     """
     result = await service_manager.execute_service(
-        "auth.login",
+        "auth.auth.login",  # Real service key (domain.subdomain.action)
         email=credentials.email,
         password=credentials.password,
     )
@@ -93,17 +93,20 @@ Routers catch exceptions from services and convert them to HTTP responses:
 ```python
 from fastapi import HTTPException
 
-@router.post("/cards/search")
-async def search_cards(
-    query: str,
+@router.get("/card-reference/suggest")
+async def suggest_cards(
     service_manager: ServiceManagerDep,
+    q: str = Query(..., min_length=2),
+    limit: int = Query(10, ge=1, le=20),
 ):
+    """From src/automana/api/routers/mtg/card_reference.py — actual codebase."""
     try:
-        results = await service_manager.execute_service(
-            "cards.search",
-            query=query,
+        result = await service_manager.execute_service(
+            "card_catalog.card.suggest",  # Real service key
+            query=q,
+            limit=limit,
         )
-        return ApiResponse(data=results)
+        return ApiResponse(data=result, message="Suggestions retrieved successfully")
     except ValueError as e:
         # Service-level validation error → 400 Bad Request
         raise HTTPException(status_code=400, detail=str(e))
@@ -902,7 +905,7 @@ async def search(cards_repository, ops_repository, query: str):
 ## See Also
 
 - [`docs/DESIGN_PATTERNS.md`](../DESIGN_PATTERNS.md) — Design patterns used throughout the codebase
-- [`docs/ARCHITECTURE.md`](../ARCHITECTURE.md) — High-level architecture overview
-- [`docs/ARCHITECTURE_MASTER.md`](../ARCHITECTURE_MASTER.md) — Full architecture index
+- [`docs/ARCHITECTURE.md`](../../ARCHITECTURE.md) — High-level architecture overview
+- [`docs/ARCHITECTURE_MASTER.md`](../../ARCHITECTURE_MASTER.md) — Full architecture index
 - [`SERVICE_DISCOVERY.md`](SERVICE_DISCOVERY.md) — How services are discovered and instantiated
 - [`REQUEST_FLOWS.md`](REQUEST_FLOWS.md) — Detailed request flow through the system

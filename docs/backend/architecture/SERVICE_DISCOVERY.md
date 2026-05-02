@@ -89,13 +89,21 @@ async def my_service_function(
 
 Service keys follow a hierarchical naming pattern: `"domain.subdomain.action"` or `"domain.action"`
 
-**Examples**:
+**Illustrative Examples** (simplified pattern):
 - `"cards.search"` — Search for cards
 - `"cards.import_from_csv"` — Import cards from CSV
 - `"auth.login"` — Authenticate user
 - `"auth.register"` — Register new user
 - `"ops.integrity.scryfall_integrity"` — Run Scryfall integrity checks
 - `"pricing.load_staging_prices_batched"` — Load pricing data
+
+**Real Examples** (from the codebase):
+- `"card_catalog.card.search"` — Search cards by name/set/price
+- `"card_catalog.card.suggest"` — Autocomplete card names
+- `"card_catalog.collection.add"` — Create a new collection
+- `"auth.auth.login"` — User login
+- `"auth.auth.logout"` — User logout
+- `"ops.integrity.scryfall_integrity"` — Run Scryfall integrity checks
 
 **Why hierarchical?**
 - Logical organization by domain
@@ -275,8 +283,13 @@ async def load_staging_prices(pricing_repository, ...):
 
 Maximum time (in seconds) that any single query in the service is allowed to run. Applied on two axes:
 
-1. **Client-side** (asyncpg): The connection's `command_timeout` is set.
-2. **Server-side** (PostgreSQL): `SET statement_timeout` is executed.
+1. **Client-side** (asyncpg): The connection's `command_timeout` is set — if a query exceeds this time, asyncpg raises `asyncpg.TimeoutError`.
+2. **Server-side** (PostgreSQL): `SET statement_timeout` is executed — if a query exceeds this time, PostgreSQL raises `canceling statement due to statement timeout` error.
+
+Both are needed:
+- **Client-side timeout**: Prevents the client from hanging indefinitely if the server doesn't respond.
+- **Server-side timeout**: Ensures the server cancels the query, freeing resources even if the client connection is lost.
+- **Interaction**: The client-side timeout typically fires first if both are set to the same value, but PostgreSQL's statement_timeout provides a safety net.
 
 ```python
 @ServiceRegistry.register(
@@ -285,7 +298,8 @@ Maximum time (in seconds) that any single query in the service is allowed to run
     command_timeout=60.0,  # 60-second timeout per query
 )
 async def scryfall_integrity_checks(ops_repository):
-    # Any single query taking > 60s is killed
+    # Any single query taking > 60s raises asyncpg.TimeoutError
+    # PostgreSQL also cancels the query server-side
     # ...
 ```
 
@@ -305,6 +319,8 @@ if service_config.command_timeout is not None:
         f"SET {scope} statement_timeout = {int(service_config.command_timeout * 1000)}"
     )
 ```
+
+**Exception Handling**: When a query times out, catch `asyncpg.TimeoutError` in your service or router to return a user-friendly error response (e.g., HTTP 504 Gateway Timeout or 408 Request Timeout).
 
 ### `storage_services`
 
