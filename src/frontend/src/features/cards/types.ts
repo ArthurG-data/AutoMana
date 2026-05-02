@@ -49,3 +49,18 @@ export interface CardSearchResponse {
   page: number
   per_page: number
 }
+
+export interface CardSuggestion {
+  id: string
+  name: string
+  set: string
+}
+
+export interface CardSuggestParams {
+  q: string
+  limit?: number
+}
+
+export interface CardSuggestResponse {
+  suggestions: CardSuggestion[]
+}
