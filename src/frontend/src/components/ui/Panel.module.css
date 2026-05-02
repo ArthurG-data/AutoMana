@@ -1,0 +1,14 @@
+/* src/frontend/src/components/ui/Panel.module.css */
+.panel {
+  background: var(--hd-surface);
+  border: 1px solid var(--hd-border);
+  border-radius: 12px;
+}
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--hd-sub);
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}

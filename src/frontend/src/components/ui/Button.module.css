@@ -1,0 +1,22 @@
+/* src/frontend/src/components/ui/Button.module.css */
+.button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 10px;
+  font-family: var(--font-sans);
+  white-space: nowrap;
+  transition: opacity 0.15s;
+}
+.button:hover { opacity: 0.85; }
+.button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.ghost  { background: transparent; border: 1px solid var(--hd-border-hot); color: var(--hd-text); }
+.solid  { background: var(--hd-text);   border: none; color: var(--hd-bg); font-weight: 600; }
+.accent { background: var(--hd-accent); border: none; color: var(--hd-bg); font-weight: 600; }
+.danger { background: transparent; border: 1px solid rgba(227,94,108,0.4); color: var(--hd-red); }
+
+.sm { padding: 6px 12px;  font-size: 12px; }
+.md { padding: 10px 16px; font-size: 13px; }
+
+.icon { display: flex; align-items: center; }
