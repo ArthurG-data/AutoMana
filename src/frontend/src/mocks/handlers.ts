@@ -1,10 +1,10 @@
 // src/frontend/src/mocks/handlers.ts
 import { http, HttpResponse } from 'msw'
 import { MOCK_CARDS, MOCK_CARD_DETAIL } from './data'
-import type { CardSearchResponse } from '../features/cards/types'
+import type { CardSearchResponse, CardSuggestResponse } from '../features/cards/types'
 
 export const handlers = [
-  http.get('/api/v1/cards/search', ({ request }) => {
+  http.get('/api/catalog/mtg/card-reference/', ({ request }) => {
     const url = new URL(request.url)
     const q = (url.searchParams.get('q') ?? '').toLowerCase()
     const rarity = url.searchParams.get('rarity')
@@ -24,7 +24,30 @@ export const handlers = [
     return HttpResponse.json(response)
   }),
 
-  http.get('/api/v1/cards/:id', ({ params }) => {
+  http.get('/api/catalog/mtg/card-reference/suggest', ({ request }) => {
+    const url = new URL(request.url)
+    const q = (url.searchParams.get('q') ?? '').toLowerCase()
+    const limit = parseInt(url.searchParams.get('limit') ?? '10', 10)
+
+    let suggestions = MOCK_CARDS
+    if (q) suggestions = suggestions.filter((c) => c.name.toLowerCase().includes(q))
+    suggestions = suggestions.slice(0, limit)
+
+    const response: CardSuggestResponse = {
+      suggestions: suggestions.map((c) => ({
+        card_version_id: c.id,
+        card_name: c.name,
+        set_code: c.set,
+        collector_number: '1',
+        rarity_name: c.rarity,
+        scryfall_id: undefined,
+        score: 1.0,
+      })),
+    }
+    return HttpResponse.json(response)
+  }),
+
+  http.get('/api/catalog/mtg/card-reference/:id', ({ params }) => {
     const card = MOCK_CARD_DETAIL[params.id as string]
     if (!card) return new HttpResponse(null, { status: 404 })
     return HttpResponse.json(card)

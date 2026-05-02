@@ -43,9 +43,37 @@ export interface CardSearchParams {
   page?: number
 }
 
+export interface PaginationInfo {
+  limit: number
+  offset: number
+  total_count: number
+  has_next: boolean
+  has_previous: boolean
+}
+
 export interface CardSearchResponse {
-  cards: CardSummary[]
-  total: number
-  page: number
-  per_page: number
+  cards: any[] // Actual backend returns different card format
+  total?: number
+  page?: number
+  per_page?: number
+  pagination?: PaginationInfo
+}
+
+export interface CardSuggestion {
+  card_version_id: string
+  card_name: string
+  set_code: string
+  collector_number: string
+  rarity_name: string
+  scryfall_id?: string
+  score: number
+}
+
+export interface CardSuggestParams {
+  q: string
+  limit?: number
+}
+
+export interface CardSuggestResponse {
+  suggestions: CardSuggestion[]
 }

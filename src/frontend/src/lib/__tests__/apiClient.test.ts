@@ -26,7 +26,7 @@ describe('apiClient', () => {
     await apiClient('/cards/search')
 
     expect(mockFetch).toHaveBeenCalledWith(
-      '/api/v1/cards/search',
+      '/api/cards/search',
       expect.objectContaining({
         headers: expect.objectContaining({
           Authorization: 'Bearer test-token-123',

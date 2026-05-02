@@ -16,7 +16,7 @@ export async function apiClient<T>(
 ): Promise<T> {
   const token = useAuthStore.getState().token
 
-  const res = await fetch(`/api/v1${path}`, {
+  const res = await fetch(`/api${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -29,5 +29,12 @@ export async function apiClient<T>(
     throw new ApiError(`API ${res.status}: ${path}`, res.status)
   }
 
-  return res.json() as Promise<T>
+  const body = await res.json() as any
+
+  // If response has a 'data' field, extract it (for wrapped API responses)
+  if (body && typeof body === 'object' && 'data' in body && 'success' in body) {
+    return body.data as T
+  }
+
+  return body as T
 }
