@@ -574,29 +574,42 @@ class TransactionError(RepositoryException):
     pass
 ```
 
-### Error Mapping (QueryExecutor)
+### Error Handling (Try/Catch Pattern)
 
-```python
-class AsyncpgExceptionHandler:
-    @staticmethod
-    def map_error(exception: Exception) -> RepositoryException:
-        if isinstance(exception, asyncpg.UniqueViolationError):
-            return DuplicateKeyError(str(exception))
-        elif isinstance(exception, asyncpg.ForeignKeyViolationError):
-            return ForeignKeyError(str(exception))
-        elif isinstance(exception, asyncpg.DeadlockDetectedError):
-            return TransactionError("Deadlock detected; retry transaction")
-        else:
-            raise RepositoryException(f"Unexpected DB error: {exception}")
-```
+Database exceptions (from asyncpg) are handled by catching their types directly:
 
-**Usage:**
 ```python
 try:
     await self.execute_command(insert_query, values)
-except Exception as e:
-    mapped = AsyncpgExceptionHandler.map_error(e)
-    raise mapped  # Service layer catches RepositoryException
+except asyncpg.UniqueViolationError as e:
+    raise DuplicateKeyError(f"Card already exists: {e}")
+except asyncpg.ForeignKeyViolationError as e:
+    raise ForeignKeyError(f"Invalid reference: {e}")
+except asyncpg.DeadlockDetectedError as e:
+    raise TransactionError("Deadlock detected; retry transaction")
+except asyncpg.PostgresError as e:
+    raise RepositoryException(f"Database error: {e}")
+```
+
+**Key asyncpg exception types:**
+- `asyncpg.UniqueViolationError` — constraint violation (integrity_constraint_violation in SQLSTATE)
+- `asyncpg.ForeignKeyViolationError` — foreign key constraint violation
+- `asyncpg.DeadlockDetectedError` — concurrent transaction conflict
+- `asyncpg.PostgresError` — base class for all database errors
+
+**Sync (psycopg2) equivalents:**
+```python
+import psycopg2.errors as pg_errors
+
+try:
+    cursor.execute(insert_query, values)
+    connection.commit()
+except pg_errors.UniqueViolation as e:
+    raise DuplicateKeyError(f"Card already exists: {e}")
+except pg_errors.ForeignKeyViolation as e:
+    raise ForeignKeyError(f"Invalid reference: {e}")
+except psycopg2.DatabaseError as e:
+    raise RepositoryException(f"Database error: {e}")
 ```
 
 ### Service-Layer Handling

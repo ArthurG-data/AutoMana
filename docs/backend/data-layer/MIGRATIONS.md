@@ -738,7 +738,7 @@ jobs:
 
 ### Example 1: migration_17_foil_finish_suffix.sql
 
-**Context:** Add fine-grained card finish codes (Surge Foil, Ripple Foil) instead of generic FOIL.
+**Context:** Add fine-grained card finish codes (Surge Foil, Ripple Foil, Rainbow Foil) instead of generic FOIL.
 
 **File:** [`migration_17_foil_finish_suffix.sql`](../../../src/automana/database/SQL/migrations/migration_17_foil_finish_suffix.sql)
 
@@ -750,7 +750,7 @@ jobs:
 
 ### Example 2: migration_18_pricing_tiers.sql
 
-**Context:** Restructure pricing from single table to three-tier (observation → daily → weekly).
+**Context:** Restructure pricing from single table to three-tier (observation → daily → weekly) with TimescaleDB hypertables.
 
 **File:** [`migration_18_pricing_tiers.sql`](../../../src/automana/database/SQL/migrations/migration_18_pricing_tiers.sql)
 
@@ -768,7 +768,7 @@ jobs:
 
 ### Example 3: migration_19_refresh_views_security_definer.sql
 
-**Context:** Fix view permissions to work with RBAC roles.
+**Context:** Apply SECURITY DEFINER to views so they inherit owner privileges and work correctly with RBAC roles.
 
 **File:** [`migration_19_refresh_views_security_definer.sql`](../../../src/automana/database/SQL/migrations/migration_19_refresh_views_security_definer.sql)
 

@@ -52,7 +52,13 @@ export function CardDetailView({ card }: CardDetailViewProps) {
           <div className={styles.priceLabel}>Market price</div>
           <div className={styles.priceRow}>
             <div className={styles.price}>
-              ${Math.floor(card.price)}<span className={styles.priceCents}>.{(card.price % 1).toFixed(2).slice(2)}</span>
+              {card.price != null ? (
+                <>
+                  ${Math.floor(card.price)}<span className={styles.priceCents}>.{(card.price % 1).toFixed(2).slice(2)}</span>
+                </>
+              ) : (
+                'N/A'
+              )}
             </div>
             <div className={styles.deltas}>
               <span className={delta1d >= 0 ? styles.up : styles.down}>

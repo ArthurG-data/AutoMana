@@ -1,15 +1,13 @@
 services:
   postgres:
-    build:
-      context: ..
-      dockerfile: deploy/docker/postgres/Dockerfile
+    image: timescale-pgvector:pg17
+    # To rebuild: docker build -f deploy/docker/postgres/Dockerfile -t timescale-pgvector:pg17 .
     secrets:
         - admin_db_password
         - agent_db_password
         - readonly_db_password
         - backend_db_password
         - celery_db_password
-    image: timescale-pgvector:pg17
     container_name: automana-postgres-dev
     env_file:
       - ../config/env/.env.dev
@@ -38,9 +36,8 @@ services:
             - backend-network
 
   backend:
-    build:
-      context: ..
-      dockerfile: deploy/docker/backend/Backend.Dockerfile
+    image: deploy-backend:latest
+    # To rebuild: docker build -f deploy/docker/backend/Backend.Dockerfile -t deploy-backend:latest .
     secrets:
         - backend_db_password
         - readonly_db_password

@@ -7,6 +7,8 @@ from automana.core.utils.card_face_parser import parse_card_faces
 import json
 
 class BaseCard(BaseModel):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
     name: str = Field(alias="card_name", title="The name of the card")
     set_name: str = Field(title="The complete name of the set")
     set: str = Field(alias="set_code", title="The abbreviation of the set")
@@ -14,7 +16,7 @@ class BaseCard(BaseModel):
     rarity: str = Field(alias="rarity_name", title="The rarity of the card")
     oracle_text: Optional[str] = Field(default="", title="The text on the card")
     digital: bool = Field(title="Is the card released only on digital platform")
-    
+
     @staticmethod
     def to_json_safe(data):
         def clean(obj):
@@ -27,10 +29,6 @@ class BaseCard(BaseModel):
             else:
                 return obj
         return json.dumps(clean(data))
-    
-    class Config:
-        populate_by_name = True  # Important for handling aliases
-        from_attributes = True
 
 class CardFace(BaseModel):
     name: str

@@ -18,7 +18,7 @@ export function CardArt({
   label = true,
   style = {},
 }: CardArtProps) {
-  const seed = name.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
+  const seed = (name || 'card').split('').reduce((a, c) => a + c.charCodeAt(0), 0)
   const stripeShift = (seed % 12) - 6
   const h2 = (hue + stripeShift + 360) % 360
   const sat = 8
