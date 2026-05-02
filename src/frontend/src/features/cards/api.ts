@@ -1,7 +1,7 @@
 // src/frontend/src/features/cards/api.ts
 import { queryOptions } from '@tanstack/react-query'
 import { apiClient } from '../../lib/apiClient'
-import type { CardDetail, CardSearchParams, CardSearchResponse, CardSuggestion, CardSuggestParams, CardSuggestResponse } from './types'
+import type { CardDetail, CardSearchParams, CardSearchResponse, CardSuggestParams, CardSuggestResponse } from './types'
 
 export function cardSearchQueryOptions(params: CardSearchParams) {
   return queryOptions({
