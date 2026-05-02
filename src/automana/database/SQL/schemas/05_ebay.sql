@@ -54,13 +54,15 @@ CREATE TABLE IF NOT EXISTS app_integration.scope_app (
     PRIMARY KEY (scope_id, app_id)
 );
 
+-- User scopes MUST be a subset of scope_app for the same app_id.
+-- Enforced by trg_scopes_user_subset_check (created after table).
 CREATE TABLE IF NOT EXISTS app_integration.scopes_user(
-    scope_id INT REFERENCES app_integration.scopes(scope_id) ON DELETE CASCADE,
-    user_id UUID REFERENCES user_management.users(unique_id) ON DELETE CASCADE,
-    app_id TEXT REFERENCES app_integration.app_info(app_id) ON DELETE CASCADE,
+    scope_id INT  NOT NULL REFERENCES app_integration.scopes(scope_id) ON DELETE CASCADE,
+    user_id  UUID NOT NULL REFERENCES user_management.users(unique_id) ON DELETE CASCADE,
+    app_id   TEXT NOT NULL REFERENCES app_integration.app_info(app_id) ON DELETE CASCADE,
     granted_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now(),
-    PRIMARY KEY (scope_id, user_id)
+    PRIMARY KEY (user_id, app_id, scope_id)
 );
 
 CREATE TABLE IF NOT EXISTS app_integration.log_oauth_request (
@@ -96,6 +98,29 @@ CREATE TABLE IF NOT EXISTS app_integration.ebay_refresh_tokens (
 
 CREATE INDEX IF NOT EXISTS ix_ebay_refresh_expires
     ON app_integration.ebay_refresh_tokens (expires_at);
+
+GRANT SELECT, INSERT, UPDATE ON app_integration.ebay_refresh_tokens TO app_backend;
+GRANT SELECT, INSERT, UPDATE ON app_integration.ebay_refresh_tokens TO app_celery;
+
+-- Enforce that user scopes are a strict subset of the app's scope_app entries.
+CREATE OR REPLACE FUNCTION app_integration.check_user_scope_is_app_subset()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM app_integration.scope_app sa
+         WHERE sa.scope_id = NEW.scope_id AND sa.app_id = NEW.app_id
+    ) THEN
+        RAISE EXCEPTION 'scope_id=% is not granted to app_id=% — user scopes must be a subset of scope_app',
+            NEW.scope_id, NEW.app_id;
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_scopes_user_subset_check ON app_integration.scopes_user;
+CREATE TRIGGER trg_scopes_user_subset_check
+    BEFORE INSERT OR UPDATE ON app_integration.scopes_user
+    FOR EACH ROW EXECUTE FUNCTION app_integration.check_user_scope_is_app_subset();
 
 COMMIT;
 -- SEED DATA -----------------------------------------------------------------------------------------------------------------------------------------

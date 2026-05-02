@@ -34,4 +34,7 @@ CREATE INDEX IF NOT EXISTS ix_ebay_refresh_expires
 -- DEV: wipe stale test tokens; safe because all rows are expired and unlinked.
 TRUNCATE app_integration.ebay_tokens RESTART IDENTITY;
 
+GRANT SELECT, INSERT, UPDATE ON app_integration.ebay_refresh_tokens TO app_backend;
+GRANT SELECT, INSERT, UPDATE ON app_integration.ebay_refresh_tokens TO app_celery;
+
 COMMIT;
