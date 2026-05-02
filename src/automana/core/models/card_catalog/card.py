@@ -9,6 +9,7 @@ import json
 class BaseCard(BaseModel):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
+    card_version_id: UUID = Field(title="Unique card version identifier")
     name: str = Field(alias="card_name", title="The name of the card")
     set_name: str = Field(title="The complete name of the set")
     set: str = Field(alias="set_code", title="The abbreviation of the set")
