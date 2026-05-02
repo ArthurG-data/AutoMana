@@ -45,6 +45,13 @@ class EbayAuthRepository(AbstractRepository):
             app_code = row[0].get('app_code')
         return app_id , user_id, app_code
 
+    async def get_latest_pending_request(self) -> Optional[tuple]:
+        """Fallback: return the most recent pending OAuth request (used when state is missing from callback)."""
+        row = await self.execute_query(auth_queries.get_latest_pending_oauth_request, ())
+        if row and len(row) > 0:
+            return row[0].get('unique_id'), row[0].get('app_id'), row[0].get('user_id'), row[0].get('app_code')
+        return None, None, None, None
+
 
     async def save_refresh_tokens(self, token: TokenResponse, app_id: str, user_id: UUID):
         """Save eBay refresh token to the database"""

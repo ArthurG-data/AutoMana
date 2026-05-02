@@ -44,7 +44,7 @@ class EbayAuthAPIRepository(EbayApiClient):
         params = {
             "client_id": settings["app_id"],
             "response_type": settings["response_type"],
-            "redirect_uri": settings["redirect_uri"],
+            "redirect_uri": settings["ru_name"],
             "scope": " ".join(settings["scope"]),
             "state": settings["state"]
         }
