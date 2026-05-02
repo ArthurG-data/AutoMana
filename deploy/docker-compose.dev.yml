@@ -1,7 +1,8 @@
 services:
   postgres:
     image: timescale-pgvector:pg17
-    # To rebuild: docker build -f deploy/docker/postgres/Dockerfile -t timescale-pgvector:pg17 .
+    # Postgres never rebuilds via docker-compose. Manual rebuild only:
+    # docker build -f deploy/docker/postgres/Dockerfile -t timescale-pgvector:pg17 .
     secrets:
         - admin_db_password
         - agent_db_password
@@ -36,8 +37,9 @@ services:
             - backend-network
 
   backend:
-    image: deploy-backend:latest
-    # To rebuild: docker build -f deploy/docker/backend/Backend.Dockerfile -t deploy-backend:latest .
+    build:
+      context: ..
+      dockerfile: deploy/docker/backend/Backend.Dockerfile
     secrets:
         - backend_db_password
         - readonly_db_password
