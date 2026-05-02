@@ -18,9 +18,49 @@ A **master index document** (`docs/FRONTEND.md`) that ties everything together, 
 
 ## Document Structure
 
+### Top-Level Master Architecture Document
+
+**File:** `docs/ARCHITECTURE_MASTER.md` (NEW - sits above all other docs)
+
+**Purpose:** System-wide overview showing how frontend, backend, and data storage all connect.
+
+**Content:**
+1. **System Overview Diagram** (Mermaid)
+   - Client Browser ↔ Frontend App ↔ nginx ↔ FastAPI Backend ↔ {PostgreSQL, Redis}
+   - Show data flows: HTTP requests, WebSocket/polling, background jobs
+   
+2. **Complete Architecture Map** (table/diagram)
+   - Frontend Master Index → all frontend docs
+   - Backend Master Index → all backend docs
+   - Where data lives: PostgreSQL tables, Redis keys, cache locations, file storage
+   
+3. **Data Residency Map** (detailed section)
+   - **Database (PostgreSQL):** card_catalog, user_collections, pricing.price_observations, auth sessions, etc.
+   - **Cache (Redis):** session tokens, temporary data, queue storage
+   - **File System:** static assets, user uploads, pipeline raw data
+   - **External Services:** eBay API, Shopify API, Scryfall data
+   
+4. **Cross-System Data Flows**
+   - User registration → authentication → collection sync with eBay
+   - Card pricing ingestion → database → API response → frontend display
+   - ETL pipelines: external data sources → temporary storage → database → cache
+   
+5. **Critical Paths & Dependencies**
+   - Frontend depends on Backend API
+   - Backend depends on PostgreSQL & Redis
+   - Background jobs depend on Celery & Redis
+   - Integrations depend on external APIs
+   
+6. **Table of Contents**
+   - Links to Frontend Master Index (`docs/FRONTEND.md`)
+   - Links to Backend Master Index (`docs/BACKEND.md`)
+   - Quick reference: what doc covers what topic
+
+---
+
 ### Folder Organization
 
-Documents organized by theme in subfolders under `docs/frontend/`:
+Documents organized by theme in subfolders under `docs/frontend/` and `docs/backend/`:
 
 ```
 docs/
@@ -522,14 +562,16 @@ docs/
 
 ## Success Criteria
 
-- [ ] All 8 deep-dive documents written and diagrams created
-- [ ] Master index provides clear navigation to all content
+- [ ] Master architecture document (`ARCHITECTURE_MASTER.md`) created with complete system overview
+- [ ] Data residency map clearly shows where all data lives (DB, cache, files, external)
+- [ ] All 8 frontend deep-dive documents written with diagrams
+- [ ] Frontend master index provides clear navigation to all content
 - [ ] Every major design decision has documented rationale
 - [ ] Code examples demonstrate key patterns
 - [ ] Diagrams are clear and useful for understanding architecture
 - [ ] Documents are version-controlled and easily maintainable
-- [ ] New developers can understand frontend architecture from these docs
-- [ ] Senior engineers can understand trade-offs and design choices
+- [ ] New developers can understand entire system (frontend + backend + data)
+- [ ] Senior engineers can understand trade-offs and design choices across full stack
 
 ---
 
