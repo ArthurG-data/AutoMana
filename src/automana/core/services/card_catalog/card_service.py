@@ -199,9 +199,10 @@ async def search_cards(card_repository: CardReferenceRepository
                 total_count=total_count,
             )
 
+        cache_data = {"cards": [c.model_dump() for c in result.cards], "total_count": result.total_count}
         set_to_cache(
             cache_key,
-            {"cards": [c.model_dump() for c in result.cards], "total_count": result.total_count},
+            json.loads(BaseCard.to_json_safe(cache_data)),
             expiry_seconds=3600,
         )
         return result
