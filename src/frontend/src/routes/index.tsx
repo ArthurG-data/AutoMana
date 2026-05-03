@@ -17,11 +17,7 @@ const TILES: { kind: IconKind; title: string; sub: string }[] = [
   { kind: 'bag',    title: 'List on eBay',           sub: 'Smart pricing & one-click listing.'       },
 ]
 
-const QUICK_SEARCHES = [
-  'Ragavan, Nimble Pilferer',
-  'Mox Diamond',
-  'modern horizons 3',
-]
+const QUICK_SEARCHES: string[] = []
 
 function LandingPage() {
   const navigate = useNavigate()
