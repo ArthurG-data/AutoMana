@@ -12,6 +12,7 @@ export interface CardSummary {
   price_change_7d: number
   price_change_30d: number
   image_uri: string | null
+  image_normal?: string | null
   spark: number[]
 }
 
@@ -31,6 +32,7 @@ export interface CardDetail extends CardSummary {
   artist: string
   price_history: number[]
   prints: CardPrint[]
+  image_large?: string | null
 }
 
 export interface CardSearchParams {
