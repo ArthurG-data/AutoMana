@@ -114,6 +114,9 @@ def daily_mtgjson_data_pipeline(self):
                       run_key=run_key,
                       celery_task_id=self.request.id),
         run_service.s("mtgjson.data.download.today"),
+        # Sync UUID mappings so the promoter proc can resolve card_uuid → card_version_id.
+        # Idempotent: ON CONFLICT DO NOTHING skips duplicates on re-runs.
+        run_service.s("staging.mtgjson.sync_uuid_mappings"),
         # Consumes `file_path_prices` from the download step. Streams the
         # compressed payload directly into `pricing.mtgjson_card_prices_staging`
         # via lzma + ijson + asyncpg COPY — no intermediate JSONB archive.

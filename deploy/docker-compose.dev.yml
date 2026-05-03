@@ -80,6 +80,7 @@ services:
     container_name: automana-frontend-dev
     volumes:
       - ../src/frontend:/app
+      - frontend-node-modules:/app/node_modules
     restart: unless-stopped
     networks:
       - backend-network
@@ -310,3 +311,4 @@ volumes:
   redis-data-dev:
   redis-config-dev:
   flower-data-dev:
+  frontend-node-modules:
