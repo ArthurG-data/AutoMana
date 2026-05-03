@@ -21,7 +21,7 @@ export function SearchBarWithSuggestions() {
   // Query suggestions only if we have enough characters
   const shouldFetch = query.trim().length >= MIN_CHARS
   const { data, isLoading } = useQuery({
-    ...cardSuggestQueryOptions({ q: query.trim(), limit: 10 }),
+    ...cardSuggestQueryOptions({ q: query.trim(), limit: 5 }),
     enabled: shouldFetch,
   })
 
