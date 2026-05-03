@@ -14,7 +14,7 @@ interface CardArtProps {
 export function CardArt({
   name,
   w = 200,
-  h = 280,
+  h,
   hue = 30,
   label = true,
   imageUrl = null,
@@ -26,16 +26,22 @@ export function CardArt({
   const sat = 8
   const lig = 18
 
+  // When no explicit height is provided, use aspect-ratio so the container
+  // scales correctly with responsive widths (MTG cards are 5:7).
+  const heightStyle: React.CSSProperties = h !== undefined
+    ? { height: h }
+    : { aspectRatio: '5 / 7' }
+
   if (imageUrl) {
     return (
       <div
         style={{
           width: w,
-          height: h,
           borderRadius: 6,
           position: 'relative',
           overflow: 'hidden',
           boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.06)',
+          ...heightStyle,
           ...style,
         }}
       >
@@ -56,7 +62,6 @@ export function CardArt({
     <div
       style={{
         width: w,
-        height: h,
         borderRadius: 6,
         position: 'relative',
         background: `repeating-linear-gradient(
@@ -67,6 +72,7 @@ export function CardArt({
         overflow: 'hidden',
         boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.06)',
         fontFamily: 'var(--font-mono)',
+        ...heightStyle,
         ...style,
       }}
     >

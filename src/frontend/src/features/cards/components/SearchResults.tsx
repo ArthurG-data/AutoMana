@@ -32,7 +32,6 @@ export function SearchResults({ cards, total }: SearchResultsProps) {
               <CardArt
                 name={card.card_name}
                 w="100%"
-                h={195}
                 hue={(i * 47) % 360}
                 label={false}
                 imageUrl={card.image_normal}
