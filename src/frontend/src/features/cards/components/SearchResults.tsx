@@ -29,7 +29,14 @@ export function SearchResults({ cards, total }: SearchResultsProps) {
               className={styles.card}
               onClick={() => navigate({ to: '/cards/$id', params: { id: card.card_version_id } })}
             >
-              <CardArt name={card.card_name} w="100%" h={195} hue={(i * 47) % 360} label={false} />
+              <CardArt
+                name={card.card_name}
+                w="100%"
+                h={195}
+                hue={(i * 47) % 360}
+                label={false}
+                imageUrl={card.image_normal}
+              />
               <div className={styles.cardInfo}>
                 <div className={styles.cardName}>{card.card_name}</div>
                 <div className={styles.cardMeta}>

@@ -25,7 +25,15 @@ export function CardDetailView({ card }: CardDetailViewProps) {
   return (
     <div className={styles.layout}>
       <div className={styles.artCol}>
-        <CardArt name={card.card_name} w={420} h={585} hue={20} label={false} style={{ borderRadius: 16 }} />
+        <CardArt
+          name={card.card_name}
+          w={420}
+          h={585}
+          hue={20}
+          label={false}
+          imageUrl={card.image_large}
+          style={{ borderRadius: 16 }}
+        />
         <div className={styles.printChips}>
           <Chip color="var(--hd-accent)" style={{ border: '1px solid var(--hd-accent)' }}>
             ● Non-foil · {card.set_code}
