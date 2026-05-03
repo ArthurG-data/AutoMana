@@ -26,12 +26,12 @@ export interface CardPrint {
 }
 
 export interface CardDetail extends CardSummary {
-  mana_cost: string
-  type_line: string
-  oracle_text: string
-  artist: string
-  price_history: number[]
-  prints: CardPrint[]
+  mana_cost?: string
+  type_line?: string
+  oracle_text?: string
+  artist?: string
+  price_history?: number[]
+  prints?: CardPrint[]
   image_large?: string | null
 }
 
