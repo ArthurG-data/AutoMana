@@ -269,7 +269,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
         from_clause = (
             "FROM card_catalog.v_card_versions_complete v"
             " JOIN card_catalog.sets s ON s.set_id = v.set_id"
-            " LEFT JOIN card_catalog.card_version_illustration cvi ON cvi.card_version_id = v.card_version_id AND cvi.illustration_seq = 0"
+            " LEFT JOIN card_catalog.card_version_illustration cvi ON cvi.card_version_id = v.card_version_id"
             " LEFT JOIN card_catalog.illustrations ill ON ill.illustration_id = cvi.illustration_id"
         )
 
@@ -294,9 +294,8 @@ class CardReferenceRepository(AbstractRepository[Any]):
         cards = await self.execute_query(query, tuple(values))
 
         count_query = f"""
-            SELECT COUNT(DISTINCT v.card_version_id) AS total_count
-            FROM card_catalog.v_card_versions_complete v
-            JOIN card_catalog.sets s ON s.set_id = v.set_id
+            SELECT COUNT(*) AS total_count
+            {from_clause}
             {where_clause}
         """
         count_values = values[:-2]
