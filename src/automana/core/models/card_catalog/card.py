@@ -17,6 +17,7 @@ class BaseCard(BaseModel):
     rarity: str = Field(alias="rarity_name", title="The rarity of the card")
     oracle_text: Optional[str] = Field(default="", title="The text on the card")
     digital: bool = Field(title="Is the card released only on digital platform")
+    image_normal: Optional[str] = Field(default=None, title="URL to normal-sized card image from Scryfall")
 
     @staticmethod
     def to_json_safe(data):
@@ -30,6 +31,9 @@ class BaseCard(BaseModel):
             else:
                 return obj
         return json.dumps(clean(data))
+
+class CardDetail(BaseCard):
+    image_large: Optional[str] = Field(default=None, title="URL to large-sized card image from Scryfall")
 
 class CardFace(BaseModel):
     name: str
