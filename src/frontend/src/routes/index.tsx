@@ -1,8 +1,10 @@
 // src/frontend/src/routes/index.tsx
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
 import { Icon, type IconKind } from '../components/design-system/Icon'
 import { Button } from '../components/ui/Button'
 import { SearchBarWithSuggestions } from '../features/cards/components/SearchBarWithSuggestions'
+import { cardCatalogStatsQueryOptions } from '../features/cards/api'
 import styles from './Landing.module.css'
 
 export const Route = createFileRoute('/')({
@@ -23,6 +25,7 @@ const QUICK_SEARCHES = [
 
 function LandingPage() {
   const navigate = useNavigate()
+  const { data: stats } = useQuery(cardCatalogStatsQueryOptions())
 
   return (
     <div className={styles.page}>
@@ -49,14 +52,13 @@ function LandingPage() {
           <span className={styles.headlineAccent}>Price the market.</span>
         </h1>
         <p className={styles.subtext}>
-          Search 27,840 cards across every set. Real-time prices, full history, and your
+          Search {stats?.total_card_versions?.toLocaleString() ?? '—'} cards across every set. Real-time prices, full history, and your
           collection — all in one place.
         </p>
 
         <SearchBarWithSuggestions />
 
         <div className={styles.pills}>
-          <span className={styles.pillLabel}>try:</span>
           {QUICK_SEARCHES.map((s) => (
             <button
               key={s}
@@ -69,10 +71,10 @@ function LandingPage() {
         </div>
 
         <div className={styles.stats}>
-          <span>● 27,840 cards</span>
+          <span>● {stats?.total_card_versions?.toLocaleString() ?? '—'} cards</span>
           <span>● 16 yrs of history</span>
-          <span>● tcg · scg · ck · ebay</span>
-          <span>● updated every 15 min</span>
+          <span>● {stats?.data_source ?? '—'}</span>
+          <span>● updated daily</span>
         </div>
       </div>
 

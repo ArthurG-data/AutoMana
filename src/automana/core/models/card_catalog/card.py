@@ -4,6 +4,7 @@ from uuid import UUID
 from typing import Any, Dict, Optional,  List, Union
 from automana.core.utils.type_parser import process_type_line
 from automana.core.utils.card_face_parser import parse_card_faces
+from datetime import datetime
 import json
 
 class BaseCard(BaseModel):
@@ -343,3 +344,11 @@ class CardSuggestion(BaseModel):
 
 class CardSuggestionResponse(BaseModel):
     suggestions: list[CardSuggestion]
+
+
+class CatalogStats(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    total_card_versions: int
+    data_source: str
+    last_updated: Optional[datetime] = None

@@ -394,6 +394,166 @@ class PriceRepository(AbstractRepository):
         n = rows[0]["n"] if rows else 0
         return max(n, 0)
 
+    # ------------------------------------------------------------------
+    # Tier 2 / 3 health primitives
+    # ------------------------------------------------------------------
+    # These are fast, read-only probes used by the tier_metrics module.
+    # Hypertable row counts use pg_class.reltuples (the ANALYZE estimate)
+    # because COUNT(*) on a hypertable with many chunks is very slow.
+    # Callers that need exact counts should add a dedicated method.
+
+    async def fetch_tier2_row_count(self) -> int:
+        """Estimated row count of pricing.print_price_daily (Tier 2).
+
+        Uses the pg_class fast-path; same strategy as
+        ``fetch_total_observation_count``.  Returns 0 if the table has never
+        been ANALYZEd (reltuples == -1).
+        """
+        query = """
+        SELECT GREATEST(reltuples, 0)::bigint AS n
+        FROM pg_class c
+        JOIN pg_namespace ns ON ns.oid = c.relnamespace
+        WHERE ns.nspname = 'pricing' AND c.relname = 'print_price_daily'
+        """
+        rows = await self.execute_query(query, ())
+        return int(rows[0]["n"]) if rows else 0
+
+    async def fetch_tier3_row_count(self) -> int:
+        """Estimated row count of pricing.print_price_weekly (Tier 3).
+
+        Uses the pg_class fast-path.  Returns 0 when the table is empty or
+        has never been ANALYZEd.
+        """
+        query = """
+        SELECT GREATEST(reltuples, 0)::bigint AS n
+        FROM pg_class c
+        JOIN pg_namespace ns ON ns.oid = c.relnamespace
+        WHERE ns.nspname = 'pricing' AND c.relname = 'print_price_weekly'
+        """
+        rows = await self.execute_query(query, ())
+        return int(rows[0]["n"]) if rows else 0
+
+    async def fetch_tier_sync_diff(self) -> dict[str, int]:
+        """Row counts for Tier 1 and Tier 2 and their absolute difference.
+
+        Both counts use the pg_class fast-path so the query is cheap even on
+        a large hypertable.  The ``diff`` key is ``abs(tier1 - tier2)``; a
+        healthy system has ``diff == 0``.
+
+        Returns::
+
+            {
+                "tier1_rows": int,   # price_observation estimate
+                "tier2_rows": int,   # print_price_daily estimate
+                "diff": int,         # abs difference — 0 means in sync
+            }
+        """
+        query = """
+        SELECT
+            GREATEST(
+                (SELECT reltuples FROM pg_class c
+                 JOIN pg_namespace ns ON ns.oid = c.relnamespace
+                 WHERE ns.nspname = 'pricing' AND c.relname = 'price_observation'),
+                0
+            )::bigint AS tier1_rows,
+            GREATEST(
+                (SELECT reltuples FROM pg_class c
+                 JOIN pg_namespace ns ON ns.oid = c.relnamespace
+                 WHERE ns.nspname = 'pricing' AND c.relname = 'print_price_daily'),
+                0
+            )::bigint AS tier2_rows
+        """
+        rows = await self.execute_query(query, ())
+        if not rows:
+            return {"tier1_rows": 0, "tier2_rows": 0, "diff": 0}
+        t1 = int(rows[0]["tier1_rows"])
+        t2 = int(rows[0]["tier2_rows"])
+        return {"tier1_rows": t1, "tier2_rows": t2, "diff": abs(t1 - t2)}
+
+    async def fetch_archival_ready_row_count(
+        self, older_than_years: int = 5
+    ) -> dict[str, int | str]:
+        """Rows in print_price_daily that are eligible for archive_to_weekly().
+
+        A row is archivable when its ``price_date`` is older than
+        ``older_than_years`` (default 5, matching the stored procedure
+        default).  This is a real COUNT — the table is not a hypertable for
+        the purpose of this range query, so it respects chunk pruning.
+
+        Returns::
+
+            {
+                "archivable_rows": int,
+                "cutoff_date": str,   # ISO date string (YYYY-MM-DD)
+            }
+        """
+        query = """
+        SELECT
+            COUNT(*)::bigint           AS archivable_rows,
+            (CURRENT_DATE - ($1::int || ' years')::interval)::date::text AS cutoff_date
+        FROM pricing.print_price_daily
+        WHERE price_date < CURRENT_DATE - ($1::int || ' years')::interval
+        """
+        rows = await self.execute_query(query, (older_than_years,))
+        if not rows:
+            return {"archivable_rows": 0, "cutoff_date": ""}
+        return {
+            "archivable_rows": int(rows[0]["archivable_rows"]),
+            "cutoff_date": rows[0]["cutoff_date"] or "",
+        }
+
+    async def fetch_watermark_lag_days(self) -> dict[str, int | None]:
+        """Days behind for each tier watermark row.
+
+        ``daily`` freshness target: <= 1 day behind (CURRENT_DATE - 1).
+        ``weekly`` is informational only — the value is NULL if the watermark
+        row is still at the seed date ``1970-01-01`` (never run).
+
+        Returns::
+
+            {
+                "daily_lag_days":  int | None,   # None → tier_watermark missing
+                "weekly_lag_days": int | None,
+                "daily_last_date": str | None,   # ISO date or None
+                "weekly_last_date": str | None,
+            }
+        """
+        query = """
+        SELECT
+            tier_name,
+            last_processed_date,
+            (CURRENT_DATE - last_processed_date)::int AS lag_days
+        FROM pricing.tier_watermark
+        ORDER BY tier_name
+        """
+        rows = await self.execute_query(query, ())
+        result: dict[str, int | None] = {
+            "daily_lag_days": None,
+            "weekly_lag_days": None,
+            "daily_last_date": None,
+            "weekly_last_date": None,
+        }
+        for row in rows:
+            tier = row["tier_name"]
+            lag = row["lag_days"]
+            last = str(row["last_processed_date"]) if row["last_processed_date"] else None
+            if tier == "daily":
+                # The seed date 1970-01-01 means the procedure has never run;
+                # treat as NULL lag so the metric fires an error-level alert
+                # rather than a misleadingly large integer.
+                if last == "1970-01-01":
+                    result["daily_lag_days"] = None
+                else:
+                    result["daily_lag_days"] = int(lag) if lag is not None else None
+                result["daily_last_date"] = last
+            elif tier == "weekly":
+                if last == "1970-01-01":
+                    result["weekly_lag_days"] = None
+                else:
+                    result["weekly_lag_days"] = int(lag) if lag is not None else None
+                result["weekly_last_date"] = last
+        return result
+
     def add(self):
         raise NotImplementedError("Method not implemented")
 

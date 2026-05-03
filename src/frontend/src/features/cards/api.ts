@@ -1,7 +1,7 @@
 // src/frontend/src/features/cards/api.ts
 import { queryOptions } from '@tanstack/react-query'
 import { apiClient } from '../../lib/apiClient'
-import type { CardDetail, CardSearchParams, CardSearchResponse, CardSuggestParams, CardSuggestResponse } from './types'
+import type { CardDetail, CardSearchParams, CardSearchResponse, CardSuggestParams, CardSuggestResponse, CatalogStats } from './types'
 
 export function cardSearchQueryOptions(params: CardSearchParams) {
   return queryOptions({
@@ -48,5 +48,14 @@ export function cardSuggestQueryOptions(params: CardSuggestParams) {
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
     gcTime: 1000 * 60 * 10, // 10 minutes
+  })
+}
+
+export function cardCatalogStatsQueryOptions() {
+  return queryOptions({
+    queryKey: ['cards', 'catalog-stats'],
+    queryFn: () => apiClient<CatalogStats>('/catalog/mtg/card-reference/stats'),
+    staleTime: 1000 * 60 * 60 * 24, // 24 hours
+    gcTime: 1000 * 60 * 60 * 24 * 2, // 48 hours
   })
 }

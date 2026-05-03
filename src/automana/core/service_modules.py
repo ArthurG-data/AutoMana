@@ -24,6 +24,7 @@ SERVICE_MODULES : dict[str, list[str]]= {
             "automana.core.services.ops.mtgstock_report",
             "automana.core.services.ops.card_catalog_report",
             "automana.core.services.ops.pricing_report",
+            "automana.core.services.ops.tier_health_service",
             "automana.core.services.ops.scryfall_identifier_audit",
         ],
 
@@ -41,6 +42,7 @@ SERVICE_MODULES : dict[str, list[str]]= {
             "automana.core.services.ops.mtgstock_report",
             "automana.core.services.ops.card_catalog_report",
             "automana.core.services.ops.pricing_report",
+            "automana.core.services.ops.tier_health_service",
             "automana.core.services.ops.scryfall_identifier_audit",
         ],
     "all" : [
@@ -69,6 +71,7 @@ SERVICE_MODULES : dict[str, list[str]]= {
             "automana.core.services.ops.mtgstock_report",
             "automana.core.services.ops.card_catalog_report",
             "automana.core.services.ops.pricing_report",
+            "automana.core.services.ops.tier_health_service",
             "automana.core.services.ops.scryfall_identifier_audit",
     ]
 }

@@ -14,7 +14,9 @@ from typing import Any, Optional
 # Pipelines we recognize as a source-prefix on check_set names. New pipelines
 # get added here by editing this list; unknown prefixes fall through to
 # 'infrastructure' so the table stays tidy.
-_KNOWN_PIPELINES = {"scryfall", "mtgjson", "mtgstock"}
+# "pricing" covers check_sets whose names start with "pricing_" (e.g.
+# "pricing_tier_health", "pricing_report", "pricing_integrity").
+_KNOWN_PIPELINES = {"scryfall", "mtgjson", "mtgstock", "pricing"}
 
 _ICON = {"ok": "✅", "warn": "⚠️", "error": "❌"}
 
