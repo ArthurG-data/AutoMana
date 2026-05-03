@@ -4,7 +4,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from uuid import UUID
 from automana.api.schemas.StandardisedQueryResponse import ApiResponse, PaginatedResponse, PaginationInfo, ErrorResponse
-from automana.core.models.card_catalog.card import BaseCard, CardSuggestionResponse, CreateCard, CreateCards
+from automana.core.models.card_catalog.card import BaseCard, CardDetail, CardSuggestionResponse, CreateCard, CreateCards
 from automana.api.dependancies.service_deps import ServiceManagerDep
 from automana.api.dependancies.query_deps import (
     sort_params,
@@ -77,7 +77,7 @@ async def suggest_cards(
         "If no card matches, an empty `data` list is returned with a descriptive "
         "message rather than a 404."
     ),
-    response_model=ApiResponse[BaseCard],
+    response_model=ApiResponse[CardDetail],
     operation_id="cards_get_by_id",
     responses={
         404: {"description": "Card not found"},
@@ -87,7 +87,7 @@ async def suggest_cards(
 async def get_card(
     card_id: UUID,
     service_manager: ServiceManagerDep,
-) -> ApiResponse[BaseCard]:
+) -> ApiResponse[CardDetail]:
     try:
         result = await service_manager.execute_service(
             "card_catalog.card.get",

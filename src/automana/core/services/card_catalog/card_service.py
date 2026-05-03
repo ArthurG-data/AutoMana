@@ -9,7 +9,7 @@ from automana.core.repositories.ops.ops_repository import OpsRepository
 from automana.core.services.ops.pipeline_services import track_step
 from automana.core.models.card_catalog import card as card_schemas
 from automana.core.repositories.card_catalog.card_repository import CardReferenceRepository
-from automana.core.models.card_catalog.card import BaseCard, CardSuggestion, CardSuggestionResponse
+from automana.core.models.card_catalog.card import BaseCard, CardDetail, CardSuggestion, CardSuggestionResponse
 from automana.core.exceptions.service_layer_exceptions.card_catalogue import card_exception
 from automana.core.service_registry import ServiceRegistry
 from automana.core.models.pipelines.mtg_stock import  MTGStockBatchStep
@@ -199,9 +199,10 @@ async def search_cards(card_repository: CardReferenceRepository
                 total_count=total_count,
             )
 
+        cache_data = {"cards": [c.model_dump() for c in result.cards], "total_count": result.total_count}
         set_to_cache(
             cache_key,
-            {"cards": [c.model_dump() for c in result.cards], "total_count": result.total_count},
+            json.loads(BaseCard.to_json_safe(cache_data)),
             expiry_seconds=3600,
         )
         return result
@@ -271,7 +272,7 @@ async def get(card_repository: CardReferenceRepository,
         )
         if not result:
             return CardSearchResult(cards=[], total_count=0)
-        return CardSearchResult(cards=[BaseCard.model_validate(result)], total_count=1)
+        return CardSearchResult(cards=[CardDetail.model_validate(result)], total_count=1)
     except card_exception.CardNotFoundError:
         raise
     except Exception as e:

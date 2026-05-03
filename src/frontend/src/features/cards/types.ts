@@ -1,17 +1,18 @@
 // src/frontend/src/features/cards/types.ts
 
 export interface CardSummary {
-  id: string
-  name: string
-  set: string
+  card_version_id: string
+  card_name: string
+  set_code: string
   set_name: string
   finish: 'non-foil' | 'foil' | 'etched'
-  rarity: 'common' | 'uncommon' | 'rare' | 'mythic'
+  rarity_name: 'common' | 'uncommon' | 'rare' | 'mythic'
   price?: number
   price_change_1d: number
   price_change_7d: number
   price_change_30d: number
   image_uri: string | null
+  image_normal?: string | null
   spark: number[]
 }
 
@@ -31,6 +32,7 @@ export interface CardDetail extends CardSummary {
   artist: string
   price_history: number[]
   prints: CardPrint[]
+  image_large?: string | null
 }
 
 export interface CardSearchParams {

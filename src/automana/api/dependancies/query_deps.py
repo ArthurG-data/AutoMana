@@ -84,6 +84,7 @@ async def user_search_params(
 
 # Card-specific search parameters
 async def card_search_params(
+    q: Optional[str] = Query(None, description="Search query for card name or oracle text"),
     name: Optional[str] = Query(None, description="Filter by card name"),
     set_name: Optional[str] = Query(None, description="Filter by set name"),
     card_type: Optional[str] = Query(None, description="Filter by card type"),
@@ -103,8 +104,10 @@ async def card_search_params(
     format: Optional[str] = Query(None, description="Filter by format legality (e.g. 'standard', 'modern')"),
 ):
     """Card search parameters"""
+    # Use 'q' if provided, otherwise fall back to 'name'
+    search_name = q or name
     return {
-        "name": name,
+        "name": search_name,
         "set_name": set_name,
         "card_type": card_type,
         "rarity": rarity,

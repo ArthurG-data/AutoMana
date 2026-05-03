@@ -47,8 +47,9 @@ export function SuggestionsDropdown({
             type="button"
           >
             <div className={styles.itemText}>
-              <span className={styles.itemName}>{suggestion.card_name}</span>
-              <span className={styles.itemSet}>{suggestion.set_code}</span>
+              <span className={styles.itemName}>
+                {suggestion.card_name} <span className={styles.itemSet}>({suggestion.set_code})</span>
+              </span>
             </div>
           </button>
         ))}

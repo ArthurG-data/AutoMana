@@ -7,6 +7,7 @@ interface CardArtProps {
   h?: number | string
   hue?: number
   label?: boolean
+  imageUrl?: string | null
   style?: React.CSSProperties
 }
 
@@ -16,6 +17,7 @@ export function CardArt({
   h = 280,
   hue = 30,
   label = true,
+  imageUrl = null,
   style = {},
 }: CardArtProps) {
   const seed = (name || 'card').split('').reduce((a, c) => a + c.charCodeAt(0), 0)
@@ -23,6 +25,32 @@ export function CardArt({
   const h2 = (hue + stripeShift + 360) % 360
   const sat = 8
   const lig = 18
+
+  if (imageUrl) {
+    return (
+      <div
+        style={{
+          width: w,
+          height: h,
+          borderRadius: 6,
+          position: 'relative',
+          overflow: 'hidden',
+          boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.06)',
+          ...style,
+        }}
+      >
+        <img
+          src={imageUrl}
+          alt={name}
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+          }}
+        />
+      </div>
+    )
+  }
 
   return (
     <div

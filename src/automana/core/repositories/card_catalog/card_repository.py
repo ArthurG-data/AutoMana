@@ -83,11 +83,14 @@ class CardReferenceRepository(AbstractRepository[Any]):
                  ) -> dict[str, Any]|None:
         # if a list
 
-        query = """ SELECT uc.card_name, r.rarity_name, s.set_name,s.set_code, uc.cmc, cv.oracle_text, s.released_at, s.digital, r.rarity_name
+        query = """ SELECT cv.card_version_id, uc.card_name, r.rarity_name, s.set_name, s.set_code, uc.cmc, cv.oracle_text, s.released_at, s.digital, r.rarity_name,
+                           ill.image_uris->>'large' AS image_large
                 FROM card_catalog.unique_cards_ref uc
                 JOIN card_catalog.card_version cv ON uc.unique_card_id = cv.unique_card_id
                 JOIN card_catalog.rarities_ref r ON cv.rarity_id = r.rarity_id
                 JOIN card_catalog.sets s ON cv.set_id = s.set_id
+                LEFT JOIN card_catalog.card_version_illustration cvi ON cvi.card_version_id = cv.card_version_id
+                LEFT JOIN card_catalog.illustrations ill ON ill.illustration_id = cvi.illustration_id
                 WHERE cv.card_version_id = $1;"""
 
         result = await self.execute_query(query, (card_id,))
@@ -266,6 +269,8 @@ class CardReferenceRepository(AbstractRepository[Any]):
         from_clause = (
             "FROM card_catalog.v_card_versions_complete v"
             " JOIN card_catalog.sets s ON s.set_id = v.set_id"
+            " LEFT JOIN card_catalog.card_version_illustration cvi ON cvi.card_version_id = v.card_version_id"
+            " LEFT JOIN card_catalog.illustrations ill ON ill.illustration_id = cvi.illustration_id"
         )
 
         query = f"""
@@ -278,7 +283,8 @@ class CardReferenceRepository(AbstractRepository[Any]):
                 v.cmc,
                 v.oracle_text,
                 v.is_digital AS digital,
-                s.released_at
+                s.released_at,
+                ill.image_uris->>'normal' AS image_normal
             {from_clause}
             {where_clause}
             {order_clause}

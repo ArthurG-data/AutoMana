@@ -1,7 +1,8 @@
 services:
   postgres:
     image: timescale-pgvector:pg17
-    # To rebuild: docker build -f deploy/docker/postgres/Dockerfile -t timescale-pgvector:pg17 .
+    # Postgres never rebuilds via docker-compose. Manual rebuild only:
+    # docker build -f deploy/docker/postgres/Dockerfile -t timescale-pgvector:pg17 .
     secrets:
         - admin_db_password
         - agent_db_password
@@ -36,8 +37,9 @@ services:
             - backend-network
 
   backend:
-    image: deploy-backend:latest
-    # To rebuild: docker build -f deploy/docker/backend/Backend.Dockerfile -t deploy-backend:latest .
+    build:
+      context: ..
+      dockerfile: deploy/docker/backend/Backend.Dockerfile
     secrets:
         - backend_db_password
         - readonly_db_password
@@ -74,13 +76,16 @@ services:
   frontend:
     build:
       context: ..
-      dockerfile: deploy/docker/frontend/Frontend.Dockerfile
+      dockerfile: deploy/docker/frontend/Frontend.dev.Dockerfile
     container_name: automana-frontend-dev
+    volumes:
+      - ../src/frontend:/app
+      - frontend-node-modules:/app/node_modules
     restart: unless-stopped
     networks:
       - backend-network
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ > /dev/null || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:5173/ > /dev/null || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -306,3 +311,4 @@ volumes:
   redis-data-dev:
   redis-config-dev:
   flower-data-dev:
+  frontend-node-modules:
