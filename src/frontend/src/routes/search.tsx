@@ -25,12 +25,12 @@ export const Route = createFileRoute('/search')({
 
 function SearchPage() {
   const search = Route.useSearch()
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery(
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useInfiniteQuery(
     cardInfiniteSearchQueryOptions(search)
   )
 
-  const cards = data?.pages.flatMap(p => p.cards) ?? []
-  const total = data?.pages[0]?.pagination?.total_count ?? 0
+  const cards = data?.pages?.flatMap(p => p.cards) ?? []
+  const total = data?.pages?.[0]?.pagination?.total_count ?? 0
 
   return (
     <AppShell active="collection">
