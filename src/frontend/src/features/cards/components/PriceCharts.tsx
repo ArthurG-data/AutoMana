@@ -17,16 +17,46 @@ const TIME_RANGES = [
   { label: 'ALL', key: 'all' as const },
 ]
 
+function buildDates(startIso: string, count: number): Date[] {
+  const start = new Date(startIso + 'T00:00:00')
+  return Array.from({ length: count }, (_, i) => {
+    const d = new Date(start)
+    d.setDate(d.getDate() + i)
+    return d
+  })
+}
+
+function trimNulls(
+  list: (number | null)[],
+  sold: (number | null)[],
+  dates: Date[]
+): { list: (number | null)[]; sold: (number | null)[]; dates: Date[] } {
+  let first = 0
+  let last = dates.length - 1
+  while (first <= last && list[first] === null && sold[first] === null) first++
+  while (last >= first && list[last] === null && sold[last] === null) last--
+  return {
+    list: list.slice(first, last + 1),
+    sold: sold.slice(first, last + 1),
+    dates: dates.slice(first, last + 1),
+  }
+}
+
 export function PriceCharts({ card }: PriceChartsProps) {
-  const [selectedRange, setSelectedRange] = useState<'1w' | '1m' | '3m' | '1y' | 'all'>('1m')
+  const [selectedRange, setSelectedRange] = useState<'1w' | '1m' | '3m' | '1y' | 'all'>('all')
 
   const { data: priceData, isLoading } = useQuery(
     cardPriceHistoryQueryOptions(card.card_version_id, selectedRange)
   )
 
-  // Data from API is already in dollars
-  const listAvg = priceData?.price_history_list_avg ?? []
-  const soldAvg = priceData?.price_history_sold_avg ?? []
+  const rawList = priceData?.price_history_list_avg ?? []
+  const rawSold = priceData?.price_history_sold_avg ?? []
+  const rawDates = priceData?.date_range
+    ? buildDates(priceData.date_range.start, rawList.length)
+    : []
+
+  const { list: listAvg, sold: soldAvg, dates } = trimNulls(rawList, rawSold, rawDates)
+  const hasData = [...listAvg, ...soldAvg].filter((v) => v !== null).length >= 2
 
   return (
     <div className={styles.chartSection}>
@@ -49,25 +79,32 @@ export function PriceCharts({ card }: PriceChartsProps) {
 
       {isLoading ? (
         <div className={styles.loading}>Loading price data...</div>
-      ) : listAvg.length > 0 && soldAvg.length > 0 ? (
+      ) : hasData ? (
         <>
           <DualAreaChart
             listAvg={listAvg}
             soldAvg={soldAvg}
-            width={600}
-            height={180}
+            dates={dates}
+            height={200}
           />
           <div className={styles.legend}>
             <span className={styles.legendItem}>
-              <span style={{ color: 'var(--hd-accent)' }}>●</span> List Average
+              <span style={{ color: 'var(--hd-accent)' }}>●</span> List Avg
             </span>
             <span className={styles.legendItem}>
-              <span style={{ color: '#3b82f6' }}>●</span> Sold Average
+              <span style={{ color: '#3b82f6' }}>●</span> Sold Avg
             </span>
           </div>
         </>
       ) : (
-        <div className={styles.noData}>No price data available for this period</div>
+        <div className={styles.noData}>
+          No price data for this period
+          {selectedRange !== 'all' && (
+            <button className={styles.fallbackBtn} onClick={() => setSelectedRange('all')}>
+              View full history
+            </button>
+          )}
+        </div>
       )}
     </div>
   )

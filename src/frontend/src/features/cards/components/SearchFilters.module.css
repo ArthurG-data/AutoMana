@@ -1,5 +1,6 @@
 /* src/frontend/src/features/cards/components/SearchFilters.module.css */
 .filters { padding: 24px 22px; border-right: 1px solid var(--hd-border); overflow-y: auto; }
+.searchWrapper { margin-bottom: 20px; }
 .header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 18px; }
 .title { font-family: var(--font-serif); font-size: 18px; font-weight: 500; }
 .clear { font-family: var(--font-mono); font-size: 11px; color: var(--hd-accent); background: none; border: none; cursor: pointer; }

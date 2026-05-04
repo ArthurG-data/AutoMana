@@ -52,7 +52,9 @@ function LandingPage() {
           collection — all in one place.
         </p>
 
-        <SearchBarWithSuggestions />
+        <div className={styles.searchBarWrapper}>
+          <SearchBarWithSuggestions />
+        </div>
 
         <div className={styles.pills}>
           {QUICK_SEARCHES.map((s) => (

@@ -1,6 +1,7 @@
 // src/frontend/src/features/cards/components/SearchFilters.tsx
 import { useNavigate } from '@tanstack/react-router'
 import type { CardSearchParams } from '../types'
+import { SearchBarWithSuggestions } from './SearchBarWithSuggestions'
 import styles from './SearchFilters.module.css'
 
 const RARITIES = ['common', 'uncommon', 'rare', 'mythic'] as const
@@ -20,6 +21,10 @@ export function SearchFilters({ params }: SearchFiltersProps) {
 
   return (
     <aside className={styles.filters}>
+      <div className={styles.searchWrapper}>
+        <SearchBarWithSuggestions placeholder="" />
+      </div>
+
       <div className={styles.header}>
         <span className={styles.title}>Filters</span>
         <button className={styles.clear} onClick={() => navigate({ search: { q: params.q } })}>

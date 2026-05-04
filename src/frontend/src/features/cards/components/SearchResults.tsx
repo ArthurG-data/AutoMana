@@ -67,7 +67,7 @@ export function SearchResults({
               <div className={styles.cardInfo}>
                 <div className={styles.cardName}>{card.card_name}</div>
                 <div className={styles.cardMeta}>
-                  <span className={styles.set}>{card.set_code}</span>
+                  <span className={styles.set}>{card.set_code.toUpperCase()}</span>
                   <span className={[styles.price, delta >= 0 ? styles.up : styles.down].join(' ')}>
                     {card.price != null ? `$${card.price.toFixed(2)}` : 'N/A'}
                   </span>

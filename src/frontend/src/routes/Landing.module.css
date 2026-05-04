@@ -5,7 +5,7 @@
   color: var(--hd-text);
   font-family: var(--font-sans);
   position: relative;
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 .glow {
@@ -115,36 +115,9 @@
   line-height: 1.5;
 }
 
-.searchBar {
-  margin-top: 48px;
-  width: min(720px, 90vw);
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 20px 22px;
-  background: var(--hd-surface);
-  border: 1.5px solid var(--hd-border);
-  border-radius: 14px;
-  box-shadow: 0 0 0 6px rgba(var(--hd-accent-rgb), 0.04), var(--hd-shadow);
-}
-
-.searchInput {
-  flex: 1;
-  background: transparent;
-  border: none;
-  outline: none;
-  color: var(--hd-text);
-  font-family: var(--font-sans);
-  font-size: 18px;
-}
-
-.searchHint {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--hd-sub);
-  padding: 5px 9px;
-  border: 1px solid var(--hd-border);
-  border-radius: 6px;
+.searchBarWrapper {
+  margin-top: 72px;
+  width: min(900px, 95vw);
 }
 
 .pills {

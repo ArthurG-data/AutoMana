@@ -10,7 +10,11 @@ import styles from './SearchBarWithSuggestions.module.css'
 
 const MIN_CHARS = 2
 
-export function SearchBarWithSuggestions() {
+interface SearchBarWithSuggestionsProps {
+  placeholder?: string
+}
+
+export function SearchBarWithSuggestions({ placeholder = 'Search any card by name, set, or artist…' }: SearchBarWithSuggestionsProps) {
   const [query, setQuery] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [showDropdown, setShowDropdown] = useState(false)
@@ -116,7 +120,7 @@ export function SearchBarWithSuggestions() {
           ref={inputRef}
           className={styles.input}
           type="text"
-          placeholder="Search any card by name, set, or artist…"
+          placeholder={placeholder}
           value={query}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
