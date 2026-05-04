@@ -40,6 +40,7 @@ export interface CardSearchParams {
   set?: string
   rarity?: string
   finish?: string
+  layout?: string
   minPrice?: number
   maxPrice?: number
 }

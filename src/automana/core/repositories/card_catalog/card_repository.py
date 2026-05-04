@@ -149,6 +149,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
             released_before: Optional[str] = None,
             oracle_text: Optional[str] = None,
             format: Optional[str] = None,
+            layout: Optional[str] = None,
             limit: int = 100,
             offset: int = 0,
             sort_by: Optional[str] = "card_name",
@@ -240,6 +241,14 @@ class CardReferenceRepository(AbstractRepository[Any]):
             conditions.append(f"v.legalities->>${counter} = 'legal'")
             values.append(format)
             counter += 1
+
+        if layout:
+            conditions.append(f"v.layout_name = ${counter}")
+            values.append(layout)
+            counter += 1
+        else:
+            # Default: exclude tokens when no layout filter is specified
+            conditions.append("v.layout_name NOT IN ('token', 'double_faced_token')")
 
         where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
 

@@ -146,6 +146,7 @@ async def search_cards(card_repository: CardReferenceRepository
                    , card_type: Optional[str] = None
                    , oracle_text: Optional[str] = None
                    , format: Optional[str] = None
+                   , layout: Optional[str] = None
                    # Pagination
                    , limit: int = 100
                    , offset: int = 0
@@ -167,6 +168,7 @@ async def search_cards(card_repository: CardReferenceRepository
             "card_type": card_type,
             "oracle_text": oracle_text,
             "format": format,
+            "layout": layout,
             "limit": limit,
             "offset": offset,
             "sort_by": sort_by,

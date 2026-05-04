@@ -14,6 +14,7 @@ export function cardInfiniteSearchQueryOptions(params: Omit<CardSearchParams, 'p
       if (params.set)      qs.set('set', params.set)
       if (params.rarity)   qs.set('rarity', params.rarity)
       if (params.finish)   qs.set('finish', params.finish)
+      if (params.layout)   qs.set('layout', params.layout)
       if (params.minPrice != null) qs.set('min_price', String(params.minPrice))
       if (params.maxPrice != null) qs.set('max_price', String(params.maxPrice))
       qs.set('limit', '20')

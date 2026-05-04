@@ -14,6 +14,7 @@ const searchSchema = z.object({
   set:      z.string().optional(),
   rarity:   z.string().optional(),
   finish:   z.string().optional(),
+  layout:   z.string().optional(),
   minPrice: z.number().optional(),
   maxPrice: z.number().optional(),
 })
