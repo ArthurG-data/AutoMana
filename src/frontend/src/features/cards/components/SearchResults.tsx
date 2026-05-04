@@ -25,18 +25,19 @@ export function SearchResults({
   const sentinelRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    const sentinel = sentinelRef.current
+    if (!sentinel) return
+
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting && hasNextPage && !isFetchingNextPage) {
           fetchNextPage()
         }
       },
-      { rootMargin: '200px' }
+      { rootMargin: '100px', threshold: 0 }
     )
-    if (sentinelRef.current) {
-      observer.observe(sentinelRef.current)
-    }
-    return () => observer.disconnect()
+    observer.observe(sentinel)
+    return () => observer.unobserve(sentinel)
   }, [hasNextPage, isFetchingNextPage, fetchNextPage])
 
   if (cards.length === 0) {
