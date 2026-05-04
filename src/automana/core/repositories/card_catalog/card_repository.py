@@ -699,32 +699,39 @@ class CardReferenceRepository(AbstractRepository[Any]):
             - sold_avg: List[Optional[float]] with one entry per date (null-filled for missing dates)
             - dates: List[date] with dates in order
         """
-        query = """
+        finish_filter = ""
+        params: list = [card_version_id, start_date, end_date]
+        if finish:
+            finish_filter = f"AND f.code = ${len(params) + 1}"
+            params.append(finish.upper())
+
+        query = f"""
         WITH date_range AS (
-            SELECT generate_series($2::date, $3::date, interval '1 day')::date AS ts_date
+            SELECT generate_series($2::date, $3::date, interval '1 day')::date AS price_date
         ),
         daily_prices AS (
             SELECT
-                ts_date,
-                AVG(list_avg_cents)::float / 100 AS list_avg_price,
-                AVG(sold_avg_cents)::float / 100 AS sold_avg_price
-            FROM pricing.print_price_daily
-            WHERE card_version_id = $1
-              AND finish_id = 1
-              AND ts_date >= $2
-              AND ts_date <= $3
-            GROUP BY ts_date
+                ppd.price_date,
+                AVG(ppd.list_avg_cents)::float / 100 AS list_avg_price,
+                AVG(ppd.sold_avg_cents)::float / 100 AS sold_avg_price
+            FROM pricing.print_price_daily ppd
+            JOIN pricing.card_finished f ON f.finish_id = ppd.finish_id
+            WHERE ppd.card_version_id = $1
+              AND ppd.price_date >= $2
+              AND ppd.price_date <= $3
+              {finish_filter}
+            GROUP BY ppd.price_date
         )
         SELECT
-            dr.ts_date,
+            dr.price_date,
             dp.list_avg_price,
             dp.sold_avg_price
         FROM date_range dr
-        LEFT JOIN daily_prices dp ON dr.ts_date = dp.ts_date
-        ORDER BY dr.ts_date ASC
+        LEFT JOIN daily_prices dp ON dr.price_date = dp.price_date
+        ORDER BY dr.price_date ASC
         """
 
-        rows = await self.execute_query(query, (card_version_id, start_date, end_date))
+        rows = await self.execute_query(query, tuple(params))
 
         if not rows:
             return {
@@ -735,7 +742,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
 
         list_avg = [row["list_avg_price"] for row in rows]
         sold_avg = [row["sold_avg_price"] for row in rows]
-        dates = [row["ts_date"] for row in rows]
+        dates = [row["price_date"] for row in rows]
 
         return {
             "list_avg": list_avg,
