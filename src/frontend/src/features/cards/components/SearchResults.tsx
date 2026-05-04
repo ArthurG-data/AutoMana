@@ -22,22 +22,21 @@ export function SearchResults({
   isFetchingNextPage,
 }: SearchResultsProps) {
   const navigate = useNavigate()
-  const sentinelRef = useRef<HTMLDivElement>(null)
+  const lastCardRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
-    const sentinel = sentinelRef.current
-    if (!sentinel) return
+    if (!lastCardRef.current || !hasNextPage || isFetchingNextPage) return
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting && hasNextPage && !isFetchingNextPage) {
+        if (entry.isIntersecting) {
           fetchNextPage()
         }
       },
-      { rootMargin: '100px', threshold: 0 }
+      { rootMargin: '500px' }
     )
-    observer.observe(sentinel)
-    return () => observer.unobserve(sentinel)
+    observer.observe(lastCardRef.current)
+    return () => observer.disconnect()
   }, [hasNextPage, isFetchingNextPage, fetchNextPage])
 
   if (cards.length === 0) {
@@ -50,9 +49,11 @@ export function SearchResults({
       <div className={styles.grid}>
         {cards.map((card, i) => {
           const delta = card.price_change_1d
+          const isLastCard = i === cards.length - 1
           return (
             <button
               key={card.card_version_id}
+              ref={isLastCard ? lastCardRef : null}
               className={styles.card}
               onClick={() => navigate({ to: '/cards/$id', params: { id: card.card_version_id } })}
             >
@@ -85,7 +86,6 @@ export function SearchResults({
       {isFetchingNextPage && (
         <div className={styles.loading}>Loading more cards...</div>
       )}
-      <div ref={sentinelRef} style={{ height: '20px', marginTop: '40px' }} />
     </div>
   )
 }
