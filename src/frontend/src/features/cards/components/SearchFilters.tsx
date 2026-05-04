@@ -22,7 +22,7 @@ export function SearchFilters({ params }: SearchFiltersProps) {
   return (
     <aside className={styles.filters}>
       <div className={styles.searchWrapper}>
-        <SearchBarWithSuggestions />
+        <SearchBarWithSuggestions placeholder="" />
       </div>
 
       <div className={styles.header}>
