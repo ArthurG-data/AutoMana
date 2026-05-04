@@ -9,7 +9,7 @@ from automana.core.repositories.ops.ops_repository import OpsRepository
 from automana.core.services.ops.pipeline_services import track_step
 from automana.core.models.card_catalog import card as card_schemas
 from automana.core.repositories.card_catalog.card_repository import CardReferenceRepository
-from automana.core.models.card_catalog.card import BaseCard, CardDetail, CardSuggestion, CardSuggestionResponse
+from automana.core.models.card_catalog.card import BaseCard, CardDetail, CardSuggestion, CardSuggestionResponse, CatalogStats
 from automana.core.exceptions.service_layer_exceptions.card_catalogue import card_exception
 from automana.core.service_registry import ServiceRegistry
 from automana.core.models.pipelines.mtg_stock import  MTGStockBatchStep
@@ -112,7 +112,23 @@ async def delete(card_repository : CardReferenceRepository, card_id: UUID)-> boo
         raise
     except Exception as e:
         raise card_exception.CardDeletionError(f"Failed to delete card: {str(e)}")
-    
+
+@ServiceRegistry.register(
+    "card_catalog.card.stats",
+    db_repositories=["card", "ops"]
+)
+async def get_catalog_stats(
+    card_repository: CardReferenceRepository,
+    ops_repository: OpsRepository,
+) -> dict:
+    counts = await card_repository.fetch_card_universe_counts()
+    last_updated = await ops_repository.fetch_latest_successful_run_ended_at("scryfall_daily")
+    return {
+        "total_card_versions": counts["total_card_versions"],
+        "data_source": "Scryfall",
+        "last_updated": last_updated,
+    }
+
 @ServiceRegistry.register(
     "card_catalog.card.search",
     db_repositories=["card"]
@@ -130,6 +146,7 @@ async def search_cards(card_repository: CardReferenceRepository
                    , card_type: Optional[str] = None
                    , oracle_text: Optional[str] = None
                    , format: Optional[str] = None
+                   , layout: Optional[str] = None
                    # Pagination
                    , limit: int = 100
                    , offset: int = 0
@@ -151,6 +168,7 @@ async def search_cards(card_repository: CardReferenceRepository
             "card_type": card_type,
             "oracle_text": oracle_text,
             "format": format,
+            "layout": layout,
             "limit": limit,
             "offset": offset,
             "sort_by": sort_by,

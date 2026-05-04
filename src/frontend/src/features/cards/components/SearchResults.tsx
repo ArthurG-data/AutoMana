@@ -1,4 +1,5 @@
 // src/frontend/src/features/cards/components/SearchResults.tsx
+import { useEffect, useRef } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { CardArt } from '../../../components/design-system/CardArt'
 import { Sparkline } from '../../../components/design-system/Sparkline'
@@ -8,10 +9,35 @@ import styles from './SearchResults.module.css'
 interface SearchResultsProps {
   cards: CardSummary[]
   total: number
+  fetchNextPage: () => void
+  hasNextPage?: boolean
+  isFetchingNextPage?: boolean
 }
 
-export function SearchResults({ cards, total }: SearchResultsProps) {
+export function SearchResults({
+  cards,
+  total,
+  fetchNextPage,
+  hasNextPage,
+  isFetchingNextPage,
+}: SearchResultsProps) {
   const navigate = useNavigate()
+  const lastCardRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (!lastCardRef.current || !hasNextPage || isFetchingNextPage) return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          fetchNextPage()
+        }
+      },
+      { rootMargin: '500px' }
+    )
+    observer.observe(lastCardRef.current)
+    return () => observer.disconnect()
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage])
 
   if (cards.length === 0) {
     return <div className={styles.empty}>No cards found. Try a different search.</div>
@@ -23,16 +49,17 @@ export function SearchResults({ cards, total }: SearchResultsProps) {
       <div className={styles.grid}>
         {cards.map((card, i) => {
           const delta = card.price_change_1d
+          const isLastCard = i === cards.length - 1
           return (
             <button
               key={card.card_version_id}
+              ref={isLastCard ? lastCardRef : null}
               className={styles.card}
               onClick={() => navigate({ to: '/cards/$id', params: { id: card.card_version_id } })}
             >
               <CardArt
                 name={card.card_name}
                 w="100%"
-                h={195}
                 hue={(i * 47) % 360}
                 label={false}
                 imageUrl={card.image_normal}
@@ -56,6 +83,9 @@ export function SearchResults({ cards, total }: SearchResultsProps) {
           )
         })}
       </div>
+      {isFetchingNextPage && (
+        <div className={styles.loading}>Loading more cards...</div>
+      )}
     </div>
   )
 }

@@ -5,6 +5,7 @@ import styles from './SearchFilters.module.css'
 
 const RARITIES = ['common', 'uncommon', 'rare', 'mythic'] as const
 const FINISHES = ['non-foil', 'foil', 'etched'] as const
+const LAYOUTS = ['normal', 'token', 'transform', 'saga', 'adventure'] as const
 
 interface SearchFiltersProps {
   params: CardSearchParams
@@ -53,6 +54,21 @@ export function SearchFilters({ params }: SearchFiltersProps) {
               onClick={() => update({ finish: params.finish === f ? undefined : f })}
             >
               {f}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className={styles.group}>
+        <div className={styles.groupLabel}>Layout</div>
+        <div className={styles.finishGrid}>
+          {LAYOUTS.map((l) => (
+            <button
+              key={l}
+              className={[styles.finishBtn, params.layout === l ? styles.finishActive : ''].join(' ')}
+              onClick={() => update({ layout: params.layout === l ? undefined : l })}
+            >
+              {l.charAt(0).toUpperCase() + l.slice(1)}
             </button>
           ))}
         </div>

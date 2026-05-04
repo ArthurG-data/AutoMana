@@ -1,32 +1,45 @@
 // src/frontend/src/features/cards/api.ts
-import { queryOptions } from '@tanstack/react-query'
+import { queryOptions, infiniteQueryOptions } from '@tanstack/react-query'
 import { apiClient } from '../../lib/apiClient'
-import type { CardDetail, CardSearchParams, CardSearchResponse, CardSuggestParams, CardSuggestResponse } from './types'
+import { useAuthStore } from '../../store/auth'
+import type { CardDetail, CardSearchParams, CardSearchResponse, CardSuggestParams, CardSuggestResponse, CatalogStats } from './types'
 
-export function cardSearchQueryOptions(params: CardSearchParams) {
-  return queryOptions({
+export function cardInfiniteSearchQueryOptions(params: Omit<CardSearchParams, 'page'>) {
+  return infiniteQueryOptions({
     queryKey: ['cards', 'search', params],
-    queryFn: async () => {
+    queryFn: async ({ pageParam = 0 }) => {
+      const token = useAuthStore.getState().token
       const qs = new URLSearchParams()
       if (params.q)        qs.set('q', params.q)
       if (params.set)      qs.set('set', params.set)
       if (params.rarity)   qs.set('rarity', params.rarity)
       if (params.finish)   qs.set('finish', params.finish)
+      if (params.layout)   qs.set('layout', params.layout)
       if (params.minPrice != null) qs.set('min_price', String(params.minPrice))
       if (params.maxPrice != null) qs.set('max_price', String(params.maxPrice))
-      if (params.page)     qs.set('page', String(params.page))
+      qs.set('limit', '20')
+      qs.set('offset', String(pageParam))
 
-      const response = await apiClient<any>(`/catalog/mtg/card-reference/?${qs}`)
+      const res = await fetch(`/api/catalog/mtg/card-reference/?${qs}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      })
 
-      // apiClient extracts the 'data' field, so response here is the list of cards
-      // We need to wrap it back into the expected format
+      if (!res.ok) throw new Error(`API ${res.status}`)
+      const body = await res.json()
+
       return {
-        cards: Array.isArray(response) ? response : [],
-        total: 0,
-        page: 1,
-        per_page: 20,
-      } as CardSearchResponse
+        cards: body.data ?? [],
+        pagination: body.pagination,
+      }
     },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) =>
+      lastPage.pagination?.has_next
+        ? lastPage.pagination.offset + lastPage.pagination.limit
+        : undefined,
   })
 }
 
@@ -48,5 +61,14 @@ export function cardSuggestQueryOptions(params: CardSuggestParams) {
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
     gcTime: 1000 * 60 * 10, // 10 minutes
+  })
+}
+
+export function cardCatalogStatsQueryOptions() {
+  return queryOptions({
+    queryKey: ['cards', 'catalog-stats'],
+    queryFn: () => apiClient<CatalogStats>('/catalog/mtg/card-reference/stats'),
+    staleTime: 1000 * 60 * 60 * 24, // 24 hours
+    gcTime: 1000 * 60 * 60 * 24 * 2, // 48 hours
   })
 }

@@ -40,9 +40,9 @@ export interface CardSearchParams {
   set?: string
   rarity?: string
   finish?: string
+  layout?: string
   minPrice?: number
   maxPrice?: number
-  page?: number
 }
 
 export interface PaginationInfo {
@@ -78,4 +78,10 @@ export interface CardSuggestParams {
 
 export interface CardSuggestResponse {
   suggestions: CardSuggestion[]
+}
+
+export interface CatalogStats {
+  total_card_versions: number
+  data_source: string
+  last_updated: string | null
 }

@@ -8,3 +8,4 @@ from automana.core.metrics.pricing import freshness_metrics      # noqa: F401
 from automana.core.metrics.pricing import coverage_metrics       # noqa: F401
 from automana.core.metrics.pricing import integrity_metrics      # noqa: F401
 from automana.core.metrics.pricing import card_coverage_metrics  # noqa: F401
+from automana.core.metrics.pricing import tier_metrics           # noqa: F401

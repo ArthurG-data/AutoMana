@@ -102,6 +102,7 @@ async def card_search_params(
     digital: Optional[bool] = Query(None, description="Filter by digital status"),
     oracle_text: Optional[str] = Query(None, description="Filter by oracle text (full-text search)"),
     format: Optional[str] = Query(None, description="Filter by format legality (e.g. 'standard', 'modern')"),
+    layout: Optional[str] = Query(None, description="Filter by layout type (e.g. 'normal', 'token', 'saga')"),
 ):
     """Card search parameters"""
     # Use 'q' if provided, otherwise fall back to 'name'
@@ -125,4 +126,5 @@ async def card_search_params(
         "card_type": card_type,
         "oracle_text": oracle_text,
         "format": format,
+        "layout": layout,
     }

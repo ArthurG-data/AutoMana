@@ -4,7 +4,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from uuid import UUID
 from automana.api.schemas.StandardisedQueryResponse import ApiResponse, PaginatedResponse, PaginationInfo, ErrorResponse
-from automana.core.models.card_catalog.card import BaseCard, CardDetail, CardSuggestionResponse, CreateCard, CreateCards
+from automana.core.models.card_catalog.card import BaseCard, CardDetail, CardSuggestionResponse, CreateCard, CreateCards, CatalogStats
 from automana.api.dependancies.service_deps import ServiceManagerDep
 from automana.api.dependancies.query_deps import (
     sort_params,
@@ -63,6 +63,26 @@ async def suggest_cards(
             limit=limit,
         )
         return ApiResponse(data=result, message="Suggestions retrieved successfully")
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
+
+@card_reference_router.get(
+    '/stats',
+    summary="Catalog statistics",
+    description="Returns metadata about the card catalog including total card versions, data source, and last update time.",
+    response_model=ApiResponse[CatalogStats],
+    operation_id="cards_stats",
+    responses={**_CARD_ERRORS},
+)
+async def get_catalog_stats(
+    service_manager: ServiceManagerDep,
+) -> ApiResponse[CatalogStats]:
+    try:
+        result = await service_manager.execute_service("card_catalog.card.stats")
+        return ApiResponse(data=result, message="Catalog stats retrieved successfully")
     except HTTPException:
         raise
     except Exception:
