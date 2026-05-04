@@ -6,6 +6,7 @@ Units under test:
     - PriceHistoryResponse model
 """
 import pytest
+from datetime import date
 from automana.core.models.card_catalog.price_history import PriceHistoryResponse, DateRange
 
 pytestmark = pytest.mark.unit
@@ -21,8 +22,8 @@ class TestDateRange:
             end="2026-05-04",
             days_back=30
         )
-        assert date_range.start == "2026-04-04"
-        assert date_range.end == "2026-05-04"
+        assert date_range.start == date(2026, 4, 4)
+        assert date_range.end == date(2026, 5, 4)
         assert date_range.days_back == 30
 
     def test_date_range_creation_without_days_back(self):
@@ -31,8 +32,8 @@ class TestDateRange:
             start="2026-01-01",
             end="2026-05-04"
         )
-        assert date_range.start == "2026-01-01"
-        assert date_range.end == "2026-05-04"
+        assert date_range.start == date(2026, 1, 1)
+        assert date_range.end == date(2026, 5, 4)
         assert date_range.days_back is None
 
     def test_date_range_requires_start_and_end(self):
@@ -60,8 +61,8 @@ class TestPriceHistoryResponse:
         )
         assert response.price_history_list_avg == [10.5, 10.75, 11.0]
         assert response.price_history_sold_avg == [9.8, 10.1, 10.3]
-        assert response.date_range.start == "2026-04-04"
-        assert response.date_range.end == "2026-05-04"
+        assert response.date_range.start == date(2026, 4, 4)
+        assert response.date_range.end == date(2026, 5, 4)
         assert response.date_range.days_back == 30
 
     def test_price_history_response_with_no_data(self):
@@ -105,3 +106,31 @@ class TestPriceHistoryResponse:
             date_range=date_range
         )
         assert response.date_range.days_back == 30
+
+    def test_date_range_validates_date_format(self):
+        """Test that DateRange rejects invalid date strings."""
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError):
+            DateRange(start="not-a-date", end="2026-05-04")
+
+        with pytest.raises(ValidationError):
+            DateRange(start="05/04/2026", end="2026-05-04")
+
+    def test_price_history_response_json_round_trip(self):
+        """Test JSON serialization and deserialization."""
+        response = PriceHistoryResponse(
+            price_history_list_avg=[10.5, 10.75, 11.0],
+            price_history_sold_avg=[9.8, 10.1, 10.3],
+            date_range=DateRange(start="2026-04-04", end="2026-05-04", days_back=30)
+        )
+
+        # Serialize to JSON
+        json_str = response.model_dump_json()
+
+        # Deserialize back
+        restored = PriceHistoryResponse.model_validate_json(json_str)
+
+        # Should match original
+        assert restored == response
+        assert restored.date_range.start == response.date_range.start
