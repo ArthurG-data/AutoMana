@@ -117,6 +117,7 @@
 
 .searchBarWrapper {
   margin-top: 72px;
+  width: min(900px, 95vw);
 }
 
 .pills {
