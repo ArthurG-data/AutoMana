@@ -64,19 +64,19 @@ class TestPriceHistoryResponse:
         assert response.date_range.end == "2026-05-04"
         assert response.date_range.days_back == 30
 
-    def test_price_history_response_with_null_prices(self):
-        """Test that PriceHistoryResponse handles None/null prices for missing dates."""
+    def test_price_history_response_with_no_data(self):
+        """Test that PriceHistoryResponse can be created with None for missing history."""
         response = PriceHistoryResponse(
-            price_history_list_avg=[10.5, None, 11.0],
-            price_history_sold_avg=[9.8, None, 10.3],
+            price_history_list_avg=None,
+            price_history_sold_avg=None,
             date_range={
                 "start": "2026-04-04",
                 "end": "2026-05-04",
                 "days_back": 30
             }
         )
-        assert response.price_history_list_avg == [10.5, None, 11.0]
-        assert response.price_history_sold_avg == [9.8, None, 10.3]
+        assert response.price_history_list_avg is None
+        assert response.price_history_sold_avg is None
 
     def test_price_history_response_with_empty_arrays(self):
         """Test that PriceHistoryResponse accepts empty price arrays."""

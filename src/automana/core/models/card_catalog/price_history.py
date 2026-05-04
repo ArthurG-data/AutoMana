@@ -11,12 +11,12 @@ class DateRange(BaseModel):
 
 class PriceHistoryResponse(BaseModel):
     """Aggregated daily price history for a card."""
-    price_history_list_avg: List[Optional[float]] = Field(
-        ...,
-        description="Daily list average prices in dollars (oldest to newest). Null for missing dates."
+    price_history_list_avg: Optional[List[float]] = Field(
+        default=None,
+        description="Daily list average prices in dollars (oldest to newest, one per day)."
     )
-    price_history_sold_avg: List[Optional[float]] = Field(
-        ...,
-        description="Daily sold average prices in dollars (oldest to newest). Null for missing dates."
+    price_history_sold_avg: Optional[List[float]] = Field(
+        default=None,
+        description="Daily sold average prices in dollars (oldest to newest, one per day)."
     )
     date_range: DateRange = Field(..., description="Date range covered by this history")
