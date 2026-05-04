@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from uuid import UUID
 from automana.api.schemas.StandardisedQueryResponse import ApiResponse, PaginatedResponse, PaginationInfo, ErrorResponse
 from automana.core.models.card_catalog.card import BaseCard, CardDetail, CardSuggestionResponse, CreateCard, CreateCards, CatalogStats
+from automana.core.models.card_catalog.price_history import PriceHistoryResponse
 from automana.api.dependancies.service_deps import ServiceManagerDep
 from automana.api.dependancies.query_deps import (
     sort_params,
@@ -120,6 +121,56 @@ async def get_card(
     except HTTPException:
         raise
     except Exception:
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
+
+@card_reference_router.get(
+    '/{card_id}/price-history',
+    summary="Get card price history",
+    description=(
+        "Returns aggregated daily price history for a card. Supports time range selection "
+        "via the `price_range` parameter. Prices are aggregated across all sources "
+        "(MTGStocks, TCGPlayer, etc.) and are in USD. Responses are cached for 24 hours."
+    ),
+    response_model=ApiResponse[PriceHistoryResponse],
+    operation_id="cards_price_history",
+    responses={
+        400: {"description": "Invalid price_range parameter"},
+        404: {"description": "Card not found"},
+        **_CARD_ERRORS,
+    },
+)
+async def get_card_price_history(
+    card_id: UUID,
+    service_manager: ServiceManagerDep,
+    price_range: str = Query('1m', regex='^(1w|1m|3m|1y|all)$', description="Time range: 1w, 1m, 3m, 1y, or all"),
+) -> ApiResponse[PriceHistoryResponse]:
+    """Get price history for a card in the specified time range."""
+    try:
+        # Map price_range to days_back
+        range_map = {
+            '1w': 7,
+            '1m': 30,
+            '3m': 90,
+            '1y': 365,
+            'all': None,
+        }
+        days_back = range_map[price_range]
+
+        result = await service_manager.execute_service(
+            "card_catalog.card.get_price_history",
+            card_id=card_id,
+            days_back=days_back,
+        )
+
+        return ApiResponse(
+            data=result,
+            message="Price history retrieved successfully"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error fetching price history", extra={"card_id": str(card_id), "error": str(e)})
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 

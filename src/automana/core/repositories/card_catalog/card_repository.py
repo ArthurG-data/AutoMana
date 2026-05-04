@@ -1,5 +1,6 @@
 ﻿import io
-from typing import  Optional, Any
+from datetime import date
+from typing import Optional, Any, Dict
 from uuid import UUID
 from dataclasses import dataclass, field
 
@@ -677,3 +678,67 @@ class CardReferenceRepository(AbstractRepository[Any]):
         """
         rows = await self.execute_query(query, ())
         return rows[0]["n"] if rows else 0
+
+    async def get_price_history(
+        self,
+        card_version_id: UUID,
+        start_date: date,
+        end_date: date,
+    ) -> Dict[str, Any]:
+        """
+        Fetch aggregated daily price history for a card across all sources.
+
+        Args:
+            card_version_id: Card version ID
+            start_date: Start date (inclusive)
+            end_date: End date (inclusive)
+
+        Returns:
+            Dict with keys: list_avg, sold_avg, dates
+            - list_avg: List[Optional[float]] with one entry per date (null-filled for missing dates)
+            - sold_avg: List[Optional[float]] with one entry per date (null-filled for missing dates)
+            - dates: List[date] with dates in order
+        """
+        query = """
+        WITH date_range AS (
+            SELECT generate_series($2::date, $3::date, interval '1 day')::date AS ts_date
+        ),
+        daily_prices AS (
+            SELECT
+                ts_date,
+                AVG(list_avg_cents)::float / 100 AS list_avg_price,
+                AVG(sold_avg_cents)::float / 100 AS sold_avg_price
+            FROM pricing.print_price_daily
+            WHERE card_version_id = $1
+              AND finish_id = 1
+              AND ts_date >= $2
+              AND ts_date <= $3
+            GROUP BY ts_date
+        )
+        SELECT
+            dr.ts_date,
+            dp.list_avg_price,
+            dp.sold_avg_price
+        FROM date_range dr
+        LEFT JOIN daily_prices dp ON dr.ts_date = dp.ts_date
+        ORDER BY dr.ts_date ASC
+        """
+
+        rows = await self.execute_query(query, (card_version_id, start_date, end_date))
+
+        if not rows:
+            return {
+                "list_avg": [],
+                "sold_avg": [],
+                "dates": []
+            }
+
+        list_avg = [row["list_avg_price"] for row in rows]
+        sold_avg = [row["sold_avg_price"] for row in rows]
+        dates = [row["ts_date"] for row in rows]
+
+        return {
+            "list_avg": list_avg,
+            "sold_avg": sold_avg,
+            "dates": dates
+        }

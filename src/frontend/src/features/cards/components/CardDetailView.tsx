@@ -4,6 +4,7 @@ import { AreaChart } from '../../../components/design-system/AreaChart'
 import { Pip, type ManaColor } from '../../../components/design-system/Pip'
 import { Chip } from '../../../components/ui/Chip'
 import { Button } from '../../../components/ui/Button'
+import { PriceCharts } from './PriceCharts'
 import type { CardDetail } from '../types'
 import styles from './CardDetailView.module.css'
 
@@ -44,7 +45,8 @@ export function CardDetailView({ card }: CardDetailViewProps) {
         </div>
       </div>
 
-      <div className={styles.infoCol}>
+      <div className={styles.rightCol}>
+        <div className={styles.infoCol}>
         <div className={styles.meta}>
           {card.set_code} · {card.rarity_name?.charAt(0).toUpperCase() + card.rarity_name?.slice(1)} · {card.type_line}
         </div>
@@ -108,6 +110,8 @@ export function CardDetailView({ card }: CardDetailViewProps) {
           <Button variant="ghost">Watch</Button>
           <Button variant="ghost">Set alert</Button>
         </div>
+        </div>
+        <PriceCharts card={card} />
       </div>
     </div>
   )

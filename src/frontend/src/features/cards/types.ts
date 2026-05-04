@@ -33,6 +33,8 @@ export interface CardDetail extends CardSummary {
   price_history?: number[]
   prints?: CardPrint[]
   image_large?: string | null
+  price_history_list_avg?: number[]
+  price_history_sold_avg?: number[]
 }
 
 export interface CardSearchParams {
