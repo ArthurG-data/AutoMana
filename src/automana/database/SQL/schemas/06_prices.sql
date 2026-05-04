@@ -607,7 +607,7 @@ DECLARE
     v_max_date      DATE;
     v_start         DATE;
     v_end           DATE;
-    v_batch_weeks   INT  := 4;
+    v_batch_days    INT  := 2;
     v_ok            BOOLEAN;
     cur_archived    BIGINT;
     cur_deleted     BIGINT;
@@ -633,13 +633,13 @@ BEGIN
     v_start := DATE_TRUNC('week', v_min_date)::DATE;
 
     WHILE v_start < v_cutoff LOOP
-        -- Batch = v_batch_weeks × 7 days, capped at cutoff.
-        v_end := LEAST(v_start + (v_batch_weeks * 7 - 1), v_cutoff - 1);
+        -- Batch = v_batch_days days, capped at cutoff.
+        v_end := LEAST(v_start + (v_batch_days - 1), v_cutoff - 1);
         v_ok  := FALSE;
 
         BEGIN
-            SET LOCAL work_mem             = '512MB';
-            SET LOCAL maintenance_work_mem = '1GB';
+            SET LOCAL work_mem             = '128MB';
+            SET LOCAL maintenance_work_mem = '256MB';
             SET LOCAL synchronous_commit   = off;
 
             -- Aggregate tier 2 → tier 3 for this batch window.
