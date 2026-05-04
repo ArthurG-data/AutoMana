@@ -11,3 +11,4 @@
 .set { font-size: 10px; color: var(--hd-sub); font-family: var(--font-mono); }
 .price { font-size: 11px; font-family: var(--font-mono); }
 .up { color: var(--hd-accent); } .down { color: var(--hd-red); }
+.loading { text-align: center; padding: 24px; color: var(--hd-text-secondary); font-size: 12px; }

@@ -42,7 +42,6 @@ export interface CardSearchParams {
   finish?: string
   minPrice?: number
   maxPrice?: number
-  page?: number
 }
 
 export interface PaginationInfo {

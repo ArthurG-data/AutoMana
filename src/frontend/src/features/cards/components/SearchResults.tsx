@@ -1,4 +1,5 @@
 // src/frontend/src/features/cards/components/SearchResults.tsx
+import { useEffect, useRef } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { CardArt } from '../../../components/design-system/CardArt'
 import { Sparkline } from '../../../components/design-system/Sparkline'
@@ -8,10 +9,35 @@ import styles from './SearchResults.module.css'
 interface SearchResultsProps {
   cards: CardSummary[]
   total: number
+  fetchNextPage: () => void
+  hasNextPage?: boolean
+  isFetchingNextPage?: boolean
 }
 
-export function SearchResults({ cards, total }: SearchResultsProps) {
+export function SearchResults({
+  cards,
+  total,
+  fetchNextPage,
+  hasNextPage,
+  isFetchingNextPage,
+}: SearchResultsProps) {
   const navigate = useNavigate()
+  const sentinelRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage()
+        }
+      },
+      { threshold: 0.1 }
+    )
+    if (sentinelRef.current) {
+      observer.observe(sentinelRef.current)
+    }
+    return () => observer.disconnect()
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage])
 
   if (cards.length === 0) {
     return <div className={styles.empty}>No cards found. Try a different search.</div>
@@ -55,6 +81,10 @@ export function SearchResults({ cards, total }: SearchResultsProps) {
           )
         })}
       </div>
+      {isFetchingNextPage && (
+        <div className={styles.loading}>Loading more cards...</div>
+      )}
+      <div ref={sentinelRef} style={{ height: '20px', marginTop: '40px' }} />
     </div>
   )
 }
