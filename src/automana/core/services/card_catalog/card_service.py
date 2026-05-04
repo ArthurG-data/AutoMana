@@ -1,5 +1,5 @@
 from uuid import UUID
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date, timedelta
 from dataclasses import dataclass
 from typing import  Optional, List, Dict, Any, Callable
 from pathlib import Path
@@ -10,6 +10,7 @@ from automana.core.services.ops.pipeline_services import track_step
 from automana.core.models.card_catalog import card as card_schemas
 from automana.core.repositories.card_catalog.card_repository import CardReferenceRepository
 from automana.core.models.card_catalog.card import BaseCard, CardDetail, CardSuggestion, CardSuggestionResponse, CatalogStats
+from automana.core.models.card_catalog.price_history import PriceHistoryResponse, DateRange
 from automana.core.exceptions.service_layer_exceptions.card_catalogue import card_exception
 from automana.core.service_registry import ServiceRegistry
 from automana.core.models.pipelines.mtg_stock import  MTGStockBatchStep
@@ -250,6 +251,55 @@ async def suggest_cards(
     suggestions = [CardSuggestion(**r) for r in rows]
     set_to_cache(cache_key, [s.model_dump(mode="json") for s in suggestions], expiry_seconds=600)
     return CardSuggestionResponse(suggestions=suggestions)
+
+
+@ServiceRegistry.register(
+    "card_catalog.card.get_price_history",
+    db_repositories=["card"]
+)
+async def get_card_price_history(
+    card_repository: CardReferenceRepository,
+    card_id: UUID,
+    days_back: Optional[int] = 30,
+) -> PriceHistoryResponse:
+    """
+    Fetch aggregated daily price history for a card.
+
+    Args:
+        card_repository: CardReferenceRepository instance
+        card_id: Card version ID (UUID)
+        days_back: Number of days back from today (None = all available data, default=30)
+
+    Returns:
+        PriceHistoryResponse with price arrays and date range info
+
+    Raises:
+        CardRetrievalError: On repository-level failures
+    """
+    try:
+        # Calculate date range
+        end_date = date.today()
+        if days_back is None:
+            # Query for a very old start date to get all available data
+            start_date = date(2000, 1, 1)
+        else:
+            start_date = end_date - timedelta(days=days_back)
+
+        # Call repository to fetch aggregated prices
+        result = await card_repository.get_price_history(card_id, start_date, end_date)
+
+        # Build response
+        return PriceHistoryResponse(
+            price_history_list_avg=result["list_avg"],
+            price_history_sold_avg=result["sold_avg"],
+            date_range=DateRange(
+                start=start_date,
+                end=end_date,
+                days_back=days_back
+            )
+        )
+    except Exception as e:
+        raise card_exception.CardRetrievalError(f"Failed to retrieve price history: {str(e)}")
 
 
 @ServiceRegistry.register(
