@@ -1,4 +1,5 @@
 // src/frontend/src/components/layout/Sidebar.tsx
+import { useNavigate } from '@tanstack/react-router'
 import { Icon, type IconKind } from '../design-system/Icon'
 import styles from './Sidebar.module.css'
 
@@ -24,11 +25,18 @@ interface SidebarProps {
 }
 
 export function Sidebar({ active }: SidebarProps) {
+  const navigate = useNavigate()
+
   return (
     <nav className={styles.sidebar} aria-label="Main navigation">
-      <div className={styles.logo} aria-label="automana">
+      <button
+        className={styles.logo}
+        onClick={() => navigate({ to: '/' })}
+        aria-label="automana - go to home"
+        title="Go to home"
+      >
         a
-      </div>
+      </button>
       {NAV_ITEMS.map((item) => {
         const isActive = item.id === active
         return (
