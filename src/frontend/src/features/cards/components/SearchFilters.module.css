@@ -1,5 +1,8 @@
 /* src/frontend/src/features/cards/components/SearchFilters.module.css */
 .filters { padding: 24px 22px; border-right: 1px solid var(--hd-border); overflow-y: auto; }
+.searchForm { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--hd-surface); border: 1px solid var(--hd-border); border-radius: 6px; margin-bottom: 20px; }
+.searchInput { flex: 1; background: none; border: none; outline: none; color: var(--hd-text); font-size: 13px; font-family: var(--font-sans); }
+.searchInput::placeholder { color: var(--hd-muted); }
 .header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 18px; }
 .title { font-family: var(--font-serif); font-size: 18px; font-weight: 500; }
 .clear { font-family: var(--font-mono); font-size: 11px; color: var(--hd-accent); background: none; border: none; cursor: pointer; }

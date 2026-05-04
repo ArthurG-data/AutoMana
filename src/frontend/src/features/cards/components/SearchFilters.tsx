@@ -1,5 +1,7 @@
 // src/frontend/src/features/cards/components/SearchFilters.tsx
 import { useNavigate } from '@tanstack/react-router'
+import { useState, useEffect } from 'react'
+import { Icon } from '../../../components/design-system/Icon'
 import type { CardSearchParams } from '../types'
 import styles from './SearchFilters.module.css'
 
@@ -13,13 +15,37 @@ interface SearchFiltersProps {
 
 export function SearchFilters({ params }: SearchFiltersProps) {
   const navigate = useNavigate({ from: '/search' })
+  const [query, setQuery] = useState(params.q ?? '')
+
+  useEffect(() => {
+    setQuery(params.q ?? '')
+  }, [params.q])
 
   function update(patch: Partial<CardSearchParams>) {
     navigate({ search: (prev) => ({ ...prev, ...patch }) })
   }
 
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (query.trim()) {
+      update({ q: query.trim() })
+    }
+  }
+
   return (
     <aside className={styles.filters}>
+      <form className={styles.searchForm} onSubmit={handleSearchSubmit}>
+        <Icon kind="search" size={16} color="var(--hd-muted)" />
+        <input
+          type="text"
+          className={styles.searchInput}
+          placeholder="Search cards…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          aria-label="Search cards"
+        />
+      </form>
+
       <div className={styles.header}>
         <span className={styles.title}>Filters</span>
         <button className={styles.clear} onClick={() => navigate({ search: { q: params.q } })}>

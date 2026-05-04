@@ -684,6 +684,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
         card_version_id: UUID,
         start_date: date,
         end_date: date,
+        finish: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Fetch aggregated daily price history for a card across all sources.
@@ -692,6 +693,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
             card_version_id: Card version ID
             start_date: Start date (inclusive)
             end_date: End date (inclusive)
+            finish: Optional finish code string ('NONFOIL', 'FOIL', 'ETCHED', etc.)
 
         Returns:
             Dict with keys: list_avg, sold_avg, dates
