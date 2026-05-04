@@ -20,7 +20,7 @@ function CardDetailPage() {
     <AppShell active="collection">
       <TopBar
         title={card.card_name}
-        breadcrumb={`SEARCH › ${card.set_code} › ${card.card_name.toUpperCase()}`}
+        breadcrumb={`SEARCH › ${card.set_code.toUpperCase()} › ${card.card_name.toUpperCase()}`}
       />
       <CardDetailView card={card} />
     </AppShell>
