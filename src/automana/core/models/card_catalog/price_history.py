@@ -14,12 +14,12 @@ class PriceHistoryResponse(BaseModel):
     """Aggregated daily price history for a card."""
     model_config = ConfigDict(from_attributes=True)
 
-    price_history_list_avg: Optional[List[float]] = Field(
+    price_history_list_avg: Optional[List[Optional[float]]] = Field(
         default=None,
-        description="Daily list average prices in dollars (oldest to newest, dense: one per calendar day)."
+        description="Daily list average prices in dollars (oldest to newest, dense: one per calendar day, null for missing dates)."
     )
-    price_history_sold_avg: Optional[List[float]] = Field(
+    price_history_sold_avg: Optional[List[Optional[float]]] = Field(
         default=None,
-        description="Daily sold average prices in dollars (oldest to newest, dense: one per calendar day)."
+        description="Daily sold average prices in dollars (oldest to newest, dense: one per calendar day, null for missing dates)."
     )
     date_range: DateRange = Field(..., description="Date range covered by this history")

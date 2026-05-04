@@ -56,8 +56,29 @@
 
 .loading,
 .noData {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
   text-align: center;
   color: var(--hd-text-secondary);
   padding: 32px 0;
   font-size: 14px;
+}
+
+.fallbackBtn {
+  padding: 6px 14px;
+  border: 1px solid var(--hd-accent);
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--hd-accent);
+  transition: all 0.2s;
+}
+
+.fallbackBtn:hover {
+  background: var(--hd-accent);
+  color: white;
 }

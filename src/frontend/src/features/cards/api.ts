@@ -75,13 +75,14 @@ export function cardCatalogStatsQueryOptions() {
 
 export function cardPriceHistoryQueryOptions(
   cardId: string,
-  range: '1w' | '1m' | '3m' | '1y' | 'all' = '1m'
+  range: '1w' | '1m' | '3m' | '1y' | 'all' = '1m',
+  finish?: string
 ) {
   return queryOptions({
-    queryKey: ['cards', cardId, 'price-history', range],
+    queryKey: ['cards', cardId, 'price-history', range, finish ?? 'all'],
     queryFn: async () => {
-      const qs = new URLSearchParams()
-      if (range !== '1m') qs.set('price_range', range)
+      const qs = new URLSearchParams({ price_range: range })
+      if (finish) qs.set('finish', finish)
 
       const res = await fetch(
         `/api/catalog/mtg/card-reference/${cardId}/price-history?${qs}`,
@@ -89,9 +90,9 @@ export function cardPriceHistoryQueryOptions(
       )
       if (!res.ok) throw new Error(`Failed to fetch price history: ${res.status}`)
       const json = await res.json()
-      return json.data // ApiResponse wraps data
+      return json.data
     },
-    staleTime: 1000 * 60 * 60 * 24, // 24 hours
-    gcTime: 1000 * 60 * 60 * 24 * 7, // 7 days
+    staleTime: 1000 * 60 * 60 * 24,
+    gcTime: 1000 * 60 * 60 * 24 * 7,
   })
 }

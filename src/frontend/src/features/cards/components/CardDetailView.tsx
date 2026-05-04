@@ -37,7 +37,7 @@ export function CardDetailView({ card }: CardDetailViewProps) {
         />
         <div className={styles.printChips}>
           <Chip color="var(--hd-accent)" style={{ border: '1px solid var(--hd-accent)' }}>
-            ● Non-foil · {card.set_code}
+            ● Non-foil · {card.set_code.toUpperCase()}
           </Chip>
           {card.prints?.map((p) => (
             <Chip key={p.id}>{p.finish} · {p.set}</Chip>
@@ -48,7 +48,7 @@ export function CardDetailView({ card }: CardDetailViewProps) {
       <div className={styles.rightCol}>
         <div className={styles.infoCol}>
         <div className={styles.meta}>
-          {card.set_code} · {card.rarity_name?.charAt(0).toUpperCase() + card.rarity_name?.slice(1)} · {card.type_line}
+          {card.set_code.toUpperCase()} · {card.rarity_name?.charAt(0).toUpperCase() + card.rarity_name?.slice(1)} · {card.type_line}
         </div>
         <h1 className={styles.name}>{card.card_name}</h1>
 

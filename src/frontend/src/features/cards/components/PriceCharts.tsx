@@ -18,15 +18,15 @@ const TIME_RANGES = [
 ]
 
 export function PriceCharts({ card }: PriceChartsProps) {
-  const [selectedRange, setSelectedRange] = useState<'1w' | '1m' | '3m' | '1y' | 'all'>('1m')
+  const [selectedRange, setSelectedRange] = useState<'1w' | '1m' | '3m' | '1y' | 'all'>('all')
 
   const { data: priceData, isLoading } = useQuery(
     cardPriceHistoryQueryOptions(card.card_version_id, selectedRange)
   )
 
-  // Data from API is already in dollars
   const listAvg = priceData?.price_history_list_avg ?? []
   const soldAvg = priceData?.price_history_sold_avg ?? []
+  const hasData = [...listAvg, ...soldAvg].filter((v) => v !== null).length >= 2
 
   return (
     <div className={styles.chartSection}>
@@ -49,7 +49,7 @@ export function PriceCharts({ card }: PriceChartsProps) {
 
       {isLoading ? (
         <div className={styles.loading}>Loading price data...</div>
-      ) : listAvg.length > 0 && soldAvg.length > 0 ? (
+      ) : hasData ? (
         <>
           <DualAreaChart
             listAvg={listAvg}
@@ -67,7 +67,14 @@ export function PriceCharts({ card }: PriceChartsProps) {
           </div>
         </>
       ) : (
-        <div className={styles.noData}>No price data available for this period</div>
+        <div className={styles.noData}>
+          No price data for this period
+          {selectedRange !== 'all' && (
+            <button className={styles.fallbackBtn} onClick={() => setSelectedRange('all')}>
+              View full history
+            </button>
+          )}
+        </div>
       )}
     </div>
   )
