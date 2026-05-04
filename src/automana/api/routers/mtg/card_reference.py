@@ -1,6 +1,6 @@
 import os
 import logging
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from uuid import UUID
 from automana.api.schemas.StandardisedQueryResponse import ApiResponse, PaginatedResponse, PaginationInfo, ErrorResponse
@@ -144,6 +144,7 @@ async def get_card_price_history(
     card_id: UUID,
     service_manager: ServiceManagerDep,
     price_range: str = Query('1m', regex='^(1w|1m|3m|1y|all)$', description="Time range: 1w, 1m, 3m, 1y, or all"),
+    finish: Optional[str] = Query(None, regex='^(nonfoil|foil|etched|surge_foil|ripple_foil|rainbow_foil)$', description="Finish type (nonfoil, foil, etched, etc.). Omit to aggregate all finishes."),
 ) -> ApiResponse[PriceHistoryResponse]:
     """Get price history for a card in the specified time range."""
     try:
@@ -161,6 +162,7 @@ async def get_card_price_history(
             "card_catalog.card.get_price_history",
             card_id=card_id,
             days_back=days_back,
+            finish=finish,
         )
 
         return ApiResponse(
