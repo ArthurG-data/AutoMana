@@ -31,7 +31,7 @@ export function SearchResults({
           fetchNextPage()
         }
       },
-      { threshold: 0.1 }
+      { rootMargin: '200px' }
     )
     if (sentinelRef.current) {
       observer.observe(sentinelRef.current)
