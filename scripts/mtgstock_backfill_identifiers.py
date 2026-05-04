@@ -101,43 +101,6 @@ async def main() -> None:
             logger.info("Backfill complete: added %d new mtgstock_id entries (%d → %d total)",
                        new_entries, before_count, after_count)
 
-            if DRY_RUN:
-                logger.info("[dry-run] Would insert %d rows into card_external_identifier", len(final_rows))
-                for row in final_rows[:20]:
-                    logger.info("  print_id=%-8s → card_version_id=%s", row["print_id"], row["card_version_id"])
-                if len(final_rows) > 20:
-                    logger.info("  ... and %d more", len(final_rows) - 20)
-                return
-
-            if not final_rows:
-                logger.info("Nothing to backfill — all resolvable print_ids already have mtgstock_id entries.")
-                return
-
-            # Fetch the mtgstock_id ref_id once.
-            ref_row = await conn.fetchrow(
-                "SELECT card_identifier_ref_id FROM card_catalog.card_identifier_ref "
-                "WHERE identifier_name = 'mtgstock_id' LIMIT 1"
-            )
-            if ref_row is None:
-                raise RuntimeError("No card_identifier_ref row for 'mtgstock_id' — is the catalog seeded?")
-            ref_id = ref_row["card_identifier_ref_id"]
-
-            # Bulk-insert, ignoring already-existing PK conflicts.
-            inserted = await conn.executemany(
-                """
-                INSERT INTO card_catalog.card_external_identifier
-                    (card_identifier_ref_id, card_version_id, value)
-                VALUES ($1, $2, $3)
-                ON CONFLICT (card_version_id, card_identifier_ref_id) DO NOTHING
-                """,
-                [(ref_id, row["card_version_id"], str(row["print_id"])) for row in final_rows],
-            )
-            logger.info(
-                "Backfill complete: attempted %d inserts (conflicts silently skipped). "
-                "Re-run to verify idempotency.",
-                len(final_rows),
-            )
-
     finally:
         await teardown(pool)
 
