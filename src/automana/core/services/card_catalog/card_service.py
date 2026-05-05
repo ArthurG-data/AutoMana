@@ -262,15 +262,17 @@ async def get_card_price_history(
     card_id: UUID,
     days_back: Optional[int] = 30,
     finish: Optional[str] = None,
+    aggregation: str = 'daily',
 ) -> PriceHistoryResponse:
     """
-    Fetch aggregated daily price history for a card.
+    Fetch aggregated price history for a card.
 
     Args:
         card_repository: CardReferenceRepository instance
         card_id: Card version ID (UUID)
         days_back: Number of days back from today (None = all available data, default=30)
         finish: Optional finish name string ('nonfoil', 'foil', 'etched', etc.)
+        aggregation: 'daily' or 'weekly' aggregation (default='daily')
 
     Returns:
         PriceHistoryResponse with price arrays and date range info
@@ -288,7 +290,7 @@ async def get_card_price_history(
             start_date = end_date - timedelta(days=days_back)
 
         # Call repository to fetch aggregated prices
-        result = await card_repository.get_price_history(card_id, start_date, end_date, finish=finish)
+        result = await card_repository.get_price_history(card_id, start_date, end_date, finish=finish, aggregation=aggregation)
 
         # Build response
         return PriceHistoryResponse(

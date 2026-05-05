@@ -37,7 +37,7 @@ export function DualAreaChart({
   const [hoverIdx, setHoverIdx] = useState<number | null>(null)
 
   const allValues = [...listAvg, ...soldAvg].filter((v) => v !== null) as number[]
-  if (allValues.length < 2 || dates.length < 2) return null
+  if (allValues.length < 1 || dates.length < 1) return null
 
   const cw = width - PAD.left - PAD.right
   const ch = height - PAD.top - PAD.bottom
@@ -48,7 +48,7 @@ export function DualAreaChart({
   const maxY = maxVal * 1.08
   const yRange = maxY - minY || 1
 
-  const toX = (i: number) => PAD.left + (i / (n - 1)) * cw
+  const toX = (i: number) => PAD.left + (n === 1 ? 0.5 : (i / (n - 1))) * cw
   const toY = (v: number) => PAD.top + ch - ((v - minY) / yRange) * ch
 
   const Y_COUNT = 4

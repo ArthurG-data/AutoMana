@@ -56,7 +56,7 @@ export function PriceCharts({ card }: PriceChartsProps) {
     : []
 
   const { list: listAvg, sold: soldAvg, dates } = trimNulls(rawList, rawSold, rawDates)
-  const hasData = [...listAvg, ...soldAvg].filter((v) => v !== null).length >= 2
+  const hasData = [...listAvg, ...soldAvg].filter((v) => v !== null).length >= 1
 
   return (
     <div className={styles.chartSection}>

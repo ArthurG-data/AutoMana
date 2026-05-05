@@ -39,6 +39,7 @@ result_backend = _fix_redis_host(os.getenv("RESULT_BACKEND", f"redis://{_default
 imports = {
     "automana.worker.tasks.pipelines",
     "automana.worker.tasks.analytics",
+    "automana.worker.tasks.pricing",
 }
 
 
@@ -91,6 +92,20 @@ beat_schedule = {
         "task": "run_service",
         "schedule": crontab(minute=42),
         "kwargs": {"path": "ops.integrity.pricing_report"},
+    },
+    # Pricing tier aggregation: refresh daily aggregates from raw observations.
+    # Links source_product_id → card_version_id via mtg_card_products table.
+    # Runs at 05:30 AEST after MTGStock import completes (04:00).
+    "pricing-refresh-daily-aggregates": {
+        "task": "refresh_daily_prices",
+        "schedule": crontab(hour=5, minute=30),  # 05:30 AEST
+    },
+    # Pricing tier archival: move Tier 2 (daily) to Tier 3 (weekly) for data >5y.
+    # Reduces storage usage and speeds up daily price queries.
+    # Runs monthly (1st of month at 03:00 AEST) to avoid peak hours.
+    "pricing-archive-to-weekly": {
+        "task": "archive_to_weekly_prices",
+        "schedule": crontab(day_of_month=1, hour=3, minute=0),  # 1st at 03:00 AEST
     },
 }
 
