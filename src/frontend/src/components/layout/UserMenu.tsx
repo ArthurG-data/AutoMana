@@ -86,40 +86,23 @@ export function UserMenu() {
           role="menu"
           aria-label="User menu"
         >
-          <div className={styles.profile} role="none">
-            <div className={styles.profileInitials}>{initials}</div>
-            <div className={styles.profileInfo}>
-              <div className={styles.profileUsername}>{currentUser.username}</div>
-              {currentUser.email && (
-                <div className={styles.profileEmail}>{currentUser.email}</div>
-              )}
-            </div>
-          </div>
-
-          <div className={styles.divider} role="none" />
+          <button
+            className={styles.menuItem}
+            role="menuitem"
+            onClick={() => {
+              setOpen(false)
+              navigate({ to: '/collection' })
+            }}
+          >
+            Collection
+          </button>
 
           <button
             className={styles.menuItem}
             role="menuitem"
             onClick={handleLogout}
           >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 16 16"
-              style={{ display: 'block', flex: '0 0 auto' }}
-              aria-hidden="true"
-            >
-              <path
-                d="M6 3H3a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h3M11 5l3 3-3 3M14 8H6"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                fill="none"
-              />
-            </svg>
-            Log out
+            Logout
           </button>
         </div>
       )}

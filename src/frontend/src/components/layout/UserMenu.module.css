@@ -72,57 +72,6 @@
   overflow: hidden;
 }
 
-/* Profile header */
-.profile {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 14px 14px 12px;
-}
-.profileInitials {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background: var(--hd-surface-alt);
-  border: 1px solid var(--hd-border);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--hd-accent);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.profileInfo {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-.profileUsername {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--hd-text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.profileEmail {
-  font-size: 11px;
-  color: var(--hd-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Divider */
-.divider {
-  height: 1px;
-  background: var(--hd-border);
-  margin: 0;
-}
-
 /* Menu item */
 .menuItem {
   display: flex;
