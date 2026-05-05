@@ -1,0 +1,117 @@
+/* src/frontend/src/features/ebay/components/StrategyCard.module.css */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  text-align: left;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--hd-border);
+  background: var(--hd-surface);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+  font-family: var(--font-sans);
+}
+
+.card:hover {
+  border-color: var(--hd-border-hot);
+  background: var(--hd-surface-alt);
+  transform: translateY(-1px);
+}
+
+.selected {
+  border-color: rgba(var(--hd-accent-rgb), 0.5);
+  background: linear-gradient(
+    135deg,
+    rgba(var(--hd-accent-rgb), 0.08) 0%,
+    rgba(var(--hd-blue-rgb), 0.04) 100%
+  );
+  box-shadow: 0 0 0 1px rgba(var(--hd-accent-rgb), 0.3);
+}
+
+.selected:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(var(--hd-accent-rgb), 0.12) 0%,
+    rgba(var(--hd-blue-rgb), 0.06) 100%
+  );
+}
+
+/* Header row */
+.header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  position: relative;
+}
+
+.icon {
+  font-size: 20px;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.titleGroup {
+  flex: 1;
+  min-width: 0;
+}
+
+.name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--hd-text);
+  margin-bottom: 3px;
+}
+
+.description {
+  font-size: 11px;
+  color: var(--hd-muted);
+  line-height: 1.4;
+}
+
+.selectedDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--hd-accent);
+  flex-shrink: 0;
+  margin-top: 4px;
+  box-shadow: 0 0 6px rgba(var(--hd-accent-rgb), 0.6);
+}
+
+/* Stats grid */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--hd-border);
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.statLabel {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--hd-sub);
+}
+
+.statValue {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--hd-text);
+}
+
+.payout {
+  color: var(--hd-accent);
+}

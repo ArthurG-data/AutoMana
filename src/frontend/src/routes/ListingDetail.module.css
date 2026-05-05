@@ -1,0 +1,346 @@
+/* src/frontend/src/routes/ListingDetail.module.css */
+
+/* ── Page wrapper ─────────────────────────────────────── */
+.page {
+  min-height: 100%;
+  padding-bottom: 32px;
+}
+
+/* ── Three-column layout ──────────────────────────────── */
+.threeCol {
+  display: grid;
+  grid-template-columns: 220px 1fr 260px;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .threeCol {
+    grid-template-columns: 220px 1fr;
+  }
+}
+
+@media (max-width: 800px) {
+  .threeCol {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Left panel: card art + info ─────────────────────── */
+.cardPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: sticky;
+  top: 0;
+}
+
+.cardArtPlaceholder {
+  width: 100%;
+  aspect-ratio: 63 / 88;    /* MTG card aspect ratio */
+  border-radius: 12px;
+  border: 1px solid var(--hd-border);
+  background: linear-gradient(
+    135deg,
+    var(--hd-surface) 0%,
+    var(--hd-surface-alt) 100%
+  );
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.cardArtInner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  text-align: center;
+}
+
+.cardArtName {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--hd-text);
+  line-height: 1.3;
+}
+
+.cardArtSet {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--hd-sub);
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+}
+
+.cardInfo {
+  background: var(--hd-surface);
+  border: 1px solid var(--hd-border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.cardInfoRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--hd-border);
+  gap: 8px;
+}
+
+.cardInfoRow:last-child { border-bottom: none; }
+
+.infoLabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.8px;
+  color: var(--hd-sub);
+  flex-shrink: 0;
+}
+
+.infoValue {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--hd-muted);
+  text-align: right;
+}
+
+.infoValueAccent {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--hd-accent);
+  text-align: right;
+}
+
+/* ── Center: strategy advisor ─────────────────────────── */
+.strategySection {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.sectionHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sectionTitle {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 24px;
+  font-weight: 400;
+  color: var(--hd-text);
+  line-height: 1.2;
+}
+
+.sectionSub {
+  font-size: 13px;
+  color: var(--hd-muted);
+}
+
+.sectionSub strong {
+  color: var(--hd-text);
+  font-weight: 600;
+}
+
+/* Strategy cards list */
+.strategyList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Market band section */
+.bandSection {
+  background: var(--hd-surface);
+  border: 1px solid var(--hd-border);
+  border-radius: 12px;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bandLabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--hd-sub);
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+
+.bandLegend {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.bandLegendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--hd-muted);
+}
+
+.bandLegendDotLow {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--hd-sub);
+  flex-shrink: 0;
+}
+
+.bandLegendDotMid {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--hd-blue);
+  flex-shrink: 0;
+}
+
+.bandLegendDotHigh {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--hd-accent);
+  flex-shrink: 0;
+}
+
+/* ── Right panel: payout projection ──────────────────── */
+.payoutPanel {
+  background: var(--hd-surface);
+  border: 1px solid var(--hd-border);
+  border-radius: 12px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  position: sticky;
+  top: 0;
+}
+
+.sidePanelTitle {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--hd-sub);
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+
+.payoutItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 0;
+  gap: 8px;
+}
+
+.payoutLabel {
+  font-size: 12px;
+  color: var(--hd-muted);
+  flex: 1;
+}
+
+.payoutValue {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--hd-text);
+}
+
+.payoutValueNeg {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--hd-red);
+}
+
+.payoutValueHighlight {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--hd-accent);
+}
+
+.payoutPL {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--hd-accent);
+}
+
+.payoutPLNeg {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--hd-red);
+}
+
+.payoutDivider {
+  height: 1px;
+  background: var(--hd-border);
+  margin: 8px 0;
+}
+
+/* Apply button */
+.payoutActions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.applyBtn {
+  width: 100%;
+  padding: 10px;
+  border-radius: 9px;
+  border: none;
+  background: var(--hd-accent);
+  color: var(--hd-bg);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.12s;
+}
+
+.applyBtn:hover { opacity: 0.9; }
+
+.cancelLink {
+  display: block;
+  text-align: center;
+  font-size: 12px;
+  color: var(--hd-muted);
+  text-decoration: none;
+  transition: color 0.1s;
+}
+
+.cancelLink:hover { color: var(--hd-text); }
+
+/* ── Not found ────────────────────────────────────────── */
+.notFound {
+  padding: 48px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  color: var(--hd-muted);
+  font-size: 14px;
+}
+
+.backLink {
+  color: var(--hd-blue);
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.backLink:hover { text-decoration: underline; }

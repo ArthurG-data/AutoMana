@@ -1,0 +1,248 @@
+/* src/frontend/src/features/ebay/components/ListingsTable.module.css */
+
+.wrapper {
+  overflow-x: auto;
+  border-radius: 12px;
+  border: 1px solid var(--hd-border);
+  background: var(--hd-surface);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+/* Header */
+.thead th {
+  padding: 11px 14px;
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--hd-sub);
+  border-bottom: 1px solid var(--hd-border);
+  white-space: nowrap;
+}
+
+.thead th.right  { text-align: right; }
+.thead th.center { text-align: center; }
+
+/* Body rows */
+.row {
+  border-bottom: 1px solid var(--hd-border);
+  transition: background 0.12s;
+}
+
+.row:last-child { border-bottom: none; }
+.row:hover      { background: var(--hd-surface-alt); }
+
+.rowOver {
+  background: linear-gradient(90deg,
+    rgba(227, 94, 108, 0.07) 0%,
+    transparent 60%
+  );
+}
+
+.rowOver:hover {
+  background: linear-gradient(90deg,
+    rgba(227, 94, 108, 0.12) 0%,
+    var(--hd-surface-alt) 60%
+  );
+}
+
+.rowUnder {
+  background: linear-gradient(90deg,
+    rgba(224, 169, 106, 0.07) 0%,
+    transparent 60%
+  );
+}
+
+.rowUnder:hover {
+  background: linear-gradient(90deg,
+    rgba(224, 169, 106, 0.12) 0%,
+    var(--hd-surface-alt) 60%
+  );
+}
+
+/* Cells */
+.row td {
+  padding: 10px 14px;
+  vertical-align: middle;
+  color: var(--hd-text);
+}
+
+.row td.right {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.row td.center { text-align: center; }
+
+/* Card name */
+.nameCell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cardName {
+  font-weight: 500;
+  color: var(--hd-text);
+  white-space: nowrap;
+  text-decoration: none;
+  transition: color 0.1s;
+}
+
+.cardName:hover { color: var(--hd-accent); }
+
+/* Set badge */
+.setCode {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--hd-sub);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--hd-border);
+  border-radius: 4px;
+  padding: 2px 5px;
+  white-space: nowrap;
+}
+
+/* Condition */
+.condition {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--hd-muted);
+}
+
+/* Foil badge */
+.foilBadge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.8px;
+  color: var(--hd-amber);
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+/* Price cell */
+.priceCell {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.listedPrice {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--hd-text);
+}
+
+.deltaBadge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--hd-muted);
+}
+
+.deltaOver {
+  background: rgba(227, 94, 108, 0.15);
+  color: var(--hd-red);
+}
+
+.deltaUnder {
+  background: rgba(224, 169, 106, 0.15);
+  color: var(--hd-amber);
+}
+
+.marketPrice {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--hd-muted);
+}
+
+/* Watchers cell */
+.watchersCell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.watchers {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--hd-muted);
+}
+
+.days {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--hd-sub);
+}
+
+/* Actions */
+.actionsCell {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.viewBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 7px;
+  border: 1px solid rgba(var(--hd-blue-rgb), 0.35);
+  background: rgba(var(--hd-blue-rgb), 0.08);
+  color: var(--hd-blue);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: opacity 0.12s, background 0.12s;
+}
+
+.viewBtn:hover {
+  background: rgba(var(--hd-blue-rgb), 0.15);
+}
+
+.moreBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  border: 1px solid var(--hd-border);
+  background: transparent;
+  color: var(--hd-muted);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.moreBtn:hover {
+  background: var(--hd-surface-alt);
+  border-color: var(--hd-border-hot);
+  color: var(--hd-text);
+}
+
+/* Empty state */
+.empty {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--hd-muted);
+  font-size: 13px;
+}

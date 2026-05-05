@@ -1,0 +1,320 @@
+/* src/frontend/src/routes/Listings.module.css */
+
+/* ── Page wrapper ─────────────────────────────────────── */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-height: 100%;
+}
+
+/* ── Tab row ──────────────────────────────────────────── */
+.tabRow {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid var(--hd-border);
+  padding-bottom: 0;
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  background: transparent;
+  color: var(--hd-muted);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.12s, border-color 0.12s;
+  margin-bottom: -1px;
+}
+
+.tab:hover {
+  color: var(--hd-text);
+}
+
+.tabActive {
+  color: var(--hd-text);
+  border-bottom-color: var(--hd-accent);
+}
+
+.tabCount {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(var(--hd-accent-rgb), 0.12);
+  color: var(--hd-accent);
+}
+
+/* ── Main grid ────────────────────────────────────────── */
+.contentGrid {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 1000px) {
+  .contentGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Sold listings table ──────────────────────────────── */
+.soldTable {
+  overflow-x: auto;
+  border-radius: 12px;
+  border: 1px solid var(--hd-border);
+  background: var(--hd-surface);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.table thead th {
+  padding: 11px 14px;
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--hd-sub);
+  border-bottom: 1px solid var(--hd-border);
+  white-space: nowrap;
+}
+
+.table thead th.right { text-align: right; }
+
+.soldRow {
+  border-bottom: 1px solid var(--hd-border);
+  transition: background 0.12s;
+}
+
+.soldRow:last-child { border-bottom: none; }
+.soldRow:hover { background: var(--hd-surface-alt); }
+
+.soldRow td {
+  padding: 10px 14px;
+  vertical-align: middle;
+}
+
+.right  { text-align: right; }
+.mono   { font-family: var(--font-mono); font-size: 12px; }
+.muted  { color: var(--hd-muted); }
+.positive { color: var(--hd-accent); }
+.negative { color: var(--hd-red); }
+
+.soldCardName {
+  font-weight: 500;
+  color: var(--hd-text);
+}
+
+.setCode {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--hd-sub);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--hd-border);
+  border-radius: 4px;
+  padding: 2px 5px;
+}
+
+.foilBadge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.8px;
+  color: var(--hd-amber);
+  text-transform: uppercase;
+  opacity: 0.8;
+  margin-left: 6px;
+}
+
+.condition {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--hd-muted);
+}
+
+/* ── Empty state ──────────────────────────────────────── */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 64px 24px;
+  color: var(--hd-sub);
+  font-size: 14px;
+  border-radius: 12px;
+  border: 1px dashed var(--hd-border);
+}
+
+/* ── Sidebar ──────────────────────────────────────────── */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sidePanel {
+  background: var(--hd-surface);
+  border: 1px solid var(--hd-border);
+  border-radius: 12px;
+  padding: 16px 18px;
+}
+
+.sidePanelTitle {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--hd-sub);
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+/* ── Alert list ───────────────────────────────────────── */
+.alertList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.alertRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.alertDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+
+.alertContent {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.alertIcon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.alertCard {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--hd-text);
+  margin-bottom: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.alertMessage {
+  font-size: 11px;
+  color: var(--hd-muted);
+  line-height: 1.4;
+}
+
+/* ── Recent sales ─────────────────────────────────────── */
+.recentSaleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--hd-border);
+}
+
+.recentSaleRow:last-child { border-bottom: none; }
+
+.recentSaleName {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--hd-text);
+  flex: 1;
+  margin-right: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recentSaleRight {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.recentSalePrice {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--hd-text);
+}
+
+.recentSaleDelta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+/* ── Strategy mix bar ─────────────────────────────────── */
+.strategyBarWrapper {
+  margin-bottom: 12px;
+}
+
+.strategyBar {
+  display: flex;
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  gap: 1px;
+}
+
+.strategyBarSegment {
+  border-radius: 999px;
+  transition: flex 0.3s;
+}
+
+.strategyLegend {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.strategyLegendRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.strategyLegendDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.strategyLegendLabel {
+  font-size: 12px;
+  color: var(--hd-muted);
+  flex: 1;
+}
+
+.strategyLegendCount {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--hd-sub);
+}

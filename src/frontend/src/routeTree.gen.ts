@@ -11,8 +11,10 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as ListingsRouteImport } from './routes/listings'
 import { Route as CollectionRouteImport } from './routes/collection'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ListingsIdRouteImport } from './routes/listings_.$id'
 import { Route as CardsIdRouteImport } from './routes/cards.$id'
 
 const SearchRoute = SearchRouteImport.update({
@@ -25,6 +27,11 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ListingsRoute = ListingsRouteImport.update({
+  id: '/listings',
+  path: '/listings',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CollectionRoute = CollectionRouteImport.update({
   id: '/collection',
   path: '/collection',
@@ -33,6 +40,11 @@ const CollectionRoute = CollectionRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ListingsIdRoute = ListingsIdRouteImport.update({
+  id: '/listings_/$id',
+  path: '/listings/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CardsIdRoute = CardsIdRouteImport.update({
@@ -44,39 +56,69 @@ const CardsIdRoute = CardsIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/collection': typeof CollectionRoute
+  '/listings': typeof ListingsRoute
   '/login': typeof LoginRoute
   '/search': typeof SearchRoute
   '/cards/$id': typeof CardsIdRoute
+  '/listings/$id': typeof ListingsIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/collection': typeof CollectionRoute
+  '/listings': typeof ListingsRoute
   '/login': typeof LoginRoute
   '/search': typeof SearchRoute
   '/cards/$id': typeof CardsIdRoute
+  '/listings/$id': typeof ListingsIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/collection': typeof CollectionRoute
+  '/listings': typeof ListingsRoute
   '/login': typeof LoginRoute
   '/search': typeof SearchRoute
   '/cards/$id': typeof CardsIdRoute
+  '/listings_/$id': typeof ListingsIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/collection' | '/login' | '/search' | '/cards/$id'
+  fullPaths:
+    | '/'
+    | '/collection'
+    | '/listings'
+    | '/login'
+    | '/search'
+    | '/cards/$id'
+    | '/listings/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/collection' | '/login' | '/search' | '/cards/$id'
-  id: '__root__' | '/' | '/collection' | '/login' | '/search' | '/cards/$id'
+  to:
+    | '/'
+    | '/collection'
+    | '/listings'
+    | '/login'
+    | '/search'
+    | '/cards/$id'
+    | '/listings/$id'
+  id:
+    | '__root__'
+    | '/'
+    | '/collection'
+    | '/listings'
+    | '/login'
+    | '/search'
+    | '/cards/$id'
+    | '/listings_/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CollectionRoute: typeof CollectionRoute
+  ListingsRoute: typeof ListingsRoute
   LoginRoute: typeof LoginRoute
   SearchRoute: typeof SearchRoute
   CardsIdRoute: typeof CardsIdRoute
+  ListingsIdRoute: typeof ListingsIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -95,6 +137,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/listings': {
+      id: '/listings'
+      path: '/listings'
+      fullPath: '/listings'
+      preLoaderRoute: typeof ListingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/collection': {
       id: '/collection'
       path: '/collection'
@@ -107,6 +156,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/listings_/$id': {
+      id: '/listings_/$id'
+      path: '/listings/$id'
+      fullPath: '/listings/$id'
+      preLoaderRoute: typeof ListingsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/cards/$id': {
@@ -122,9 +178,11 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CollectionRoute: CollectionRoute,
+  ListingsRoute: ListingsRoute,
   LoginRoute: LoginRoute,
   SearchRoute: SearchRoute,
   CardsIdRoute: CardsIdRoute,
+  ListingsIdRoute: ListingsIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
