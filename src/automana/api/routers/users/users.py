@@ -103,7 +103,7 @@ async def list_users(
     '/',
     summary="Register a new user",
     description=(
-        "Creates a new user account. Pass the plain-text password in `hashed_password` "
+        "Creates a new user account. Pass the plain-text password in `password` "
         "— the server hashes it on receipt. Returns the newly created user record "
         "wrapped in an `ApiResponse` envelope."
     ),

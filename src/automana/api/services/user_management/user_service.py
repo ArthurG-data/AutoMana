@@ -24,11 +24,10 @@ async def register(user_repository: UserRepository, user : Annotated[BaseUser, B
             'password' : 'password',
         }
     ])]) -> UserInDB:
-    hashed_password = get_hash_password(user.hashed_password)
-    user.hashed_password = hashed_password
- 
+    hashed_password = get_hash_password(user.password)
+
     try:
-        result = await user_repository.add(username=user.username, email=user.email, hashed_password=user.hashed_password, fullname=user.fullname)
+        result = await user_repository.add(username=user.username, email=user.email, hashed_password=hashed_password, fullname=user.fullname)
         if not result:
             raise user_exceptions.UserCreationError("Failed to create user")
         return UserInDB.model_validate(result)

@@ -50,7 +50,6 @@ function LoginPage() {
       // Hydrate username from /me (UserPublic does not expose email; we already have it from the form)
       const me = await getMe(tokens.access_token)
       login(tokens.access_token, {
-        id: me.username,
         username: me.username,
         email,
       })

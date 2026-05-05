@@ -1,9 +1,8 @@
 // src/frontend/src/store/auth.ts
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, createJSONStorage } from 'zustand/middleware'
 
 export interface CurrentUser {
-  id: string
   username: string
   email: string | null
 }
@@ -23,6 +22,9 @@ export const useAuthStore = create<AuthState>()(
       login: (token, user) => set({ token, currentUser: user }),
       logout: () => set({ token: null, currentUser: null }),
     }),
-    { name: 'automana-auth-v2' }
+    {
+      name: 'automana-auth-v2',
+      storage: createJSONStorage(() => sessionStorage),
+    }
   )
 )

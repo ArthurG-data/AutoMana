@@ -40,7 +40,7 @@ export async function postLogin(email: string, password: string): Promise<LoginR
 
 /**
  * POST /api/users/
- * Registers a new account. The backend hashes `hashed_password` on receipt.
+ * Registers a new account. The backend hashes the password on receipt.
  */
 export async function postSignup(opts: {
   username: string
@@ -54,7 +54,7 @@ export async function postSignup(opts: {
     body: JSON.stringify({
       username: opts.username,
       email: opts.email,
-      hashed_password: opts.password,
+      password: opts.password,
     }),
   })
   if (!res.ok) {

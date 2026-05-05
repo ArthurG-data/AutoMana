@@ -15,8 +15,8 @@ class UserPublic(BaseModel):
 
 class BaseUser(UserPublic):
     email : EmailStr | None = Field(default=None)
-    hashed_password : str = Field(
-        title='Hashed user password'
+    password : str = Field(
+        title='Plain-text password (hashed by the server on receipt)'
     )
 
 class UserInDB(BaseUser):
