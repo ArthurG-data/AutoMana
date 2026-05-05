@@ -2,6 +2,7 @@
 import React from 'react'
 import { Icon } from '../design-system/Icon'
 import { useUIStore } from '../../store/ui'
+import { UserMenu } from './UserMenu'
 import styles from './TopBar.module.css'
 
 interface AttentionChipProps {
@@ -49,7 +50,7 @@ export function TopBar({ title, subtitle, breadcrumb, actions }: TopBarProps) {
             color="var(--hd-muted)"
           />
         </button>
-        <div className={styles.avatar} />
+        <UserMenu />
       </div>
     </div>
   )

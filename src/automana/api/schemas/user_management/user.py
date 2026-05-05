@@ -20,6 +20,11 @@ class BaseUser(UserPublic):
     )
 
 class UserInDB(BaseUser):
+    # password is required on BaseUser for input validation but is absent when
+    # constructing from a DB row (which only carries hashed_password).
+    # Marking it optional here lets model_validate succeed on DB records while
+    # still accepting it from request payloads.
+    password: str | None = Field(default=None, exclude=True)
     unique_id : UUID
     disabled : bool | None = Field(default=False, title='Is the user account still active')
     created_at : Optional[datetime]=None

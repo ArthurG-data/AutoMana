@@ -22,7 +22,7 @@ def _make_user() -> BaseUser:
         username="alice",
         email="alice@example.com",
         fullname="Alice Example",
-        hashed_password="plaintext-for-test",
+        password="plaintext-for-test",
     )
 
 
