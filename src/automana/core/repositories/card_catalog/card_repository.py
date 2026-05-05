@@ -714,7 +714,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
             WITH weekly_range AS (
                 SELECT generate_series(date_trunc('week', $2::date)::date, $3::date, interval '1 week')::date AS week_start
             ),
-            weekly_prices AS (
+            tier2_prices AS (
                 SELECT
                     date_trunc('week', ppd.price_date)::date AS week_start,
                     AVG(ppd.list_avg_cents)::float / 100 AS list_avg_price,
@@ -726,13 +726,33 @@ class CardReferenceRepository(AbstractRepository[Any]):
                   AND ppd.price_date <= $3
                   {finish_filter}
                 GROUP BY date_trunc('week', ppd.price_date)
+            ),
+            tier3_prices AS (
+                SELECT
+                    ppw.price_week AS week_start,
+                    AVG(ppw.list_avg_cents)::float / 100 AS list_avg_price,
+                    AVG(ppw.sold_avg_cents)::float / 100 AS sold_avg_price
+                FROM pricing.print_price_weekly ppw
+                JOIN pricing.card_finished f ON f.finish_id = ppw.finish_id
+                WHERE ppw.card_version_id = $1
+                  AND ppw.price_week >= $2
+                  AND ppw.price_week <= $3
+                  {finish_filter}
+                GROUP BY ppw.price_week
+            ),
+            combined AS (
+                SELECT week_start, list_avg_price, sold_avg_price FROM tier2_prices
+                UNION ALL
+                SELECT t3.week_start, t3.list_avg_price, t3.sold_avg_price
+                FROM tier3_prices t3
+                WHERE t3.week_start NOT IN (SELECT week_start FROM tier2_prices)
             )
             SELECT
                 wr.week_start AS price_date,
-                wp.list_avg_price,
-                wp.sold_avg_price
+                c.list_avg_price,
+                c.sold_avg_price
             FROM weekly_range wr
-            LEFT JOIN weekly_prices wp ON wr.week_start = wp.week_start
+            LEFT JOIN combined c ON wr.week_start = c.week_start
             ORDER BY wr.week_start ASC
             """
         else:

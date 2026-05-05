@@ -154,7 +154,7 @@ async def get_card_price_history(
             '1m': (30, 'daily'),
             '3m': (90, 'daily'),
             '1y': (365, 'weekly'),
-            'all': (None, 'daily'),
+            'all': (None, 'weekly'),
         }
         days_back, aggregation = range_map[price_range]
 
