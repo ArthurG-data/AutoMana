@@ -685,21 +685,23 @@ class CardReferenceRepository(AbstractRepository[Any]):
         start_date: date,
         end_date: date,
         finish: Optional[str] = None,
+        aggregation: str = 'daily',
     ) -> Dict[str, Any]:
         """
-        Fetch aggregated daily price history for a card across all sources.
+        Fetch aggregated price history for a card across all sources.
 
         Args:
             card_version_id: Card version ID
             start_date: Start date (inclusive)
             end_date: End date (inclusive)
             finish: Optional finish code string ('NONFOIL', 'FOIL', 'ETCHED', etc.)
+            aggregation: 'daily' or 'weekly' aggregation (default='daily')
 
         Returns:
             Dict with keys: list_avg, sold_avg, dates
-            - list_avg: List[Optional[float]] with one entry per date (null-filled for missing dates)
-            - sold_avg: List[Optional[float]] with one entry per date (null-filled for missing dates)
-            - dates: List[date] with dates in order
+            - list_avg: List[Optional[float]] with one entry per period (null-filled for missing data)
+            - sold_avg: List[Optional[float]] with one entry per period (null-filled for missing data)
+            - dates: List[date] with period start dates in order
         """
         finish_filter = ""
         params: list = [card_version_id, start_date, end_date]
@@ -707,31 +709,58 @@ class CardReferenceRepository(AbstractRepository[Any]):
             finish_filter = f"AND f.code = ${len(params) + 1}"
             params.append(finish.upper())
 
-        query = f"""
-        WITH date_range AS (
-            SELECT generate_series($2::date, $3::date, interval '1 day')::date AS price_date
-        ),
-        daily_prices AS (
+        if aggregation == 'weekly':
+            query = f"""
+            WITH weekly_range AS (
+                SELECT generate_series(date_trunc('week', $2::date)::date, $3::date, interval '1 week')::date AS week_start
+            ),
+            weekly_prices AS (
+                SELECT
+                    date_trunc('week', ppd.price_date)::date AS week_start,
+                    AVG(ppd.list_avg_cents)::float / 100 AS list_avg_price,
+                    AVG(ppd.sold_avg_cents)::float / 100 AS sold_avg_price
+                FROM pricing.print_price_daily ppd
+                JOIN pricing.card_finished f ON f.finish_id = ppd.finish_id
+                WHERE ppd.card_version_id = $1
+                  AND ppd.price_date >= $2
+                  AND ppd.price_date <= $3
+                  {finish_filter}
+                GROUP BY date_trunc('week', ppd.price_date)
+            )
             SELECT
-                ppd.price_date,
-                AVG(ppd.list_avg_cents)::float / 100 AS list_avg_price,
-                AVG(ppd.sold_avg_cents)::float / 100 AS sold_avg_price
-            FROM pricing.print_price_daily ppd
-            JOIN pricing.card_finished f ON f.finish_id = ppd.finish_id
-            WHERE ppd.card_version_id = $1
-              AND ppd.price_date >= $2
-              AND ppd.price_date <= $3
-              {finish_filter}
-            GROUP BY ppd.price_date
-        )
-        SELECT
-            dr.price_date,
-            dp.list_avg_price,
-            dp.sold_avg_price
-        FROM date_range dr
-        LEFT JOIN daily_prices dp ON dr.price_date = dp.price_date
-        ORDER BY dr.price_date ASC
-        """
+                wr.week_start AS price_date,
+                wp.list_avg_price,
+                wp.sold_avg_price
+            FROM weekly_range wr
+            LEFT JOIN weekly_prices wp ON wr.week_start = wp.week_start
+            ORDER BY wr.week_start ASC
+            """
+        else:
+            query = f"""
+            WITH date_range AS (
+                SELECT generate_series($2::date, $3::date, interval '1 day')::date AS price_date
+            ),
+            daily_prices AS (
+                SELECT
+                    ppd.price_date,
+                    AVG(ppd.list_avg_cents)::float / 100 AS list_avg_price,
+                    AVG(ppd.sold_avg_cents)::float / 100 AS sold_avg_price
+                FROM pricing.print_price_daily ppd
+                JOIN pricing.card_finished f ON f.finish_id = ppd.finish_id
+                WHERE ppd.card_version_id = $1
+                  AND ppd.price_date >= $2
+                  AND ppd.price_date <= $3
+                  {finish_filter}
+                GROUP BY ppd.price_date
+            )
+            SELECT
+                dr.price_date,
+                dp.list_avg_price,
+                dp.sold_avg_price
+            FROM date_range dr
+            LEFT JOIN daily_prices dp ON dr.price_date = dp.price_date
+            ORDER BY dr.price_date ASC
+            """
 
         rows = await self.execute_query(query, tuple(params))
 

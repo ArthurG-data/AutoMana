@@ -78,6 +78,8 @@ services:
       context: ..
       dockerfile: deploy/docker/frontend/Frontend.dev.Dockerfile
     container_name: automana-frontend-dev
+    ports:
+      - "5173:5173"
     volumes:
       - ../src/frontend:/app
       - frontend-node-modules:/app/node_modules

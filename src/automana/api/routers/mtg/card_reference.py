@@ -148,21 +148,22 @@ async def get_card_price_history(
 ) -> ApiResponse[PriceHistoryResponse]:
     """Get price history for a card in the specified time range."""
     try:
-        # Map price_range to days_back
+        # Map price_range to days_back and aggregation
         range_map = {
-            '1w': 7,
-            '1m': 30,
-            '3m': 90,
-            '1y': 365,
-            'all': None,
+            '1w': (7, 'daily'),
+            '1m': (30, 'daily'),
+            '3m': (90, 'daily'),
+            '1y': (365, 'weekly'),
+            'all': (None, 'daily'),
         }
-        days_back = range_map[price_range]
+        days_back, aggregation = range_map[price_range]
 
         result = await service_manager.execute_service(
             "card_catalog.card.get_price_history",
             card_id=card_id,
             days_back=days_back,
             finish=finish,
+            aggregation=aggregation,
         )
 
         return ApiResponse(
