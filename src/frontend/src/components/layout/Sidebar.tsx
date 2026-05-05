@@ -31,9 +31,9 @@ export function Sidebar({ active }: SidebarProps) {
     <nav className={styles.sidebar} aria-label="Main navigation">
       <button
         className={styles.logo}
-        onClick={() => navigate({ to: '/collection' })}
-        aria-label="automana - go to collection"
-        title="Go to collection"
+        onClick={() => navigate({ to: '/' })}
+        aria-label="automana - go to home"
+        title="Go to home"
       >
         a
       </button>
