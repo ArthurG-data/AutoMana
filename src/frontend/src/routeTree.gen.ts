@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as CollectionRouteImport } from './routes/collection'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CardsIdRouteImport } from './routes/cards.$id'
 
@@ -22,6 +23,11 @@ const SearchRoute = SearchRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CollectionRoute = CollectionRouteImport.update({
+  id: '/collection',
+  path: '/collection',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -37,12 +43,14 @@ const CardsIdRoute = CardsIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/collection': typeof CollectionRoute
   '/login': typeof LoginRoute
   '/search': typeof SearchRoute
   '/cards/$id': typeof CardsIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/collection': typeof CollectionRoute
   '/login': typeof LoginRoute
   '/search': typeof SearchRoute
   '/cards/$id': typeof CardsIdRoute
@@ -50,20 +58,22 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/collection': typeof CollectionRoute
   '/login': typeof LoginRoute
   '/search': typeof SearchRoute
   '/cards/$id': typeof CardsIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/search' | '/cards/$id'
+  fullPaths: '/' | '/collection' | '/login' | '/search' | '/cards/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/search' | '/cards/$id'
-  id: '__root__' | '/' | '/login' | '/search' | '/cards/$id'
+  to: '/' | '/collection' | '/login' | '/search' | '/cards/$id'
+  id: '__root__' | '/' | '/collection' | '/login' | '/search' | '/cards/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CollectionRoute: typeof CollectionRoute
   LoginRoute: typeof LoginRoute
   SearchRoute: typeof SearchRoute
   CardsIdRoute: typeof CardsIdRoute
@@ -85,6 +95,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/collection': {
+      id: '/collection'
+      path: '/collection'
+      fullPath: '/collection'
+      preLoaderRoute: typeof CollectionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -104,6 +121,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CollectionRoute: CollectionRoute,
   LoginRoute: LoginRoute,
   SearchRoute: SearchRoute,
   CardsIdRoute: CardsIdRoute,
