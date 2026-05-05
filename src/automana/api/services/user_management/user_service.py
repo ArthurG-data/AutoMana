@@ -1,5 +1,5 @@
 ﻿from typing import Annotated, Union, Optional
-from fastapi import  Body
+from fastapi import Body, HTTPException
 from automana.api.schemas.user_management.user import  BaseUser, UserUpdatePublic,UserInDB, UserPublic
 from automana.core.utils.get_hash_password import  get_hash_password
 from automana.api.repositories.user_management.user_repository import UserRepository
@@ -32,6 +32,8 @@ async def register(user_repository: UserRepository, user : Annotated[BaseUser, B
         if not result:
             raise user_exceptions.UserCreationError("Failed to create user")
         return UserInDB.model_validate(result)
+    except HTTPException:
+        raise
     except Exception as e:
         raise user_exceptions.UserError(f"Error creating user: {e}")
 
