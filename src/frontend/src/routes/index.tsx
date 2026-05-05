@@ -3,8 +3,10 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Icon, type IconKind } from '../components/design-system/Icon'
 import { Button } from '../components/ui/Button'
+import { UserMenu } from '../components/layout/UserMenu'
 import { SearchBarWithSuggestions } from '../features/cards/components/SearchBarWithSuggestions'
 import { cardCatalogStatsQueryOptions } from '../features/cards/api'
+import { useAuthStore } from '../store/auth'
 import styles from './Landing.module.css'
 
 export const Route = createFileRoute('/')({
@@ -21,6 +23,7 @@ const QUICK_SEARCHES: string[] = []
 
 function LandingPage() {
   const navigate = useNavigate()
+  const token = useAuthStore((s) => s.token)
   const { data: stats } = useQuery(cardCatalogStatsQueryOptions())
 
   return (
@@ -36,8 +39,10 @@ function LandingPage() {
           <li>Markets</li><li>Sets</li><li>Pricing</li><li>About</li>
         </ul>
         <div className={styles.navActions}>
-          <Button variant="ghost" size="sm" onClick={() => navigate({ to: '/login' })}>Log in</Button>
-          <Button variant="accent" size="sm" onClick={() => navigate({ to: '/login' })}>Sign up</Button>
+          {token
+            ? <UserMenu />
+            : <Button variant="accent" size="sm" onClick={() => navigate({ to: '/login' })}>Log in / Sign Up</Button>
+          }
         </div>
       </nav>
 
