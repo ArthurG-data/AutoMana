@@ -86,6 +86,10 @@ export function UserMenu() {
           role="menu"
           aria-label="User menu"
         >
+          <div className={styles.greeting} aria-hidden="true">
+            Hello, {currentUser.username}
+          </div>
+
           <button
             className={styles.menuItem}
             role="menuitem"

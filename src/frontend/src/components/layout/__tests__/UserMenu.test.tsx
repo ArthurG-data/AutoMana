@@ -68,6 +68,13 @@ describe('UserMenu', () => {
       expect(screen.getByRole('menu')).toBeInTheDocument()
     })
 
+    it('shows a "Hello, [username]" greeting at the top of the dropdown', async () => {
+      const user = userEvent.setup()
+      render(<UserMenu />)
+      await user.click(screen.getByRole('button', { name: /user menu for arthur/i }))
+      expect(screen.getByText('Hello, arthur')).toBeInTheDocument()
+    })
+
     it('shows a Collection menu item', async () => {
       const user = userEvent.setup()
       render(<UserMenu />)
