@@ -36,6 +36,12 @@ class UserRepository(AbstractRepository):
         result = await self.execute_query(query, (username,))
         return result[0] if result else None
 
+    async def get_by_email(self, email: str) -> dict:
+        query = """
+        SELECT * FROM users WHERE email = $1;"""
+        result = await self.execute_query(query, (email,))
+        return result[0] if result else None
+
     def get_sync(self, username: str) -> dict:
         query = """
         SELECT * FROM users WHERE username = $1;"""

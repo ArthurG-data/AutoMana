@@ -607,8 +607,9 @@ DECLARE
     v_max_date      DATE;
     v_start         DATE;
     v_end           DATE;
-    v_batch_days    INT  := 2;
+    v_batch_days    INT  := 7;    -- one 7-day chunk per batch
     v_ok            BOOLEAN;
+    _chunk          REGCLASS;
     cur_archived    BIGINT;
     cur_deleted     BIGINT;
     total_archived  BIGINT := 0;
@@ -633,14 +634,28 @@ BEGIN
     v_start := DATE_TRUNC('week', v_min_date)::DATE;
 
     WHILE v_start < v_cutoff LOOP
-        -- Batch = v_batch_days days, capped at cutoff.
         v_end := LEAST(v_start + (v_batch_days - 1), v_cutoff - 1);
         v_ok  := FALSE;
 
         BEGIN
-            SET LOCAL work_mem             = '128MB';
-            SET LOCAL maintenance_work_mem = '256MB';
+            SET LOCAL work_mem             = '256MB';
+            SET LOCAL maintenance_work_mem = '512MB';
             SET LOCAL synchronous_commit   = off;
+            -- 0 = unlimited; required so decompress_chunk() on large chunks succeeds.
+            SET LOCAL timescaledb.max_tuples_decompressed_per_dml_transaction = 0;
+
+            -- Decompress every chunk overlapping this window before any DML.
+            -- Prevents "tuple decompression limit exceeded" on the DELETE step.
+            -- if_compressed => TRUE makes this a no-op on uncompressed chunks.
+            FOR _chunk IN
+                SELECT show_chunks(
+                    'pricing.print_price_daily',
+                    older_than => v_end + 1,
+                    newer_than => v_start
+                )
+            LOOP
+                PERFORM decompress_chunk(_chunk, if_compressed => TRUE);
+            END LOOP;
 
             -- Aggregate tier 2 → tier 3 for this batch window.
             DROP TABLE IF EXISTS _weekly_batch;
@@ -666,7 +681,7 @@ BEGIN
                 card_version_id, source_id, transaction_type_id,
                 finish_id, condition_id, language_id;
 
-            -- Upsert into print_price_weekly (idempotent re-runs are safe)
+            -- Upsert into print_price_weekly (idempotent re-runs are safe).
             INSERT INTO pricing.print_price_weekly (
                 price_week, card_version_id, source_id, transaction_type_id,
                 finish_id, condition_id, language_id,
@@ -690,7 +705,8 @@ BEGIN
             GET DIAGNOSTICS cur_archived = ROW_COUNT;
             total_archived := total_archived + cur_archived;
 
-            -- Delete the source daily rows only after a successful upsert.
+            -- Delete source daily rows. Chunks are decompressed above so this
+            -- runs as a plain row-level DELETE with no GUC limit.
             DELETE FROM pricing.print_price_daily
             WHERE price_date >= v_start
               AND price_date <= v_end;

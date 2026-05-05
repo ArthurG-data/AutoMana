@@ -36,10 +36,13 @@ async def check_token_validity(request : Request):
     except ValueError as e:
         raise HTTPException(status_code=401, detail=str(e))
 
-async def authenticate_user(repository : UserRepository
-                      , username : str
-                      , password : str) -> UserInDB | None:
-    user  = await repository.get(username)
+async def authenticate_user(repository: UserRepository,
+                            username: str,
+                            password: str) -> UserInDB | None:
+    # Accept either username or email in the username field (email-first login UX)
+    user = await repository.get(username)
+    if not user:
+        user = await repository.get_by_email(username)
     if not user:
         return None
     if not verify_password(password, user['hashed_password']):

@@ -4,23 +4,23 @@ import { useAuthStore } from '../auth'
 
 describe('useAuthStore', () => {
   beforeEach(() => {
-    useAuthStore.setState({
-      token: 'dev-stub-token',
-      currentUser: { id: 'dev', email: 'dev@automana.local' },
-    })
+    useAuthStore.setState({ token: null, currentUser: null })
   })
 
-  it('initialises with stub token', () => {
-    expect(useAuthStore.getState().token).toBe('dev-stub-token')
+  it('initialises unauthenticated', () => {
+    expect(useAuthStore.getState().token).toBeNull()
+    expect(useAuthStore.getState().currentUser).toBeNull()
   })
 
   it('login sets token and user', () => {
-    useAuthStore.getState().login('real-token', { id: 'u1', email: 'u@test.com' })
+    useAuthStore.getState().login('real-token', { id: 'u1', username: 'alice', email: 'u@test.com' })
     expect(useAuthStore.getState().token).toBe('real-token')
     expect(useAuthStore.getState().currentUser?.email).toBe('u@test.com')
+    expect(useAuthStore.getState().currentUser?.username).toBe('alice')
   })
 
   it('logout clears token and user', () => {
+    useAuthStore.getState().login('real-token', { id: 'u1', username: 'alice', email: 'u@test.com' })
     useAuthStore.getState().logout()
     expect(useAuthStore.getState().token).toBeNull()
     expect(useAuthStore.getState().currentUser).toBeNull()
