@@ -12,7 +12,6 @@
 .right { display: flex; align-items: center; gap: 10px; }
 .themeToggle { background: transparent; border: none; padding: 6px; border-radius: 8px; display: flex; align-items: center; }
 .themeToggle:hover { background: var(--hd-surface-alt); }
-.avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--hd-surface); border: 1px solid var(--hd-border); }
 .attentionChip {
   display: inline-flex; align-items: center; gap: 5px;
   padding: 4px 10px; border-radius: 999px;
