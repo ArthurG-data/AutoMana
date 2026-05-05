@@ -68,19 +68,27 @@ describe('UserMenu', () => {
       expect(screen.getByRole('menu')).toBeInTheDocument()
     })
 
-    it('shows username and email in the dropdown', async () => {
+    it('shows a Collection menu item', async () => {
       const user = userEvent.setup()
       render(<UserMenu />)
       await user.click(screen.getByRole('button', { name: /user menu for arthur/i }))
-      expect(screen.getByText('arthur')).toBeInTheDocument()
-      expect(screen.getByText('arthur@example.com')).toBeInTheDocument()
+      expect(screen.getByRole('menuitem', { name: /collection/i })).toBeInTheDocument()
+    })
+
+    it('navigates to /collection and closes dropdown when Collection is clicked', async () => {
+      const user = userEvent.setup()
+      render(<UserMenu />)
+      await user.click(screen.getByRole('button', { name: /user menu for arthur/i }))
+      await user.click(screen.getByRole('menuitem', { name: /collection/i }))
+      expect(mockNavigate).toHaveBeenCalledWith({ to: '/collection' })
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument()
     })
 
     it('shows a Log out menu item', async () => {
       const user = userEvent.setup()
       render(<UserMenu />)
       await user.click(screen.getByRole('button', { name: /user menu for arthur/i }))
-      expect(screen.getByRole('menuitem', { name: /log out/i })).toBeInTheDocument()
+      expect(screen.getByRole('menuitem', { name: /logout/i })).toBeInTheDocument()
     })
 
     it('sets aria-expanded=true when dropdown is open', async () => {
@@ -123,7 +131,7 @@ describe('UserMenu', () => {
       const user = userEvent.setup()
       render(<UserMenu />)
       await user.click(screen.getByRole('button', { name: /user menu for arthur/i }))
-      await user.click(screen.getByRole('menuitem', { name: /log out/i }))
+      await user.click(screen.getByRole('menuitem', { name: /logout/i }))
       expect(useAuthStore.getState().token).toBeNull()
       expect(useAuthStore.getState().currentUser).toBeNull()
       expect(screen.queryByRole('menu')).not.toBeInTheDocument()
@@ -134,7 +142,7 @@ describe('UserMenu', () => {
       const user = userEvent.setup()
       render(<UserMenu />)
       await user.click(screen.getByRole('button', { name: /user menu for arthur/i }))
-      await user.click(screen.getByRole('menuitem', { name: /log out/i }))
+      await user.click(screen.getByRole('menuitem', { name: /logout/i }))
       expect(mockNavigate).not.toHaveBeenCalled()
     })
   })
@@ -150,15 +158,5 @@ describe('UserMenu', () => {
       expect(screen.getByText('AL')).toBeInTheDocument()
     })
 
-    it('omits email line when email is null', async () => {
-      useAuthStore.setState({
-        token: 'test-token',
-        currentUser: { username: 'alice', email: null },
-      })
-      const user = userEvent.setup()
-      render(<UserMenu />)
-      await user.click(screen.getByRole('button', { name: /user menu for alice/i }))
-      expect(screen.queryByText('@')).not.toBeInTheDocument()
-    })
   })
 })

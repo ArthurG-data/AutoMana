@@ -48,7 +48,7 @@ export function SuggestionsDropdown({
           >
             <div className={styles.itemText}>
               <span className={styles.itemName}>
-                {suggestion.card_name} <span className={styles.itemSet}>({suggestion.set_code})</span>
+                {suggestion.card_name} <span className={styles.itemSet}>({suggestion.set_code.toUpperCase()})</span>
               </span>
             </div>
           </button>
