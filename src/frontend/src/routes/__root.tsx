@@ -36,7 +36,8 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 
     // Unauthenticated: public paths are always allowed; / redirects to /search (marketing page is for guests, app shell is not)
     if (!token) {
-      if (PUBLIC_PATHS.includes(pathname)) return
+      const isPublicPath = PUBLIC_PATHS.includes(pathname) || pathname.startsWith('/cards/')
+      if (isPublicPath) return
       if (pathname === '/') throw redirect({ to: '/search' })
       throw redirect({ to: '/login' })
     }
