@@ -72,6 +72,18 @@
   overflow: hidden;
 }
 
+/* Greeting label — non-interactive, decorative */
+.greeting {
+  padding: 8px 12px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--hd-muted);
+  text-align: left;
+  user-select: none;
+  border-bottom: 1px solid var(--hd-border);
+}
+
 /* Menu item */
 .menuItem {
   display: flex;
