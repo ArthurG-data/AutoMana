@@ -198,6 +198,11 @@ ServiceRegistry.register_db_repository(
     "price", "automana.core.repositories.app_integration.mtg_stock.price_repository", "PriceRepository"
 )
 
+# Pricing Tier repositories
+ServiceRegistry.register_db_repository(
+    "pricing", "automana.core.repositories.pricing.price_repository", "PricingTierRepository"
+)
+
 # Ops repositories
 ServiceRegistry.register_db_repository(
     "ops", "automana.core.repositories.ops.ops_repository", "OpsRepository"

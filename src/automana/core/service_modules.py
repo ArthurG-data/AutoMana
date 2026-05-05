@@ -26,6 +26,7 @@ SERVICE_MODULES : dict[str, list[str]]= {
             "automana.core.services.ops.pricing_report",
             "automana.core.services.ops.tier_health_service",
             "automana.core.services.ops.scryfall_identifier_audit",
+            "automana.core.services.pricing.pricing_aggregation",
         ],
 
     "celery": [
@@ -44,6 +45,7 @@ SERVICE_MODULES : dict[str, list[str]]= {
             "automana.core.services.ops.pricing_report",
             "automana.core.services.ops.tier_health_service",
             "automana.core.services.ops.scryfall_identifier_audit",
+            "automana.core.services.pricing.pricing_aggregation",
         ],
     "all" : [
             "automana.api.services.auth.auth_service",
@@ -73,5 +75,6 @@ SERVICE_MODULES : dict[str, list[str]]= {
             "automana.core.services.ops.pricing_report",
             "automana.core.services.ops.tier_health_service",
             "automana.core.services.ops.scryfall_identifier_audit",
+            "automana.core.services.pricing.pricing_aggregation",
     ]
 }
