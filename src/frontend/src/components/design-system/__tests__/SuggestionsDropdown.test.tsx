@@ -79,6 +79,23 @@ describe('SuggestionsDropdown', () => {
     expect(buttons[0].className).toContain('selected')
   })
 
+  it('renders set code in uppercase regardless of API casing', () => {
+    const lowercaseSuggestions: CardSuggestion[] = [
+      { card_version_id: '3', card_name: 'Ragavan, Nimble Pilferer', set_code: 'mh2', collector_number: '1', rarity_name: 'mythic', score: 1.0 },
+    ]
+
+    render(
+      <SuggestionsDropdown
+        suggestions={lowercaseSuggestions}
+        selectedIndex={0}
+        onSelect={vi.fn()}
+        isOpen={true}
+      />
+    )
+
+    expect(screen.getByText('(MH2)')).toBeInTheDocument()
+  })
+
   it('calls onSelect when suggestion is clicked', async () => {
     const user = userEvent.setup()
     const onSelect = vi.fn()
