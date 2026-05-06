@@ -1,0 +1,538 @@
+/* src/frontend/src/routes/ebay/Setup.module.css */
+
+/* ── Page wrapper ─────────────────────────────────────── */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-height: 100%;
+}
+
+/* ── Stepper ──────────────────────────────────────────── */
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.stepItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.stepNumber {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  background: var(--hd-surface-alt);
+  border: 1px solid var(--hd-border);
+  color: var(--hd-sub);
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.stepItemActive .stepNumber {
+  background: rgba(var(--hd-blue-rgb), 0.2);
+  border-color: var(--hd-blue);
+  color: var(--hd-blue);
+}
+
+.stepItemDone .stepNumber {
+  background: var(--hd-accent);
+  border-color: var(--hd-accent);
+  color: var(--hd-bg);
+}
+
+.stepLabel {
+  font-size: 12px;
+  color: var(--hd-sub);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.stepItemActive .stepLabel {
+  color: var(--hd-text);
+}
+
+.stepItemDone .stepLabel {
+  color: var(--hd-muted);
+}
+
+.stepConnector {
+  width: 32px;
+  height: 1px;
+  background: var(--hd-border);
+  margin: 0 8px;
+}
+
+/* ── Content grid ─────────────────────────────────────── */
+.contentGrid {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 1000px) {
+  .contentGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Main panel ───────────────────────────────────────── */
+.mainPanel {
+  background: var(--hd-surface);
+  border: 1px solid var(--hd-border);
+  border-radius: 12px;
+  padding: 28px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ── Step content ─────────────────────────────────────── */
+.stepContent {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.stepHeading {
+  font-family: var(--font-serif);
+  font-size: 20px;
+  font-weight: 400;
+  color: var(--hd-text);
+  letter-spacing: -0.3px;
+}
+
+.stepDesc {
+  font-size: 13px;
+  color: var(--hd-muted);
+  line-height: 1.6;
+}
+
+/* ── Instruction list ─────────────────────────────────── */
+.instructionList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-left: 20px;
+}
+
+.instructionList li {
+  font-size: 13px;
+  color: var(--hd-muted);
+  line-height: 1.6;
+}
+
+.instructionList strong {
+  color: var(--hd-text);
+}
+
+.externalLink {
+  color: var(--hd-blue);
+  text-decoration: none;
+}
+
+.externalLink:hover {
+  text-decoration: underline;
+}
+
+/* ── Info box ─────────────────────────────────────────── */
+.infoBox {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  background: rgba(var(--hd-blue-rgb), 0.06);
+  border: 1px solid rgba(var(--hd-blue-rgb), 0.18);
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--hd-muted);
+  line-height: 1.5;
+}
+
+.infoBox svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ── Form grid ────────────────────────────────────────── */
+.formGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fieldLabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+  color: var(--hd-sub);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.readOnlyTag {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.8px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--hd-border);
+  color: var(--hd-sub);
+  text-transform: uppercase;
+}
+
+.inputWrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--hd-surface-alt);
+  border: 1px solid var(--hd-border);
+  border-radius: 8px;
+  padding: 0 12px;
+  transition: border-color 0.12s;
+}
+
+.inputWrapper:focus-within {
+  border-color: var(--hd-blue);
+}
+
+.input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--hd-text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 10px 0;
+  min-width: 0;
+}
+
+.input::placeholder {
+  color: var(--hd-sub);
+}
+
+.inputError + .inputWrapper,
+.inputWrapper:has(.inputError) {
+  border-color: var(--hd-red);
+}
+
+.inputReadOnly {
+  color: var(--hd-muted);
+  cursor: default;
+  user-select: all;
+}
+
+.revealBtn,
+.copyBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  border-radius: 4px;
+  flex-shrink: 0;
+  transition: background 0.1s;
+}
+
+.revealBtn:hover,
+.copyBtn:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.errorMsg {
+  font-size: 11px;
+  color: var(--hd-red);
+}
+
+.fieldHint {
+  font-size: 11px;
+  color: var(--hd-sub);
+  line-height: 1.5;
+}
+
+.fieldHint strong {
+  color: var(--hd-muted);
+}
+
+/* ── Scope list ───────────────────────────────────────── */
+.scopeList {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border-radius: 8px;
+  border: 1px solid var(--hd-border);
+  overflow: hidden;
+}
+
+.scopeRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--hd-border);
+  transition: background 0.1s;
+}
+
+.scopeRow:last-child {
+  border-bottom: none;
+}
+
+.scopeRow:hover {
+  background: var(--hd-surface-alt);
+}
+
+.scopeInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.scopeNameRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.scopeName {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--hd-text);
+}
+
+.requiredBadge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(var(--hd-accent-rgb), 0.1);
+  border: 1px solid rgba(var(--hd-accent-rgb), 0.25);
+  color: var(--hd-accent);
+}
+
+.scopeDesc {
+  font-size: 11px;
+  color: var(--hd-sub);
+  line-height: 1.4;
+}
+
+/* ── Verify step ──────────────────────────────────────── */
+.verifyBox {
+  padding: 20px;
+  border-radius: 10px;
+  border: 1px solid var(--hd-border);
+  background: var(--hd-surface-alt);
+}
+
+.verifySuccess,
+.verifyIdle {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.verifyIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(var(--hd-accent-rgb), 0.1);
+  flex-shrink: 0;
+}
+
+.verifyTitle {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--hd-text);
+  margin-bottom: 4px;
+}
+
+.verifySubtitle {
+  font-size: 12px;
+  color: var(--hd-muted);
+  line-height: 1.5;
+}
+
+.verifyNote {
+  font-size: 12px;
+  color: var(--hd-accent);
+}
+
+/* ── Nav buttons ──────────────────────────────────────── */
+.navButtons {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding-top: 8px;
+  border-top: 1px solid var(--hd-border);
+}
+
+/* ── Sidebar ──────────────────────────────────────────── */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: sticky;
+  top: 16px;
+}
+
+.sidePanel {
+  background: var(--hd-surface);
+  border: 1px solid var(--hd-border);
+  border-radius: 12px;
+  padding: 16px 18px;
+}
+
+.sidePanelTitle {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--hd-sub);
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+/* ── Status panel ─────────────────────────────────────── */
+.statusDot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.statusIndicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.statusLabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--hd-text);
+}
+
+.metricList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.metricRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.metricKey {
+  font-size: 11px;
+  color: var(--hd-sub);
+}
+
+.metricVal {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--hd-muted);
+}
+
+.quotaBarWrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.quotaBar {
+  flex: 1;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--hd-surface-alt);
+  overflow: hidden;
+}
+
+.quotaFill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s;
+}
+
+.quotaPct {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--hd-sub);
+  flex-shrink: 0;
+}
+
+/* ── Benefit list ─────────────────────────────────────── */
+.benefitList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.benefitItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--hd-muted);
+  line-height: 1.5;
+}
+
+.benefitItem svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* ── Help links ───────────────────────────────────────── */
+.helpLinks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.helpLink {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--hd-muted);
+  text-decoration: none;
+  transition: color 0.12s;
+}
+
+.helpLink:hover {
+  color: var(--hd-blue);
+}

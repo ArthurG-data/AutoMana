@@ -91,6 +91,22 @@ describe('UserMenu', () => {
       expect(screen.queryByRole('menu')).not.toBeInTheDocument()
     })
 
+    it('shows a Listings menu item', async () => {
+      const user = userEvent.setup()
+      render(<UserMenu />)
+      await user.click(screen.getByRole('button', { name: /user menu for arthur/i }))
+      expect(screen.getByRole('menuitem', { name: /listings/i })).toBeInTheDocument()
+    })
+
+    it('navigates to /listings and closes dropdown when Listings is clicked', async () => {
+      const user = userEvent.setup()
+      render(<UserMenu />)
+      await user.click(screen.getByRole('button', { name: /user menu for arthur/i }))
+      await user.click(screen.getByRole('menuitem', { name: /listings/i }))
+      expect(mockNavigate).toHaveBeenCalledWith({ to: '/listings' })
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    })
+
     it('shows a Log out menu item', async () => {
       const user = userEvent.setup()
       render(<UserMenu />)

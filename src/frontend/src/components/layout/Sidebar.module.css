@@ -41,6 +41,14 @@
   justify-content: center;
   position: relative;
   cursor: pointer;
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+}
+
+.navItem:hover {
+  background: var(--hd-surface-alt);
 }
 
 .navItemActive {

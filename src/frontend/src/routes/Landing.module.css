@@ -173,6 +173,16 @@
   border: 1px solid var(--hd-border);
   border-radius: 12px;
   padding: 20px 22px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.tile:hover {
+  border-color: var(--hd-accent);
+  background: rgba(var(--hd-accent-rgb), 0.04);
 }
 
 .tileIcon {

@@ -1,6 +1,6 @@
 // src/frontend/src/routes/collection.tsx
 import React, { useDeferredValue, useMemo, useState } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { AppShell } from '../components/layout/AppShell'
 import { TopBar } from '../components/layout/TopBar'
 import { Button } from '../components/ui/Button'
@@ -52,6 +52,7 @@ const COLOR_FILL: Record<ManaColor, string> = {
 type ViewMode = 'list' | 'grid'
 
 function CollectionPage() {
+  const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [colorFilter, setColorFilter] = useState<ColorFilter>('all')
@@ -105,9 +106,8 @@ function CollectionPage() {
     }))
   }, [])
 
-  function handleList(card: { name: string }) {
-    // TODO: call eBay listing API
-    alert(`Listing ${card.name} on eBay…`)
+  function handleList(_card: { name: string }) {
+    navigate({ to: '/listings' })
   }
 
   function handleMore(_card: unknown) {
@@ -115,8 +115,7 @@ function CollectionPage() {
   }
 
   function handleBulkList() {
-    // TODO: bulk list all ready cards
-    alert(`Bulk listing ${readyCards.length} ready cards…`)
+    navigate({ to: '/listings' })
   }
 
   const plSign = metrics.unrealizedPL >= 0 ? '+' : ''
@@ -180,11 +179,15 @@ function CollectionPage() {
               <div className={styles.metricValue}>{metrics.cardsOwned}</div>
               <div className={styles.metricSub}>unique printings</div>
             </div>
-            <div className={styles.metricCard}>
+            <button
+              className={[styles.metricCard, styles.metricCardLink].join(' ')}
+              onClick={() => navigate({ to: '/listings' })}
+              aria-label="View eBay listings"
+            >
               <div className={styles.metricLabel}>Listed on eBay</div>
               <div className={styles.metricValue}>{metrics.listedOnEbay}</div>
               <div className={styles.metricSub}>active listings</div>
-            </div>
+            </button>
           </div>
         </section>
 

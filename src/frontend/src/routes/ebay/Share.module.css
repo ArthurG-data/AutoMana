@@ -1,0 +1,451 @@
+/* src/frontend/src/routes/ebay/Share.module.css */
+
+/* ── Page wrapper ─────────────────────────────────────── */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-height: 100%;
+}
+
+/* ── Quota strip ──────────────────────────────────────── */
+.quotaStrip {
+  background: var(--hd-surface);
+  border: 1px solid var(--hd-border);
+  border-radius: 12px;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.quotaHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.quotaTitle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--hd-sub);
+}
+
+.quotaNumbers {
+  display: flex;
+  align-items: baseline;
+  gap: 0;
+}
+
+.quotaUsed {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--hd-text);
+}
+
+.quotaOf {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--hd-sub);
+  margin-right: 10px;
+}
+
+.quotaPct {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--hd-muted);
+}
+
+.quotaBar {
+  display: flex;
+  height: 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  gap: 1px;
+  background: var(--hd-surface-alt);
+}
+
+.quotaSegment {
+  border-radius: 999px;
+  transition: flex 0.3s;
+}
+
+.quotaSegmentEmpty {
+  border-radius: 999px;
+  background: var(--hd-surface-alt);
+}
+
+.quotaLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.quotaLegendItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.quotaLegendDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.quotaLegendName {
+  font-size: 11px;
+  color: var(--hd-muted);
+}
+
+.quotaLegendCalls {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--hd-sub);
+}
+
+/* ── Tab row ──────────────────────────────────────────── */
+.tabRow {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid var(--hd-border);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  background: transparent;
+  color: var(--hd-muted);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.12s, border-color 0.12s;
+  margin-bottom: -1px;
+}
+
+.tab:hover {
+  color: var(--hd-text);
+}
+
+.tabActive {
+  color: var(--hd-text);
+  border-bottom-color: var(--hd-accent);
+}
+
+.tabCount {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(var(--hd-accent-rgb), 0.12);
+  color: var(--hd-accent);
+}
+
+/* ── Table ────────────────────────────────────────────── */
+.tableWrapper {
+  overflow-x: auto;
+  border-radius: 12px;
+  border: 1px solid var(--hd-border);
+  background: var(--hd-surface);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.table thead th {
+  padding: 11px 14px;
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--hd-sub);
+  border-bottom: 1px solid var(--hd-border);
+  white-space: nowrap;
+}
+
+.table thead th.right { text-align: right; }
+
+.tableRow {
+  border-bottom: 1px solid var(--hd-border);
+  transition: background 0.1s;
+}
+
+.tableRow:last-child { border-bottom: none; }
+.tableRow:hover { background: var(--hd-surface-alt); }
+
+.tableRow td {
+  padding: 10px 14px;
+  vertical-align: middle;
+}
+
+.right  { text-align: right; }
+.mono   { font-family: var(--font-mono); font-size: 12px; }
+.muted  { color: var(--hd-muted); }
+.small  { font-size: 11px; }
+
+/* ── User cell ────────────────────────────────────────── */
+.userCell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  flex-shrink: 0;
+  letter-spacing: 0.5px;
+}
+
+.userName {
+  font-weight: 500;
+  color: var(--hd-text);
+  font-size: 13px;
+}
+
+.userEmail {
+  font-size: 11px;
+  color: var(--hd-sub);
+}
+
+/* ── Role badge ───────────────────────────────────────── */
+.roleBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+/* ── Scope chips ──────────────────────────────────────── */
+.scopeChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.scopeChip {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--hd-border);
+  color: var(--hd-sub);
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+/* ── Status badge ─────────────────────────────────────── */
+.statusBadge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.statusDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ── Actions cell ─────────────────────────────────────── */
+.actionsCell {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.revokeBtn {
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--hd-border);
+  background: transparent;
+  color: var(--hd-red);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+}
+
+.revokeBtn:hover {
+  background: rgba(227, 94, 108, 0.1);
+  border-color: var(--hd-red);
+}
+
+/* ── Audit action ─────────────────────────────────────── */
+.auditAction {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--hd-text);
+}
+
+/* ── Empty state ──────────────────────────────────────── */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 64px 24px;
+  color: var(--hd-sub);
+  font-size: 14px;
+  border-radius: 12px;
+  border: 1px dashed var(--hd-border);
+}
+
+/* ── Field ────────────────────────────────────────────── */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fieldLabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+  color: var(--hd-sub);
+}
+
+.errorMsg {
+  font-size: 11px;
+  color: var(--hd-red);
+}
+
+/* ── Invite modal ─────────────────────────────────────── */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 15, 30, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  backdrop-filter: blur(4px);
+}
+
+.modal {
+  background: var(--hd-surface);
+  border: 1px solid var(--hd-border);
+  border-radius: 14px;
+  padding: 24px;
+  width: 420px;
+  max-width: calc(100vw - 32px);
+  box-shadow: var(--hd-shadow);
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.modalTitle {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  font-weight: 400;
+  color: var(--hd-text);
+  letter-spacing: -0.2px;
+}
+
+.modalClose {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.modalClose:hover {
+  background: var(--hd-surface-alt);
+}
+
+.modalForm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.modalInput {
+  width: 100%;
+  background: var(--hd-surface-alt);
+  border: 1px solid var(--hd-border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: var(--hd-text);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.12s;
+}
+
+.modalInput:focus {
+  border-color: var(--hd-blue);
+}
+
+.modalInput::placeholder {
+  color: var(--hd-sub);
+}
+
+.modalSelect {
+  width: 100%;
+  background: var(--hd-surface-alt);
+  border: 1px solid var(--hd-border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: var(--hd-text);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.12s;
+}
+
+.modalSelect:focus {
+  border-color: var(--hd-blue);
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 4px;
+}
