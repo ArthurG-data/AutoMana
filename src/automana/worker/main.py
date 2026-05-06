@@ -4,6 +4,7 @@ from automana.core.service_manager import ServiceManager
 from automana.worker.ressources import get_state, init_backend_runtime, shutdown_backend_runtime
 from automana.core.logging_config import configure_logging
 from automana.core.logging_context import set_task_id, set_request_id, set_service_path
+from automana.worker.celery_metrics import setup_celery_metrics
 import inspect, logging
 
 
@@ -18,6 +19,7 @@ app.conf.enable_utc = False
 @worker_process_init.connect
 def _init(**_):
     configure_logging()
+    setup_celery_metrics()
     init_backend_runtime()
 
 @worker_process_shutdown.connect
