@@ -60,8 +60,8 @@ CREATE INDEX idx_hourly_metrics_endpoint ON reporting.hourly_metrics (endpoint);
 CREATE INDEX idx_hourly_metrics_task_name ON reporting.hourly_metrics (task_name);
 
 -- Grant permissions to app roles
-GRANT USAGE ON SCHEMA reporting TO app_api, app_celery;
-GRANT SELECT, INSERT, UPDATE, DELETE ON reporting.hourly_metrics TO app_api, app_celery;
-GRANT USAGE, SELECT ON SEQUENCE reporting.hourly_metrics_id_seq TO app_api, app_celery;
+GRANT USAGE ON SCHEMA reporting TO app_backend, app_celery;
+GRANT SELECT, INSERT, UPDATE, DELETE ON reporting.hourly_metrics TO app_backend, app_celery;
+GRANT USAGE, SELECT ON SEQUENCE reporting.hourly_metrics_id_seq TO app_backend, app_celery;
 
 COMMIT;
