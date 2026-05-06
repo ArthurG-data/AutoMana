@@ -517,7 +517,7 @@ class EnhancedCardImportService:
         """Validate file exists and is accessible"""
         try:
             file_exist = await self.storage_service.file_exists(file_name)
-            print(file_exist)  # This will raise if file doesn't exist or is not accessible
+            logger.debug("file_check", extra={"file_exist": file_exist})
             if not file_exist:
                 logger.error("Card file not found", extra={"file_path": file_name})
                 return False
