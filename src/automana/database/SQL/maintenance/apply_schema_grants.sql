@@ -26,7 +26,8 @@ DECLARE
     'app_integration',
     'pricing',
     'markets',
-    'ops'
+    'ops',
+    'reporting'
   ];
 BEGIN
   -- ----------------------------------------------------------------
