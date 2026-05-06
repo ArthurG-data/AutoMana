@@ -209,8 +209,6 @@ async def search_cards(card_repository: CardReferenceRepository
                                                sort_by=sort_by,
                                                card_type=card_type,
                                                sort_order=sort_order)
-            if not raw:
-                raise card_exception.CardNotFoundError(f"No cards found for IDs {card_id}")
             cards = raw.get("cards", [])
             total_count = raw.get("total_count", 0)
             result = CardSearchResult(
@@ -226,8 +224,6 @@ async def search_cards(card_repository: CardReferenceRepository
         )
         return result
 
-    except card_exception.CardNotFoundError:
-        raise
     except Exception as e:
         raise card_exception.CardRetrievalError(f"Failed to retrieve cards: {str(e)}")
 
