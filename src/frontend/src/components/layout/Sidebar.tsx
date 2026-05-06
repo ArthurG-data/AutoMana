@@ -17,6 +17,7 @@ const NAV_ITEMS: NavItem[] = [
   { kind: 'eye',      label: 'Watchlist',  id: 'watchlist'  },
   { kind: 'list',     label: 'Journal',    id: 'journal'    },
   { kind: 'bell',     label: 'Alerts',     id: 'alerts'     },
+  { kind: 'shield',   label: 'eBay',       id: 'ebay'       },
   { kind: 'settings', label: 'Settings',   id: 'settings'   },
 ]
 

@@ -5,6 +5,7 @@ import { AppShell } from '../../components/layout/AppShell'
 import { TopBar } from '../../components/layout/TopBar'
 import { Button } from '../../components/ui/Button'
 import { Icon } from '../../components/design-system/Icon'
+import { QuotaStrip } from '../../features/ebay/components/QuotaStrip'
 import {
   MOCK_AUTHORIZED_USERS,
   MOCK_PENDING_INVITES,
@@ -29,63 +30,6 @@ export const Route = createFileRoute('/ebay/share')({
 export { EbaySharePage }
 
 type ShareTab = 'users' | 'pending' | 'revoked' | 'audit'
-
-// ── Quota strip ────────────────────────────────────────────────────────────
-
-function QuotaStrip() {
-  const totalUsed = MOCK_QUOTA_BY_USER.reduce((a, u) => a + u.calls, 0)
-  const pct = Math.round((totalUsed / DAILY_QUOTA_LIMIT) * 100)
-
-  return (
-    <div className={styles.quotaStrip}>
-      <div className={styles.quotaHeader}>
-        <div className={styles.quotaTitle}>
-          <Icon kind="chart" size={14} color="var(--hd-muted)" />
-          Daily API quota
-        </div>
-        <div className={styles.quotaNumbers}>
-          <span className={styles.quotaUsed}>{totalUsed.toLocaleString()}</span>
-          <span className={styles.quotaOf}> / {DAILY_QUOTA_LIMIT.toLocaleString()} calls</span>
-          <span className={styles.quotaPct}>{pct}%</span>
-        </div>
-      </div>
-
-      {/* Stacked bar */}
-      <div
-        className={styles.quotaBar}
-        role="img"
-        aria-label={`Quota usage: ${totalUsed} of ${DAILY_QUOTA_LIMIT} calls`}
-      >
-        {MOCK_QUOTA_BY_USER.map((u) => (
-          <div
-            key={u.userId}
-            className={styles.quotaSegment}
-            style={{
-              flex: u.calls,
-              background: u.color,
-            }}
-            title={`${u.name}: ${u.calls} calls`}
-          />
-        ))}
-        <div
-          className={styles.quotaSegmentEmpty}
-          style={{ flex: Math.max(DAILY_QUOTA_LIMIT - totalUsed, 0) }}
-        />
-      </div>
-
-      {/* Legend */}
-      <div className={styles.quotaLegend}>
-        {MOCK_QUOTA_BY_USER.map((u) => (
-          <div key={u.userId} className={styles.quotaLegendItem}>
-            <span className={styles.quotaLegendDot} style={{ background: u.color }} />
-            <span className={styles.quotaLegendName}>{u.name}</span>
-            <span className={styles.quotaLegendCalls}>{u.calls}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
 
 // ── Avatar ─────────────────────────────────────────────────────────────────
 

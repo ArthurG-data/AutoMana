@@ -104,6 +104,13 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD_FILE: str | None = None
     POSTGRES_PASSWORD: str | None = None
 
+    # Redis
+    redis_cache_url: str = Field(
+        default="redis://localhost:6379/1",
+        validation_alias="REDIS_CACHE_URL",
+        description="Redis URL for cache operations (separate from Celery broker)"
+    )
+
     # Storage
     data_dir: str = Field(default="/data/automana_data", alias="DATA_DIR")
 
