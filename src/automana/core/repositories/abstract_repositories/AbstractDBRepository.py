@@ -55,7 +55,7 @@ class AbstractRepository(Generic[T], ABC):
         """Execute a query that returns results"""
         if self.executor:
             logger.debug("Executing query with executor")
-            return await self.executor.execute_query(self.connection, query, *args)
+            return await self.executor.execute_query(self.connection, query, args)
         else:
             logger.debug("Executing query without executor")
             # Fallback to direct connection
@@ -65,7 +65,7 @@ class AbstractRepository(Generic[T], ABC):
         """Execute a command that doesn't return results"""
         if self.executor:
             logger.debug("Executing query with executor")
-            return await self.executor.execute_command(self.connection, query, *args)
+            return await self.executor.execute_command(self.connection, query, args)
         else:
             # Fallback to direct connection
             logger.debug("Executing query without executor")
