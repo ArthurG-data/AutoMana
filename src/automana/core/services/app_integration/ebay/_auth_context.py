@@ -24,7 +24,7 @@ from typing import Optional
 from uuid import UUID
 
 from automana.core.repositories.app_integration.ebay.auth_repository import EbayAuthRepository
-from automana.core.utils.redis_cache import redis_client
+from automana.core.utils.redis_cache import get_redis_client
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,8 @@ async def resolve_token(
 
     cache_key = _KEY.format(user_id=user_id, app_code=app_code)
 
-    cached = redis_client.get(cache_key)
+    _redis = await get_redis_client()
+    cached = await _redis.get(cache_key)
     if cached:
         logger.info("ebay_token_cache_hit", extra={"app_code": app_code, "user_id": str(user_id)})
         return json.loads(cached)["access_token"]
@@ -101,7 +102,8 @@ async def resolve_token(
         )
 
     expires_in = result.get("expires_in", 7200)
-    redis_client.setex(
+    _redis = await get_redis_client()
+    await _redis.setex(
         cache_key,
         max(expires_in - _MARGIN, _MARGIN),
         json.dumps({"access_token": access_token}),

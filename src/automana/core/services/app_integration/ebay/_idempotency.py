@@ -177,10 +177,16 @@ def get_idempotency_store() -> IdempotencyStore:
             return _store
         try:
             # Late import: keep redis out of the import path for tests that
-            # don't touch idempotency.
-            from automana.core.utils.redis_cache import redis_client
+            # don't touch idempotency. Uses a dedicated sync Redis client
+            # because RedisIdempotencyStore explicitly requires sync .get()/.set().
+            import redis as _redis_lib
+            from automana.core.settings import get_settings as _get_settings
 
-            _store = RedisIdempotencyStore(redis_client)
+            _settings = _get_settings()
+            _sync_client = _redis_lib.Redis.from_url(
+                _settings.redis_cache_url, decode_responses=False
+            )
+            _store = RedisIdempotencyStore(_sync_client)
             logger.debug(
                 "idempotency_store_initialised",
                 extra={"cache_backend": "redis"},

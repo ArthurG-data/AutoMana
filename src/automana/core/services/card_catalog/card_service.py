@@ -15,7 +15,7 @@ from automana.core.exceptions.service_layer_exceptions.card_catalogue import car
 from automana.core.service_registry import ServiceRegistry
 from automana.core.models.pipelines.mtg_stock import  MTGStockBatchStep
 from automana.core.storage import StorageService
-from automana.core.utils.redis_cache import get_from_cache, set_to_cache, redis_client
+from automana.core.utils.redis_cache import get_from_cache, set_to_cache, invalidate_cache_pattern
 
 logger = logging.getLogger(__name__)
 
@@ -180,7 +180,7 @@ async def search_cards(card_repository: CardReferenceRepository
         ).hexdigest()
         cache_key = f"card_search:full:{params_hash}"
 
-        cached = get_from_cache(cache_key)
+        cached = await get_from_cache(cache_key)
         if cached is not None:
             return CardSearchResult(
                 cards=[BaseCard.model_validate(c) for c in cached["cards"]],
@@ -217,7 +217,7 @@ async def search_cards(card_repository: CardReferenceRepository
             )
 
         cache_data = {"cards": [c.model_dump() for c in result.cards], "total_count": result.total_count}
-        set_to_cache(
+        await set_to_cache(
             cache_key,
             json.loads(BaseCard.to_json_safe(cache_data)),
             expiry_seconds=3600,
@@ -239,13 +239,13 @@ async def suggest_cards(
     **kwargs,
 ) -> CardSuggestionResponse:
     cache_key = f"card_search:suggest:{query.lower()}:{limit}"
-    cached = get_from_cache(cache_key)
+    cached = await get_from_cache(cache_key)
     if cached is not None:
         return CardSuggestionResponse(suggestions=[CardSuggestion(**s) for s in cached])
 
     rows = await card_repository.suggest(query=query, limit=limit)
     suggestions = [CardSuggestion(**r) for r in rows]
-    set_to_cache(cache_key, [s.model_dump(mode="json") for s in suggestions], expiry_seconds=600)
+    await set_to_cache(cache_key, [s.model_dump(mode="json") for s in suggestions], expiry_seconds=600)
     return CardSuggestionResponse(suggestions=suggestions)
 
 
@@ -315,11 +315,9 @@ async def get_card_price_history(
     db_repositories=[]
 )
 async def invalidate_search_cache(**kwargs) -> dict:
-    keys = list(redis_client.scan_iter("card_search:*"))
-    if keys:
-        redis_client.delete(*keys)
-    logger.info("Invalidated card search cache", extra={"keys_deleted": len(keys)})
-    return {"keys_deleted": len(keys)}
+    keys_deleted = await invalidate_cache_pattern("card_search:*")
+    logger.info("Invalidated card search cache", extra={"keys_deleted": keys_deleted})
+    return {"keys_deleted": keys_deleted}
 
 
 @ServiceRegistry.register(
