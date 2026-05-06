@@ -15,7 +15,7 @@ from automana.core.repositories.app_integration.ebay.ApiAuth_repository import E
 from automana.core.repositories.app_integration.ebay.app_repository import EbayAppRepository
 from automana.core.repositories.app_integration.ebay.auth_repository import EbayAuthRepository
 from automana.core.service_registry import ServiceRegistry
-from automana.core.utils.redis_cache import redis_client
+from automana.core.utils.redis_cache import get_redis_client
 
 logger = logging.getLogger(__name__)
 
@@ -145,7 +145,8 @@ async def handle_callback(
 
     # Cache the access token in Redis — never written to disk.
     cache_key = _ACCESS_KEY.format(user_id=user_id, app_code=app_code)
-    redis_client.setex(
+    _redis = await get_redis_client()
+    await _redis.setex(
         cache_key,
         max(token_response.expires_in - _MARGIN, _MARGIN),
         json.dumps({"access_token": token_response.access_token}),
@@ -217,7 +218,8 @@ async def exchange_refresh_token(
 
     # Cache in Redis — access token never touches disk.
     cache_key = _ACCESS_KEY.format(user_id=user_id, app_code=app_code)
-    redis_client.setex(
+    _redis = await get_redis_client()
+    await _redis.setex(
         cache_key,
         max(expires_in - _MARGIN, _MARGIN),
         json.dumps({"access_token": access_token}),

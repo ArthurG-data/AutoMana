@@ -15,7 +15,7 @@ from automana.core.exceptions.service_layer_exceptions.card_catalogue import car
 from automana.core.service_registry import ServiceRegistry
 from automana.core.models.pipelines.mtg_stock import  MTGStockBatchStep
 from automana.core.storage import StorageService
-from automana.core.utils.redis_cache import get_from_cache, set_to_cache, redis_client
+from automana.core.utils.redis_cache import get_from_cache, set_to_cache, invalidate_cache_pattern
 
 logger = logging.getLogger(__name__)
 
@@ -180,7 +180,7 @@ async def search_cards(card_repository: CardReferenceRepository
         ).hexdigest()
         cache_key = f"card_search:full:{params_hash}"
 
-        cached = get_from_cache(cache_key)
+        cached = await get_from_cache(cache_key)
         if cached is not None:
             return CardSearchResult(
                 cards=[BaseCard.model_validate(c) for c in cached["cards"]],
@@ -209,8 +209,6 @@ async def search_cards(card_repository: CardReferenceRepository
                                                sort_by=sort_by,
                                                card_type=card_type,
                                                sort_order=sort_order)
-            if not raw:
-                raise card_exception.CardNotFoundError(f"No cards found for IDs {card_id}")
             cards = raw.get("cards", [])
             total_count = raw.get("total_count", 0)
             result = CardSearchResult(
@@ -219,15 +217,13 @@ async def search_cards(card_repository: CardReferenceRepository
             )
 
         cache_data = {"cards": [c.model_dump() for c in result.cards], "total_count": result.total_count}
-        set_to_cache(
+        await set_to_cache(
             cache_key,
             json.loads(BaseCard.to_json_safe(cache_data)),
             expiry_seconds=3600,
         )
         return result
 
-    except card_exception.CardNotFoundError:
-        raise
     except Exception as e:
         raise card_exception.CardRetrievalError(f"Failed to retrieve cards: {str(e)}")
 
@@ -243,13 +239,13 @@ async def suggest_cards(
     **kwargs,
 ) -> CardSuggestionResponse:
     cache_key = f"card_search:suggest:{query.lower()}:{limit}"
-    cached = get_from_cache(cache_key)
+    cached = await get_from_cache(cache_key)
     if cached is not None:
         return CardSuggestionResponse(suggestions=[CardSuggestion(**s) for s in cached])
 
     rows = await card_repository.suggest(query=query, limit=limit)
     suggestions = [CardSuggestion(**r) for r in rows]
-    set_to_cache(cache_key, [s.model_dump(mode="json") for s in suggestions], expiry_seconds=600)
+    await set_to_cache(cache_key, [s.model_dump(mode="json") for s in suggestions], expiry_seconds=600)
     return CardSuggestionResponse(suggestions=suggestions)
 
 
@@ -280,6 +276,12 @@ async def get_card_price_history(
     Raises:
         CardRetrievalError: On repository-level failures
     """
+    cache_key = f"price_history:{card_id}:{finish}:{days_back}:{aggregation}"
+    cached_result = await get_from_cache(cache_key)
+    if cached_result is not None:
+        logger.debug("price_cache_hit", extra={"card_id": str(card_id), "finish": finish})
+        return PriceHistoryResponse.model_validate(cached_result)
+
     try:
         # Calculate date range
         end_date = date.today()
@@ -293,7 +295,7 @@ async def get_card_price_history(
         result = await card_repository.get_price_history(card_id, start_date, end_date, finish=finish, aggregation=aggregation)
 
         # Build response
-        return PriceHistoryResponse(
+        response = PriceHistoryResponse(
             price_history_list_avg=result["list_avg"],
             price_history_sold_avg=result["sold_avg"],
             date_range=DateRange(
@@ -302,6 +304,8 @@ async def get_card_price_history(
                 days_back=days_back
             )
         )
+        await set_to_cache(cache_key, response.model_dump(mode="json"), expiry_seconds=86400)  # 24 hour TTL
+        return response
     except Exception as e:
         raise card_exception.CardRetrievalError(f"Failed to retrieve price history: {str(e)}")
 
@@ -311,11 +315,9 @@ async def get_card_price_history(
     db_repositories=[]
 )
 async def invalidate_search_cache(**kwargs) -> dict:
-    keys = list(redis_client.scan_iter("card_search:*"))
-    if keys:
-        redis_client.delete(*keys)
-    logger.info("Invalidated card search cache", extra={"keys_deleted": len(keys)})
-    return {"keys_deleted": len(keys)}
+    keys_deleted = await invalidate_cache_pattern("card_search:*")
+    logger.info("Invalidated card search cache", extra={"keys_deleted": keys_deleted})
+    return {"keys_deleted": keys_deleted}
 
 
 @ServiceRegistry.register(
@@ -509,7 +511,7 @@ class EnhancedCardImportService:
         """Validate file exists and is accessible"""
         try:
             file_exist = await self.storage_service.file_exists(file_name)
-            print(file_exist)  # This will raise if file doesn't exist or is not accessible
+            logger.debug("file_check", extra={"file_exist": file_exist})
             if not file_exist:
                 logger.error("Card file not found", extra={"file_path": file_name})
                 return False

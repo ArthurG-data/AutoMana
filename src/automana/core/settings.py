@@ -54,6 +54,28 @@ def read_db_password(password :str | None = None,
         "DB_PASSWORD (env var), or pass db_password parameter"
     )  # Or fallback to another method
 
+class MetricsSettings(BaseSettings):
+    """Configuration for metrics collection and reporting."""
+
+    model_config = SettingsConfigDict(
+        env_file_encoding="utf-8",
+        extra="ignore",
+        case_sensitive=False,
+        env_prefix="METRICS_",
+    )
+
+    HOURLY_FLUSH_ENABLED: bool = Field(default=True, description="Enable hourly metrics flush")
+    HOURLY_FLUSH_SCHEDULE: str = Field(default="0 * * * *", description="Cron schedule for hourly flush (every hour at minute 0)")
+
+    WEEKLY_REPORT_ENABLED: bool = Field(default=True, description="Enable weekly Discord report")
+    WEEKLY_REPORT_SCHEDULE: str = Field(default="0 21 * * 0", description="Cron schedule for weekly report (Sunday 21:00 UTC)")
+
+    DISCORD_WEBHOOK_URL: str = Field(default="", description="Discord webhook URL for metrics reports")
+
+    METRICS_RETENTION_DAYS: int = Field(default=60, description="Days to retain metrics (cleanup removes older data)")
+    CLEANUP_SCHEDULE: str = Field(default="0 2 * * 0", description="Cron schedule for cleanup (Sunday 02:00 UTC)")
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file_encoding="utf-8",
@@ -81,6 +103,9 @@ class Settings(BaseSettings):
     # Database pool settings
     db_pool_min_conn: int = Field(default=1, alias="DB_POOL_MIN_CONN")
     db_pool_max_conn: int = Field(default=4, alias="DB_POOL_MAX_CONN")
+
+    # Metrics
+    metrics: MetricsSettings = Field(default_factory=MetricsSettings)
 
     # eBay
     ebay_app_id: str | None = None

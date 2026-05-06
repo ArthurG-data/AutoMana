@@ -1,7 +1,11 @@
-﻿from automana.core.models.ebay import listings
+import logging
+
+from automana.core.models.ebay import listings
 import xml.etree.ElementTree as ET
 from typing import List
 import xmltodict
+
+logger = logging.getLogger(__name__)
 
 def clean_ebay_data(data):
     def strip_keys(obj):
@@ -55,7 +59,7 @@ async def parse_multiple_items(items_data) -> List[listings.ItemModel]:
             flattened = clean_ebay_data(raw_item )
             results.append(listings.ItemModel(**flattened))
         except Exception as e:
-            print(f"Error parsing item: {e}")
+            logger.error("item_parse_error", extra={"error": str(e)})
 
     return results
 

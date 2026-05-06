@@ -49,6 +49,8 @@ Stage selection (mutually exclusive groups):
   --only <stage>       Run only this stage. Incompatible with --from/--until.
   --from <stage>       Start here (inclusive).
   --until <stage>      Stop here (inclusive).
+  --preserve-data      Skip DROP DATABASE; apply schemas + migrations only.
+                       Keeps all existing data and pricing work.
   --dry-run            Print plan + container preflight, then exit
                        without touching the DB or dispatching anything.
   -h, --help           This help.
@@ -75,6 +77,7 @@ SKIP_REBUILD=0
 ONLY_STAGE=""
 FROM_STAGE=""
 UNTIL_STAGE=""
+PRESERVE_DATA=0
 DRY_RUN=0
 
 while [[ $# -gt 0 ]]; do
@@ -83,6 +86,7 @@ while [[ $# -gt 0 ]]; do
     --only)           ONLY_STAGE="${2:-}"; shift 2 ;;
     --from)           FROM_STAGE="${2:-}"; shift 2 ;;
     --until)          UNTIL_STAGE="${2:-}"; shift 2 ;;
+    --preserve-data)  PRESERVE_DATA=1; shift ;;
     --dry-run)        DRY_RUN=1; shift ;;
     -h|--help)        usage; exit 0 ;;
     *)                echo "ERROR: unknown argument: $1" >&2; usage >&2; exit 2 ;;
@@ -427,30 +431,50 @@ _run_stage() {
 # can tee each block's output to its own log file.
 do_rebuild() {
   echo "== Terminating connections to $DBNAME =="
-  $EXEC psql -U "$SUPERUSER" -d postgres -c "
-  SELECT pg_terminate_backend(pid)
-  FROM pg_stat_activity
-  WHERE datname = '$DBNAME' AND pid <> pg_backend_pid();"
+  if [[ $PRESERVE_DATA -eq 1 ]]; then
+    echo "== Preserving existing data: skipping DROP DATABASE =="
+    echo "== Applying schemas (idempotent CREATE OR REPLACE) =="
+    for f in "$SCHEMAS_DIR"/*.sql; do
+      [[ "$(basename "$f")" == "integrity_checks.sql" ]] && continue
+      echo "  → $(basename "$f")"
+      $EXEC psql -v ON_ERROR_STOP=1 -U "$DBOWNER" -d "$DBNAME" < "$f" > /dev/null || true
+    done
 
-  echo "== Dropping $DBNAME =="
-  $EXEC psql -U "$SUPERUSER" -d postgres -c "DROP DATABASE IF EXISTS $DBNAME;"
+    echo "== Applying schema grants =="
+    $EXEC psql -v ON_ERROR_STOP=1 -U "$SUPERUSER" -d "$DBNAME" \
+      < src/automana/database/SQL/maintenance/apply_schema_grants.sql > /dev/null || true
 
-  echo "== Recreating $DBNAME (owner=$DBOWNER) =="
-  $EXEC psql -U "$SUPERUSER" -d postgres -c "CREATE DATABASE $DBNAME OWNER $DBOWNER;"
+    echo "== Applying migrations (incremental updates) =="
+    for f in "$MIGRATIONS_DIR"/*.sql; do
+      echo "  → $(basename "$f")"
+      $EXEC psql -v ON_ERROR_STOP=1 -U "$DBOWNER" -d "$DBNAME" < "$f" > /dev/null || true
+    done
+  else
+    $EXEC psql -U "$SUPERUSER" -d postgres -c "
+    SELECT pg_terminate_backend(pid)
+    FROM pg_stat_activity
+    WHERE datname = '$DBNAME' AND pid <> pg_backend_pid();"
 
-  echo "== Applying schemas =="
-  for f in "$SCHEMAS_DIR"/*.sql; do
-    [[ "$(basename "$f")" == "integrity_checks.sql" ]] && continue
-    echo "  → $(basename "$f")"
-    $EXEC psql -v ON_ERROR_STOP=1 -U "$DBOWNER" -d "$DBNAME" < "$f" > /dev/null
-  done
+    echo "== Dropping $DBNAME =="
+    $EXEC psql -U "$SUPERUSER" -d postgres -c "DROP DATABASE IF EXISTS $DBNAME;"
 
-  echo "== Applying schema grants =="
-  $EXEC psql -v ON_ERROR_STOP=1 -U "$SUPERUSER" -d "$DBNAME" \
-    < src/automana/database/SQL/maintenance/apply_schema_grants.sql > /dev/null
+    echo "== Recreating $DBNAME (owner=$DBOWNER) =="
+    $EXEC psql -U "$SUPERUSER" -d postgres -c "CREATE DATABASE $DBNAME OWNER $DBOWNER;"
 
-  echo "== Skipping migrations =="
-  echo "  (migrations/ not replayed — schema files are authoritative for rebuilds.)"
+    echo "== Applying schemas =="
+    for f in "$SCHEMAS_DIR"/*.sql; do
+      [[ "$(basename "$f")" == "integrity_checks.sql" ]] && continue
+      echo "  → $(basename "$f")"
+      $EXEC psql -v ON_ERROR_STOP=1 -U "$DBOWNER" -d "$DBNAME" < "$f" > /dev/null
+    done
+
+    echo "== Applying schema grants =="
+    $EXEC psql -v ON_ERROR_STOP=1 -U "$SUPERUSER" -d "$DBNAME" \
+      < src/automana/database/SQL/maintenance/apply_schema_grants.sql > /dev/null
+
+    echo "== Skipping migrations =="
+    echo "  (migrations/ not replayed — schema files are authoritative for rebuilds.)"
+  fi
 }
 
 do_scryfall() {
