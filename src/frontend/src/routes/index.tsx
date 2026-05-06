@@ -13,10 +13,10 @@ export const Route = createFileRoute('/')({
   component: LandingPage,
 })
 
-const TILES: { kind: IconKind; title: string; sub: string }[] = [
-  { kind: 'chart',  title: 'Live price history',    sub: 'Every printing, every finish, every day.' },
-  { kind: 'wallet', title: 'Track your collection', sub: 'Cost basis, P/L, and reprint risk.'        },
-  { kind: 'bag',    title: 'List on eBay',           sub: 'Smart pricing & one-click listing.'       },
+const TILES: { kind: IconKind; title: string; sub: string; to: string }[] = [
+  { kind: 'chart',  title: 'Live price history',    sub: 'Every printing, every finish, every day.', to: '/search'     },
+  { kind: 'wallet', title: 'Track your collection', sub: 'Cost basis, P/L, and reprint risk.',       to: '/collection' },
+  { kind: 'bag',    title: 'List on eBay',           sub: 'Smart pricing & one-click listing.',       to: '/listings'   },
 ]
 
 const QUICK_SEARCHES: string[] = []
@@ -83,13 +83,18 @@ function LandingPage() {
 
       <div className={styles.tiles}>
         {TILES.map((t) => (
-          <div key={t.kind} className={styles.tile}>
+          <button
+            key={t.kind}
+            className={styles.tile}
+            onClick={() => navigate({ to: t.to as any })}
+            aria-label={t.title}
+          >
             <div className={styles.tileIcon}>
               <Icon kind={t.kind} size={16} color="var(--hd-accent)" />
             </div>
             <div className={styles.tileTitle}>{t.title}</div>
             <div className={styles.tileSub}>{t.sub}</div>
-          </div>
+          </button>
         ))}
       </div>
     </div>

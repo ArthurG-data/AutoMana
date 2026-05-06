@@ -104,6 +104,17 @@ export function UserMenu() {
           <button
             className={styles.menuItem}
             role="menuitem"
+            onClick={() => {
+              setOpen(false)
+              navigate({ to: '/listings' })
+            }}
+          >
+            Listings
+          </button>
+
+          <button
+            className={styles.menuItem}
+            role="menuitem"
             onClick={handleLogout}
           >
             Logout

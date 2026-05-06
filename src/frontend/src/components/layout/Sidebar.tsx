@@ -40,10 +40,13 @@ export function Sidebar({ active }: SidebarProps) {
       {NAV_ITEMS.map((item) => {
         const isActive = item.id === active
         return (
-          <div
+          <button
             key={item.id}
             className={[styles.navItem, isActive ? styles.navItemActive : ''].join(' ')}
             title={item.label}
+            aria-label={item.label}
+            aria-current={isActive ? 'page' : undefined}
+            onClick={() => navigate({ to: `/${item.id}` as any })}
           >
             {isActive && <div className={styles.activePill} />}
             <Icon
@@ -52,7 +55,7 @@ export function Sidebar({ active }: SidebarProps) {
               color={isActive ? 'var(--hd-text)' : 'var(--hd-muted)'}
               strokeWidth={1.6}
             />
-          </div>
+          </button>
         )
       })}
     </nav>

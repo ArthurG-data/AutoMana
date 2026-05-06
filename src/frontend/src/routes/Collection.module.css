@@ -71,6 +71,19 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+}
+
+.metricCardLink {
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.metricCardLink:hover {
+  border-color: var(--hd-accent);
+  background: var(--hd-surface-alt);
 }
 
 .metricLabel {
