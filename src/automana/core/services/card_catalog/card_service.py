@@ -280,6 +280,12 @@ async def get_card_price_history(
     Raises:
         CardRetrievalError: On repository-level failures
     """
+    cache_key = f"price_history:{card_id}:{finish}:{days_back}:{aggregation}"
+    cached_result = await get_from_cache(cache_key)
+    if cached_result is not None:
+        logger.debug("price_cache_hit", extra={"card_id": str(card_id), "finish": finish})
+        return PriceHistoryResponse.model_validate(cached_result)
+
     try:
         # Calculate date range
         end_date = date.today()
@@ -293,7 +299,7 @@ async def get_card_price_history(
         result = await card_repository.get_price_history(card_id, start_date, end_date, finish=finish, aggregation=aggregation)
 
         # Build response
-        return PriceHistoryResponse(
+        response = PriceHistoryResponse(
             price_history_list_avg=result["list_avg"],
             price_history_sold_avg=result["sold_avg"],
             date_range=DateRange(
@@ -302,6 +308,8 @@ async def get_card_price_history(
                 days_back=days_back
             )
         )
+        await set_to_cache(cache_key, response.model_dump(mode="json"), expiry_seconds=86400)  # 24 hour TTL
+        return response
     except Exception as e:
         raise card_exception.CardRetrievalError(f"Failed to retrieve price history: {str(e)}")
 
