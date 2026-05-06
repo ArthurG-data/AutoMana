@@ -242,15 +242,20 @@ Important settings include:
 
 ## Caching
 
-**Application-level caching** uses Redis via a thin wrapper in [`src/automana/core/utils/redis_cache.py`](../src/automana/core/utils/redis_cache.py):
+**Application-level caching** uses async Redis via a thin wrapper in [`src/automana/core/utils/redis_cache.py`](../src/automana/core/utils/redis_cache.py).
 
-- **Card search suggest** — 10-minute cache (TTL) for autocomplete queries; key is SHA256(query, limit)
-- **Card search full** — 60-minute cache for full search queries; key is SHA256 of all filter parameters
-- **Other services** — Register caches in the service via `service_manager.execute_service("path.to.cache_key", ...)`
+See [`docs/CACHING.md`](CACHING.md) for the complete caching architecture, including:
+- Cache surfaces (card search, price history, eBay tokens)
+- API reference (`get_from_cache`, `set_to_cache`, `invalidate_cache_pattern`)
+- Error handling and graceful degradation
+- Key naming conventions
+- How to add new caches
 
-**Configuration:** `BROKER_URL` (e.g. `redis://redis:6379/0`) comes from environment; no hardcoded defaults.
-
-**Cache invalidation:** Pipeline tasks (`daily_scryfall_data_pipeline`, `daily_mtgjson_data_pipeline`) call `card_catalog.card_search.invalidate` and `card_catalog.card_search.refresh` after bulk card imports to clear and rebuild search indexes.
+**Quick reference:**
+- **Configuration:** `REDIS_CACHE_URL` env var (defaults to `redis://localhost:6379/1`)
+- **Async-first:** All operations are non-blocking (safe for event loops)
+- **Error handling:** Cache misses on errors; no 500 responses
+- **Invalidation:** Pipeline tasks call `invalidate_cache_pattern()` after bulk imports
 
 ## Deployment
 
