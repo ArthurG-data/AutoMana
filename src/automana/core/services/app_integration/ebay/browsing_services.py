@@ -1,5 +1,3 @@
-﻿import xml
-from fastapi import requests
 import logging
 from httpx import AsyncClient, HTTPStatusError
 from typing import Optional, List
