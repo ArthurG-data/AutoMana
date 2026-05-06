@@ -212,6 +212,9 @@ ServiceRegistry.register_db_repository(
     "automana.core.repositories.ops.pipeline_health_snapshot_repository",
     "PipelineHealthSnapshotRepository",
 )
+ServiceRegistry.register_db_repository(
+    "metrics", "automana.core.repositories.metrics_repositories.metrics_repository", "MetricsRepository"
+)
 
 ServiceRegistry.register_db_repository(
     "mtgjson", "automana.core.repositories.app_integration.mtgjson.mtgjson_repository", "MtgjsonRepository"
