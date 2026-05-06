@@ -1,0 +1,178 @@
+/* src/frontend/src/routes/ebay/EbayHub.module.css */
+
+/* ── Page wrapper ─────────────────────────────────────── */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-height: 100%;
+}
+
+/* ── Connection badge (TopBar actions slot) ────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+}
+
+.badgeConnected {
+  color: var(--hd-accent);
+  border-color: rgba(var(--hd-accent-rgb), 0.3);
+  background: rgba(var(--hd-accent-rgb), 0.08);
+}
+
+.badgeDisconnected {
+  color: var(--hd-red);
+  border-color: rgba(227, 94, 108, 0.3);
+  background: rgba(227, 94, 108, 0.08);
+}
+
+.badgeDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: currentColor;
+}
+
+/* ── Warning banner ───────────────────────────────────── */
+.warningBanner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(245, 168, 60, 0.3);
+  background: rgba(245, 168, 60, 0.06);
+  font-size: 13px;
+  color: var(--hd-muted);
+  line-height: 1;
+}
+
+.warningLink {
+  color: var(--hd-amber);
+  text-decoration: none;
+  font-weight: 500;
+  margin-left: auto;
+  font-size: 12px;
+  transition: opacity 0.12s;
+}
+
+.warningLink:hover {
+  opacity: 0.75;
+}
+
+/* ── Feature cards grid ───────────────────────────────── */
+.cardsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 860px) {
+  .cardsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.featureCard {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 20px;
+  background: var(--hd-surface);
+  border: 1px solid var(--hd-border);
+  border-radius: 12px;
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.12s, border-color 0.12s, transform 0.1s;
+  cursor: pointer;
+}
+
+.featureCard:hover {
+  background: var(--hd-surface-alt);
+  border-color: rgba(var(--hd-accent-rgb), 0.3);
+  transform: translateY(-1px);
+}
+
+.featureCardIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(var(--hd-accent-rgb), 0.08);
+  flex-shrink: 0;
+}
+
+.featureCardBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.featureCardTitle {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--hd-text);
+  margin-bottom: 3px;
+}
+
+.featureCardSubtitle {
+  font-size: 11px;
+  color: var(--hd-sub);
+  line-height: 1.4;
+}
+
+/* ── Stats strip ──────────────────────────────────────── */
+.statsStrip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  background: var(--hd-surface);
+  border: 1px solid var(--hd-border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+@media (max-width: 860px) {
+  .statsStrip {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.statTile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 20px;
+  border-right: 1px solid var(--hd-border);
+}
+
+.statTile:last-child {
+  border-right: none;
+}
+
+.statLabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+  color: var(--hd-sub);
+}
+
+.statValue {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--hd-text);
+  letter-spacing: -0.2px;
+}
