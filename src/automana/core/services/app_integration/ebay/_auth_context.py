@@ -17,14 +17,13 @@ to hold an explicit transaction; that upgrade is a follow-up task.
 """
 from __future__ import annotations
 
-import json
 import logging
 from datetime import datetime, timedelta
 from typing import Optional
 from uuid import UUID
 
 from automana.core.repositories.app_integration.ebay.auth_repository import EbayAuthRepository
-from automana.core.utils.redis_cache import redis_client
+from automana.core.utils.redis_cache import get_from_cache, set_to_cache
 
 logger = logging.getLogger(__name__)
 
@@ -47,10 +46,10 @@ async def resolve_token(
 
     cache_key = _KEY.format(user_id=user_id, app_code=app_code)
 
-    cached = redis_client.get(cache_key)
+    cached = await get_from_cache(cache_key)
     if cached:
         logger.info("ebay_token_cache_hit", extra={"app_code": app_code, "user_id": str(user_id)})
-        return json.loads(cached)["access_token"]
+        return cached["access_token"]
 
     record = await auth_repository.fetch_refresh_token(user_id=user_id, app_code=app_code)
     if not record:
@@ -101,10 +100,10 @@ async def resolve_token(
         )
 
     expires_in = result.get("expires_in", 7200)
-    redis_client.setex(
+    await set_to_cache(
         cache_key,
-        max(expires_in - _MARGIN, _MARGIN),
-        json.dumps({"access_token": access_token}),
+        {"access_token": access_token},
+        expiry_seconds=max(expires_in - _MARGIN, _MARGIN),
     )
     logger.info("ebay_token_cache_populated", extra={"app_code": app_code, "user_id": str(user_id)})
 

@@ -1,14 +1,12 @@
 // src/frontend/src/routes/ebay/index.tsx
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { AppShell } from '../../components/layout/AppShell'
 import { TopBar } from '../../components/layout/TopBar'
 import { Icon, type IconKind } from '../../components/design-system/Icon'
 import { QuotaStrip } from '../../features/ebay/components/QuotaStrip'
-import {
-  MOCK_CONNECTED_STATUS,
-  type ConnectionStatus,
-} from '../../features/ebay/mockEbayApp'
+import { verifyEbayConnection } from '../../features/ebay/api'
+import { type ConnectionStatus } from '../../features/ebay/mockEbayApp'
 import { MOCK_AUTHORIZED_USERS } from '../../features/ebay/mockAuthorizedUsers'
 import styles from './EbayHub.module.css'
 
@@ -69,8 +67,44 @@ function StatTile({ label, value, valueColor }: StatTileProps) {
   )
 }
 
+const DISCONNECTED_DEFAULT: ConnectionStatus = {
+  connected: false,
+  environment: 'production',
+  lastVerified: null,
+  tokenExpires: null,
+  dailyQuota: 5000,
+  usedToday: 0,
+}
+
 function EbayHubPage() {
-  const status: ConnectionStatus = MOCK_CONNECTED_STATUS
+  const [status, setStatus] = useState<ConnectionStatus>(DISCONNECTED_DEFAULT)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const appCode = localStorage.getItem('ebay_app_code')
+    if (!appCode) {
+      setLoading(false)
+      return
+    }
+
+    verifyEbayConnection(appCode)
+      .then((data) => {
+        setStatus({
+          connected: true,
+          environment: 'production',
+          lastVerified: new Date().toISOString(),
+          tokenExpires: data.expires_on ?? null,
+          dailyQuota: 5000,
+          usedToday: 0,
+        })
+      })
+      .catch(() => {
+        setStatus({ ...DISCONNECTED_DEFAULT })
+      })
+      .finally(() => {
+        setLoading(false)
+      })
+  }, [])
 
   return (
     <AppShell active="settings">
