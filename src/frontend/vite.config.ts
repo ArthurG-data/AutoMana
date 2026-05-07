@@ -14,5 +14,11 @@ export default defineConfig({
     proxy: {
       '/api': 'http://backend:8000',
     },
+    hmr: process.env.VITE_HMR_HOST
+      ? {
+          host: process.env.VITE_HMR_HOST,
+          protocol: 'wss',
+        }
+      : undefined,
   },
 })
