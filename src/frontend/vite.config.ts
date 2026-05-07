@@ -20,5 +20,11 @@ export default defineConfig({
           protocol: 'wss',
         }
       : undefined,
+    middlewares: [
+      (req, res, next) => {
+        res.removeHeader('X-Content-Type-Options')
+        next()
+      },
+    ],
   },
 })
