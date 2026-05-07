@@ -22,7 +22,13 @@ export default defineConfig({
       : undefined,
     middlewares: [
       (req, res, next) => {
-        res.removeHeader('X-Content-Type-Options')
+        const originalSetHeader = res.setHeader
+        res.setHeader = function(name, value) {
+          if (name.toLowerCase() === 'x-content-type-options') {
+            return res
+          }
+          return originalSetHeader.call(this, name, value)
+        }
         next()
       },
     ],
