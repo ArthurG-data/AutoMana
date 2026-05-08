@@ -21,9 +21,9 @@ describe('parseCardTitle', () => {
   })
 
   it('handles set code with digits (e.g. MH2)', () => {
-    const { cardName, setInfo } = parseCardTitle('Sheoldred, the Apocalypse DMU NM MTG')
+    const { cardName, setInfo } = parseCardTitle('Sheoldred, the Apocalypse MH2 NM MTG')
     expect(cardName).toBe('Sheoldred, the Apocalypse')
-    expect(setInfo).toBe('DMU')
+    expect(setInfo).toBe('MH2')
   })
 
   it('falls back to full title when no suffix tokens match', () => {
