@@ -47,7 +47,7 @@ from automana.core.services.app_integration.ebay._idempotency import (
 
 logger = logging.getLogger(__name__)
 
-# eBay UK site id. Magic numbers are rude; named constants are manners.
+# eBay AU (Australia) site id. Magic numbers are rude; named constants are manners.
 DEFAULT_MARKETPLACE_ID: str = "15"
 
 
