@@ -1,6 +1,8 @@
 from automana.core.models.ebay import listings as listings_model
 from fastapi import APIRouter, HTTPException, Query, Header
-from typing import Annotated, Optional
+from pydantic import BaseModel
+from typing import Annotated, Any, Dict, Optional
+from uuid import UUID
 from automana.api.dependancies.service_deps import ServiceManagerDep
 from automana.api.dependancies.auth.users import CurrentUserDep
 from automana.api.schemas.StandardisedQueryResponse import (
@@ -8,6 +10,20 @@ from automana.api.schemas.StandardisedQueryResponse import (
     PaginatedResponse,
     PaginationInfo,
 )
+
+
+class BuildListingRequest(BaseModel):
+    card_version_id: UUID
+    condition: str
+    quantity: int
+    price_aud: str
+    foil: bool = False
+    lang: str = "en"
+    shipping_cost_aud: str = "0.00"
+    condition_note: Optional[str] = None
+    description_mode: str = "full"
+    brand_config: Optional[Dict[str, Any]] = None
+    marketplace_id: str = "15"
 
 ebay_listing_router = APIRouter(prefix='/listing', tags=['listings'])
 
@@ -28,6 +44,41 @@ async def create_listing(
             user_id=user.unique_id,
             app_code=app_code,
             item=listing,
+            idempotency_key=idempotency_key,
+        )
+        return ApiResponse(data=result, message="Listing created successfully")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@ebay_listing_router.post("/from-card", description="Build and post a listing from a card version")
+async def build_and_create_listing(
+    body: BuildListingRequest,
+    user: CurrentUserDep,
+    service_manager: ServiceManagerDep,
+    app_code: str = Query(..., description="eBay application code"),
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
+):
+    if not idempotency_key:
+        raise HTTPException(status_code=400, detail="Idempotency-Key header is required")
+    try:
+        result = await service_manager.execute_service(
+            "integrations.ebay.selling.listings.build_and_create",
+            user_id=user.unique_id,
+            app_code=app_code,
+            card_version_id=body.card_version_id,
+            condition=body.condition,
+            quantity=body.quantity,
+            price_aud=body.price_aud,
+            foil=body.foil,
+            lang=body.lang,
+            shipping_cost_aud=body.shipping_cost_aud,
+            condition_note=body.condition_note,
+            description_mode=body.description_mode,
+            brand_config=body.brand_config,
+            marketplace_id=body.marketplace_id,
             idempotency_key=idempotency_key,
         )
         return ApiResponse(data=result, message="Listing created successfully")
