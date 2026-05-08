@@ -536,3 +536,34 @@
 .helpLink:hover {
   color: var(--hd-blue);
 }
+
+/* ── Environment segmented control ───────────────────────── */
+.envToggle {
+  display: flex;
+  border: 1px solid var(--hd-border);
+  border-radius: 6px;
+  overflow: hidden;
+  width: fit-content;
+}
+
+.envOption {
+  padding: 6px 16px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: transparent;
+  border: none;
+  color: var(--hd-sub);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.envOption + .envOption {
+  border-left: 1px solid var(--hd-border);
+}
+
+.envOptionActive {
+  background: var(--hd-accent);
+  color: var(--hd-bg);
+}

@@ -1,5 +1,5 @@
 // src/frontend/src/routes/ebay/setup.tsx
-import React, { useState, useRef } from 'react'
+import React, { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { AppShell } from '../../components/layout/AppShell'
 import { TopBar } from '../../components/layout/TopBar'
@@ -8,14 +8,16 @@ import { Toggle } from '../../components/ui/Toggle'
 import { Icon } from '../../components/design-system/Icon'
 import {
   MOCK_OAUTH_SCOPES,
-  MOCK_REDIRECT_URI,
+  REDIRECT_URI,
   SETUP_STEPS,
   HELP_LINKS,
   BYOA_BENEFITS,
   MOCK_CONNECTION_STATUS,
   type OAuthScope,
   type ConnectionStatus,
+  type RegistrationResult,
 } from '../../features/ebay/mockEbayApp'
+import { registerEbayApp } from '../../features/ebay/api'
 import styles from './Setup.module.css'
 
 export const Route = createFileRoute('/ebay/setup')({
@@ -54,8 +56,8 @@ function StepCreateApp() {
           (e.g., "AutoMana").
         </li>
         <li>
-          Copy the <strong>App ID (Client ID)</strong>, <strong>Cert ID</strong>, and{' '}
-          <strong>Dev ID</strong> — you'll paste them in the next step.
+          Copy the <strong>App ID (Client ID)</strong> and <strong>Cert ID</strong> — you'll
+          paste them in the next step.
         </li>
       </ol>
       <div className={styles.infoBox}>
@@ -71,30 +73,40 @@ function StepCreateApp() {
 
 // ── Step 2: Paste credentials ──────────────────────────────────────────────
 
+type Environment = 'SANDBOX' | 'PRODUCTION'
+
 interface StepCredentialsProps {
+  appName: string
+  description: string
+  environment: Environment
   appId: string
   certId: string
-  devId: string
+  onAppNameChange: (v: string) => void
+  onDescriptionChange: (v: string) => void
+  onEnvironmentChange: (v: Environment) => void
   onAppIdChange: (v: string) => void
   onCertIdChange: (v: string) => void
-  onDevIdChange: (v: string) => void
   errors: Record<string, string>
 }
 
 function StepCredentials({
+  appName,
+  description,
+  environment,
   appId,
   certId,
-  devId,
+  onAppNameChange,
+  onDescriptionChange,
+  onEnvironmentChange,
   onAppIdChange,
   onCertIdChange,
-  onDevIdChange,
   errors,
 }: StepCredentialsProps) {
   const [certRevealed, setCertRevealed] = useState(false)
   const [copied, setCopied] = useState(false)
 
   function copyRuName() {
-    navigator.clipboard.writeText(MOCK_REDIRECT_URI).then(() => {
+    navigator.clipboard.writeText(REDIRECT_URI).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     })
@@ -108,6 +120,71 @@ function StepCredentials({
       </p>
 
       <div className={styles.formGrid}>
+        {/* App Name */}
+        <div className={styles.field}>
+          <label className={styles.fieldLabel} htmlFor="ebay-app-name">
+            App Name
+          </label>
+          <div className={styles.inputWrapper}>
+            <Icon kind="key" size={14} color="var(--hd-muted)" />
+            <input
+              id="ebay-app-name"
+              className={[styles.input, errors.appName ? styles.inputError : ''].filter(Boolean).join(' ')}
+              type="text"
+              placeholder="My AutoMana Store"
+              value={appName}
+              onChange={(e) => onAppNameChange(e.target.value)}
+              autoComplete="off"
+              spellCheck={false}
+            />
+          </div>
+          {errors.appName && <span className={styles.errorMsg}>{errors.appName}</span>}
+        </div>
+
+        {/* Description */}
+        <div className={styles.field}>
+          <label className={styles.fieldLabel} htmlFor="ebay-description">
+            Description
+            <span className={styles.readOnlyTag}>optional</span>
+          </label>
+          <div className={styles.inputWrapper}>
+            <input
+              id="ebay-description"
+              className={styles.input}
+              type="text"
+              placeholder="e.g. My main eBay seller account"
+              value={description}
+              onChange={(e) => onDescriptionChange(e.target.value)}
+              autoComplete="off"
+            />
+          </div>
+        </div>
+
+        {/* Environment */}
+        <div className={styles.field}>
+          <label className={styles.fieldLabel}>
+            Environment
+          </label>
+          <div className={styles.envToggle}>
+            <button
+              type="button"
+              className={[styles.envOption, environment === 'SANDBOX' ? styles.envOptionActive : ''].filter(Boolean).join(' ')}
+              onClick={() => onEnvironmentChange('SANDBOX')}
+              aria-pressed={environment === 'SANDBOX'}
+            >
+              Sandbox
+            </button>
+            <button
+              type="button"
+              className={[styles.envOption, environment === 'PRODUCTION' ? styles.envOptionActive : ''].filter(Boolean).join(' ')}
+              onClick={() => onEnvironmentChange('PRODUCTION')}
+              aria-pressed={environment === 'PRODUCTION'}
+            >
+              Production
+            </button>
+          </div>
+        </div>
+
         {/* App ID */}
         <div className={styles.field}>
           <label className={styles.fieldLabel} htmlFor="ebay-app-id">
@@ -158,27 +235,6 @@ function StepCredentials({
           {errors.certId && <span className={styles.errorMsg}>{errors.certId}</span>}
         </div>
 
-        {/* Dev ID */}
-        <div className={styles.field}>
-          <label className={styles.fieldLabel} htmlFor="ebay-dev-id">
-            Dev ID
-          </label>
-          <div className={styles.inputWrapper}>
-            <Icon kind="users" size={14} color="var(--hd-muted)" />
-            <input
-              id="ebay-dev-id"
-              className={[styles.input, errors.devId ? styles.inputError : ''].filter(Boolean).join(' ')}
-              type="text"
-              placeholder="abcdef12-3456-7890-abcd-ef1234567890"
-              value={devId}
-              onChange={(e) => onDevIdChange(e.target.value)}
-              autoComplete="off"
-              spellCheck={false}
-            />
-          </div>
-          {errors.devId && <span className={styles.errorMsg}>{errors.devId}</span>}
-        </div>
-
         {/* Redirect URI (read-only) */}
         <div className={styles.field}>
           <label className={styles.fieldLabel} htmlFor="ebay-runame">
@@ -191,7 +247,7 @@ function StepCredentials({
               id="ebay-runame"
               className={[styles.input, styles.inputReadOnly].join(' ')}
               type="text"
-              value={MOCK_REDIRECT_URI}
+              value={REDIRECT_URI}
               readOnly
               aria-readonly="true"
             />
@@ -199,7 +255,7 @@ function StepCredentials({
               type="button"
               className={styles.copyBtn}
               onClick={copyRuName}
-              aria-label="Copy Redirect URI"
+              title="Copy redirect URI"
             >
               {copied ? (
                 <Icon kind="check" size={13} color="var(--hd-accent)" />
@@ -258,67 +314,51 @@ function StepScopes({ scopes, onToggle }: StepScopesProps) {
   )
 }
 
-// ── Step 4: Verify connection ──────────────────────────────────────────────
+// ── Step 4: Registration result ────────────────────────────────────────────
 
-interface StepVerifyProps {
-  status: ConnectionStatus
-  onVerify: () => void
-  verifying: boolean
-  verified: boolean
+interface StepResultProps {
+  result: RegistrationResult
 }
 
-function StepVerify({ status, onVerify, verifying, verified }: StepVerifyProps) {
-  return (
-    <div className={styles.stepContent}>
-      <h2 className={styles.stepHeading}>Verify your connection</h2>
-      <p className={styles.stepDesc}>
-        AutoMana will make a test API call to confirm your credentials are valid and scopes are
-        active.
-      </p>
-
-      <div className={styles.verifyBox}>
-        {verified ? (
+function StepResult({ result }: StepResultProps) {
+  if (result.success) {
+    return (
+      <div className={styles.stepContent}>
+        <h2 className={styles.stepHeading}>App registered</h2>
+        <div className={styles.verifyBox}>
           <div className={styles.verifySuccess}>
             <div className={styles.verifyIcon}>
               <Icon kind="check" size={24} color="var(--hd-accent)" />
             </div>
             <div>
-              <div className={styles.verifyTitle}>Connection verified</div>
+              <div className={styles.verifyTitle}>App registered successfully</div>
               <div className={styles.verifySubtitle}>
-                Your eBay app is connected and all required scopes are active.
+                App code: <code>{result.appCode}</code>
               </div>
             </div>
           </div>
-        ) : (
-          <div className={styles.verifyIdle}>
-            <div className={styles.verifyIcon}>
-              <Icon kind="shield" size={24} color="var(--hd-muted)" />
-            </div>
-            <div>
-              <div className={styles.verifyTitle}>Ready to connect</div>
-              <div className={styles.verifySubtitle}>
-                Click below to test your eBay API credentials.
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <Button
-        variant={verified ? 'ghost' : 'accent'}
-        size="md"
-        onClick={onVerify}
-        disabled={verifying}
-        aria-label="Test eBay connection"
-      >
-        {verifying ? 'Verifying…' : verified ? 'Re-verify' : 'Test connection'}
-      </Button>
-
-      {verified && (
+        </div>
         <p className={styles.verifyNote}>
-          Setup complete. You can now use eBay features in AutoMana.
+          Your eBay app is registered. Use the app code above to start the OAuth flow and
+          connect your eBay account.
         </p>
-      )}
+      </div>
+    )
+  }
+  return (
+    <div className={styles.stepContent}>
+      <h2 className={styles.stepHeading}>Registration failed</h2>
+      <div className={styles.verifyBox}>
+        <div className={styles.verifyIdle}>
+          <div className={styles.verifyIcon}>
+            <Icon kind="shield" size={24} color="var(--hd-red)" />
+          </div>
+          <div>
+            <div className={styles.verifyTitle}>Could not register app</div>
+            <div className={styles.verifySubtitle}>{result.error}</div>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
@@ -445,25 +485,26 @@ function EbaySetupPage() {
   const [step, setStep] = useState<number>(0)
   const [completed, setCompleted] = useState<Set<number>>(new Set())
 
-  // Credential form state
+  // Step 2 form state
+  const [appName, setAppName] = useState('')
+  const [description, setDescription] = useState('')
+  const [environment, setEnvironment] = useState<Environment>('SANDBOX')
   const [appId, setAppId] = useState('')
   const [certId, setCertId] = useState('')
-  const [devId, setDevId] = useState('')
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
 
-  // Scopes state
+  // Step 3 state
   const [scopes, setScopes] = useState(MOCK_OAUTH_SCOPES)
 
-  // Verify state
-  const [verifying, setVerifying] = useState(false)
-  const [verified, setVerified] = useState(false)
-  const [connectionStatus, setConnectionStatus] = useState(MOCK_CONNECTION_STATUS)
+  // Step 4 state
+  const [submitting, setSubmitting] = useState(false)
+  const [registrationResult, setRegistrationResult] = useState<RegistrationResult | null>(null)
 
   function validateCredentials(): boolean {
     const errors: Record<string, string> = {}
+    if (!appName.trim()) errors.appName = 'App name is required'
     if (!appId.trim()) errors.appId = 'App ID is required'
     if (!certId.trim()) errors.certId = 'Cert ID is required'
-    if (!devId.trim()) errors.devId = 'Dev ID is required'
     setFormErrors(errors)
     return Object.keys(errors).length === 0
   }
@@ -474,23 +515,36 @@ function EbaySetupPage() {
     )
   }
 
-  async function handleVerify() {
-    setVerifying(true)
-    try {
-      const res = await fetch('/api/ebay/verify', { method: 'POST' })
-      const data = await res.json()
-      setConnectionStatus(data)
-      setVerified(true)
-      setCompleted((prev) => new Set(prev).add(3))
-    } catch {
-      // keep existing status
-    } finally {
-      setVerifying(false)
-    }
-  }
-
-  function handleNext() {
+  async function handleNext() {
     if (step === 1 && !validateCredentials()) return
+
+    if (step === 2) {
+      setSubmitting(true)
+      try {
+        const enabledScopeUrls = scopes.filter((s) => s.enabled).map((s) => s.scopeUrl)
+        const result = await registerEbayApp({
+          app_name: appName,
+          description,
+          environment,
+          ebay_app_id: appId,
+          client_secret: certId,
+          redirect_uri: REDIRECT_URI,
+          allowed_scopes: enabledScopeUrls,
+        })
+        setRegistrationResult({ success: true, appCode: result.app_code })
+      } catch (err) {
+        setRegistrationResult({
+          success: false,
+          error: err instanceof Error ? err.message : 'Registration failed',
+        })
+      } finally {
+        setSubmitting(false)
+        setCompleted((prev) => new Set(prev).add(step))
+        setStep((s) => s + 1)
+      }
+      return
+    }
+
     setCompleted((prev) => new Set(prev).add(step))
     setStep((s) => Math.min(s + 1, SETUP_STEPS.length - 1))
   }
@@ -508,38 +562,31 @@ function EbaySetupPage() {
       />
 
       <div className={styles.page}>
-        {/* ── Stepper ──────────────────────────────────── */}
         <Stepper steps={SETUP_STEPS} current={step} completed={completed} />
 
-        {/* ── Main + sidebar grid ───────────────────────── */}
         <div className={styles.contentGrid}>
-          {/* Main content */}
           <div className={styles.mainPanel}>
             {step === 0 && <StepCreateApp />}
             {step === 1 && (
               <StepCredentials
+                appName={appName}
+                description={description}
+                environment={environment}
                 appId={appId}
                 certId={certId}
-                devId={devId}
+                onAppNameChange={(v) => { setAppName(v); setFormErrors((e) => ({ ...e, appName: '' })) }}
+                onDescriptionChange={setDescription}
+                onEnvironmentChange={setEnvironment}
                 onAppIdChange={(v) => { setAppId(v); setFormErrors((e) => ({ ...e, appId: '' })) }}
                 onCertIdChange={(v) => { setCertId(v); setFormErrors((e) => ({ ...e, certId: '' })) }}
-                onDevIdChange={(v) => { setDevId(v); setFormErrors((e) => ({ ...e, devId: '' })) }}
                 errors={formErrors}
               />
             )}
             {step === 2 && <StepScopes scopes={scopes} onToggle={toggleScope} />}
-            {step === 3 && (
-              <StepVerify
-                status={connectionStatus}
-                onVerify={handleVerify}
-                verifying={verifying}
-                verified={verified}
-              />
-            )}
+            {step === 3 && registrationResult && <StepResult result={registrationResult} />}
 
-            {/* Navigation buttons */}
             <div className={styles.navButtons}>
-              {step > 0 && (
+              {step > 0 && step < SETUP_STEPS.length - 1 && (
                 <Button variant="ghost" size="md" onClick={handleBack}>
                   Back
                 </Button>
@@ -549,19 +596,20 @@ function EbaySetupPage() {
                   variant="accent"
                   size="md"
                   onClick={handleNext}
-                  icon={<Icon kind="arrowRight" size={13} color="currentColor" />}
+                  disabled={submitting}
+                  icon={step === 2 ? undefined : <Icon kind="arrowRight" size={13} color="currentColor" />}
                 >
-                  Next
+                  {step === 2
+                    ? submitting ? 'Registering…' : 'Register App'
+                    : 'Next'}
                 </Button>
               )}
             </div>
           </div>
 
-          {/* Sidebar */}
           <aside className={styles.sidebar} aria-label="eBay setup sidebar">
-            <StatusPanel status={connectionStatus} />
+            <StatusPanel status={MOCK_CONNECTION_STATUS} />
 
-            {/* Why bring your own app? */}
             <div className={styles.sidePanel}>
               <div className={styles.sidePanelTitle}>Why bring your own app?</div>
               <ul className={styles.benefitList}>
@@ -574,7 +622,6 @@ function EbaySetupPage() {
               </ul>
             </div>
 
-            {/* Need help? */}
             <div className={styles.sidePanel}>
               <div className={styles.sidePanelTitle}>Need help?</div>
               <div className={styles.helpLinks}>
