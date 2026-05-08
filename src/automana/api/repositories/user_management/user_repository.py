@@ -177,7 +177,7 @@ class UserRepository(AbstractRepository):
     async def delete_many(self, user_ids: list[UUID]):
         # Implementation of delete_users method
         query = create_delete_query('users', ['unique_id = ANY($1)'])
-        await self.execute_command(query, user_ids)
+        await self.execute_command(query, (user_ids,))
 
     async def update(self, user_id: UUID, username: Optional[str], email: Optional[str], fullname: Optional[str]):
         query = "UPDATE users SET"
@@ -209,7 +209,7 @@ class UserRepository(AbstractRepository):
         )
       SELECT * FROM users WHERE unique_id = (SELECT user_id FROM get_user_id);
     """
-        user_data = await self.execute_query(query, session_id)
+        user_data = await self.execute_query(query, (session_id,))
         return user_data
     
     async def list(self):

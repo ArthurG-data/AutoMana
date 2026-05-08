@@ -51,25 +51,23 @@ class AbstractRepository(Generic[T], ABC):
                 self.connection.commit()
                 return None
             
-    async def execute_query(self, query, *args):
+    async def execute_query(self, query, values=()):
         """Execute a query that returns results"""
         if self.executor:
             logger.debug("Executing query with executor")
-            return await self.executor.execute_query(self.connection, query, args)
+            return await self.executor.execute_query(self.connection, query, values)
         else:
             logger.debug("Executing query without executor")
-            # Fallback to direct connection
-            return await self.connection.fetch(query, *args)
-    
-    async def execute_command(self, query, *args):
+            return await self.connection.fetch(query, *values)
+
+    async def execute_command(self, query, values=()):
         """Execute a command that doesn't return results"""
         if self.executor:
             logger.debug("Executing query with executor")
-            return await self.executor.execute_command(self.connection, query, args)
+            return await self.executor.execute_command(self.connection, query, values)
         else:
-            # Fallback to direct connection
             logger.debug("Executing query without executor")
-            return await self.connection.execute(query, *args)
+            return await self.connection.execute(query, *values)
         
     @abstractmethod
     async def add(self, item: T) -> None:
