@@ -1,6 +1,7 @@
 // src/frontend/src/routes/ebay/__tests__/setup.test.tsx
 import React from 'react'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
@@ -30,10 +31,12 @@ vi.mock('../../../features/ebay/api', () => ({
     message: 'eBay app registered successfully',
     app_code: 'cool_app_123',
   }),
+  startEbayOAuth: vi.fn().mockResolvedValue({ authorization_url: 'https://auth.ebay.com/oauth/authorize?test=1' }),
 }))
 
-import { registerEbayApp } from '../../../features/ebay/api'
+import { registerEbayApp, startEbayOAuth } from '../../../features/ebay/api'
 const mockRegisterEbayApp = vi.mocked(registerEbayApp)
+const mockStartEbayOAuth = vi.mocked(startEbayOAuth)
 
 const writeTextMock = vi.fn().mockResolvedValue(undefined)
 Object.defineProperty(navigator, 'clipboard', {
@@ -55,7 +58,19 @@ function goToStep3() {
   fireEvent.change(screen.getByLabelText('App Name'), { target: { value: 'My Store' } })
   fireEvent.change(screen.getByLabelText('App ID (Client ID)'), { target: { value: 'test-app-id' } })
   fireEvent.change(screen.getByLabelText('Cert ID (Client Secret)'), { target: { value: 'test-cert-id' } })
+  fireEvent.change(screen.getByLabelText('RuName'), { target: { value: 'MyApp-MyApp-PRD-ab1234567-89abcdef' } })
   fireEvent.click(screen.getByRole('button', { name: /next/i }))
+}
+
+// Helper: advance through all steps to Step 4 (result screen)
+async function goToStep4() {
+  goToStep3()
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: /register app/i }))
+  })
+  await waitFor(() => {
+    expect(screen.getByText('App registered successfully')).toBeTruthy()
+  })
 }
 
 describe('EbaySetupPage', () => {
@@ -65,6 +80,13 @@ describe('EbaySetupPage', () => {
     mockRegisterEbayApp.mockResolvedValue({
       message: 'eBay app registered successfully',
       app_code: 'cool_app_123',
+    })
+    mockStartEbayOAuth.mockReset()
+    mockStartEbayOAuth.mockResolvedValue({ authorization_url: 'https://auth.ebay.com/oauth/authorize?test=1' })
+    Object.defineProperty(window, 'location', {
+      writable: true,
+      configurable: true,
+      value: { href: '' },
     })
   })
 
@@ -98,6 +120,7 @@ describe('EbaySetupPage', () => {
     expect(screen.getByLabelText('App Name')).toBeTruthy()
     expect(screen.getByLabelText('App ID (Client ID)')).toBeTruthy()
     expect(screen.getByLabelText('Cert ID (Client Secret)')).toBeTruthy()
+    expect(screen.getByLabelText('RuName')).toBeTruthy()
   })
 
   it('does not show Dev ID field', () => {
@@ -117,6 +140,7 @@ describe('EbaySetupPage', () => {
     expect(screen.getByText('App name is required')).toBeTruthy()
     expect(screen.getByText('App ID is required')).toBeTruthy()
     expect(screen.getByText('Cert ID is required')).toBeTruthy()
+    expect(screen.getByText('RuName is required')).toBeTruthy()
   })
 
   it('allows navigating back from Step 2', () => {
@@ -125,20 +149,17 @@ describe('EbaySetupPage', () => {
     expect(screen.getByText('Create your eBay app')).toBeTruthy()
   })
 
-  it('copies Redirect URI to clipboard when copy button clicked', async () => {
+  it('shows RuName as an editable input', () => {
     goToStep2()
-    const copyBtn = screen.getByRole('button', { name: /copy redirect uri/i })
-    fireEvent.click(copyBtn)
-    await waitFor(() => {
-      expect(writeTextMock).toHaveBeenCalledWith(expect.stringContaining('automana.app'))
-    })
+    const ruNameInput = screen.getByLabelText('RuName') as HTMLInputElement
+    expect(ruNameInput.readOnly).toBe(false)
+    fireEvent.change(ruNameInput, { target: { value: 'TestApp-PRD-abc123' } })
+    expect(ruNameInput.value).toBe('TestApp-PRD-abc123')
   })
 
-  it('shows Redirect URI as read-only input', () => {
+  it('shows automana.app callback URL in RuName hint text', () => {
     goToStep2()
-    const ruNameInput = screen.getByLabelText(/redirect uri/i) as HTMLInputElement
-    expect(ruNameInput.readOnly).toBe(true)
-    expect(ruNameInput.value).toContain('automana.app')
+    expect(screen.getByText(/automana\.app/)).toBeTruthy()
   })
 
   it('shows Cert ID input as password (masked) by default', () => {
@@ -221,7 +242,7 @@ describe('EbaySetupPage', () => {
         ebay_app_id: 'test-app-id',
         client_secret: 'test-cert-id',
         environment: 'SANDBOX',
-        redirect_uri: expect.stringContaining('automana.app'),
+        redirect_uri: 'MyApp-MyApp-PRD-ab1234567-89abcdef',
         allowed_scopes: expect.arrayContaining([
           'https://api.ebay.com/oauth/api_scope/sell.inventory',
         ]),
@@ -279,5 +300,30 @@ describe('EbaySetupPage', () => {
     expect(screen.getByText('Need help?')).toBeTruthy()
     const link = screen.getByText('eBay Developer Portal')
     expect(link.closest('a')?.getAttribute('href')).toContain('developer.ebay.com')
+  })
+
+  describe('Step 4: Connect to eBay', () => {
+    it('shows Connect to eBay button on Step 4', async () => {
+      await goToStep4()
+      expect(screen.getByRole('button', { name: /connect to ebay/i })).toBeInTheDocument()
+    })
+
+    it('redirects to eBay authorization URL on connect', async () => {
+      await goToStep4()
+      await userEvent.click(screen.getByRole('button', { name: /connect to ebay/i }))
+      await waitFor(() => {
+        expect(mockStartEbayOAuth).toHaveBeenCalledWith('cool_app_123')
+        expect(window.location.href).toBe('https://auth.ebay.com/oauth/authorize?test=1')
+      })
+    })
+
+    it('shows error message when OAuth start fails', async () => {
+      mockStartEbayOAuth.mockRejectedValueOnce(new Error('OAuth failed'))
+      await goToStep4()
+      await userEvent.click(screen.getByRole('button', { name: /connect to ebay/i }))
+      await waitFor(() => {
+        expect(screen.getByRole('alert')).toHaveTextContent('OAuth failed')
+      })
+    })
   })
 })

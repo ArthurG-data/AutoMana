@@ -17,7 +17,7 @@ import {
   type ConnectionStatus,
   type RegistrationResult,
 } from '../../features/ebay/mockEbayApp'
-import { registerEbayApp } from '../../features/ebay/api'
+import { registerEbayApp, fetchEbayScopes, startEbayOAuth, type EbayScopeItem } from '../../features/ebay/api'
 import styles from './Setup.module.css'
 
 export const Route = createFileRoute('/ebay/setup')({
@@ -81,11 +81,13 @@ interface StepCredentialsProps {
   environment: Environment
   appId: string
   certId: string
+  ruName: string
   onAppNameChange: (v: string) => void
   onDescriptionChange: (v: string) => void
   onEnvironmentChange: (v: Environment) => void
   onAppIdChange: (v: string) => void
   onCertIdChange: (v: string) => void
+  onRuNameChange: (v: string) => void
   errors: Record<string, string>
 }
 
@@ -95,22 +97,16 @@ function StepCredentials({
   environment,
   appId,
   certId,
+  ruName,
   onAppNameChange,
   onDescriptionChange,
   onEnvironmentChange,
   onAppIdChange,
   onCertIdChange,
+  onRuNameChange,
   errors,
 }: StepCredentialsProps) {
   const [certRevealed, setCertRevealed] = useState(false)
-  const [copied, setCopied] = useState(false)
-
-  function copyRuName() {
-    navigator.clipboard.writeText(REDIRECT_URI).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    })
-  }
 
   return (
     <div className={styles.stepContent}>
@@ -235,38 +231,29 @@ function StepCredentials({
           {errors.certId && <span className={styles.errorMsg}>{errors.certId}</span>}
         </div>
 
-        {/* Redirect URI (read-only) */}
+        {/* RuName */}
         <div className={styles.field}>
           <label className={styles.fieldLabel} htmlFor="ebay-runame">
-            Redirect URI (RuName)
-            <span className={styles.readOnlyTag}>read-only</span>
+            RuName
           </label>
           <div className={styles.inputWrapper}>
             <Icon kind="link" size={14} color="var(--hd-muted)" />
             <input
               id="ebay-runame"
-              className={[styles.input, styles.inputReadOnly].join(' ')}
+              className={[styles.input, errors.ruName ? styles.inputError : ''].filter(Boolean).join(' ')}
               type="text"
-              value={REDIRECT_URI}
-              readOnly
-              aria-readonly="true"
+              placeholder="YourApp-YourApp-PRD-ab1234567-89abcdef"
+              value={ruName}
+              onChange={(e) => onRuNameChange(e.target.value)}
+              autoComplete="off"
+              spellCheck={false}
             />
-            <button
-              type="button"
-              className={styles.copyBtn}
-              onClick={copyRuName}
-              title="Copy redirect URI"
-            >
-              {copied ? (
-                <Icon kind="check" size={13} color="var(--hd-accent)" />
-              ) : (
-                <Icon kind="copy" size={13} color="var(--hd-muted)" />
-              )}
-            </button>
           </div>
+          {errors.ruName && <span className={styles.errorMsg}>{errors.ruName}</span>}
           <p className={styles.fieldHint}>
-            Paste this URL into your eBay app's <strong>Auth accepted URL</strong> field in the
-            developer portal, then add it as an allowed RuName.
+            In the eBay Developer Portal, register{' '}
+            <code>{REDIRECT_URI}</code> as your Auth accepted URL — eBay will
+            assign you a RuName string to paste here.
           </p>
         </div>
       </div>
@@ -279,9 +266,10 @@ function StepCredentials({
 interface StepScopesProps {
   scopes: OAuthScope[]
   onToggle: (id: string) => void
+  scopesError?: string | null
 }
 
-function StepScopes({ scopes, onToggle }: StepScopesProps) {
+function StepScopes({ scopes, onToggle, scopesError }: StepScopesProps) {
   return (
     <div className={styles.stepContent}>
       <h2 className={styles.stepHeading}>Configure OAuth scopes</h2>
@@ -290,6 +278,7 @@ function StepScopes({ scopes, onToggle }: StepScopesProps) {
         cannot be disabled.
       </p>
 
+      {scopesError && <p className={styles.errorMsg}>{scopesError}</p>}
       <div className={styles.scopeList} role="list">
         {scopes.map((scope) => (
           <div key={scope.id} className={styles.scopeRow} role="listitem">
@@ -318,9 +307,12 @@ function StepScopes({ scopes, onToggle }: StepScopesProps) {
 
 interface StepResultProps {
   appCode: string
+  onConnect: () => void
+  connecting: boolean
+  connectError: string | null
 }
 
-function StepResult({ appCode }: StepResultProps) {
+function StepResult({ appCode, onConnect, connecting, connectError }: StepResultProps) {
   return (
     <div className={styles.stepContent}>
       <h2 className={styles.stepHeading}>App registered</h2>
@@ -338,9 +330,20 @@ function StepResult({ appCode }: StepResultProps) {
         </div>
       </div>
       <p className={styles.verifyNote}>
-        Your eBay app is registered. Use the app code above to start the OAuth flow and
-        connect your eBay account.
+        Your eBay app is registered. Click below to authorize AutoMana on your eBay account.
       </p>
+      <Button
+        variant="accent"
+        size="md"
+        onClick={onConnect}
+        disabled={connecting}
+        icon={<Icon kind="link" size={13} color="currentColor" />}
+      >
+        {connecting ? 'Redirecting to eBay…' : 'Connect to eBay'}
+      </Button>
+      {connectError && (
+        <span className={styles.errorMsg} role="alert">{connectError}</span>
+      )}
     </div>
   )
 }
@@ -473,21 +476,27 @@ function EbaySetupPage() {
   const [environment, setEnvironment] = useState<Environment>('SANDBOX')
   const [appId, setAppId] = useState('')
   const [certId, setCertId] = useState('')
+  const [ruName, setRuName] = useState('')
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
 
   // Step 3 state
   const [scopes, setScopes] = useState(MOCK_OAUTH_SCOPES)
+  const [scopesLoading, setScopesLoading] = useState(false)
+  const [scopesError, setScopesError] = useState<string | null>(null)
 
   // Step 4 state
   const [submitting, setSubmitting] = useState(false)
   const [registrationResult, setRegistrationResult] = useState<RegistrationResult | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [connecting, setConnecting] = useState(false)
+  const [connectError, setConnectError] = useState<string | null>(null)
 
   function validateCredentials(): boolean {
     const errors: Record<string, string> = {}
     if (!appName.trim()) errors.appName = 'App name is required'
     if (!appId.trim()) errors.appId = 'App ID is required'
     if (!certId.trim()) errors.certId = 'Cert ID is required'
+    if (!ruName.trim()) errors.ruName = 'RuName is required'
     setFormErrors(errors)
     return Object.keys(errors).length === 0
   }
@@ -501,6 +510,30 @@ function EbaySetupPage() {
   async function handleNext() {
     if (step === 1 && !validateCredentials()) return
 
+    if (step === 1) {
+      setScopesLoading(true)
+      setScopesError(null)
+      try {
+        const items = await fetchEbayScopes(environment)
+        if (items.length > 0) {
+          setScopes(
+            items.map((s: EbayScopeItem) => ({
+              id: s.scope_url.split('/').pop() ?? s.scope_url,
+              name: s.scope_url.split('/').pop() ?? s.scope_url,
+              description: s.scope_description ?? '',
+              scopeUrl: s.scope_url,
+              required: false,
+              enabled: true,
+            }))
+          )
+        }
+      } catch {
+        setScopesError('Could not load scopes — showing defaults.')
+      } finally {
+        setScopesLoading(false)
+      }
+    }
+
     if (step === 2) {
       setSubmitting(true)
       setSubmitError(null)
@@ -512,7 +545,7 @@ function EbaySetupPage() {
           environment,
           ebay_app_id: appId,
           client_secret: certId,
-          redirect_uri: REDIRECT_URI,
+          redirect_uri: ruName,
           allowed_scopes: enabledScopeUrls,
         })
         setRegistrationResult({ success: true, appCode: result.app_code })
@@ -532,6 +565,19 @@ function EbaySetupPage() {
 
   function handleBack() {
     setStep((s) => Math.max(s - 1, 0))
+  }
+
+  async function handleConnect() {
+    if (!registrationResult) return
+    setConnecting(true)
+    setConnectError(null)
+    try {
+      const { authorization_url } = await startEbayOAuth(registrationResult.appCode)
+      window.location.href = authorization_url
+    } catch (err) {
+      setConnectError(err instanceof Error ? err.message : 'Could not start OAuth flow')
+      setConnecting(false)
+    }
   }
 
   return (
@@ -555,17 +601,28 @@ function EbaySetupPage() {
                 environment={environment}
                 appId={appId}
                 certId={certId}
+                ruName={ruName}
                 onAppNameChange={(v) => { setAppName(v); setFormErrors((e) => ({ ...e, appName: '' })) }}
                 onDescriptionChange={setDescription}
                 onEnvironmentChange={setEnvironment}
                 onAppIdChange={(v) => { setAppId(v); setFormErrors((e) => ({ ...e, appId: '' })) }}
                 onCertIdChange={(v) => { setCertId(v); setFormErrors((e) => ({ ...e, certId: '' })) }}
+                onRuNameChange={(v) => { setRuName(v); setFormErrors((e) => ({ ...e, ruName: '' })) }}
                 errors={formErrors}
               />
             )}
-            {step === 2 && <StepScopes scopes={scopes} onToggle={toggleScope} />}
+            {step === 2 && (
+              scopesLoading
+                ? <div className={styles.stepContent}><p className={styles.stepDesc}>Loading scopes…</p></div>
+                : <StepScopes scopes={scopes} onToggle={toggleScope} scopesError={scopesError} />
+            )}
             {step === 3 && registrationResult && registrationResult.success && (
-              <StepResult appCode={registrationResult.appCode} />
+              <StepResult
+                appCode={registrationResult.appCode}
+                onConnect={handleConnect}
+                connecting={connecting}
+                connectError={connectError}
+              />
             )}
 
             <div className={styles.navButtons}>

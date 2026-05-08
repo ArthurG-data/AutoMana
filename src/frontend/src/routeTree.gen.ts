@@ -18,6 +18,7 @@ import { Route as EbayIndexRouteImport } from './routes/ebay/index'
 import { Route as ListingsIdRouteImport } from './routes/listings_.$id'
 import { Route as EbayShareRouteImport } from './routes/ebay/share'
 import { Route as EbaySetupRouteImport } from './routes/ebay/setup'
+import { Route as EbayConnectedRouteImport } from './routes/ebay/connected'
 import { Route as CardsIdRouteImport } from './routes/cards.$id'
 
 const SearchRoute = SearchRouteImport.update({
@@ -65,6 +66,11 @@ const EbaySetupRoute = EbaySetupRouteImport.update({
   path: '/ebay/setup',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EbayConnectedRoute = EbayConnectedRouteImport.update({
+  id: '/ebay/connected',
+  path: '/ebay/connected',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CardsIdRoute = CardsIdRouteImport.update({
   id: '/cards/$id',
   path: '/cards/$id',
@@ -78,6 +84,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/search': typeof SearchRoute
   '/cards/$id': typeof CardsIdRoute
+  '/ebay/connected': typeof EbayConnectedRoute
   '/ebay/setup': typeof EbaySetupRoute
   '/ebay/share': typeof EbayShareRoute
   '/listings/$id': typeof ListingsIdRoute
@@ -90,6 +97,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/search': typeof SearchRoute
   '/cards/$id': typeof CardsIdRoute
+  '/ebay/connected': typeof EbayConnectedRoute
   '/ebay/setup': typeof EbaySetupRoute
   '/ebay/share': typeof EbayShareRoute
   '/listings/$id': typeof ListingsIdRoute
@@ -103,6 +111,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/search': typeof SearchRoute
   '/cards/$id': typeof CardsIdRoute
+  '/ebay/connected': typeof EbayConnectedRoute
   '/ebay/setup': typeof EbaySetupRoute
   '/ebay/share': typeof EbayShareRoute
   '/listings_/$id': typeof ListingsIdRoute
@@ -117,6 +126,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/search'
     | '/cards/$id'
+    | '/ebay/connected'
     | '/ebay/setup'
     | '/ebay/share'
     | '/listings/$id'
@@ -129,6 +139,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/search'
     | '/cards/$id'
+    | '/ebay/connected'
     | '/ebay/setup'
     | '/ebay/share'
     | '/listings/$id'
@@ -141,6 +152,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/search'
     | '/cards/$id'
+    | '/ebay/connected'
     | '/ebay/setup'
     | '/ebay/share'
     | '/listings_/$id'
@@ -154,6 +166,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   SearchRoute: typeof SearchRoute
   CardsIdRoute: typeof CardsIdRoute
+  EbayConnectedRoute: typeof EbayConnectedRoute
   EbaySetupRoute: typeof EbaySetupRoute
   EbayShareRoute: typeof EbayShareRoute
   ListingsIdRoute: typeof ListingsIdRoute
@@ -225,6 +238,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EbaySetupRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/ebay/connected': {
+      id: '/ebay/connected'
+      path: '/ebay/connected'
+      fullPath: '/ebay/connected'
+      preLoaderRoute: typeof EbayConnectedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/cards/$id': {
       id: '/cards/$id'
       path: '/cards/$id'
@@ -242,6 +262,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   SearchRoute: SearchRoute,
   CardsIdRoute: CardsIdRoute,
+  EbayConnectedRoute: EbayConnectedRoute,
   EbaySetupRoute: EbaySetupRoute,
   EbayShareRoute: EbayShareRoute,
   ListingsIdRoute: ListingsIdRoute,

@@ -1,5 +1,17 @@
 import { apiClient } from '../../lib/apiClient'
 
+export interface EbayScopeItem {
+  scope_url: string
+  scope_description: string | null
+}
+
+export async function fetchEbayScopes(environment: 'SANDBOX' | 'PRODUCTION'): Promise<EbayScopeItem[]> {
+  const result = await apiClient<{ scopes: EbayScopeItem[] }>(
+    `/integrations/ebay/scopes/?environment=${environment}`
+  )
+  return result.scopes ?? []
+}
+
 export interface RegisterEbayAppRequest {
   app_name: string
   description: string
@@ -32,4 +44,15 @@ export async function registerEbayApp(data: RegisterEbayAppRequest): Promise<Reg
       user_requirements: ['premium'],
     }),
   })
+}
+
+export interface StartOAuthResponse {
+  authorization_url: string
+}
+
+export async function startEbayOAuth(appCode: string): Promise<StartOAuthResponse> {
+  return apiClient<StartOAuthResponse>(
+    `/integrations/ebay/auth/app/login?app_code=${encodeURIComponent(appCode)}`,
+    { method: 'POST' }
+  )
 }

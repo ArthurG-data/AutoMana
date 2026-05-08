@@ -159,6 +159,11 @@ ServiceRegistry.register_db_repository(
     "auth", "automana.core.repositories.app_integration.ebay.auth_repository", "EbayAuthRepository"
 )
 ServiceRegistry.register_db_repository(
+    "listing_builder",
+    "automana.core.repositories.app_integration.ebay.listing_builder_repository",
+    "EbayListingBuilderRepository",
+)
+ServiceRegistry.register_db_repository(
     "session", "automana.api.repositories.auth.session_repository", "SessionRepository"
 )
 ServiceRegistry.register_db_repository(

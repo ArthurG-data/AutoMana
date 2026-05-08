@@ -1,11 +1,16 @@
 ﻿
+from urllib.parse import quote
 
 from fastapi import Cookie, HTTPException, APIRouter, Query, Request, Depends, Response, status
+from fastapi.responses import RedirectResponse
 from automana.api.dependancies.service_deps import ServiceManagerDep
 from automana.api.dependancies.auth.users import CurrentUserDep
 from automana.core.models.ebay.auth import AppRegistrationRequest, CreateAppRequest
 from automana.api.schemas.StandardisedQueryResponse import ApiResponse
+from automana.core.settings import get_settings
 from pydantic import BaseModel
+
+settings = get_settings()
 
 
 class UpdateRedirectUriRequest(BaseModel):
@@ -85,10 +90,17 @@ async def handle_ebay_callback(
     try:
         if error:
             logger.error("ebay_callback_error", extra={"error": error, "description": error_description})
-            raise HTTPException(status_code=400, detail=error_description or error)
+            msg = error_description or error or "Authorization denied"
+            return RedirectResponse(
+                url=f"{settings.FRONTEND_BASE_URL}/ebay/connected?status=error&message={quote(msg)}",
+                status_code=302,
+            )
         if not code:
             logger.error("ebay_callback_missing_code", extra={"has_state": bool(state)})
-            raise HTTPException(status_code=400, detail="Missing authorization code in eBay callback")
+            return RedirectResponse(
+                url=f"{settings.FRONTEND_BASE_URL}/ebay/connected?status=error&message={quote('Missing authorization code')}",
+                status_code=302,
+            )
         env = await service_manager.execute_service(
             "integrations.ebay.get_environment_callback",
             state=state,
@@ -110,9 +122,10 @@ async def handle_ebay_callback(
                 samesite="strict",
             )
         logger.info("ebay_callback_success", extra={"state": state})
-        return ApiResponse(
-            message="eBay authorization successful",
-            data={"status": "authorized", "state": state},
+        app_code_param = token_data['app_code'] if token_data else ''
+        return RedirectResponse(
+            url=f"{settings.FRONTEND_BASE_URL}/ebay/connected?status=authorized&app_code={app_code_param}",
+            status_code=302,
         )
     except HTTPException:
         raise
