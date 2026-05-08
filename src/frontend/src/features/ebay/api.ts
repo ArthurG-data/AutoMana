@@ -26,6 +26,7 @@ export async function registerEbayApp(data: RegisterEbayAppRequest): Promise<Reg
       client_secret: data.client_secret,
       redirect_uri: data.redirect_uri,
       allowed_scopes: data.allowed_scopes,
+      // Fixed per backend contract: app_code auto-generated, OAuth2 auth-code flow, premium tier only
       app_code: '',
       response_type: 'code',
       user_requirements: ['premium'],

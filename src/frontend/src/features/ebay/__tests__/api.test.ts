@@ -27,13 +27,20 @@ describe('registerEbayApp', () => {
       allowed_scopes: ['https://api.ebay.com/oauth/api_scope/sell.inventory'],
     })
 
-    expect(mockApiClient).toHaveBeenCalledWith(
-      '/integrations/ebay/auth/admin/apps',
-      expect.objectContaining({
-        method: 'POST',
-        body: expect.stringContaining('"app_name":"My Store"'),
-      })
-    )
+    expect(mockApiClient).toHaveBeenCalledWith('/integrations/ebay/auth/admin/apps', expect.objectContaining({ method: 'POST' }))
+    const body = JSON.parse((mockApiClient.mock.calls[0][1] as RequestInit).body as string)
+    expect(body).toEqual({
+      app_name: 'My Store',
+      description: 'Test app',
+      environment: 'SANDBOX',
+      ebay_app_id: 'MyApp-1234',
+      client_secret: 'SBX-secret',
+      redirect_uri: 'https://auth.automana.app/oauth/callback/ebay',
+      allowed_scopes: ['https://api.ebay.com/oauth/api_scope/sell.inventory'],
+      app_code: '',
+      response_type: 'code',
+      user_requirements: ['premium'],
+    })
     expect(result.app_code).toBe('cool_app_123')
   })
 
