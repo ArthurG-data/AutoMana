@@ -1,5 +1,17 @@
 import { apiClient } from '../../lib/apiClient'
 
+export interface EbayScopeItem {
+  scope_url: string
+  scope_description: string | null
+}
+
+export async function fetchEbayScopes(environment: 'SANDBOX' | 'PRODUCTION'): Promise<EbayScopeItem[]> {
+  const result = await apiClient<{ scopes: EbayScopeItem[] }>(
+    `/integrations/ebay/scopes/?environment=${environment}`
+  )
+  return result.scopes ?? []
+}
+
 export interface RegisterEbayAppRequest {
   app_name: string
   description: string

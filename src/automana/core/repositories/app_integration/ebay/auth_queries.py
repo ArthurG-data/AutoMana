@@ -99,6 +99,15 @@ get_app_scopes_query = """
      WHERE sa.app_id = $1;
 """
 
+get_scopes_by_environment_query = """
+    SELECT DISTINCT s.scope_url, s.scope_description
+      FROM app_integration.scopes s
+      JOIN app_integration.scope_app sa ON sa.scope_id = s.scope_id
+      JOIN app_integration.app_info ai ON ai.app_id = sa.app_id
+     WHERE ai.environment = $1
+     ORDER BY s.scope_url;
+"""
+
 # Returns user-specific scopes for (user_id, app_id). Empty result means fall
 # back to app-level scopes. PK bug on scopes_user (missing app_id) is a known
 # issue; it does not affect single-app testing.

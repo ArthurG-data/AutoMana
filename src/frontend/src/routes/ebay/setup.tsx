@@ -17,7 +17,7 @@ import {
   type ConnectionStatus,
   type RegistrationResult,
 } from '../../features/ebay/mockEbayApp'
-import { registerEbayApp } from '../../features/ebay/api'
+import { registerEbayApp, fetchEbayScopes, type EbayScopeItem } from '../../features/ebay/api'
 import styles from './Setup.module.css'
 
 export const Route = createFileRoute('/ebay/setup')({
@@ -266,9 +266,10 @@ function StepCredentials({
 interface StepScopesProps {
   scopes: OAuthScope[]
   onToggle: (id: string) => void
+  scopesError?: string | null
 }
 
-function StepScopes({ scopes, onToggle }: StepScopesProps) {
+function StepScopes({ scopes, onToggle, scopesError }: StepScopesProps) {
   return (
     <div className={styles.stepContent}>
       <h2 className={styles.stepHeading}>Configure OAuth scopes</h2>
@@ -277,6 +278,7 @@ function StepScopes({ scopes, onToggle }: StepScopesProps) {
         cannot be disabled.
       </p>
 
+      {scopesError && <p className={styles.errorMsg}>{scopesError}</p>}
       <div className={styles.scopeList} role="list">
         {scopes.map((scope) => (
           <div key={scope.id} className={styles.scopeRow} role="listitem">
@@ -465,6 +467,8 @@ function EbaySetupPage() {
 
   // Step 3 state
   const [scopes, setScopes] = useState(MOCK_OAUTH_SCOPES)
+  const [scopesLoading, setScopesLoading] = useState(false)
+  const [scopesError, setScopesError] = useState<string | null>(null)
 
   // Step 4 state
   const [submitting, setSubmitting] = useState(false)
@@ -489,6 +493,30 @@ function EbaySetupPage() {
 
   async function handleNext() {
     if (step === 1 && !validateCredentials()) return
+
+    if (step === 1) {
+      setScopesLoading(true)
+      setScopesError(null)
+      try {
+        const items = await fetchEbayScopes(environment)
+        if (items.length > 0) {
+          setScopes(
+            items.map((s: EbayScopeItem) => ({
+              id: s.scope_url.split('/').pop() ?? s.scope_url,
+              name: s.scope_url.split('/').pop() ?? s.scope_url,
+              description: s.scope_description ?? '',
+              scopeUrl: s.scope_url,
+              required: false,
+              enabled: true,
+            }))
+          )
+        }
+      } catch {
+        setScopesError('Could not load scopes — showing defaults.')
+      } finally {
+        setScopesLoading(false)
+      }
+    }
 
     if (step === 2) {
       setSubmitting(true)
@@ -554,7 +582,11 @@ function EbaySetupPage() {
                 errors={formErrors}
               />
             )}
-            {step === 2 && <StepScopes scopes={scopes} onToggle={toggleScope} />}
+            {step === 2 && (
+              scopesLoading
+                ? <div className={styles.stepContent}><p className={styles.stepDesc}>Loading scopes…</p></div>
+                : <StepScopes scopes={scopes} onToggle={toggleScope} scopesError={scopesError} />
+            )}
             {step === 3 && registrationResult && registrationResult.success && (
               <StepResult appCode={registrationResult.appCode} />
             )}
