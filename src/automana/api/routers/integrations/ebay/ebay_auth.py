@@ -33,7 +33,7 @@ async def regist_app(
         result =await service_manager.execute_service(
             "integrations.ebay.register_app",
             app_data=app_data,
-            created_by=user
+            created_by=user.unique_id
         )
         return ApiResponse(
             message="App registered successfully",

@@ -30,7 +30,7 @@ JOIN scopes s ON s.scope_url = scope_urls.scope_url
 ON CONFLICT (scope_id, app_id) DO NOTHING;
 """
 
-assign_user_app_query = """ INSERT INTO app_user (dev_id, app_id) VALUES ($1, $2) ON CONFLICT (dev_id, app_id) DO NOTHING; """
+assign_user_app_query = """ INSERT INTO app_integration.app_user (user_id, app_id) VALUES ($1, $2) ON CONFLICT (user_id, app_id) DO NOTHING; """
 
 assign_scope_query = """
                             INSERT INTO scope_app (scope_id, app_id)
