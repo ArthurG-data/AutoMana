@@ -1,4 +1,5 @@
 import { apiClient } from '../../lib/apiClient'
+import { parseCardTitle, type EbayLiveListing } from './mockListings'
 
 export interface EbayScopeItem {
   scope_url: string
@@ -90,4 +91,78 @@ export async function startEbayOAuth(appCode: string): Promise<StartOAuthRespons
     `/integrations/ebay/auth/app/login?app_code=${encodeURIComponent(appCode)}`,
     { method: 'POST' }
   )
+}
+
+// ── Active listings ────────────────────────────────────────────────────────
+
+interface RawEbayItem {
+  ItemID?: string | null
+  Title?: string | null
+  StartPrice?: { currencyID?: string | null; text?: string | number | null } | null
+  WatchCount?: number | null
+  ConditionDescription?: string | null
+  ConditionDisplayName?: string | null
+  PictureDetails?: { GalleryURL?: string | string[] } | null
+  ListingDetails?: { ViewItemURL?: string | null } | null
+  ItemSpecifics?: {
+    NameValueList?:
+      | Array<{ Name: string; Value: string | string[] }>
+      | { Name: string; Value: string | string[] }
+  } | null
+}
+
+function getFinish(itemSpecifics: RawEbayItem['ItemSpecifics']): 'Foil' | 'Regular' {
+  if (!itemSpecifics?.NameValueList) return 'Regular'
+  const list = Array.isArray(itemSpecifics.NameValueList)
+    ? itemSpecifics.NameValueList
+    : [itemSpecifics.NameValueList]
+  const finishSpec = list.find((nv) => nv.Name === 'Finish')
+  if (!finishSpec) return 'Regular'
+  const val = Array.isArray(finishSpec.Value) ? finishSpec.Value[0] : finishSpec.Value
+  return val === 'Foil' ? 'Foil' : 'Regular'
+}
+
+function getImageUrl(pictureDetails: RawEbayItem['PictureDetails']): string | null {
+  if (!pictureDetails?.GalleryURL) return null
+  return Array.isArray(pictureDetails.GalleryURL)
+    ? (pictureDetails.GalleryURL[0] ?? null)
+    : pictureDetails.GalleryURL
+}
+
+function mapToLiveListing(raw: RawEbayItem): Omit<EbayLiveListing, 'appCode' | 'appName'> {
+  const itemId = raw.ItemID ?? ''
+  const { cardName, setInfo } = parseCardTitle(raw.Title ?? '')
+  return {
+    itemId,
+    title: raw.Title ?? '',
+    cardName,
+    setInfo,
+    price: Number(raw.StartPrice?.text ?? 0),
+    currency: raw.StartPrice?.currencyID ?? 'AUD',
+    conditionLabel: raw.ConditionDisplayName ?? raw.ConditionDescription ?? '',
+    finish: getFinish(raw.ItemSpecifics),
+    watchCount: raw.WatchCount ?? 0,
+    viewItemUrl:
+      raw.ListingDetails?.ViewItemURL ?? `https://www.ebay.com.au/itm/${itemId}`,
+    imageUrl: getImageUrl(raw.PictureDetails),
+  }
+}
+
+export async function fetchActiveListings(
+  appCode: string,
+  limit = 50,
+  offset = 0,
+): Promise<EbayLiveListing[]> {
+  // PaginatedResponse returns { data: [...], pagination: {...} }, not a bare array.
+  // Be defensive: handle both shapes so unit tests (which mock a bare array) and
+  // the real backend (which wraps in .data) both work.
+  const raw = await apiClient<unknown>(
+    `/listing/active?app_code=${encodeURIComponent(appCode)}&limit=${limit}&offset=${offset}`
+  )
+  const items: RawEbayItem[] = Array.isArray(raw)
+    ? raw
+    : Array.isArray((raw as { data?: unknown }).data)
+      ? (raw as { data: RawEbayItem[] }).data
+      : []
+  return items.map((item) => ({ ...mapToLiveListing(item), appCode, appName: '' }))
 }

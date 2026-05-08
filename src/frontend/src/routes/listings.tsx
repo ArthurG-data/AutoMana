@@ -1,18 +1,19 @@
 // src/frontend/src/routes/listings.tsx
-import React, { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { AppShell } from '../components/layout/AppShell'
 import { TopBar } from '../components/layout/TopBar'
 import { Button } from '../components/ui/Button'
 import { Icon } from '../components/design-system/Icon'
 import { ListingsTable } from '../features/ebay/components/ListingsTable'
+import { fetchUserApps, fetchActiveListings } from '../features/ebay/api'
 import {
-  MOCK_ACTIVE_LISTINGS,
   MOCK_SOLD_LISTINGS,
   MOCK_ATTENTION_ALERTS,
   MOCK_STRATEGY_MIX,
   formatUSD,
   priceDeltaPct,
+  type EbayLiveListing,
 } from '../features/ebay/mockListings'
 import styles from './Listings.module.css'
 
@@ -34,14 +35,59 @@ const ALERT_ICONS: Record<string, 'arrowDown' | 'flag' | 'arrowUp'> = {
   underpriced: 'arrowUp',
 }
 
-function ListingsPage() {
+export function ListingsPage() {
   const [tab, setTab] = useState<Tab>('active')
+  const [listings, setListings] = useState<EbayLiveListing[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [failedApps, setFailedApps] = useState<string[]>([])
+  const [dismissedApps, setDismissedApps] = useState<Set<string>>(new Set())
 
-  // Strategy mix total for percentage
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      setIsLoading(true)
+      try {
+        const apps = await fetchUserApps()
+        const productionApps = apps.filter((a) => a.environment === 'PRODUCTION')
+
+        const results = await Promise.allSettled(
+          productionApps.map((app) =>
+            fetchActiveListings(app.app_code, 50, 0).then((items) =>
+              items.map((item) => ({ ...item, appName: app.app_name }))
+            )
+          )
+        )
+
+        if (cancelled) return
+
+        const merged: EbayLiveListing[] = []
+        const failed: string[] = []
+        results.forEach((result, i) => {
+          if (result.status === 'fulfilled') {
+            merged.push(...result.value)
+          } else {
+            failed.push(productionApps[i].app_name)
+          }
+        })
+
+        setListings(merged)
+        setFailedApps(failed)
+      } catch {
+        // fetchUserApps itself failed — leave listings empty, no per-app banners
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [])
+
   const strategyTotal = useMemo(
     () => MOCK_STRATEGY_MIX.reduce((a, b) => a + b.count, 0) || 1,
     []
   )
+
+  const visibleBanners = failedApps.filter((name) => !dismissedApps.has(name))
 
   return (
     <AppShell active="listings">
@@ -49,9 +95,7 @@ function ListingsPage() {
         title="Your listings"
         actions={
           <div style={{ display: 'flex', gap: 8 }}>
-            <Button variant="ghost" size="sm">
-              Import
-            </Button>
+            <Button variant="ghost" size="sm">Import</Button>
             <Button
               variant="accent"
               size="sm"
@@ -64,7 +108,21 @@ function ListingsPage() {
       />
 
       <div className={styles.page}>
-        {/* ── Tabs ─────────────────────────────────── */}
+        {/* ── Error banners ────────────────────────────────────── */}
+        {visibleBanners.map((appName) => (
+          <div key={appName} className={styles.errorBanner} role="alert">
+            <span>Could not load listings for {appName}.</span>
+            <button
+              className={styles.errorBannerDismiss}
+              aria-label="Dismiss"
+              onClick={() => setDismissedApps((prev) => new Set([...prev, appName]))}
+            >
+              <Icon kind="close" size={12} color="currentColor" />
+            </button>
+          </div>
+        ))}
+
+        {/* ── Tabs ─────────────────────────────────────────────── */}
         <div className={styles.tabRow} role="tablist" aria-label="Listing tabs">
           {(['active', 'sold', 'saved'] as Tab[]).map((t) => (
             <button
@@ -76,18 +134,17 @@ function ListingsPage() {
             >
               {t.charAt(0).toUpperCase() + t.slice(1)}
               {t === 'active' && (
-                <span className={styles.tabCount}>{MOCK_ACTIVE_LISTINGS.length}</span>
+                <span className={styles.tabCount}>{listings.length}</span>
               )}
             </button>
           ))}
         </div>
 
-        {/* ── Main grid ─────────────────────────────── */}
+        {/* ── Main grid ─────────────────────────────────────────── */}
         <div className={styles.contentGrid}>
-          {/* Left: table */}
           <div>
             {tab === 'active' && (
-              <ListingsTable listings={MOCK_ACTIVE_LISTINGS} />
+              <ListingsTable listings={listings} isLoading={isLoading} />
             )}
             {tab === 'sold' && (
               <div className={styles.soldTable} role="region" aria-label="Sold listings">
@@ -112,9 +169,7 @@ function ListingsPage() {
                             <span className={styles.soldCardName}>{s.cardName}</span>
                             {s.foil && <span className={styles.foilBadge}>foil</span>}
                           </td>
-                          <td>
-                            <span className={styles.setCode}>{s.setCode}</span>
-                          </td>
+                          <td><span className={styles.setCode}>{s.setCode}</span></td>
                           <td className={styles.condition}>{s.condition}</td>
                           <td className={[styles.right, styles.mono].join(' ')}>
                             <span className={delta >= 0 ? styles.positive : styles.negative}>
@@ -145,7 +200,6 @@ function ListingsPage() {
 
           {/* Right: sidebar panels */}
           <aside className={styles.sidebar} aria-label="Listings sidebar">
-            {/* Needs your attention */}
             <div className={styles.sidePanel}>
               <div className={styles.sidePanelTitle}>Needs your attention</div>
               <div className={styles.alertList}>
@@ -154,11 +208,7 @@ function ListingsPage() {
                   const iconKind = ALERT_ICONS[alert.type]
                   return (
                     <div key={alert.id} className={styles.alertRow}>
-                      <div
-                        className={styles.alertDot}
-                        style={{ background: color }}
-                        aria-hidden="true"
-                      />
+                      <div className={styles.alertDot} style={{ background: color }} aria-hidden="true" />
                       <div className={styles.alertContent}>
                         <div className={styles.alertIcon} style={{ color }}>
                           <Icon kind={iconKind} size={11} color={color} />
@@ -174,7 +224,6 @@ function ListingsPage() {
               </div>
             </div>
 
-            {/* Recent sales */}
             <div className={styles.sidePanel}>
               <div className={styles.sidePanelTitle}>Recent sales</div>
               {MOCK_SOLD_LISTINGS.slice(0, 3).map((sale) => {
@@ -184,12 +233,7 @@ function ListingsPage() {
                     <div className={styles.recentSaleName}>{sale.cardName}</div>
                     <div className={styles.recentSaleRight}>
                       <span className={styles.recentSalePrice}>{formatUSD(sale.salePrice)}</span>
-                      <span
-                        className={[
-                          styles.recentSaleDelta,
-                          delta >= 0 ? styles.positive : styles.negative,
-                        ].join(' ')}
-                      >
+                      <span className={[styles.recentSaleDelta, delta >= 0 ? styles.positive : styles.negative].join(' ')}>
                         {delta > 0 ? '+' : ''}{delta}%
                       </span>
                     </div>
@@ -198,7 +242,6 @@ function ListingsPage() {
               })}
             </div>
 
-            {/* Strategy mix */}
             <div className={styles.sidePanel}>
               <div className={styles.sidePanelTitle}>Strategy mix</div>
               <div className={styles.strategyBarWrapper}>
@@ -207,10 +250,7 @@ function ListingsPage() {
                     <div
                       key={item.label}
                       className={styles.strategyBarSegment}
-                      style={{
-                        flex: item.count,
-                        background: item.color,
-                      }}
+                      style={{ flex: item.count, background: item.color }}
                       title={`${item.label}: ${item.count}`}
                     />
                   ))}
@@ -219,11 +259,7 @@ function ListingsPage() {
               <div className={styles.strategyLegend}>
                 {MOCK_STRATEGY_MIX.map((item) => (
                   <div key={item.label} className={styles.strategyLegendRow}>
-                    <div
-                      className={styles.strategyLegendDot}
-                      style={{ background: item.color }}
-                      aria-hidden="true"
-                    />
+                    <div className={styles.strategyLegendDot} style={{ background: item.color }} aria-hidden="true" />
                     <span className={styles.strategyLegendLabel}>{item.label}</span>
                     <span className={styles.strategyLegendCount}>
                       {item.count} ({Math.round((item.count / strategyTotal) * 100)}%)

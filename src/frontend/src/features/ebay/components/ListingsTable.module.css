@@ -1,248 +1,198 @@
 /* src/frontend/src/features/ebay/components/ListingsTable.module.css */
 
 .wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ── Filter bar ──────────────────────────────────── */
+
+.filterBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filterInputWrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #111;
+  border: 1px solid #222;
+  border-radius: 5px;
+  padding: 6px 10px;
+}
+
+.filterInput {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--hd-text);
+  font-size: 12px;
+  outline: none;
+}
+
+.filterInput::placeholder {
+  color: #444;
+}
+
+.filterMeta {
+  font-size: 11px;
+  color: #444;
+  white-space: nowrap;
+}
+
+/* ── Table wrapper ───────────────────────────────── */
+
+.tableWrap {
   overflow-x: auto;
-  border-radius: 12px;
-  border: 1px solid var(--hd-border);
-  background: var(--hd-surface);
+  border: 1px solid #1a1a1a;
+  border-radius: 6px;
 }
 
 .table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: 11px;
 }
 
-/* Header */
+/* ── Header ──────────────────────────────────────── */
+
+.thead {
+  background: #0d0d0d;
+}
+
 .thead th {
-  padding: 11px 14px;
+  padding: 7px 10px;
   text-align: left;
   font-family: var(--font-mono);
   font-size: 10px;
-  letter-spacing: 1.2px;
-  text-transform: uppercase;
-  color: var(--hd-sub);
-  border-bottom: 1px solid var(--hd-border);
+  letter-spacing: 0.05em;
+  color: #444;
+  border-bottom: 1px solid #1a1a1a;
   white-space: nowrap;
 }
 
-.thead th.right  { text-align: right; }
-.thead th.center { text-align: center; }
+.right  { text-align: right; }
+.center { text-align: center; }
 
-/* Body rows */
+/* ── Body rows ───────────────────────────────────── */
+
 .row {
-  border-bottom: 1px solid var(--hd-border);
-  transition: background 0.12s;
+  border-bottom: 1px solid #111;
 }
 
-.row:last-child { border-bottom: none; }
-.row:hover      { background: var(--hd-surface-alt); }
-
-.rowOver {
-  background: linear-gradient(90deg,
-    rgba(227, 94, 108, 0.07) 0%,
-    transparent 60%
-  );
+.row:last-child {
+  border-bottom: none;
 }
 
-.rowOver:hover {
-  background: linear-gradient(90deg,
-    rgba(227, 94, 108, 0.12) 0%,
-    var(--hd-surface-alt) 60%
-  );
+.row:hover {
+  background: rgba(255, 255, 255, 0.02);
 }
 
-.rowUnder {
-  background: linear-gradient(90deg,
-    rgba(224, 169, 106, 0.07) 0%,
-    transparent 60%
-  );
-}
-
-.rowUnder:hover {
-  background: linear-gradient(90deg,
-    rgba(224, 169, 106, 0.12) 0%,
-    var(--hd-surface-alt) 60%
-  );
-}
-
-/* Cells */
 .row td {
-  padding: 10px 14px;
+  padding: 8px 10px;
   vertical-align: middle;
-  color: var(--hd-text);
 }
 
-.row td.right {
-  text-align: right;
-  font-family: var(--font-mono);
-  font-size: 12px;
-}
+/* ── Card name cell ──────────────────────────────── */
 
-.row td.center { text-align: center; }
-
-/* Card name */
 .nameCell {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
+  flex-wrap: wrap;
 }
 
 .cardName {
-  font-weight: 500;
-  color: var(--hd-text);
-  white-space: nowrap;
+  color: var(--hd-accent);
   text-decoration: none;
-  transition: color 0.1s;
+  font-weight: 500;
+  font-size: 11px;
 }
 
-.cardName:hover { color: var(--hd-accent); }
+.cardName:hover {
+  text-decoration: underline;
+  opacity: 0.85;
+}
 
-/* Set badge */
-.setCode {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--hd-sub);
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--hd-border);
-  border-radius: 4px;
-  padding: 2px 5px;
+.nameBadge {
+  display: inline-block;
+  background: #1a1a1a;
+  color: #888;
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 3px;
   white-space: nowrap;
 }
 
-/* Condition */
-.condition {
+/* ── App badge ───────────────────────────────────── */
+
+.appBadge {
+  display: inline-block;
   font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100px;
+}
+
+/* ── Condition ───────────────────────────────────── */
+
+.cond {
+  color: #888;
   font-size: 11px;
-  color: var(--hd-muted);
 }
 
-/* Foil badge */
-.foilBadge {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.8px;
-  color: var(--hd-amber);
-  text-transform: uppercase;
-  opacity: 0.8;
-}
+/* ── Price ───────────────────────────────────────── */
 
-/* Price cell */
-.priceCell {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
-}
-
-.listedPrice {
+.price {
   font-family: var(--font-mono);
   font-size: 12px;
   color: var(--hd-text);
+  font-weight: 500;
 }
 
-.deltaBadge {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  padding: 2px 5px;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--hd-muted);
-}
-
-.deltaOver {
-  background: rgba(227, 94, 108, 0.15);
-  color: var(--hd-red);
-}
-
-.deltaUnder {
-  background: rgba(224, 169, 106, 0.15);
-  color: var(--hd-amber);
-}
-
-.marketPrice {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--hd-muted);
-}
-
-/* Watchers cell */
-.watchersCell {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
+/* ── Watchers ────────────────────────────────────── */
 
 .watchers {
   display: inline-flex;
   align-items: center;
   gap: 3px;
+  color: #888;
   font-family: var(--font-mono);
   font-size: 11px;
-  color: var(--hd-muted);
 }
 
-.days {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--hd-sub);
-}
+/* ── Empty ───────────────────────────────────────── */
 
-/* Actions */
-.actionsCell {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
-}
-
-.viewBtn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 10px;
-  border-radius: 7px;
-  border: 1px solid rgba(var(--hd-blue-rgb), 0.35);
-  background: rgba(var(--hd-blue-rgb), 0.08);
-  color: var(--hd-blue);
-  font-family: var(--font-sans);
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-  text-decoration: none;
-  transition: opacity 0.12s, background 0.12s;
-}
-
-.viewBtn:hover {
-  background: rgba(var(--hd-blue-rgb), 0.15);
-}
-
-.moreBtn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 7px;
-  border: 1px solid var(--hd-border);
-  background: transparent;
-  color: var(--hd-muted);
-  cursor: pointer;
-  transition: background 0.12s, border-color 0.12s;
-}
-
-.moreBtn:hover {
-  background: var(--hd-surface-alt);
-  border-color: var(--hd-border-hot);
-  color: var(--hd-text);
-}
-
-/* Empty state */
 .empty {
   text-align: center;
   padding: 48px 24px;
   color: var(--hd-muted);
   font-size: 13px;
+}
+
+/* ── Skeleton ────────────────────────────────────── */
+
+.skeletonRow td {
+  padding: 10px;
+}
+
+.skeletonText {
+  height: 10px;
+  border-radius: 3px;
+  background: #1a1a1a;
+  animation: shimmer 1.4s infinite linear;
+}
+
+@keyframes shimmer {
+  0%   { opacity: 0.6; }
+  50%  { opacity: 0.3; }
+  100% { opacity: 0.6; }
 }
