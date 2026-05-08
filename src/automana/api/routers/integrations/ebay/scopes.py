@@ -19,7 +19,7 @@ async def list_scopes(
     try:
         scopes = await service_manager.execute_service(
             "integrations.ebay.get_scopes_by_environment",
-            environment=environment,
+            ebay_environment=environment,
         )
         return ApiResponse(message="Scopes retrieved", data={"scopes": scopes})
     except Exception as e:

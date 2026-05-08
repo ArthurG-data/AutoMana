@@ -14,7 +14,6 @@ async def register_scope(repository, scope: str, scope_description: Optional[str
 )
 async def get_scopes_by_environment(
     auth_repository: EbayAuthRepository,
-    environment: str,
+    ebay_environment: str,
 ) -> list[dict]:
-    """Return scopes available for a given eBay environment (SANDBOX or PRODUCTION)."""
-    return await auth_repository.get_scopes_by_environment(environment)
+    return await auth_repository.get_scopes_by_environment(ebay_environment)
