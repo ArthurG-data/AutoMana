@@ -82,11 +82,11 @@ describe('fetchActiveListings', () => {
     mockApiClient.mockReset()
   })
 
-  it('calls GET /listing/active with correct query params', async () => {
+  it('calls GET /integrations/ebay/listing/active with correct query params', async () => {
     mockApiClient.mockResolvedValue([])
     await fetchActiveListings('my_app', 50, 0)
     expect(mockApiClient).toHaveBeenCalledWith(
-      '/listing/active?app_code=my_app&limit=50&offset=0'
+      '/integrations/ebay/listing/active?app_code=my_app&limit=50&offset=0'
     )
   })
 
@@ -94,22 +94,22 @@ describe('fetchActiveListings', () => {
     mockApiClient.mockResolvedValue([])
     await fetchActiveListings('my_app')
     expect(mockApiClient).toHaveBeenCalledWith(
-      '/listing/active?app_code=my_app&limit=50&offset=0'
+      '/integrations/ebay/listing/active?app_code=my_app&limit=50&offset=0'
     )
   })
 
-  it('maps StartPrice to price and currency', async () => {
+  it('maps startPrice to price and currency', async () => {
     mockApiClient.mockResolvedValue([
       {
-        ItemID: '123',
-        Title: 'Ragavan, Nimble Pilferer MH2 NM MTG',
-        StartPrice: { currencyID: 'AUD', text: 62.0 },
-        WatchCount: 5,
-        ConditionDisplayName: 'Near Mint or Better',
-        ConditionDescription: null,
-        ItemSpecifics: null,
-        ListingDetails: { ViewItemURL: 'https://www.ebay.com.au/itm/123' },
-        PictureDetails: { GalleryURL: 'https://img.ebay.com/1.jpg' },
+        itemID: '123',
+        title: 'Ragavan, Nimble Pilferer MH2 NM MTG',
+        startPrice: { currency: 'AUD', value: 62.0 },
+        watchCount: 5,
+        conditionDisplayName: 'Near Mint or Better',
+        conditionDescription: null,
+        itemSpecifics: null,
+        listingDetails: { viewItemUrl: 'https://www.ebay.com.au/itm/123' },
+        pictureDetails: { GalleryURL: 'https://img.ebay.com/1.jpg' },
       },
     ])
     const result = await fetchActiveListings('my_app')
@@ -119,153 +119,257 @@ describe('fetchActiveListings', () => {
     expect(result[0].conditionLabel).toBe('Near Mint or Better')
   })
 
-  it('falls back to ConditionDescription when ConditionDisplayName is absent', async () => {
+  it('prefers buyItNowPrice over startPrice for fixed-price listings', async () => {
     mockApiClient.mockResolvedValue([
       {
-        ItemID: '124',
-        Title: 'Force of Will ALL LP MTG',
-        StartPrice: { currencyID: 'AUD', text: 100 },
-        WatchCount: 0,
-        ConditionDescription: 'Light Play',
-        ConditionDisplayName: null,
-        ItemSpecifics: null,
-        ListingDetails: { ViewItemURL: 'https://www.ebay.com.au/itm/124' },
-        PictureDetails: null,
+        itemID: '125',
+        title: 'Sheoldred DMU NM MTG',
+        startPrice: { currency: 'AUD', value: 0 },
+        buyItNowPrice: { currency: 'AUD', value: 44.0 },
+        watchCount: 0,
+        conditionDisplayName: 'NM',
+        conditionDescription: null,
+        itemSpecifics: null,
+        listingDetails: { viewItemUrl: 'https://www.ebay.com.au/itm/125' },
+        pictureDetails: null,
+      },
+    ])
+    const result = await fetchActiveListings('my_app')
+    expect(result[0].price).toBe(44)
+    expect(result[0].currency).toBe('AUD')
+  })
+
+  it('falls back conditionLabel to ebayConditionLabel when conditionID present', async () => {
+    mockApiClient.mockResolvedValue([
+      {
+        itemID: '126',
+        title: 'Force of Will ALL MTG',
+        startPrice: { currency: 'AUD', value: 100 },
+        watchCount: 0,
+        conditionID: 3000,
+        conditionDescription: null,
+        conditionDisplayName: null,
+        itemSpecifics: null,
+        listingDetails: { viewItemUrl: 'https://www.ebay.com.au/itm/126' },
+        pictureDetails: null,
+      },
+    ])
+    const result = await fetchActiveListings('my_app')
+    expect(result[0].conditionLabel).toBe('Used')
+  })
+
+  it('extracts style from itemSpecifics Card Style field', async () => {
+    mockApiClient.mockResolvedValue([
+      {
+        itemID: '127',
+        title: 'Sheoldred DMU NM MTG',
+        startPrice: { currency: 'AUD', value: 50 },
+        watchCount: 0,
+        conditionDisplayName: 'NM',
+        conditionDescription: null,
+        itemSpecifics: {
+          NameValueList: [
+            { Name: 'Finish', Value: 'Foil' },
+            { Name: 'Card Style', Value: 'Extended Art' },
+          ],
+        },
+        listingDetails: { viewItemUrl: 'https://www.ebay.com.au/itm/127' },
+        pictureDetails: null,
+      },
+    ])
+    const result = await fetchActiveListings('my_app')
+    expect(result[0].finish).toBe('Foil')
+    expect(result[0].style).toBe('Extended Art')
+  })
+
+  it('falls back to conditionDescription when conditionDisplayName is absent', async () => {
+    mockApiClient.mockResolvedValue([
+      {
+        itemID: '124',
+        title: 'Force of Will ALL LP MTG',
+        startPrice: { currency: 'AUD', value: 100 },
+        watchCount: 0,
+        conditionDescription: 'Light Play',
+        conditionDisplayName: null,
+        itemSpecifics: null,
+        listingDetails: { viewItemUrl: 'https://www.ebay.com.au/itm/124' },
+        pictureDetails: null,
       },
     ])
     const result = await fetchActiveListings('my_app')
     expect(result[0].conditionLabel).toBe('Light Play')
   })
 
-  it('uses fallback eBay URL when ViewItemURL is null', async () => {
+  it('uses fallback eBay URL when viewItemUrl is null', async () => {
     mockApiClient.mockResolvedValue([
       {
-        ItemID: '456',
-        Title: 'Force of Will ALL MTG',
-        StartPrice: { currencyID: 'AUD', text: 10 },
-        WatchCount: 0,
-        ConditionDisplayName: null,
-        ConditionDescription: null,
-        ItemSpecifics: null,
-        ListingDetails: null,
-        PictureDetails: null,
+        itemID: '456',
+        title: 'Force of Will ALL MTG',
+        startPrice: { currency: 'AUD', value: 10 },
+        watchCount: 0,
+        conditionDisplayName: null,
+        conditionDescription: null,
+        itemSpecifics: null,
+        listingDetails: null,
+        pictureDetails: null,
       },
     ])
     const result = await fetchActiveListings('my_app')
     expect(result[0].viewItemUrl).toBe('https://www.ebay.com.au/itm/456')
   })
 
-  it('extracts Finish from ItemSpecifics NameValueList (array)', async () => {
+  it('extracts Finish from itemSpecifics NameValueList (array)', async () => {
     mockApiClient.mockResolvedValue([
       {
-        ItemID: '789',
-        Title: 'Ragavan, Nimble Pilferer MH2 NM FOIL MTG',
-        StartPrice: { currencyID: 'AUD', text: 100 },
-        WatchCount: 3,
-        ConditionDisplayName: 'Near Mint',
-        ConditionDescription: null,
-        ItemSpecifics: {
+        itemID: '789',
+        title: 'Ragavan, Nimble Pilferer MH2 NM FOIL MTG',
+        startPrice: { currency: 'AUD', value: 100 },
+        watchCount: 3,
+        conditionDisplayName: 'Near Mint',
+        conditionDescription: null,
+        itemSpecifics: {
           NameValueList: [{ Name: 'Finish', Value: 'Foil' }],
         },
-        ListingDetails: { ViewItemURL: 'https://www.ebay.com.au/itm/789' },
-        PictureDetails: null,
+        listingDetails: { viewItemUrl: 'https://www.ebay.com.au/itm/789' },
+        pictureDetails: null,
       },
     ])
     const result = await fetchActiveListings('my_app')
     expect(result[0].finish).toBe('Foil')
   })
 
-  it('extracts Finish from ItemSpecifics NameValueList (single object, not array)', async () => {
+  it('extracts Finish from itemSpecifics NameValueList (single object, not array)', async () => {
     mockApiClient.mockResolvedValue([
       {
-        ItemID: '790',
-        Title: 'Ragavan MH2 NM FOIL MTG',
-        StartPrice: { currencyID: 'AUD', text: 80 },
-        WatchCount: 0,
-        ConditionDisplayName: 'NM',
-        ConditionDescription: null,
-        ItemSpecifics: {
+        itemID: '790',
+        title: 'Ragavan MH2 NM FOIL MTG',
+        startPrice: { currency: 'AUD', value: 80 },
+        watchCount: 0,
+        conditionDisplayName: 'NM',
+        conditionDescription: null,
+        itemSpecifics: {
           NameValueList: { Name: 'Finish', Value: 'Foil' },
         },
-        ListingDetails: { ViewItemURL: 'https://www.ebay.com.au/itm/790' },
-        PictureDetails: null,
+        listingDetails: { viewItemUrl: 'https://www.ebay.com.au/itm/790' },
+        pictureDetails: null,
       },
     ])
     const result = await fetchActiveListings('my_app')
     expect(result[0].finish).toBe('Foil')
   })
 
-  it('defaults finish to Regular when ItemSpecifics is null', async () => {
+  it('defaults finish to Regular when itemSpecifics is null', async () => {
     mockApiClient.mockResolvedValue([
       {
-        ItemID: '999',
-        Title: 'Ancient Tomb TMP NM MTG',
-        StartPrice: { currencyID: 'AUD', text: 58 },
-        WatchCount: 0,
-        ConditionDisplayName: 'NM',
-        ConditionDescription: null,
-        ItemSpecifics: null,
-        ListingDetails: { ViewItemURL: 'https://www.ebay.com.au/itm/999' },
-        PictureDetails: null,
+        itemID: '999',
+        title: 'Ancient Tomb TMP NM MTG',
+        startPrice: { currency: 'AUD', value: 58 },
+        watchCount: 0,
+        conditionDisplayName: 'NM',
+        conditionDescription: null,
+        itemSpecifics: null,
+        listingDetails: { viewItemUrl: 'https://www.ebay.com.au/itm/999' },
+        pictureDetails: null,
       },
     ])
     const result = await fetchActiveListings('my_app')
     expect(result[0].finish).toBe('Regular')
   })
 
-  it('extracts GalleryURL when PictureDetails is present', async () => {
+  it('extracts GalleryURL when pictureDetails is present', async () => {
     mockApiClient.mockResolvedValue([
       {
-        ItemID: '111',
-        Title: 'Dark Confidant RAV NM MTG',
-        StartPrice: { currencyID: 'AUD', text: 30 },
-        WatchCount: 1,
-        ConditionDisplayName: 'NM',
-        ConditionDescription: null,
-        ItemSpecifics: null,
-        ListingDetails: { ViewItemURL: 'https://www.ebay.com.au/itm/111' },
-        PictureDetails: { GalleryURL: 'https://img.ebay.com/card.jpg' },
+        itemID: '111',
+        title: 'Dark Confidant RAV NM MTG',
+        startPrice: { currency: 'AUD', value: 30 },
+        watchCount: 1,
+        conditionDisplayName: 'NM',
+        conditionDescription: null,
+        itemSpecifics: null,
+        listingDetails: { viewItemUrl: 'https://www.ebay.com.au/itm/111' },
+        pictureDetails: { GalleryURL: 'https://img.ebay.com/card.jpg' },
       },
     ])
     const result = await fetchActiveListings('my_app')
     expect(result[0].imageUrl).toBe('https://img.ebay.com/card.jpg')
   })
 
-  it('sets imageUrl to null when PictureDetails is null', async () => {
+  it('sets imageUrl to null when pictureDetails is null', async () => {
     mockApiClient.mockResolvedValue([
       {
-        ItemID: '222',
-        Title: 'Snapcaster Mage ISD LP MTG',
-        StartPrice: { currencyID: 'AUD', text: 20 },
-        WatchCount: 0,
-        ConditionDisplayName: 'LP',
-        ConditionDescription: null,
-        ItemSpecifics: null,
-        ListingDetails: { ViewItemURL: 'https://www.ebay.com.au/itm/222' },
-        PictureDetails: null,
+        itemID: '222',
+        title: 'Snapcaster Mage ISD LP MTG',
+        startPrice: { currency: 'AUD', value: 20 },
+        watchCount: 0,
+        conditionDisplayName: 'LP',
+        conditionDescription: null,
+        itemSpecifics: null,
+        listingDetails: { viewItemUrl: 'https://www.ebay.com.au/itm/222' },
+        pictureDetails: null,
       },
     ])
     const result = await fetchActiveListings('my_app')
     expect(result[0].imageUrl).toBeNull()
   })
 
-  it('parses cardName from title', async () => {
+  it('parses cardName, setCode and setInfo from title', async () => {
     mockApiClient.mockResolvedValue([
       {
-        ItemID: '333',
-        Title: 'Sheoldred, the Apocalypse DMU #107 NM MTG',
-        StartPrice: { currencyID: 'AUD', text: 44 },
-        WatchCount: 0,
-        ConditionDisplayName: 'NM',
-        ConditionDescription: null,
-        ItemSpecifics: null,
-        ListingDetails: { ViewItemURL: 'https://www.ebay.com.au/itm/333' },
-        PictureDetails: null,
+        itemID: '333',
+        title: 'Sheoldred, the Apocalypse DMU #107 NM MTG',
+        startPrice: { currency: 'AUD', value: 44 },
+        watchCount: 0,
+        conditionDisplayName: 'NM',
+        conditionDescription: null,
+        itemSpecifics: null,
+        listingDetails: { viewItemUrl: 'https://www.ebay.com.au/itm/333' },
+        pictureDetails: null,
       },
     ])
     const result = await fetchActiveListings('my_app')
     expect(result[0].cardName).toBe('Sheoldred, the Apocalypse')
+    expect(result[0].setCode).toBe('DMU')
     expect(result[0].setInfo).toBe('DMU #107')
+  })
+
+  it('extracts finish and style from title when itemSpecifics absent', async () => {
+    mockApiClient.mockResolvedValue([
+      {
+        itemID: '444',
+        title: 'Ragavan, Nimble Pilferer Surge Foil Borderless MH2 NM MTG',
+        startPrice: { currency: 'AUD', value: 80 },
+        watchCount: 0,
+        conditionDisplayName: 'NM',
+        conditionDescription: null,
+        itemSpecifics: null,
+        listingDetails: { viewItemUrl: 'https://www.ebay.com.au/itm/444' },
+        pictureDetails: null,
+      },
+    ])
+    const result = await fetchActiveListings('my_app')
+    expect(result[0].cardName).toBe('Ragavan, Nimble Pilferer')
+    expect(result[0].setCode).toBe('MH2')
+    expect(result[0].finish).toBe('Surge Foil')
+    expect(result[0].style).toBe('Borderless')
+  })
+
+  it('calculates daysListed from listingDetails.startTime', async () => {
+    const twoDaysAgo = new Date(Date.now() - 2 * 86_400_000).toISOString()
+    mockApiClient.mockResolvedValue([
+      {
+        itemID: '555',
+        title: 'Force of Will ALL NM MTG',
+        startPrice: { currency: 'AUD', value: 110 },
+        watchCount: 0,
+        conditionDisplayName: 'NM',
+        conditionDescription: null,
+        itemSpecifics: null,
+        listingDetails: { viewItemUrl: 'https://www.ebay.com.au/itm/555', startTime: twoDaysAgo },
+        pictureDetails: null,
+      },
+    ])
+    const result = await fetchActiveListings('my_app')
+    expect(result[0].daysListed).toBe(2)
   })
 
   it('propagates errors from apiClient', async () => {

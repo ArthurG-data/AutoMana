@@ -64,6 +64,14 @@ async def get_listing(
     )
 
     token = await resolve_token(auth_repository, user_id=user_id, app_code=app_code)
+
+    raw_env = await auth_repository.get_environment(app_code=app_code)
+    if raw_env:
+        env = raw_env.lower()
+        if env != selling_repository.environment:
+            selling_repository.environment = env
+            selling_repository.base_url = selling_repository._get_base_url()
+
     payload: Dict[str, Any] = {
         "token": token,
         "item_id": item_id,
@@ -109,6 +117,15 @@ async def get_active_listings(
     )
 
     token = await resolve_token(auth_repository, user_id=user_id, app_code=app_code)
+
+    # The service manager defaults API repos to 'sandbox'. Look up the real
+    # environment for this app and correct the repo before hitting eBay.
+    raw_env = await auth_repository.get_environment(app_code=app_code)
+    if raw_env:
+        env = raw_env.lower()
+        if env != selling_repository.environment:
+            selling_repository.environment = env
+            selling_repository.base_url = selling_repository._get_base_url()
 
     # eBay's API is 1-indexed. Convert once, document why.
     page_number = (offset // limit) + 1 if limit else 1

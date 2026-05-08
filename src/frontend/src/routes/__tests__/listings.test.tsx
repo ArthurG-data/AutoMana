@@ -6,6 +6,11 @@ import React from 'react'
 vi.mock('../../features/ebay/api', () => ({
   fetchUserApps: vi.fn(),
   fetchActiveListings: vi.fn(),
+  fetchActiveListingsPaginated: vi.fn(),
+}))
+
+vi.mock('../../features/ebay/lib/catalogEnrich', () => ({
+  enrichWithCatalog: vi.fn((listings: unknown[]) => Promise.resolve(listings)),
 }))
 
 vi.mock('../../components/layout/AppShell', () => ({
@@ -27,13 +32,13 @@ vi.mock('../../features/ebay/components/ListingsTable', () => ({
   ),
 }))
 
-import { fetchUserApps, fetchActiveListings } from '../../features/ebay/api'
+import { fetchUserApps, fetchActiveListingsPaginated } from '../../features/ebay/api'
 import type { EbayAppSummary } from '../../features/ebay/api'
 import type { EbayLiveListing } from '../../features/ebay/mockListings'
 import { ListingsPage } from '../listings'
 
 const mockFetchUserApps = vi.mocked(fetchUserApps)
-const mockFetchActiveListings = vi.mocked(fetchActiveListings)
+const mockFetchActiveListingsPaginated = vi.mocked(fetchActiveListingsPaginated)
 
 function makeApp(overrides: Partial<EbayAppSummary> = {}): EbayAppSummary {
   return {
@@ -57,7 +62,10 @@ function makeListing(overrides: Partial<EbayLiveListing> = {}): EbayLiveListing 
     itemId: 'l1',
     title: 'Ragavan MH2 NM MTG',
     cardName: 'Ragavan',
+    setCode: 'MH2',
     setInfo: 'MH2',
+    style: '',
+    daysListed: 0,
     price: 62,
     currency: 'AUD',
     conditionLabel: 'NM',
@@ -71,6 +79,10 @@ function makeListing(overrides: Partial<EbayLiveListing> = {}): EbayLiveListing 
   }
 }
 
+function pagedResult(listings: EbayLiveListing[], hasMore = false) {
+  return { items: listings, hasMore }
+}
+
 function renderListingsPage() {
   return render(<ListingsPage />)
 }
@@ -78,7 +90,7 @@ function renderListingsPage() {
 describe('ListingsPage Active tab', () => {
   beforeEach(() => {
     mockFetchUserApps.mockReset()
-    mockFetchActiveListings.mockReset()
+    mockFetchActiveListingsPaginated.mockReset()
   })
 
   it('shows loading skeleton while fetching', async () => {
@@ -91,7 +103,7 @@ describe('ListingsPage Active tab', () => {
   it('passes merged live listings to ListingsTable after fetch', async () => {
     const listing = makeListing()
     mockFetchUserApps.mockResolvedValue([makeApp()])
-    mockFetchActiveListings.mockResolvedValue([listing])
+    mockFetchActiveListingsPaginated.mockResolvedValue(pagedResult([listing]))
     renderListingsPage()
     await waitFor(() => {
       const table = screen.getByTestId('listings-table')
@@ -105,11 +117,11 @@ describe('ListingsPage Active tab', () => {
       makeApp({ environment: 'PRODUCTION', app_code: 'prod_app' }),
       makeApp({ environment: 'SANDBOX', app_code: 'sandbox_app' }),
     ])
-    mockFetchActiveListings.mockResolvedValue([])
+    mockFetchActiveListingsPaginated.mockResolvedValue(pagedResult([]))
     renderListingsPage()
     await waitFor(() => {
-      expect(mockFetchActiveListings).toHaveBeenCalledTimes(1)
-      expect(mockFetchActiveListings).toHaveBeenCalledWith('prod_app', 50, 0)
+      expect(mockFetchActiveListingsPaginated).toHaveBeenCalledTimes(1)
+      expect(mockFetchActiveListingsPaginated).toHaveBeenCalledWith('prod_app', 25, 0)
     })
   })
 
@@ -118,9 +130,9 @@ describe('ListingsPage Active tab', () => {
       makeApp({ app_code: 'app_1', app_name: 'App 1' }),
       makeApp({ app_code: 'app_2', app_name: 'App 2', app_id: 'app-2' }),
     ])
-    mockFetchActiveListings
-      .mockResolvedValueOnce([makeListing({ itemId: 'l1', appCode: 'app_1' })])
-      .mockResolvedValueOnce([makeListing({ itemId: 'l2', appCode: 'app_2' })])
+    mockFetchActiveListingsPaginated
+      .mockResolvedValueOnce(pagedResult([makeListing({ itemId: 'l1', appCode: 'app_1' })]))
+      .mockResolvedValueOnce(pagedResult([makeListing({ itemId: 'l2', appCode: 'app_2' })]))
     renderListingsPage()
     await waitFor(() => {
       const table = screen.getByTestId('listings-table')
@@ -130,7 +142,9 @@ describe('ListingsPage Active tab', () => {
 
   it('injects appName onto each listing', async () => {
     mockFetchUserApps.mockResolvedValue([makeApp({ app_code: 'automana_au', app_name: 'AutoMana AU' })])
-    mockFetchActiveListings.mockResolvedValue([makeListing({ appCode: 'automana_au', appName: '' })])
+    mockFetchActiveListingsPaginated.mockResolvedValue(
+      pagedResult([makeListing({ appCode: 'automana_au', appName: '' })])
+    )
     renderListingsPage()
     await waitFor(() => {
       const table = screen.getByTestId('listings-table')
@@ -143,8 +157,8 @@ describe('ListingsPage Active tab', () => {
       makeApp({ app_code: 'app_ok', app_name: 'Good App' }),
       makeApp({ app_code: 'app_fail', app_name: 'Bad App', app_id: 'app-2' }),
     ])
-    mockFetchActiveListings
-      .mockResolvedValueOnce([makeListing()])
+    mockFetchActiveListingsPaginated
+      .mockResolvedValueOnce(pagedResult([makeListing()]))
       .mockRejectedValueOnce(new Error('Network error'))
     renderListingsPage()
     await waitFor(() => {
@@ -157,8 +171,8 @@ describe('ListingsPage Active tab', () => {
       makeApp({ app_code: 'app_ok', app_name: 'Good App' }),
       makeApp({ app_code: 'app_fail', app_name: 'Bad App', app_id: 'app-2' }),
     ])
-    mockFetchActiveListings
-      .mockResolvedValueOnce([makeListing({ itemId: 'l1' })])
+    mockFetchActiveListingsPaginated
+      .mockResolvedValueOnce(pagedResult([makeListing({ itemId: 'l1' })]))
       .mockRejectedValueOnce(new Error('fail'))
     renderListingsPage()
     await waitFor(() => {
@@ -170,7 +184,7 @@ describe('ListingsPage Active tab', () => {
   it('dismisses error banner on close click', async () => {
     const user = userEvent.setup()
     mockFetchUserApps.mockResolvedValue([makeApp({ app_code: 'app_fail', app_name: 'Bad App' })])
-    mockFetchActiveListings.mockRejectedValue(new Error('fail'))
+    mockFetchActiveListingsPaginated.mockRejectedValue(new Error('fail'))
     renderListingsPage()
     await waitFor(() => {
       expect(screen.getByText(/could not load listings for bad app/i)).toBeTruthy()
@@ -186,7 +200,7 @@ describe('ListingsPage Active tab', () => {
     ])
     renderListingsPage()
     await waitFor(() => {
-      expect(mockFetchActiveListings).not.toHaveBeenCalled()
+      expect(mockFetchActiveListingsPaginated).not.toHaveBeenCalled()
     })
   })
 })

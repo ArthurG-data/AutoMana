@@ -35,6 +35,25 @@
   top: 0;
 }
 
+.cardImage {
+  width: 100%;
+  aspect-ratio: 63 / 88;
+  border-radius: 12px;
+  border: 1px solid var(--hd-border);
+  object-fit: cover;
+  display: block;
+}
+
+.ebayLink {
+  color: var(--hd-accent);
+  font-size: 11px;
+  text-decoration: none;
+}
+
+.ebayLink:hover {
+  text-decoration: underline;
+}
+
 .cardArtPlaceholder {
   width: 100%;
   aspect-ratio: 63 / 88;    /* MTG card aspect ratio */

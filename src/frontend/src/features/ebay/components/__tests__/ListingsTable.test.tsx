@@ -1,14 +1,28 @@
 import { render, screen, fireEvent } from '@testing-library/react'
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { ListingsTable } from '../ListingsTable'
 import type { EbayLiveListing } from '../../mockListings'
+
+// Link needs a router context — stub it to a plain anchor so tests stay unit-level.
+vi.mock('@tanstack/react-router', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@tanstack/react-router')>()
+  return {
+    ...actual,
+    Link: ({ children, to, params, ...props }: Record<string, unknown> & { children: React.ReactNode; to?: string; params?: unknown }) => (
+      <a href={typeof to === 'string' ? to : '#'} {...props}>{children}</a>
+    ),
+  }
+})
 
 function makeListing(overrides: Partial<EbayLiveListing> = {}): EbayLiveListing {
   return {
     itemId: 'l1',
     title: 'Ragavan, Nimble Pilferer MH2 NM MTG',
     cardName: 'Ragavan, Nimble Pilferer',
+    setCode: 'MH2',
     setInfo: 'MH2',
+    style: '',
+    daysListed: 14,
     price: 62,
     currency: 'AUD',
     conditionLabel: 'NM',
@@ -28,7 +42,7 @@ describe('ListingsTable', () => {
     expect(screen.getByText('APP')).toBeTruthy()
     expect(screen.getByText('COND')).toBeTruthy()
     expect(screen.getByText('PRICE')).toBeTruthy()
-    expect(screen.getByText('WATCHERS')).toBeTruthy()
+    expect(screen.getByText('WATCH')).toBeTruthy()
     expect(screen.getByText('STATUS')).toBeTruthy()
   })
 
@@ -42,22 +56,23 @@ describe('ListingsTable', () => {
     expect(screen.getByPlaceholderText('Filter by card name…')).toBeTruthy()
   })
 
-  it('renders card name as an external link to eBay', () => {
+  it('renders card name as an internal detail-page link', () => {
     render(<ListingsTable listings={[makeListing()]} />)
-    const link = screen.getByRole('link', { name: /ragavan/i })
-    expect(link.getAttribute('href')).toBe('https://www.ebay.com.au/itm/123')
-    expect(link.getAttribute('target')).toBe('_blank')
-    expect(link.getAttribute('rel')).toBe('noopener noreferrer')
+    const link = screen.getByRole('link', { name: /ragavan, nimble pilferer/i })
+    expect(link.getAttribute('href')).toBe('/listings_/$id')
   })
 
-  it('renders COND · SET badge next to card name', () => {
-    render(<ListingsTable listings={[makeListing({ conditionLabel: 'NM', setInfo: 'MH2' })]} />)
-    expect(screen.getByText('NM · MH2')).toBeTruthy()
+  it('renders a separate eBay external link next to the card name', () => {
+    render(<ListingsTable listings={[makeListing()]} />)
+    const ebayLink = screen.getByTitle('View on eBay')
+    expect(ebayLink.getAttribute('href')).toBe('https://www.ebay.com.au/itm/123')
+    expect(ebayLink.getAttribute('target')).toBe('_blank')
+    expect(ebayLink.getAttribute('rel')).toBe('noopener noreferrer')
   })
 
-  it('renders badge with only setInfo when conditionLabel is empty', () => {
-    render(<ListingsTable listings={[makeListing({ conditionLabel: '', setInfo: 'MH2' })]} />)
-    expect(screen.getByText('MH2')).toBeTruthy()
+  it('renders condition label in its own column', () => {
+    render(<ListingsTable listings={[makeListing({ conditionLabel: 'NM' })]} />)
+    expect(screen.getByText('NM')).toBeTruthy()
   })
 
   it('renders app badge with app name', () => {
@@ -108,5 +123,30 @@ describe('ListingsTable', () => {
     ]
     render(<ListingsTable listings={listings} />)
     expect(screen.getByText(/2 listings · 2 apps/i)).toBeTruthy()
+  })
+
+  it('sorts by price ascending when price header is clicked', () => {
+    const listings = [
+      makeListing({ itemId: 'l1', cardName: 'Alpha', price: 100 }),
+      makeListing({ itemId: 'l2', cardName: 'Beta', price: 10 }),
+    ]
+    render(<ListingsTable listings={listings} />)
+    fireEvent.click(screen.getByText(/^PRICE/))
+    const cells = screen.getAllByText(/^\$\d+\.00$/)
+    expect(cells[0].textContent).toBe('$10.00')
+    expect(cells[1].textContent).toBe('$100.00')
+  })
+
+  it('sorts by price descending on second click', () => {
+    const listings = [
+      makeListing({ itemId: 'l1', cardName: 'Alpha', price: 100 }),
+      makeListing({ itemId: 'l2', cardName: 'Beta', price: 10 }),
+    ]
+    render(<ListingsTable listings={listings} />)
+    fireEvent.click(screen.getByText(/^PRICE/))
+    fireEvent.click(screen.getByText(/^PRICE/))
+    const cells = screen.getAllByText(/^\$\d+\.00$/)
+    expect(cells[0].textContent).toBe('$100.00')
+    expect(cells[1].textContent).toBe('$10.00')
   })
 })

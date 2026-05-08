@@ -154,19 +154,20 @@ class BaseApiClient(ABC):
         headers=None,
         json=None,
         data=None,
+        content=None,
         timeout=None
     ) -> httpx.Response:
-    
+
         url = self.get_full_url(endpoint)
 
         merged_headers = dict(self.default_headers())
         if headers:
             merged_headers.update(headers)
         client = self._get_client()
-        
+
         logger.info("Sending request", extra={"method": method.upper(), "url": url})
         try:
-            return await client.request(method.upper(), url, params=params, headers=merged_headers, json=json, data=data, timeout=timeout)
+            return await client.request(method.upper(), url, params=params, headers=merged_headers, json=json, data=data, content=content, timeout=timeout)
         except httpx.HTTPStatusError as e:
             raise self.map_http_error(e)
         except httpx.RequestError as e:

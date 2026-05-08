@@ -56,7 +56,21 @@
   width: 100%;
   border-collapse: collapse;
   font-size: 11px;
+  table-layout: fixed;
 }
+
+/* ── Column widths (via <colgroup>) ──────────────── */
+
+.colName     { width: 180px; }
+.colSet      { width: 48px; }
+.colApp      { width: 80px; }
+.colCond     { width: 68px; }
+.colFinish   { width: 82px; }
+.colStyle    { width: 80px; }
+.colPrice    { width: 66px; }
+.colDays     { width: 48px; }
+.colWatchers { width: 54px; }
+.colStatus   { width: 64px; }
 
 /* ── Header ──────────────────────────────────────── */
 
@@ -73,10 +87,11 @@
   color: #444;
   border-bottom: 1px solid #1a1a1a;
   white-space: nowrap;
+  overflow: hidden;
 }
 
-.right  { text-align: right; }
-.center { text-align: center; }
+.right  { text-align: right !important; }
+.center { text-align: center !important; }
 
 /* ── Body rows ───────────────────────────────────── */
 
@@ -93,8 +108,9 @@
 }
 
 .row td {
-  padding: 8px 10px;
+  padding: 7px 10px;
   vertical-align: middle;
+  overflow: hidden;
 }
 
 /* ── Card name cell ──────────────────────────────── */
@@ -102,8 +118,32 @@
 .nameCell {
   display: flex;
   align-items: center;
-  gap: 4px;
-  flex-wrap: wrap;
+  gap: 7px;
+  min-width: 0;
+}
+
+.thumbnail {
+  width: 30px;
+  height: 30px;
+  border-radius: 3px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: #1a1a1a;
+  border: 1px solid #222;
+}
+
+.nameText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.nameText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
 .cardName {
@@ -111,6 +151,10 @@
   text-decoration: none;
   font-weight: 500;
   font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
 }
 
 .cardName:hover {
@@ -118,14 +162,28 @@
   opacity: 0.85;
 }
 
+.ebayLink {
+  font-size: 9px;
+  color: #555;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.ebayLink:hover {
+  color: #888;
+}
+
 .nameBadge {
   display: inline-block;
   background: #1a1a1a;
-  color: #888;
+  color: #666;
   font-size: 9px;
   padding: 1px 5px;
   border-radius: 3px;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 /* ── App badge ───────────────────────────────────── */
@@ -139,14 +197,31 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 100px;
+  max-width: 100%;
 }
 
-/* ── Condition ───────────────────────────────────── */
+/* ── Generic chip (condition, style, finish-regular) */
 
-.cond {
+.chip {
+  display: inline-block;
   color: #888;
-  font-size: 11px;
+  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* ── Finish chip — non-regular finishes get a subtle accent */
+
+.chipAccent {
+  display: inline-block;
+  color: var(--hd-accent);
+  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 /* ── Price ───────────────────────────────────────── */
@@ -158,15 +233,62 @@
   font-weight: 500;
 }
 
+/* ── Set code chip ───────────────────────────────── */
+
+.setChip {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #666;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* ── Days listed ─────────────────────────────────── */
+
+.days {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #666;
+}
+
 /* ── Watchers ────────────────────────────────────── */
 
 .watchers {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 3px;
   color: #888;
   font-family: var(--font-mono);
   font-size: 11px;
+}
+
+/* ── Sortable headers ────────────────────────────── */
+
+.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.sortable:hover {
+  color: #666 !important;
+}
+
+.sortIndicator {
+  margin-left: 3px;
+  font-size: 7px;
+  opacity: 0.25;
+  vertical-align: middle;
+}
+
+.sortIndicatorActive {
+  margin-left: 3px;
+  font-size: 7px;
+  color: var(--hd-accent);
+  vertical-align: middle;
 }
 
 /* ── Empty ───────────────────────────────────────── */
