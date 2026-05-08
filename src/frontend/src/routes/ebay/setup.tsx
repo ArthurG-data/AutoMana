@@ -17,7 +17,7 @@ import {
   type ConnectionStatus,
   type RegistrationResult,
 } from '../../features/ebay/mockEbayApp'
-import { registerEbayApp, fetchEbayScopes, type EbayScopeItem } from '../../features/ebay/api'
+import { registerEbayApp, fetchEbayScopes, startEbayOAuth, type EbayScopeItem } from '../../features/ebay/api'
 import styles from './Setup.module.css'
 
 export const Route = createFileRoute('/ebay/setup')({
@@ -307,9 +307,12 @@ function StepScopes({ scopes, onToggle, scopesError }: StepScopesProps) {
 
 interface StepResultProps {
   appCode: string
+  onConnect: () => void
+  connecting: boolean
+  connectError: string | null
 }
 
-function StepResult({ appCode }: StepResultProps) {
+function StepResult({ appCode, onConnect, connecting, connectError }: StepResultProps) {
   return (
     <div className={styles.stepContent}>
       <h2 className={styles.stepHeading}>App registered</h2>
@@ -327,9 +330,20 @@ function StepResult({ appCode }: StepResultProps) {
         </div>
       </div>
       <p className={styles.verifyNote}>
-        Your eBay app is registered. Use the app code above to start the OAuth flow and
-        connect your eBay account.
+        Your eBay app is registered. Click below to authorize AutoMana on your eBay account.
       </p>
+      <Button
+        variant="accent"
+        size="md"
+        onClick={onConnect}
+        disabled={connecting}
+        icon={<Icon kind="link" size={13} color="currentColor" />}
+      >
+        {connecting ? 'Redirecting to eBay…' : 'Connect to eBay'}
+      </Button>
+      {connectError && (
+        <span className={styles.errorMsg} role="alert">{connectError}</span>
+      )}
     </div>
   )
 }
@@ -474,6 +488,8 @@ function EbaySetupPage() {
   const [submitting, setSubmitting] = useState(false)
   const [registrationResult, setRegistrationResult] = useState<RegistrationResult | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [connecting, setConnecting] = useState(false)
+  const [connectError, setConnectError] = useState<string | null>(null)
 
   function validateCredentials(): boolean {
     const errors: Record<string, string> = {}
@@ -551,6 +567,19 @@ function EbaySetupPage() {
     setStep((s) => Math.max(s - 1, 0))
   }
 
+  async function handleConnect() {
+    if (!registrationResult) return
+    setConnecting(true)
+    setConnectError(null)
+    try {
+      const { authorization_url } = await startEbayOAuth(registrationResult.appCode)
+      window.location.href = authorization_url
+    } catch (err) {
+      setConnectError(err instanceof Error ? err.message : 'Could not start OAuth flow')
+      setConnecting(false)
+    }
+  }
+
   return (
     <AppShell active="settings">
       <TopBar
@@ -588,7 +617,12 @@ function EbaySetupPage() {
                 : <StepScopes scopes={scopes} onToggle={toggleScope} scopesError={scopesError} />
             )}
             {step === 3 && registrationResult && registrationResult.success && (
-              <StepResult appCode={registrationResult.appCode} />
+              <StepResult
+                appCode={registrationResult.appCode}
+                onConnect={handleConnect}
+                connecting={connecting}
+                connectError={connectError}
+              />
             )}
 
             <div className={styles.navButtons}>

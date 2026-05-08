@@ -45,3 +45,14 @@ export async function registerEbayApp(data: RegisterEbayAppRequest): Promise<Reg
     }),
   })
 }
+
+export interface StartOAuthResponse {
+  authorization_url: string
+}
+
+export async function startEbayOAuth(appCode: string): Promise<StartOAuthResponse> {
+  return apiClient<StartOAuthResponse>(
+    `/integrations/ebay/auth/app/login?app_code=${encodeURIComponent(appCode)}`,
+    { method: 'POST' }
+  )
+}
