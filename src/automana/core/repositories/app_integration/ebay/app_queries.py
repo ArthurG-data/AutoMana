@@ -18,8 +18,13 @@ INSERT INTO app_integration.app_info (
 VALUES (
     $1, $2, $3, $3, $4, pgp_sym_encrypt($5, $9), $6, $7, $8
 )
-ON CONFLICT (app_id)
-DO NOTHING
+ON CONFLICT (app_id) DO UPDATE SET
+    app_name                = EXCLUDED.app_name,
+    redirect_uri            = EXCLUDED.redirect_uri,
+    ru_name                 = EXCLUDED.ru_name,
+    client_secret_encrypted = EXCLUDED.client_secret_encrypted,
+    description             = EXCLUDED.description,
+    updated_at              = now()
 RETURNING app_code; """
 
 
