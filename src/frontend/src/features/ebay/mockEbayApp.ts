@@ -17,6 +17,7 @@ export interface OAuthScope {
   enabled: boolean
 }
 
+// Note: success: false variant is reserved for future use; current wizard uses inline errors on Step 3
 export type RegistrationResult =
   | { success: true; appCode: string }
   | { success: false; error: string }

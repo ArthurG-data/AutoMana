@@ -184,6 +184,24 @@ describe('EbaySetupPage', () => {
     expect(marketingToggle.getAttribute('aria-checked')).toBe('true')
   })
 
+  it('includes toggled scope in registerEbayApp payload after enabling sell.marketing', async () => {
+    goToStep3()
+    // Enable sell.marketing (off by default)
+    const marketingToggle = screen.getByRole('switch', { name: /toggle sell\.marketing/i })
+    fireEvent.click(marketingToggle)
+    // Submit
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /register app/i }))
+    })
+    expect(mockRegisterEbayApp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        allowed_scopes: expect.arrayContaining([
+          'https://api.ebay.com/oauth/api_scope/sell.marketing',
+        ]),
+      })
+    )
+  })
+
   it('does not toggle required scopes (sell.inventory stays on)', () => {
     goToStep3()
     const inventoryToggle = screen.getByRole('switch', { name: /toggle sell\.inventory/i })

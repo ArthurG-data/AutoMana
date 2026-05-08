@@ -317,48 +317,30 @@ function StepScopes({ scopes, onToggle }: StepScopesProps) {
 // ── Step 4: Registration result ────────────────────────────────────────────
 
 interface StepResultProps {
-  result: RegistrationResult
+  appCode: string
 }
 
-function StepResult({ result }: StepResultProps) {
-  if (result.success) {
-    return (
-      <div className={styles.stepContent}>
-        <h2 className={styles.stepHeading}>App registered</h2>
-        <div className={styles.verifyBox}>
-          <div className={styles.verifySuccess}>
-            <div className={styles.verifyIcon}>
-              <Icon kind="check" size={24} color="var(--hd-accent)" />
-            </div>
-            <div>
-              <div className={styles.verifyTitle}>App registered successfully</div>
-              <div className={styles.verifySubtitle}>
-                App code: <code>{result.appCode}</code>
-              </div>
-            </div>
-          </div>
-        </div>
-        <p className={styles.verifyNote}>
-          Your eBay app is registered. Use the app code above to start the OAuth flow and
-          connect your eBay account.
-        </p>
-      </div>
-    )
-  }
+function StepResult({ appCode }: StepResultProps) {
   return (
     <div className={styles.stepContent}>
-      <h2 className={styles.stepHeading}>Registration failed</h2>
+      <h2 className={styles.stepHeading}>App registered</h2>
       <div className={styles.verifyBox}>
-        <div className={styles.verifyIdle}>
+        <div className={styles.verifySuccess}>
           <div className={styles.verifyIcon}>
-            <Icon kind="shield" size={24} color="var(--hd-red)" />
+            <Icon kind="check" size={24} color="var(--hd-accent)" />
           </div>
           <div>
-            <div className={styles.verifyTitle}>Could not register app</div>
-            <div className={styles.verifySubtitle}>{result.error}</div>
+            <div className={styles.verifyTitle}>App registered successfully</div>
+            <div className={styles.verifySubtitle}>
+              App code: <code>{appCode}</code>
+            </div>
           </div>
         </div>
       </div>
+      <p className={styles.verifyNote}>
+        Your eBay app is registered. Use the app code above to start the OAuth flow and
+        connect your eBay account.
+      </p>
     </div>
   )
 }
@@ -582,7 +564,9 @@ function EbaySetupPage() {
               />
             )}
             {step === 2 && <StepScopes scopes={scopes} onToggle={toggleScope} />}
-            {step === 3 && registrationResult && <StepResult result={registrationResult} />}
+            {step === 3 && registrationResult && registrationResult.success && (
+              <StepResult appCode={registrationResult.appCode} />
+            )}
 
             <div className={styles.navButtons}>
               {step > 0 && step < SETUP_STEPS.length - 1 && (
