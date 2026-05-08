@@ -11,6 +11,7 @@ export default defineConfig({
     react(),
   ],
   server: {
+    allowedHosts: ['automana.duckdns.org'],
     proxy: {
       '/api': 'http://backend:8000',
     },
