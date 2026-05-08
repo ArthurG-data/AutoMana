@@ -3,11 +3,12 @@ get_scopes_app = """ SELECT s.scope_url
                     JOIN scope_app sa ON sa.scope_id = s.scope_id
                     WHERE sa.app_id = $1; """
 
-register_app_query = """ 
-INSERT INTO app_info (
+register_app_query = """
+INSERT INTO app_integration.app_info (
     app_id,
     app_name,
     redirect_uri,
+    ru_name,
     response_type,
     client_secret_encrypted,
     environment,
@@ -15,9 +16,9 @@ INSERT INTO app_info (
     app_code
 )
 VALUES (
-    $1, $2, $3, $4, pgp_sym_encrypt($5, $9), $6, $7, $8
-) 
-ON CONFLICT (app_id) 
+    $1, $2, $3, $3, $4, pgp_sym_encrypt($5, $9), $6, $7, $8
+)
+ON CONFLICT (app_id)
 DO NOTHING
 RETURNING app_code; """
 
