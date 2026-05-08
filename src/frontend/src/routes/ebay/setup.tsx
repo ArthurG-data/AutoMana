@@ -499,6 +499,7 @@ function EbaySetupPage() {
   // Step 4 state
   const [submitting, setSubmitting] = useState(false)
   const [registrationResult, setRegistrationResult] = useState<RegistrationResult | null>(null)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   function validateCredentials(): boolean {
     const errors: Record<string, string> = {}
@@ -520,6 +521,7 @@ function EbaySetupPage() {
 
     if (step === 2) {
       setSubmitting(true)
+      setSubmitError(null)
       try {
         const enabledScopeUrls = scopes.filter((s) => s.enabled).map((s) => s.scopeUrl)
         const result = await registerEbayApp({
@@ -532,15 +534,12 @@ function EbaySetupPage() {
           allowed_scopes: enabledScopeUrls,
         })
         setRegistrationResult({ success: true, appCode: result.app_code })
-      } catch (err) {
-        setRegistrationResult({
-          success: false,
-          error: err instanceof Error ? err.message : 'Registration failed',
-        })
-      } finally {
-        setSubmitting(false)
         setCompleted((prev) => new Set(prev).add(step))
         setStep((s) => s + 1)
+      } catch (err) {
+        setSubmitError(err instanceof Error ? err.message : 'Registration failed')
+      } finally {
+        setSubmitting(false)
       }
       return
     }
@@ -603,6 +602,9 @@ function EbaySetupPage() {
                     ? submitting ? 'Registering…' : 'Register App'
                     : 'Next'}
                 </Button>
+              )}
+              {step === 2 && submitError && (
+                <span className={styles.errorMsg} role="alert">{submitError}</span>
               )}
             </div>
           </div>

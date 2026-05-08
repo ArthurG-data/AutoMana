@@ -222,15 +222,16 @@ describe('EbaySetupPage', () => {
     })
   })
 
-  it('shows error screen on Step 4 when registration fails', async () => {
+  it('shows inline error on Step 3 when registration fails', async () => {
     mockRegisterEbayApp.mockRejectedValue(new Error('API 400: conflict'))
     goToStep3()
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /register app/i }))
     })
     await waitFor(() => {
-      expect(screen.getByText('Registration failed')).toBeTruthy()
       expect(screen.getByText('API 400: conflict')).toBeTruthy()
+      expect(screen.getByRole('button', { name: /register app/i })).toBeTruthy()
+      expect(screen.queryByText('Registration failed')).toBeNull()
     })
   })
 
