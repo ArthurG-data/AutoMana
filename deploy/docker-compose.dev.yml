@@ -23,7 +23,7 @@ services:
       POSTGRES_PASSWORD_FILE: /run/secrets/admin_db_password
       POSTGRES_DB: ${DB_NAME}
     ports:
-      - "${POSTGRES_PORT}:5432"
+      - "5433:5432"
     volumes:
       - /data/postgres:/var/lib/postgresql/data
       - /data/pg_restore:/restore:ro
@@ -60,6 +60,7 @@ services:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       MODULES_NAMESPACE: backend
+      REDIS_URL: redis://redis:6379/1
     networks:
       - backend-network
     healthcheck:
