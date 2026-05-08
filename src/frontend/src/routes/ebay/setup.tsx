@@ -81,11 +81,13 @@ interface StepCredentialsProps {
   environment: Environment
   appId: string
   certId: string
+  ruName: string
   onAppNameChange: (v: string) => void
   onDescriptionChange: (v: string) => void
   onEnvironmentChange: (v: Environment) => void
   onAppIdChange: (v: string) => void
   onCertIdChange: (v: string) => void
+  onRuNameChange: (v: string) => void
   errors: Record<string, string>
 }
 
@@ -95,22 +97,16 @@ function StepCredentials({
   environment,
   appId,
   certId,
+  ruName,
   onAppNameChange,
   onDescriptionChange,
   onEnvironmentChange,
   onAppIdChange,
   onCertIdChange,
+  onRuNameChange,
   errors,
 }: StepCredentialsProps) {
   const [certRevealed, setCertRevealed] = useState(false)
-  const [copied, setCopied] = useState(false)
-
-  function copyRuName() {
-    navigator.clipboard.writeText(REDIRECT_URI).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    })
-  }
 
   return (
     <div className={styles.stepContent}>
@@ -235,38 +231,29 @@ function StepCredentials({
           {errors.certId && <span className={styles.errorMsg}>{errors.certId}</span>}
         </div>
 
-        {/* Redirect URI (read-only) */}
+        {/* RuName */}
         <div className={styles.field}>
           <label className={styles.fieldLabel} htmlFor="ebay-runame">
-            Redirect URI (RuName)
-            <span className={styles.readOnlyTag}>read-only</span>
+            RuName
           </label>
           <div className={styles.inputWrapper}>
             <Icon kind="link" size={14} color="var(--hd-muted)" />
             <input
               id="ebay-runame"
-              className={[styles.input, styles.inputReadOnly].join(' ')}
+              className={[styles.input, errors.ruName ? styles.inputError : ''].filter(Boolean).join(' ')}
               type="text"
-              value={REDIRECT_URI}
-              readOnly
-              aria-readonly="true"
+              placeholder="YourApp-YourApp-PRD-ab1234567-89abcdef"
+              value={ruName}
+              onChange={(e) => onRuNameChange(e.target.value)}
+              autoComplete="off"
+              spellCheck={false}
             />
-            <button
-              type="button"
-              className={styles.copyBtn}
-              onClick={copyRuName}
-              title="Copy redirect URI"
-            >
-              {copied ? (
-                <Icon kind="check" size={13} color="var(--hd-accent)" />
-              ) : (
-                <Icon kind="copy" size={13} color="var(--hd-muted)" />
-              )}
-            </button>
           </div>
+          {errors.ruName && <span className={styles.errorMsg}>{errors.ruName}</span>}
           <p className={styles.fieldHint}>
-            Paste this URL into your eBay app's <strong>Auth accepted URL</strong> field in the
-            developer portal, then add it as an allowed RuName.
+            In the eBay Developer Portal, register{' '}
+            <code>{REDIRECT_URI}</code> as your Auth accepted URL — eBay will
+            assign you a RuName string to paste here.
           </p>
         </div>
       </div>
@@ -473,6 +460,7 @@ function EbaySetupPage() {
   const [environment, setEnvironment] = useState<Environment>('SANDBOX')
   const [appId, setAppId] = useState('')
   const [certId, setCertId] = useState('')
+  const [ruName, setRuName] = useState('')
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
 
   // Step 3 state
@@ -488,6 +476,7 @@ function EbaySetupPage() {
     if (!appName.trim()) errors.appName = 'App name is required'
     if (!appId.trim()) errors.appId = 'App ID is required'
     if (!certId.trim()) errors.certId = 'Cert ID is required'
+    if (!ruName.trim()) errors.ruName = 'RuName is required'
     setFormErrors(errors)
     return Object.keys(errors).length === 0
   }
@@ -512,7 +501,7 @@ function EbaySetupPage() {
           environment,
           ebay_app_id: appId,
           client_secret: certId,
-          redirect_uri: REDIRECT_URI,
+          redirect_uri: ruName,
           allowed_scopes: enabledScopeUrls,
         })
         setRegistrationResult({ success: true, appCode: result.app_code })
@@ -555,11 +544,13 @@ function EbaySetupPage() {
                 environment={environment}
                 appId={appId}
                 certId={certId}
+                ruName={ruName}
                 onAppNameChange={(v) => { setAppName(v); setFormErrors((e) => ({ ...e, appName: '' })) }}
                 onDescriptionChange={setDescription}
                 onEnvironmentChange={setEnvironment}
                 onAppIdChange={(v) => { setAppId(v); setFormErrors((e) => ({ ...e, appId: '' })) }}
                 onCertIdChange={(v) => { setCertId(v); setFormErrors((e) => ({ ...e, certId: '' })) }}
+                onRuNameChange={(v) => { setRuName(v); setFormErrors((e) => ({ ...e, ruName: '' })) }}
                 errors={formErrors}
               />
             )}

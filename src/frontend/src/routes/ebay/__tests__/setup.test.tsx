@@ -55,6 +55,7 @@ function goToStep3() {
   fireEvent.change(screen.getByLabelText('App Name'), { target: { value: 'My Store' } })
   fireEvent.change(screen.getByLabelText('App ID (Client ID)'), { target: { value: 'test-app-id' } })
   fireEvent.change(screen.getByLabelText('Cert ID (Client Secret)'), { target: { value: 'test-cert-id' } })
+  fireEvent.change(screen.getByLabelText('RuName'), { target: { value: 'MyApp-MyApp-PRD-ab1234567-89abcdef' } })
   fireEvent.click(screen.getByRole('button', { name: /next/i }))
 }
 
@@ -98,6 +99,7 @@ describe('EbaySetupPage', () => {
     expect(screen.getByLabelText('App Name')).toBeTruthy()
     expect(screen.getByLabelText('App ID (Client ID)')).toBeTruthy()
     expect(screen.getByLabelText('Cert ID (Client Secret)')).toBeTruthy()
+    expect(screen.getByLabelText('RuName')).toBeTruthy()
   })
 
   it('does not show Dev ID field', () => {
@@ -117,6 +119,7 @@ describe('EbaySetupPage', () => {
     expect(screen.getByText('App name is required')).toBeTruthy()
     expect(screen.getByText('App ID is required')).toBeTruthy()
     expect(screen.getByText('Cert ID is required')).toBeTruthy()
+    expect(screen.getByText('RuName is required')).toBeTruthy()
   })
 
   it('allows navigating back from Step 2', () => {
@@ -125,20 +128,17 @@ describe('EbaySetupPage', () => {
     expect(screen.getByText('Create your eBay app')).toBeTruthy()
   })
 
-  it('copies Redirect URI to clipboard when copy button clicked', async () => {
+  it('shows RuName as an editable input', () => {
     goToStep2()
-    const copyBtn = screen.getByRole('button', { name: /copy redirect uri/i })
-    fireEvent.click(copyBtn)
-    await waitFor(() => {
-      expect(writeTextMock).toHaveBeenCalledWith(expect.stringContaining('automana.app'))
-    })
+    const ruNameInput = screen.getByLabelText('RuName') as HTMLInputElement
+    expect(ruNameInput.readOnly).toBe(false)
+    fireEvent.change(ruNameInput, { target: { value: 'TestApp-PRD-abc123' } })
+    expect(ruNameInput.value).toBe('TestApp-PRD-abc123')
   })
 
-  it('shows Redirect URI as read-only input', () => {
+  it('shows automana.app callback URL in RuName hint text', () => {
     goToStep2()
-    const ruNameInput = screen.getByLabelText(/redirect uri/i) as HTMLInputElement
-    expect(ruNameInput.readOnly).toBe(true)
-    expect(ruNameInput.value).toContain('automana.app')
+    expect(screen.getByText(/automana\.app/)).toBeTruthy()
   })
 
   it('shows Cert ID input as password (masked) by default', () => {
@@ -221,7 +221,7 @@ describe('EbaySetupPage', () => {
         ebay_app_id: 'test-app-id',
         client_secret: 'test-cert-id',
         environment: 'SANDBOX',
-        redirect_uri: expect.stringContaining('automana.app'),
+        redirect_uri: 'MyApp-MyApp-PRD-ab1234567-89abcdef',
         allowed_scopes: expect.arrayContaining([
           'https://api.ebay.com/oauth/api_scope/sell.inventory',
         ]),
