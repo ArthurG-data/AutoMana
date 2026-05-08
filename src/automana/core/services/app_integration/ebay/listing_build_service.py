@@ -82,7 +82,7 @@ async def build_and_create_listing(
         description_mode=DescriptionMode(description_mode),
     )
 
-    brand = BrandConfig(**(brand_config or {})) if brand_config else BrandConfig()
+    brand = BrandConfig(**(brand_config or {}))
 
     pricing = PricingInput(
         buy_it_now_price_aud=Decimal(price_aud),

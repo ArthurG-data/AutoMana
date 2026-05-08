@@ -50,6 +50,21 @@ class EbayListingBuilderRepository(AbstractRepository):
     def name(self) -> str:
         return "EbayListingBuilderRepository"
 
+    async def add(self, item) -> None:
+        raise NotImplementedError
+
+    async def get(self, id: int) -> None:
+        raise NotImplementedError
+
+    async def update(self, item) -> None:
+        raise NotImplementedError
+
+    async def delete(self, id: int) -> None:
+        raise NotImplementedError
+
+    async def list(self, items) -> list:
+        raise NotImplementedError
+
     async def fetch_card_data(self, card_version_id: UUID) -> Optional[CardData]:
         """Return CardData for the given card version, or None if not found."""
         rows = await self.execute_query(_FETCH_CARD_SQL, (card_version_id,))
