@@ -235,6 +235,9 @@ ServiceRegistry.register_api_repository(
     "auth_oauth", "automana.core.repositories.app_integration.ebay.ApiAuth_repository", "EbayAuthAPIRepository"
 )
 ServiceRegistry.register_api_repository(
+    "ebay_analytics", "automana.core.repositories.app_integration.ebay.ApiAnalytics_repository", "EbayAnalyticsAPIRepository"
+)
+ServiceRegistry.register_api_repository(
     "search", "automana.core.repositories.app_integration.ebay.ApiBrowse_repository", "EbayBrowseAPIRepository"
 )
 ServiceRegistry.register_api_repository(

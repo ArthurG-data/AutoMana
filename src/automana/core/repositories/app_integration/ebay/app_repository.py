@@ -73,5 +73,11 @@ class EbayAppRepository(AbstractRepository):
     ):
         await self.execute_command(app_queries.register_app_scopes_query, (app_id, scopes))
 
+    async def link_user_to_app(self, user_id: UUID, app_id: str) -> None:
+        await self.execute_command(app_queries.assign_user_app_query, (user_id, app_id))
+
+    async def assign_user_scopes(self, user_id: UUID, app_id: str, scope_urls: list[str]) -> None:
+        await self.execute_command(app_queries.assign_user_scopes_query, (user_id, app_id, scope_urls))
+
     async def list(self):
         raise NotImplementedError("Method 'list' is not implemented in EbayAccountRepository")

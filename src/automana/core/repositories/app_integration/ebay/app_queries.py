@@ -3,11 +3,12 @@ get_scopes_app = """ SELECT s.scope_url
                     JOIN scope_app sa ON sa.scope_id = s.scope_id
                     WHERE sa.app_id = $1; """
 
-register_app_query = """ 
-INSERT INTO app_info (
+register_app_query = """
+INSERT INTO app_integration.app_info (
     app_id,
     app_name,
     redirect_uri,
+    ru_name,
     response_type,
     client_secret_encrypted,
     environment,
@@ -15,10 +16,15 @@ INSERT INTO app_info (
     app_code
 )
 VALUES (
-    $1, $2, $3, $4, pgp_sym_encrypt($5, $9), $6, $7, $8
-) 
-ON CONFLICT (app_id) 
-DO NOTHING
+    $1, $2, $3, $3, $4, pgp_sym_encrypt($5, $9), $6, $7, $8
+)
+ON CONFLICT (app_id) DO UPDATE SET
+    app_name                = EXCLUDED.app_name,
+    redirect_uri            = EXCLUDED.redirect_uri,
+    ru_name                 = EXCLUDED.ru_name,
+    client_secret_encrypted = EXCLUDED.client_secret_encrypted,
+    description             = EXCLUDED.description,
+    updated_at              = now()
 RETURNING app_code; """
 
 
@@ -30,7 +36,15 @@ JOIN scopes s ON s.scope_url = scope_urls.scope_url
 ON CONFLICT (scope_id, app_id) DO NOTHING;
 """
 
-assign_user_app_query = """ INSERT INTO app_user (dev_id, app_id) VALUES ($1, $2) ON CONFLICT (dev_id, app_id) DO NOTHING; """
+assign_user_app_query = """ INSERT INTO app_integration.app_user (user_id, app_id) VALUES ($1, $2) ON CONFLICT (user_id, app_id) DO NOTHING; """
+
+assign_user_scopes_query = """
+INSERT INTO app_integration.scopes_user (scope_id, user_id, app_id)
+SELECT s.scope_id, $1, $2
+FROM unnest($3::TEXT[]) AS scope_urls(scope_url)
+JOIN app_integration.scopes s ON s.scope_url = scope_urls.scope_url
+ON CONFLICT (user_id, app_id, scope_id) DO NOTHING;
+"""
 
 assign_scope_query = """
                             INSERT INTO scope_app (scope_id, app_id)

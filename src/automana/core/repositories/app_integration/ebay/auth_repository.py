@@ -131,6 +131,10 @@ class EbayAuthRepository(AbstractRepository):
             return [r["scope_url"] for r in rows]
         return await self.get_app_scopes(app_id)
 
+    async def list_user_apps(self, user_id: UUID) -> list[dict]:
+        rows = await self.execute_query(auth_queries.list_user_apps_query, (user_id,))
+        return [dict(r) for r in rows] if rows else []
+
     async def get_environment(self, app_code: str, user_id: Optional[UUID] = None) -> Optional[str]:
         query = "SELECT environment FROM app_integration.app_info WHERE app_code = $1"
         rows = await self.execute_query(query, (app_code,))

@@ -1,15 +1,10 @@
 // src/frontend/src/routes/ebay/index.tsx
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { AppShell } from '../../components/layout/AppShell'
 import { TopBar } from '../../components/layout/TopBar'
 import { Icon, type IconKind } from '../../components/design-system/Icon'
-import { QuotaStrip } from '../../features/ebay/components/QuotaStrip'
-import {
-  MOCK_CONNECTED_STATUS,
-  type ConnectionStatus,
-} from '../../features/ebay/mockEbayApp'
-import { MOCK_AUTHORIZED_USERS } from '../../features/ebay/mockAuthorizedUsers'
+import { fetchUserApps, fetchAppRateLimits, type EbayAppSummary, type EbayRateLimit } from '../../features/ebay/api'
 import styles from './EbayHub.module.css'
 
 export const Route = createFileRoute('/ebay/')({
@@ -17,18 +12,6 @@ export const Route = createFileRoute('/ebay/')({
 })
 
 export { EbayHubPage }
-
-function ConnectionBadge({ connected }: { connected: boolean }) {
-  return (
-    <span
-      className={[styles.badge, connected ? styles.badgeConnected : styles.badgeDisconnected].join(' ')}
-      aria-label={connected ? 'Connected to eBay' : 'Not connected to eBay'}
-    >
-      <span className={styles.badgeDot} aria-hidden="true" />
-      {connected ? 'Connected' : 'Not Connected'}
-    </span>
-  )
-}
 
 interface FeatureCardProps {
   icon: IconKind
@@ -52,45 +35,90 @@ function FeatureCard({ icon, title, subtitle, to }: FeatureCardProps) {
   )
 }
 
-interface StatTileProps {
-  label: string
-  value: string
-  valueColor?: string
+function totalCalls(limits: EbayRateLimit[]): { used: number; total: number } | null {
+  if (!limits.length) return null
+  const total = limits.reduce((s, r) => s + (r.limit ?? 0), 0)
+  const remaining = limits.reduce((s, r) => s + (r.remaining ?? 0), 0)
+  return { used: total - remaining, total }
 }
 
-function StatTile({ label, value, valueColor }: StatTileProps) {
+function AppRow({ app }: { app: EbayAppSummary }) {
+  const [rateLimits, setRateLimits] = React.useState<EbayRateLimit[] | null>(null)
+
+  React.useEffect(() => {
+    fetchAppRateLimits(app.app_code)
+      .then(setRateLimits)
+      .catch(() => setRateLimits([]))
+  }, [app.app_code])
+
+  const envColor = app.environment === 'PRODUCTION' ? 'var(--hd-accent)' : 'var(--hd-amber)'
+  const calls = rateLimits ? totalCalls(rateLimits) : null
+
   return (
-    <div className={styles.statTile}>
-      <div className={styles.statLabel}>{label}</div>
-      <div className={styles.statValue} style={valueColor ? { color: valueColor } : undefined}>
-        {value}
+    <div className={styles.appRow}>
+      <div className={styles.appRowName}>
+        <span className={styles.appRowNameText}>{app.app_name}</span>
+        {app.description && (
+          <span className={styles.appRowDesc}>{app.description}</span>
+        )}
       </div>
+      <span
+        className={styles.appRowEnvBadge}
+        style={{ color: envColor, borderColor: `${envColor}44`, background: `${envColor}11` }}
+      >
+        {app.environment}
+      </span>
+      <span className={styles.appRowMeta}>
+        <span className={styles.appRowMetaLabel}>Users</span>
+        <span className={styles.appRowMetaValue}>{app.other_user_count + 1}</span>
+      </span>
+      <span className={styles.appRowMeta}>
+        <span className={styles.appRowMetaLabel}>API calls</span>
+        <span className={styles.appRowMetaValue}>
+          {rateLimits === null
+            ? '…'
+            : calls
+            ? `${calls.used.toLocaleString()} / ${calls.total.toLocaleString()}`
+            : '—'}
+        </span>
+      </span>
+      <span
+        className={styles.appRowStatus}
+        style={{ color: app.is_connected ? 'var(--hd-accent)' : 'var(--hd-red)' }}
+      >
+        <span
+          className={styles.appCardStatusDot}
+          style={{ background: app.is_connected ? 'var(--hd-accent)' : 'var(--hd-red)' }}
+        />
+        {app.is_connected
+          ? app.token_expires_at
+            ? `Expires ${new Date(app.token_expires_at).toLocaleDateString()}`
+            : 'Connected'
+          : 'Not connected'}
+      </span>
     </div>
   )
 }
 
 function EbayHubPage() {
-  const status: ConnectionStatus = MOCK_CONNECTED_STATUS
+  const [apps, setApps] = useState<EbayAppSummary[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchUserApps()
+      .then(setApps)
+      .catch(() => setApps([]))
+      .finally(() => setLoading(false))
+  }, [])
 
   return (
     <AppShell active="settings">
       <TopBar
         title="eBay Integration"
         subtitle="BYOA · production"
-        actions={<ConnectionBadge connected={status.connected} />}
       />
 
       <div className={styles.page}>
-        {!status.connected && (
-          <div className={styles.warningBanner} role="alert">
-            <Icon kind="shield" size={14} color="var(--hd-amber)" />
-            <span>eBay is not connected.</span>
-            <Link to="/ebay/setup" className={styles.warningLink}>
-              Go to App Setup
-            </Link>
-          </div>
-        )}
-
         <div className={styles.cardsGrid}>
           <FeatureCard
             icon="key"
@@ -112,31 +140,24 @@ function EbayHubPage() {
           />
         </div>
 
-        <section className={styles.statsStrip} aria-label="Connection stats">
-          <StatTile
-            label="Status"
-            value={status.connected ? 'Connected' : 'Not Connected'}
-            valueColor={status.connected ? 'var(--hd-accent)' : 'var(--hd-red)'}
-          />
-          <StatTile
-            label="Environment"
-            value={status.environment}
-          />
-          <StatTile
-            label="Token expires"
-            value={
-              status.tokenExpires
-                ? new Date(status.tokenExpires).toLocaleDateString()
-                : '—'
-            }
-          />
-          <StatTile
-            label="Authorized users"
-            value={String(MOCK_AUTHORIZED_USERS.length)}
-          />
-        </section>
+        {!loading && apps.length > 0 && (
+          <section aria-label="Registered apps">
+            <div className={styles.sectionTitle}>Registered Apps</div>
+            <div className={styles.appsTable}>
+              {apps.map(app => (
+                <AppRow key={app.app_id} app={app} />
+              ))}
+            </div>
+          </section>
+        )}
 
-        <QuotaStrip />
+        {!loading && apps.length === 0 && (
+          <div className={styles.emptyApps}>
+            No apps registered yet.{' '}
+            <Link to="/ebay/setup" className={styles.warningLink}>Set one up</Link>
+          </div>
+        )}
+
       </div>
     </AppShell>
   )

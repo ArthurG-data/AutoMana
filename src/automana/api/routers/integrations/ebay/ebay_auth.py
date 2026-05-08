@@ -21,6 +21,38 @@ logger = logging.getLogger(__name__)
 
 ebay_auth_router = APIRouter(prefix='/auth', tags=['auth'])
 
+@ebay_auth_router.get('/apps', description='List eBay apps registered for the current user')
+async def list_user_apps(
+    user: CurrentUserDep,
+    service_manager: ServiceManagerDep,
+):
+    apps = await service_manager.execute_service(
+        "integrations.ebay.list_user_apps",
+        user_id=user.unique_id,
+    )
+    return ApiResponse(message="Apps retrieved", data={"apps": apps})
+
+
+@ebay_auth_router.get('/apps/{app_code}/rate-limits', description='Fetch eBay API rate limits for an app')
+async def get_app_rate_limits(
+    app_code: str,
+    user: CurrentUserDep,
+    service_manager: ServiceManagerDep,
+):
+    env = await service_manager.execute_service(
+        "integrations.ebay.get_environment",
+        user_id=user.unique_id,
+        app_code=app_code,
+    )
+    rate_limits = await service_manager.execute_service(
+        "integrations.ebay.get_app_rate_limits",
+        user_id=user.unique_id,
+        app_code=app_code,
+        environment=env.lower(),
+    )
+    return ApiResponse(message="Rate limits retrieved", data={"rate_limits": rate_limits})
+
+
 @ebay_auth_router.post('/admin/apps'
                        , description='add an app to the database'
                        , status_code=status.HTTP_201_CREATED)
@@ -33,7 +65,7 @@ async def regist_app(
         result =await service_manager.execute_service(
             "integrations.ebay.register_app",
             app_data=app_data,
-            created_by=user
+            created_by=user.unique_id
         )
         return ApiResponse(
             message="App registered successfully",
