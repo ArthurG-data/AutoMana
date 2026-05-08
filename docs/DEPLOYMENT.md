@@ -99,6 +99,15 @@ environment:
 
 This overrides `.env.dev`'s `localhost:5433` (which is for host-side tools only). Inside the Docker network, containers reach Postgres via the service name `postgres` on port `5432`.
 
+The `backend` service also sets two additional vars that must be present for the eBay integration to work correctly:
+
+| Env var | Required value (dev) | Purpose |
+|---------|----------------------|---------|
+| `REDIS_CACHE_URL` | `redis://redis:6379/1` | Redis URL for access-token cache (db 1). The settings alias is `REDIS_CACHE_URL` — using `REDIS_URL` will silently fall back to `localhost:6379` and break the OAuth callback. |
+| `FRONTEND_BASE_URL` | `https://automana.duckdns.org` | Base URL the backend appends to OAuth callback redirects. Defaults to `http://localhost:5173` if unset — wrong in any tunnelled/deployed environment. |
+
+Both are set in the `environment:` block of the `backend` service in `deploy/docker-compose.dev.yml`.
+
 Stop:
 
 ```bash

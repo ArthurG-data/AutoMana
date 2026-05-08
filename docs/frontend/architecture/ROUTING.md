@@ -2,47 +2,41 @@
 
 ## Route Structure Overview
 
-AutoMana uses **React Router v6** with a hierarchical route structure. All routes are defined in a central router configuration, with nested routes creating layout nesting and preserving breadcrumb context.
+AutoMana uses **TanStack Router** with file-based routing. Routes are defined as files under `src/frontend/src/routes/` and the route tree is auto-generated into `routeTree.gen.ts` by the Vite plugin. The `__root.tsx` file contains the auth guard that wraps all authenticated routes.
 
-### Route Tree Diagram
+> **Note:** Earlier versions of this doc referenced React Router v6 — that library is no longer used.
+
+### Current Route Tree
 
 ```
-/                              (RootLayout)
+/                              (__root — auth guard + AppShell)
 ├── /login                     (LoginPage)
-├── /signup                    (SignupPage)
-├── /dashboard                 (DashboardLayout)
-│   ├── /                      (DashboardHome)
-│   ├── /collections           (CollectionsPage)
-│   │   ├── /:id               (CollectionDetailPage)
-│   │   └── /new               (CollectionFormPage - create)
-│   ├── /pricing               (PricingPage)
-│   │   ├── /:id/history       (PriceHistoryPage)
-│   │   └── /bulk              (BulkPricingPage)
-│   ├── /portfolio             (PortfolioPage)
-│   │   └── /summary           (PortfolioSummaryPage)
-│   ├── /integrations          (IntegrationsPage)
-│   │   ├── /ebay              (EbayIntegrationPage)
-│   │   ├── /shopify           (ShopifyIntegrationPage)
-│   │   └── /settings          (IntegrationSettingsPage)
-│   ├── /sync                  (SyncPage)
-│   │   └── /history           (SyncHistoryPage)
-│   └── /settings              (SettingsPage)
-├── /oauth/callback/:provider  (OAuthCallbackPage)
-└── *                          (NotFoundPage)
+├── /ebay/
+│   ├── /                      (EbayHubPage — dashboard: registered apps, feature nav)
+│   ├── /setup                 (EbaySetupPage — BYOA wizard: credentials → scopes → register → connect)
+│   ├── /share                 (EbaySharePage — access control & invites)
+│   └── /connected             (EbayConnectedPage — OAuth callback landing; reads ?status & ?app_code)
+└── /listings                  (ListingsPage)
 ```
+
+The auto-generated `routeTree.gen.ts` must be committed whenever a new route file is added or removed.
+
+### eBay integration routes
+
+| Route | Component file | Purpose |
+|-------|---------------|---------|
+| `/ebay/` | `routes/ebay/index.tsx` | Hub: feature cards + live registered-app table (connection status, user count, rate limits) |
+| `/ebay/setup` | `routes/ebay/setup.tsx` | 4-step wizard: credentials, scope selection, app registration, OAuth connect |
+| `/ebay/share` | `routes/ebay/share.tsx` | User access management |
+| `/ebay/connected` | `routes/ebay/connected.tsx` | Post-OAuth landing; eBay redirects here after consent. Reads `?status=authorized&app_code=` or `?status=error&message=` from the backend callback redirect. |
+
+The `/ebay/connected` route is a public-facing landing page — eBay's OAuth callback is `GET /api/integrations/ebay/auth/callback` (backend), which exchanges the code and then issues a `302` redirect to `{FRONTEND_BASE_URL}/ebay/connected?...`.
 
 ### Nesting Hierarchy
 
-**Root Level** (`/`): Authentication gates, error boundaries, global layout
-- Routes: `/login`, `/signup`, `/oauth/callback/:provider`
+**Root Level** (`/`): Auth guard — unauthenticated users are redirected to `/login`
 
-**Dashboard Level** (`/dashboard`): Authenticated user routes with sidebar + header
-- Routes: All feature pages under `/dashboard/*`
-- Layout: Persistent sidebar, top header, breadcrumbs
-
-**Feature Level** (`/dashboard/collections`, `/dashboard/pricing`): Feature-specific routes
-- Routes: List view, detail view, form, sub-features
-- Layout: Feature-specific sidebar or tabs (optional)
+**Feature Level** (`/ebay/*`, `/listings`): Feature-specific pages using `AppShell` layout with persistent sidebar
 
 ---
 
