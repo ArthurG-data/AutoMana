@@ -329,3 +329,54 @@ export function feeEstimate(price: number): number {
   // Rough eBay + PayPal combined (~13.25%)
   return price * (1 - 0.1325)
 }
+
+// ── Live listing types ─────────────────────────────────────────────────────
+
+export interface EbayLiveListing {
+  itemId: string
+  title: string
+  cardName: string
+  setInfo: string
+  price: number
+  currency: string
+  conditionLabel: string
+  finish: 'Foil' | 'Regular'
+  watchCount: number
+  viewItemUrl: string
+  imageUrl: string | null
+  appCode: string
+  appName: string
+}
+
+// ── Title parsing ──────────────────────────────────────────────────────────
+
+const NOISE_TOKEN_RE = /^(MTG|FOIL|NM\+?|LP|MP|HP|PLD|EX|VG|GD|PR)$/i
+const SET_CODE_RE = /^[A-Z0-9]{2,5}$/
+
+export function parseCardTitle(title: string): { cardName: string; setInfo: string } {
+  const tokens = title.trim().split(/\s+/)
+  let i = tokens.length - 1
+  const setTokens: string[] = []
+
+  while (i >= 0) {
+    const tok = tokens[i]
+    if (NOISE_TOKEN_RE.test(tok)) {
+      i--
+      continue
+    }
+    if (/^#\d+$/.test(tok)) {
+      setTokens.unshift(tok)
+      i--
+      continue
+    }
+    if (SET_CODE_RE.test(tok)) {
+      setTokens.unshift(tok)
+      i--
+      continue
+    }
+    break
+  }
+
+  const cardName = i >= 0 ? tokens.slice(0, i + 1).join(' ') : title
+  return { cardName, setInfo: setTokens.join(' ') }
+}
