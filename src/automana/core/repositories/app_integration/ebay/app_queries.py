@@ -32,6 +32,14 @@ ON CONFLICT (scope_id, app_id) DO NOTHING;
 
 assign_user_app_query = """ INSERT INTO app_integration.app_user (user_id, app_id) VALUES ($1, $2) ON CONFLICT (user_id, app_id) DO NOTHING; """
 
+assign_user_scopes_query = """
+INSERT INTO app_integration.scopes_user (scope_id, user_id, app_id)
+SELECT s.scope_id, $1, $2
+FROM unnest($3::TEXT[]) AS scope_urls(scope_url)
+JOIN app_integration.scopes s ON s.scope_url = scope_urls.scope_url
+ON CONFLICT (user_id, app_id, scope_id) DO NOTHING;
+"""
+
 assign_scope_query = """
                             INSERT INTO scope_app (scope_id, app_id)
                             SELECT scope_id, $1

@@ -264,6 +264,7 @@ async def register_app(
             raise app_exception.EbayAppRegistrationException("Failed to register eBay app")
         await app_repository.register_app_scopes(app_data.ebay_app_id, app_data.allowed_scopes)
         await app_repository.link_user_to_app(created_by, app_data.ebay_app_id)
+        await app_repository.assign_user_scopes(created_by, app_data.ebay_app_id, app_data.allowed_scopes)
         return app_code
     except app_exception.EbayAppRegistrationException as e:
         raise app_exception.EbayAppRegistrationException(f"Failed to register eBay app: {e}")
