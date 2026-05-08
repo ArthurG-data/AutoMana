@@ -11,6 +11,6 @@ log.level = "info"
 [[proxies]]
 name = "automana"
 type = "tcp"
-localIP = "proxy"
-localPort = 8080
+localIP = "frontend"
+localPort = 5173
 remotePort = 8888

@@ -21,7 +21,7 @@ class SessionRepository(AbstractRepository):
 
     async def get_many(self, session_id: UUID):
         query = create_select_query('user_management.v_active_sessions', conditions_list=[('session_id = $1 ')])
-        return await self.execute_query(query,session_id)
+        return await self.execute_query(query, (session_id,))
 
     async def delete(self, ip_address: str, user_id: UUID, session_id: UUID):
         # `user_management.inactivate_session(p_session_id UUID, p_ip_address TEXT)`

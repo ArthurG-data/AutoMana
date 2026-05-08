@@ -1,9 +1,8 @@
 // src/frontend/src/routes/ebay/__tests__/setup.test.tsx
 import React from 'react'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-// Mock TanStack Router — createFileRoute is called at module load time
 vi.mock('@tanstack/react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@tanstack/react-router')>()
   return {
@@ -13,7 +12,6 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
   }
 })
 
-// Mock layout components to avoid router/store context
 vi.mock('../../../components/layout/AppShell', () => ({
   AppShell: ({ children }: { children: React.ReactNode }) => <div data-testid="app-shell">{children}</div>,
 }))
@@ -27,7 +25,16 @@ vi.mock('../../../components/layout/TopBar', () => ({
   ),
 }))
 
-// Stub clipboard API
+vi.mock('../../../features/ebay/api', () => ({
+  registerEbayApp: vi.fn().mockResolvedValue({
+    message: 'eBay app registered successfully',
+    app_code: 'cool_app_123',
+  }),
+}))
+
+import { registerEbayApp } from '../../../features/ebay/api'
+const mockRegisterEbayApp = vi.mocked(registerEbayApp)
+
 const writeTextMock = vi.fn().mockResolvedValue(undefined)
 Object.defineProperty(navigator, 'clipboard', {
   value: { writeText: writeTextMock },
@@ -36,9 +43,29 @@ Object.defineProperty(navigator, 'clipboard', {
 
 import { EbaySetupPage } from '../setup'
 
+// Helper: navigate to Step 2 (credentials)
+function goToStep2() {
+  render(<EbaySetupPage />)
+  fireEvent.click(screen.getByRole('button', { name: /next/i }))
+}
+
+// Helper: fill credentials and advance to Step 3 (scopes)
+function goToStep3() {
+  goToStep2()
+  fireEvent.change(screen.getByLabelText('App Name'), { target: { value: 'My Store' } })
+  fireEvent.change(screen.getByLabelText('App ID (Client ID)'), { target: { value: 'test-app-id' } })
+  fireEvent.change(screen.getByLabelText('Cert ID (Client Secret)'), { target: { value: 'test-cert-id' } })
+  fireEvent.click(screen.getByRole('button', { name: /next/i }))
+}
+
 describe('EbaySetupPage', () => {
   beforeEach(() => {
     writeTextMock.mockClear()
+    mockRegisterEbayApp.mockReset()
+    mockRegisterEbayApp.mockResolvedValue({
+      message: 'eBay app registered successfully',
+      app_code: 'cool_app_123',
+    })
   })
 
   it('renders page title', () => {
@@ -57,7 +84,7 @@ describe('EbaySetupPage', () => {
     expect(screen.getByText('Create app')).toBeTruthy()
     expect(screen.getByText('Paste keys')).toBeTruthy()
     expect(screen.getByText('OAuth scopes')).toBeTruthy()
-    expect(screen.getByText('Verify')).toBeTruthy()
+    expect(screen.getByText('Done')).toBeTruthy()
   })
 
   it('shows Step 1 (Create app) content by default', () => {
@@ -67,82 +94,74 @@ describe('EbaySetupPage', () => {
   })
 
   it('advances to Step 2 (credentials) when Next is clicked', () => {
-    render(<EbaySetupPage />)
-    fireEvent.click(screen.getByRole('button', { name: /next/i }))
+    goToStep2()
+    expect(screen.getByLabelText('App Name')).toBeTruthy()
     expect(screen.getByLabelText('App ID (Client ID)')).toBeTruthy()
     expect(screen.getByLabelText('Cert ID (Client Secret)')).toBeTruthy()
-    expect(screen.getByLabelText('Dev ID')).toBeTruthy()
+  })
+
+  it('does not show Dev ID field', () => {
+    goToStep2()
+    expect(screen.queryByLabelText('Dev ID')).toBeNull()
+  })
+
+  it('shows environment toggle with Sandbox and Production options', () => {
+    goToStep2()
+    expect(screen.getByRole('button', { name: /sandbox/i })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /production/i })).toBeTruthy()
   })
 
   it('shows validation errors on Step 2 when Next clicked with empty fields', () => {
-    render(<EbaySetupPage />)
+    goToStep2()
     fireEvent.click(screen.getByRole('button', { name: /next/i }))
-    fireEvent.click(screen.getByRole('button', { name: /next/i }))
+    expect(screen.getByText('App name is required')).toBeTruthy()
     expect(screen.getByText('App ID is required')).toBeTruthy()
     expect(screen.getByText('Cert ID is required')).toBeTruthy()
-    expect(screen.getByText('Dev ID is required')).toBeTruthy()
   })
 
   it('allows navigating back from Step 2', () => {
-    render(<EbaySetupPage />)
-    fireEvent.click(screen.getByRole('button', { name: /next/i }))
+    goToStep2()
     fireEvent.click(screen.getByRole('button', { name: /back/i }))
     expect(screen.getByText('Create your eBay app')).toBeTruthy()
   })
 
   it('copies Redirect URI to clipboard when copy button clicked', async () => {
-    render(<EbaySetupPage />)
-    fireEvent.click(screen.getByRole('button', { name: /next/i }))
+    goToStep2()
     const copyBtn = screen.getByRole('button', { name: /copy redirect uri/i })
     fireEvent.click(copyBtn)
     await waitFor(() => {
-      expect(writeTextMock).toHaveBeenCalledWith(
-        expect.stringContaining('automana.app')
-      )
+      expect(writeTextMock).toHaveBeenCalledWith(expect.stringContaining('automana.app'))
     })
   })
 
   it('shows Redirect URI as read-only input', () => {
-    render(<EbaySetupPage />)
-    fireEvent.click(screen.getByRole('button', { name: /next/i }))
+    goToStep2()
     const ruNameInput = screen.getByLabelText(/redirect uri/i) as HTMLInputElement
     expect(ruNameInput.readOnly).toBe(true)
     expect(ruNameInput.value).toContain('automana.app')
   })
 
   it('shows Cert ID input as password (masked) by default', () => {
-    render(<EbaySetupPage />)
-    fireEvent.click(screen.getByRole('button', { name: /next/i }))
+    goToStep2()
     const certInput = screen.getByLabelText('Cert ID (Client Secret)') as HTMLInputElement
     expect(certInput.type).toBe('password')
   })
 
   it('reveals Cert ID when eye button is clicked', () => {
-    render(<EbaySetupPage />)
-    fireEvent.click(screen.getByRole('button', { name: /next/i }))
+    goToStep2()
     const certInput = screen.getByLabelText('Cert ID (Client Secret)') as HTMLInputElement
     const revealBtn = screen.getByRole('button', { name: /show cert id/i })
     fireEvent.click(revealBtn)
     expect(certInput.type).toBe('text')
   })
 
-  it('advances to Step 3 (scopes) when credentials are filled', () => {
-    render(<EbaySetupPage />)
-    fireEvent.click(screen.getByRole('button', { name: /next/i }))
-    fireEvent.change(screen.getByLabelText('App ID (Client ID)'), { target: { value: 'test-app-id' } })
-    fireEvent.change(screen.getByLabelText('Cert ID (Client Secret)'), { target: { value: 'test-cert-id' } })
-    fireEvent.change(screen.getByLabelText('Dev ID'), { target: { value: 'test-dev-id' } })
-    fireEvent.click(screen.getByRole('button', { name: /next/i }))
+  it('advances to Step 3 (scopes) when required credentials are filled', () => {
+    goToStep3()
     expect(screen.getByText('Configure OAuth scopes')).toBeTruthy()
   })
 
   it('renders all OAuth scopes in Step 3', () => {
-    render(<EbaySetupPage />)
-    fireEvent.click(screen.getByRole('button', { name: /next/i }))
-    fireEvent.change(screen.getByLabelText('App ID (Client ID)'), { target: { value: 'a' } })
-    fireEvent.change(screen.getByLabelText('Cert ID (Client Secret)'), { target: { value: 'b' } })
-    fireEvent.change(screen.getByLabelText('Dev ID'), { target: { value: 'c' } })
-    fireEvent.click(screen.getByRole('button', { name: /next/i }))
+    goToStep3()
     expect(screen.getByText('sell.inventory')).toBeTruthy()
     expect(screen.getByText('sell.account')).toBeTruthy()
     expect(screen.getByText('sell.marketing')).toBeTruthy()
@@ -152,56 +171,86 @@ describe('EbaySetupPage', () => {
   })
 
   it('shows REQUIRED badges on required scopes', () => {
-    render(<EbaySetupPage />)
-    fireEvent.click(screen.getByRole('button', { name: /next/i }))
-    fireEvent.change(screen.getByLabelText('App ID (Client ID)'), { target: { value: 'a' } })
-    fireEvent.change(screen.getByLabelText('Cert ID (Client Secret)'), { target: { value: 'b' } })
-    fireEvent.change(screen.getByLabelText('Dev ID'), { target: { value: 'c' } })
-    fireEvent.click(screen.getByRole('button', { name: /next/i }))
+    goToStep3()
     const badges = screen.getAllByText('REQUIRED')
     expect(badges.length).toBeGreaterThanOrEqual(5)
   })
 
   it('toggles non-required scope (sell.marketing)', () => {
-    render(<EbaySetupPage />)
-    fireEvent.click(screen.getByRole('button', { name: /next/i }))
-    fireEvent.change(screen.getByLabelText('App ID (Client ID)'), { target: { value: 'a' } })
-    fireEvent.change(screen.getByLabelText('Cert ID (Client Secret)'), { target: { value: 'b' } })
-    fireEvent.change(screen.getByLabelText('Dev ID'), { target: { value: 'c' } })
-    fireEvent.click(screen.getByRole('button', { name: /next/i }))
+    goToStep3()
     const marketingToggle = screen.getByRole('switch', { name: /toggle sell\.marketing/i })
     expect(marketingToggle.getAttribute('aria-checked')).toBe('false')
     fireEvent.click(marketingToggle)
     expect(marketingToggle.getAttribute('aria-checked')).toBe('true')
   })
 
+  it('includes toggled scope in registerEbayApp payload after enabling sell.marketing', async () => {
+    goToStep3()
+    // Enable sell.marketing (off by default)
+    const marketingToggle = screen.getByRole('switch', { name: /toggle sell\.marketing/i })
+    fireEvent.click(marketingToggle)
+    // Submit
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /register app/i }))
+    })
+    expect(mockRegisterEbayApp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        allowed_scopes: expect.arrayContaining([
+          'https://api.ebay.com/oauth/api_scope/sell.marketing',
+        ]),
+      })
+    )
+  })
+
   it('does not toggle required scopes (sell.inventory stays on)', () => {
-    render(<EbaySetupPage />)
-    fireEvent.click(screen.getByRole('button', { name: /next/i }))
-    fireEvent.change(screen.getByLabelText('App ID (Client ID)'), { target: { value: 'a' } })
-    fireEvent.change(screen.getByLabelText('Cert ID (Client Secret)'), { target: { value: 'b' } })
-    fireEvent.change(screen.getByLabelText('Dev ID'), { target: { value: 'c' } })
-    fireEvent.click(screen.getByRole('button', { name: /next/i }))
+    goToStep3()
     const inventoryToggle = screen.getByRole('switch', { name: /toggle sell\.inventory/i })
     expect(inventoryToggle.getAttribute('aria-checked')).toBe('true')
     fireEvent.click(inventoryToggle)
-    // Should still be true (required scope, no onToggle handler)
     expect(inventoryToggle.getAttribute('aria-checked')).toBe('true')
   })
 
-  it('renders verify step with test connection button', () => {
-    render(<EbaySetupPage />)
-    // step 1 → 2
-    fireEvent.click(screen.getByRole('button', { name: /next/i }))
-    fireEvent.change(screen.getByLabelText('App ID (Client ID)'), { target: { value: 'a' } })
-    fireEvent.change(screen.getByLabelText('Cert ID (Client Secret)'), { target: { value: 'b' } })
-    fireEvent.change(screen.getByLabelText('Dev ID'), { target: { value: 'c' } })
-    // step 2 → 3
-    fireEvent.click(screen.getByRole('button', { name: /next/i }))
-    // step 3 → 4
-    fireEvent.click(screen.getByRole('button', { name: /next/i }))
-    expect(screen.getByText('Verify your connection')).toBeTruthy()
-    expect(screen.getByRole('button', { name: /test ebay connection/i })).toBeTruthy()
+  it('calls registerEbayApp with correct payload when Register App clicked', async () => {
+    goToStep3()
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /register app/i }))
+    })
+    expect(mockRegisterEbayApp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        app_name: 'My Store',
+        ebay_app_id: 'test-app-id',
+        client_secret: 'test-cert-id',
+        environment: 'SANDBOX',
+        redirect_uri: expect.stringContaining('automana.app'),
+        allowed_scopes: expect.arrayContaining([
+          'https://api.ebay.com/oauth/api_scope/sell.inventory',
+        ]),
+      })
+    )
+  })
+
+  it('shows success screen on Step 4 after successful registration', async () => {
+    goToStep3()
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /register app/i }))
+    })
+    await waitFor(() => {
+      expect(screen.getByText('App registered successfully')).toBeTruthy()
+      expect(screen.getByText('cool_app_123')).toBeTruthy()
+    })
+  })
+
+  it('shows inline error on Step 3 when registration fails', async () => {
+    mockRegisterEbayApp.mockRejectedValue(new Error('API 400: conflict'))
+    goToStep3()
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /register app/i }))
+    })
+    await waitFor(() => {
+      expect(screen.getByText('API 400: conflict')).toBeTruthy()
+      expect(screen.getByRole('button', { name: /register app/i })).toBeTruthy()
+      expect(screen.queryByText('Registration failed')).toBeNull()
+    })
   })
 
   it('renders sidebar with not connected status', () => {
@@ -222,7 +271,6 @@ describe('EbaySetupPage', () => {
   it('renders "Why bring your own app?" section', () => {
     render(<EbaySetupPage />)
     expect(screen.getByText("Why bring your own app?")).toBeTruthy()
-    // At least one benefit bullet
     expect(screen.getByText(/api quota/i)).toBeTruthy()
   })
 
