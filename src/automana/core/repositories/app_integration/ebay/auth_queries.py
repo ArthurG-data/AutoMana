@@ -117,3 +117,26 @@ get_user_scopes_query = """
       JOIN app_integration.scopes s ON su.scope_id = s.scope_id
      WHERE su.user_id = $1 AND su.app_id = $2;
 """
+
+# Returns all apps linked to a user plus whether a non-expired refresh token exists.
+# $1 = user_id
+list_user_apps_query = """
+    SELECT ai.app_id,
+           ai.app_name,
+           ai.app_code,
+           ai.environment,
+           ai.description,
+           ai.is_active,
+           ai.created_at,
+           ai.updated_at,
+           (rt.user_id IS NOT NULL AND rt.expires_at > now()) AS is_connected,
+           rt.expires_at AS token_expires_at,
+           (SELECT COUNT(*) FROM app_integration.app_user
+             WHERE app_id = ai.app_id AND user_id != $1) AS other_user_count
+      FROM app_integration.app_user au
+      JOIN app_integration.app_info ai ON ai.app_id = au.app_id
+      LEFT JOIN app_integration.ebay_refresh_tokens rt
+             ON rt.app_id = ai.app_id AND rt.user_id = $1
+     WHERE au.user_id = $1
+     ORDER BY ai.created_at DESC;
+"""

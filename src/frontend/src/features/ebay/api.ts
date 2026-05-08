@@ -46,6 +46,41 @@ export async function registerEbayApp(data: RegisterEbayAppRequest): Promise<Reg
   })
 }
 
+export interface EbayAppSummary {
+  app_id: string
+  app_name: string
+  app_code: string
+  environment: 'SANDBOX' | 'PRODUCTION'
+  description: string | null
+  is_active: boolean
+  is_connected: boolean
+  token_expires_at: string | null
+  other_user_count: number
+  created_at: string
+  updated_at: string
+}
+
+export interface EbayRateLimit {
+  api_name: string
+  resource: string
+  limit: number
+  remaining: number
+  reset: string
+  time_window_seconds: number
+}
+
+export async function fetchUserApps(): Promise<EbayAppSummary[]> {
+  const result = await apiClient<{ apps: EbayAppSummary[] }>('/integrations/ebay/auth/apps')
+  return result.apps ?? []
+}
+
+export async function fetchAppRateLimits(appCode: string): Promise<EbayRateLimit[]> {
+  const result = await apiClient<{ rate_limits: EbayRateLimit[] }>(
+    `/integrations/ebay/auth/apps/${encodeURIComponent(appCode)}/rate-limits`
+  )
+  return result.rate_limits ?? []
+}
+
 export interface StartOAuthResponse {
   authorization_url: string
 }

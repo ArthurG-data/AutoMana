@@ -11,6 +11,7 @@ import httpx
 from automana.api.schemas.auth.cookie import RefreshTokenResponse
 from automana.core.exceptions.service_layer_exceptions.ebay import app_exception
 from automana.core.models.ebay.auth import CreateAppRequest, TokenResponse
+from automana.core.repositories.app_integration.ebay.ApiAnalytics_repository import EbayAnalyticsAPIRepository
 from automana.core.repositories.app_integration.ebay.ApiAuth_repository import EbayAuthAPIRepository
 from automana.core.repositories.app_integration.ebay.app_repository import EbayAppRepository
 from automana.core.repositories.app_integration.ebay.auth_repository import EbayAuthRepository
@@ -235,6 +236,50 @@ async def exchange_refresh_token(
         scopes=scopes,
         cookie_set=True,
         app_code=app_code,
+    )
+
+
+@ServiceRegistry.register(
+    "integrations.ebay.list_user_apps",
+    db_repositories=["auth"],
+)
+async def list_user_apps(
+    auth_repository: EbayAuthRepository,
+    user_id: UUID,
+) -> list[dict]:
+    """Return all eBay apps linked to the user with connection status."""
+    apps = await auth_repository.list_user_apps(user_id=user_id)
+    for app in apps:
+        if app.get("created_at"):
+            app["created_at"] = app["created_at"].isoformat()
+        if app.get("updated_at"):
+            app["updated_at"] = app["updated_at"].isoformat()
+        if app.get("token_expires_at"):
+            app["token_expires_at"] = app["token_expires_at"].isoformat()
+        app["other_user_count"] = int(app.get("other_user_count") or 0)
+    return apps
+
+
+@ServiceRegistry.register(
+    "integrations.ebay.get_app_rate_limits",
+    db_repositories=["auth"],
+    api_repositories=["ebay_analytics"],
+)
+async def get_app_rate_limits(
+    auth_repository: EbayAuthRepository,
+    ebay_analytics_repository: EbayAnalyticsAPIRepository,
+    app_code: str,
+    user_id: UUID,
+) -> list[dict]:
+    """Fetch eBay Developer Analytics rate limits for an app via client credentials."""
+    settings = await auth_repository.get_app_settings(user_id=user_id, app_code=app_code)
+    if not settings:
+        raise app_exception.EbayAppNotFoundException(
+            f"eBay app {app_code!r} not found for user {user_id}"
+        )
+    return await ebay_analytics_repository.get_rate_limits(
+        app_id=settings["app_id"],
+        secret=settings["decrypted_secret"],
     )
 
 

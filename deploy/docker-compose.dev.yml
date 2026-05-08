@@ -60,7 +60,8 @@ services:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       MODULES_NAMESPACE: backend
-      REDIS_URL: redis://redis:6379/1
+      REDIS_CACHE_URL: redis://redis:6379/1
+      FRONTEND_BASE_URL: https://automana.duckdns.org
     networks:
       - backend-network
     healthcheck:
