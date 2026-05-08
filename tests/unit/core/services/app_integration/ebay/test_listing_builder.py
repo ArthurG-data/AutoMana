@@ -95,11 +95,11 @@ class TestBuildTitle:
         assert " EN " not in title
 
     def test_title_max_80_chars(self):
-        long_name_card = CardData(
+        very_long_name_card = CardData(
             card_version_id=_CARD.card_version_id,
-            card_name="A Very Long Card Name That Exceeds Normal Length",
-            set_name="A Very Long Set Name",
-            set_code="avl",
+            card_name="An Extremely Long Magic Card Name That Will Definitely Force Truncation",
+            set_name="Some Set",
+            set_code="yyy",
             collector_number="999",
             mana_cost=None,
             oracle_text=None,
@@ -113,7 +113,7 @@ class TestBuildTitle:
             flavor_text=None,
             scryfall_id=None,
         )
-        title = build_title(long_name_card, _SELLER_NM)
+        title = build_title(very_long_name_card, _SELLER_NM)
         assert len(title) <= 80
 
     def test_set_code_uppercased(self):

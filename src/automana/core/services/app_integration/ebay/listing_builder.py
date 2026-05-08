@@ -6,7 +6,6 @@ owns decisions.
 """
 from __future__ import annotations
 
-from decimal import Decimal
 from typing import Optional
 
 from automana.core.models.ebay.listing_inputs import (
@@ -73,6 +72,14 @@ _COLOR_MAP: dict[str, str] = {
     "W": "White", "U": "Blue", "B": "Black", "R": "Red", "G": "Green",
 }
 
+_CONDITION_LABEL_MAP: dict[Condition, str] = {
+    Condition.NM: "Near Mint (NM)",
+    Condition.LP: "Lightly Played (LP)",
+    Condition.MP: "Moderately Played (MP)",
+    Condition.HP: "Heavily Played (HP)",
+    Condition.DMG: "Damaged (DMG)",
+}
+
 # ---------------------------------------------------------------------------
 # Identity helpers
 # ---------------------------------------------------------------------------
@@ -114,7 +121,10 @@ def build_sku(card: CardData, seller: SellerInput) -> str:
 
 
 def build_subtitle(card: CardData, brand: BrandConfig) -> Optional[str]:
-    """Only generate for rare/mythic (AU$~2 fee — not worth it for commons)."""
+    """Only generate for rare/mythic (AU$~2 fee — not worth it for commons).
+
+    Subtitle is capped at 55 chars per eBay Trading API limit.
+    """
     if card.rarity_name not in ("rare", "mythic"):
         return None
     type_short = card.type_line.split("—")[0].strip() if card.type_line else ""
@@ -124,7 +134,8 @@ def build_subtitle(card: CardData, brand: BrandConfig) -> Optional[str]:
     if type_short:
         parts.append(type_short)
     parts.append(tagline)
-    return " · ".join(parts)
+    subtitle = " · ".join(parts)
+    return subtitle[:55]
 
 
 # ---------------------------------------------------------------------------
@@ -205,14 +216,7 @@ def _oracle_to_html(oracle_text: Optional[str]) -> str:
 
 
 def _condition_label(condition: Condition) -> str:
-    labels = {
-        Condition.NM: "Near Mint (NM)",
-        Condition.LP: "Lightly Played (LP)",
-        Condition.MP: "Moderately Played (MP)",
-        Condition.HP: "Heavily Played (HP)",
-        Condition.DMG: "Damaged (DMG)",
-    }
-    return labels[condition]
+    return _CONDITION_LABEL_MAP[condition]
 
 
 def build_description_html(
@@ -222,12 +226,13 @@ def build_description_html(
     mode: DescriptionMode = DescriptionMode.FULL,
 ) -> str:
     cond_label = _condition_label(seller.condition)
-    cond_desc = build_condition_description(seller.condition, seller.condition_note)
     finish_label = "Foil" if seller.foil else "Non-Foil"
     lang_label = map_lang_to_ebay(seller.lang)
     oracle_html = _oracle_to_html(card.oracle_text)
 
     if mode == DescriptionMode.MINIMAL:
+        # Minimal variant: include note in condition description
+        cond_desc = build_condition_description(seller.condition, seller.condition_note)
         foil_line = "<p><strong>Finish:</strong> Foil</p>" if seller.foil else ""
         return (
             '<div style="font-family:Arial,sans-serif;font-size:14px;color:#333;">'
@@ -241,7 +246,8 @@ def build_description_html(
             "</div>"
         )
 
-    # Full variant
+    # Full variant: condition description without note, note rendered separately
+    cond_desc = build_condition_description(seller.condition)
     rarity_display = map_rarity_to_ebay(card.rarity_name)
     type_line = card.type_line or ""
     collector = card.collector_number
