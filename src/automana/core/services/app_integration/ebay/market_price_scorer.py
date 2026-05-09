@@ -49,10 +49,11 @@ def score_title(
     # Normalize "nonfoil" → "non-foil" before all checks
     normalized = lower.replace("nonfoil", "non-foil")
 
-    # Hard reject — single-word with boundaries
+    # Hard reject — single-word with boundaries; returns -1.0 (sentinel) so callers
+    # can distinguish "excluded regardless of threshold" from a legitimately zero-scored title
     for pattern in _REJECT_PATTERNS:
         if pattern.search(normalized):
-            return 0.0
+            return -1.0
 
     score = 0.0
 

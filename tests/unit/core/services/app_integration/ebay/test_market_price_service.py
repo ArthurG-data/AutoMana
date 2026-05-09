@@ -32,7 +32,7 @@ def test_browse_items_to_price_points_basic():
     assert points[0].sold_date is None
 
 
-def test_browse_items_to_price_points_missing_price_skipped():
+def test_browse_items_to_price_points_missing_price_defaults_to_zero():
     raw = {"itemSummaries": [{"itemId": "x", "title": "bad", "price": {}}]}
     points = _browse_items_to_price_points(raw)
     # price value is 0.0 — we keep it; the relevance filter will handle it
