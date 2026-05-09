@@ -76,6 +76,7 @@ vi.mock('../../features/ebay/components/ListingFormPanel', () => ({
 import { fetchUserApps, fetchActiveListingsPaginated } from '../../features/ebay/api'
 import type { EbayAppSummary } from '../../features/ebay/api'
 import type { EbayLiveListing } from '../../features/ebay/mockListings'
+import { useListingsStore } from '../../store/listings'
 import { ListingsPage } from '../listings'
 
 const mockFetchUserApps = vi.mocked(fetchUserApps)
@@ -127,6 +128,10 @@ function pagedResult(listings: EbayLiveListing[], hasMore = false) {
 function renderListingsPage() {
   return render(<ListingsPage />)
 }
+
+beforeEach(() => {
+  useListingsStore.setState({ listings: [] })
+})
 
 describe('ListingsPage Active tab', () => {
   beforeEach(() => {
@@ -258,7 +263,6 @@ describe('ListingsPage — split-panel edit', () => {
     render(<ListingsPage />)
     await waitFor(() => expect(screen.getByTestId('listings-table')).toBeInTheDocument())
 
-    const { useListingsStore } = await import('../../store/listings')
     useListingsStore.getState().setListings([makeListing({ itemId: 'l1', cardName: 'Ragavan' })])
 
     await userEvent.click(screen.getByTestId('listings-table'))
@@ -269,7 +273,6 @@ describe('ListingsPage — split-panel edit', () => {
     render(<ListingsPage />)
     await waitFor(() => expect(screen.getByTestId('listings-table')).toBeInTheDocument())
 
-    const { useListingsStore } = await import('../../store/listings')
     useListingsStore.getState().setListings([makeListing({ itemId: 'l1', cardName: 'Ragavan' })])
 
     await userEvent.click(screen.getByTestId('listings-table'))
@@ -282,7 +285,6 @@ describe('ListingsPage — split-panel edit', () => {
     render(<ListingsPage />)
     await waitFor(() => expect(screen.getByTestId('listings-table')).toBeInTheDocument())
 
-    const { useListingsStore } = await import('../../store/listings')
     useListingsStore.getState().setListings([makeListing({ itemId: 'l1', cardName: 'Ragavan' })])
 
     await userEvent.click(screen.getByTestId('listings-table'))

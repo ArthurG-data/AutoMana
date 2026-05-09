@@ -175,7 +175,13 @@ export function ListingsPage() {
         conditionID: values.conditionId,
         ...(values.description ? { description: values.description } : {}),
       })
-      storeUpdateListing(selectedId, { price: values.price, title: values.title })
+      const patch = { price: values.price, title: values.title }
+      storeUpdateListing(selectedId, patch)
+      const updated = listingsRef.current.map((l) =>
+        l.itemId === selectedId ? { ...l, ...patch } : l
+      )
+      listingsRef.current = updated
+      setListings(updated)
       setPanelMode('detail')
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Failed to update listing')
@@ -295,7 +301,7 @@ export function ListingsPage() {
                       title: selectedListing.title,
                       price: selectedListing.price,
                       quantity: 1,
-                      conditionId: 3000,
+                      conditionId: selectedListing.conditionId ?? 3000,
                       description: '',
                     }}
                     availableApps={productionApps}

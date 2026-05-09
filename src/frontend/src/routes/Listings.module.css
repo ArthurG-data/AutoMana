@@ -374,7 +374,7 @@
 /* ── Split-panel layout (active when a listing is selected) ─── */
 .withPanel {
   display: grid;
-  grid-template-columns: 1fr 400px;
+  grid-template-columns: 1fr clamp(280px, 30%, 400px);
   gap: 20px;
   align-items: start;
 }

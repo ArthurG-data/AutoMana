@@ -198,6 +198,7 @@ function mapToLiveListing(raw: RawEbayItem): Omit<EbayLiveListing, 'appCode' | '
       raw.conditionDisplayName ??
       raw.conditionDescription ??
       ebayConditionLabel(raw.conditionID),
+    conditionId: raw.conditionID ?? undefined,
     // ItemSpecifics is the primary source; fall back to title-extracted value.
     finish: getFinish(raw.itemSpecifics) || titleFinish || 'Regular',
     style: getStyle(raw.itemSpecifics) || titleStyle,
