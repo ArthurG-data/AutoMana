@@ -424,6 +424,8 @@ export interface PricePoint {
   url: string | null
   sold_date: string | null
   relevance_score: number
+  item_country: string | null
+  ships_to_au: boolean | null
 }
 
 export interface PriceAggregates {

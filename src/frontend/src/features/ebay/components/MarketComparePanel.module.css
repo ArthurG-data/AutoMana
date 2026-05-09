@@ -135,6 +135,42 @@
   color: var(--hd-accent);
 }
 
+.originCell {
+  white-space: nowrap;
+}
+
+.badgeLocal {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--hd-accent) 15%, transparent);
+  color: var(--hd-accent);
+}
+
+.badgeIntl {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--hd-muted, #888) 15%, transparent);
+  color: var(--hd-muted, #888);
+}
+
+.shipsCell {
+  text-align: center;
+}
+
+.yes {
+  color: var(--hd-accent);
+  font-weight: 700;
+}
+
+.no {
+  color: var(--hd-red, #e55);
+  font-weight: 700;
+}
+
 .link {
   color: var(--hd-accent);
   text-decoration: none;

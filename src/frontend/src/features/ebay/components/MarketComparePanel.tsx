@@ -41,6 +41,8 @@ function PriceTable({
           <th>Total</th>
           <th>Condition</th>
           {showSoldDate && <th>Sold date</th>}
+          <th>Origin</th>
+          <th>Ships to AU</th>
           <th>Score</th>
           <th></th>
         </tr>
@@ -60,6 +62,20 @@ function PriceTable({
               </td>
               <td>{r.condition ?? '—'}</td>
               {showSoldDate && <td>{fmtDate(r.sold_date)}</td>}
+              <td className={styles.originCell}>
+                {r.item_country === 'AU' ? (
+                  <span className={styles.badgeLocal}>Local</span>
+                ) : r.item_country ? (
+                  <span className={styles.badgeIntl}>{r.item_country}</span>
+                ) : '—'}
+              </td>
+              <td className={styles.shipsCell}>
+                {r.ships_to_au === true ? (
+                  <span className={styles.yes}>✓</span>
+                ) : r.ships_to_au === false ? (
+                  <span className={styles.no}>✗</span>
+                ) : '—'}
+              </td>
               <td>{(r.relevance_score * 100).toFixed(0)}%</td>
               <td>
                 {r.url ? (
