@@ -33,6 +33,7 @@ describe('ListingDetailPanel', () => {
         listing={makeListing()}
         onEdit={vi.fn()}
         onClose={vi.fn()}
+        onCompare={vi.fn()}
       />
     )
     expect(screen.getByText('Sheoldred, the Apocalypse')).toBeInTheDocument()
@@ -43,16 +44,44 @@ describe('ListingDetailPanel', () => {
 
   it('calls onEdit when Edit listing button is clicked', async () => {
     const onEdit = vi.fn()
-    render(<ListingDetailPanel listing={makeListing()} onEdit={onEdit} onClose={vi.fn()} />)
+    render(
+      <ListingDetailPanel
+        listing={makeListing()}
+        onEdit={onEdit}
+        onClose={vi.fn()}
+        onCompare={vi.fn()}
+      />
+    )
     await userEvent.click(screen.getByRole('button', { name: /edit listing/i }))
     expect(onEdit).toHaveBeenCalledOnce()
   })
 
   it('calls onClose when close button is clicked', async () => {
     const onClose = vi.fn()
-    render(<ListingDetailPanel listing={makeListing()} onEdit={vi.fn()} onClose={onClose} />)
+    render(
+      <ListingDetailPanel
+        listing={makeListing()}
+        onEdit={vi.fn()}
+        onClose={onClose}
+        onCompare={vi.fn()}
+      />
+    )
     await userEvent.click(screen.getByRole('button', { name: /close/i }))
     expect(onClose).toHaveBeenCalledOnce()
+  })
+
+  it('calls onCompare when Compare market button is clicked', async () => {
+    const onCompare = vi.fn()
+    render(
+      <ListingDetailPanel
+        listing={makeListing()}
+        onEdit={vi.fn()}
+        onClose={vi.fn()}
+        onCompare={onCompare}
+      />
+    )
+    await userEvent.click(screen.getByRole('button', { name: /compare market/i }))
+    expect(onCompare).toHaveBeenCalledOnce()
   })
 
   it('shows thumbnail when imageUrl is present', () => {
@@ -61,13 +90,21 @@ describe('ListingDetailPanel', () => {
         listing={makeListing({ imageUrl: 'https://example.com/img.jpg' })}
         onEdit={vi.fn()}
         onClose={vi.fn()}
+        onCompare={vi.fn()}
       />
     )
     expect(screen.getByRole('img')).toHaveAttribute('src', 'https://example.com/img.jpg')
   })
 
   it('shows eBay link', () => {
-    render(<ListingDetailPanel listing={makeListing()} onEdit={vi.fn()} onClose={vi.fn()} />)
+    render(
+      <ListingDetailPanel
+        listing={makeListing()}
+        onEdit={vi.fn()}
+        onClose={vi.fn()}
+        onCompare={vi.fn()}
+      />
+    )
     expect(screen.getByRole('link', { name: /view/i })).toHaveAttribute('href', 'https://www.ebay.com.au/itm/l1')
   })
 })
