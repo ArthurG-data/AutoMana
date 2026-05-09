@@ -140,12 +140,16 @@ export function MarketComparePanel({ listing, onBack }: MarketComparePanelProps)
     ? Math.min(...filteredActive.map((r) => r.price))
     : null
 
-  const listedDates = filteredActive
-    .map((r) => r.listed_at)
-    .filter((d): d is string => d !== null)
-    .sort()
-  const minListed = listedDates[0] ?? null
-  const maxListed = listedDates[listedDates.length - 1] ?? null
+  const activeDateMs = filteredActive
+    .map((r) => r.listed_at ? new Date(r.listed_at).getTime() : NaN)
+    .filter((ms) => !isNaN(ms))
+  const minListed = activeDateMs.length > 0
+    ? new Date(Math.min(...activeDateMs)).toISOString()
+    : null
+  const maxListed = activeDateMs.length > 0
+    ? new Date(Math.max(...activeDateMs)).toISOString()
+    : null
+  const listedSame = minListed === maxListed
 
   const suggestedPrice = data?.suggested_price ?? null
   const priceColor =
@@ -204,16 +208,26 @@ export function MarketComparePanel({ listing, onBack }: MarketComparePanelProps)
               </span>
             </div>
             <div className={styles.summaryCell}>
+              <span className={styles.summaryLabel}>Active ceiling</span>
+              <span className={styles.summaryValue}>
+                {activeFloor != null
+                  ? fmt(Math.max(...filteredActive.map((r) => r.price)), listing.currency)
+                  : '—'}
+              </span>
+            </div>
+            <div className={styles.summaryCell}>
               <span className={styles.summaryLabel}>Listings</span>
               <span className={styles.summaryValue}>{filteredActive.length}</span>
             </div>
             <div className={styles.summaryCell}>
-              <span className={styles.summaryLabel}>Oldest listed</span>
-              <span className={styles.summaryValueSm}>{fmtDate(minListed)}</span>
-            </div>
-            <div className={styles.summaryCell}>
-              <span className={styles.summaryLabel}>Newest listed</span>
-              <span className={styles.summaryValueSm}>{fmtDate(maxListed)}</span>
+              <span className={styles.summaryLabel}>Listed</span>
+              <span className={styles.summaryValueSm}>
+                {minListed
+                  ? listedSame
+                    ? fmtDate(minListed)
+                    : `${fmtDate(minListed)} – ${fmtDate(maxListed)}`
+                  : '—'}
+              </span>
             </div>
           </div>
 
