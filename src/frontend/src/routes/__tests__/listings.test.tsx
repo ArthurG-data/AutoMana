@@ -13,6 +13,10 @@ vi.mock('../../features/ebay/api', () => ({
   fetchActiveListings: vi.fn(),
   fetchActiveListingsPaginated: vi.fn(),
   updateListing: vi.fn(),
+  fetchSoldOrders: vi.fn(),
+  markOrderSent: vi.fn(),
+  markOrderSentWithTracking: vi.fn(),
+  updateOrderLocalStatus: vi.fn(),
 }))
 
 vi.mock('../../features/ebay/lib/catalogEnrich', () => ({
@@ -85,7 +89,41 @@ vi.mock('../../features/ebay/components/ListingFormPanel', () => ({
   ),
 }))
 
-import { fetchUserApps, fetchActiveListingsPaginated, updateListing } from '../../features/ebay/api'
+vi.mock('../../features/ebay/components/SoldOrdersTable', () => ({
+  SoldOrdersTable: ({
+    orders,
+    isLoading,
+    onRowClick,
+  }: {
+    orders: { orderId: string; appName: string }[]
+    isLoading?: boolean
+    onRowClick?: (id: string) => void
+  }) => (
+    <div
+      data-testid="sold-orders-table"
+      data-loading={String(isLoading)}
+      data-count={orders.length}
+      onClick={() => orders[0] && onRowClick?.(orders[0].orderId)}
+    />
+  ),
+}))
+
+vi.mock('../../features/ebay/components/SoldOrderDetailPanel', () => ({
+  SoldOrderDetailPanel: ({
+    order,
+    onClose,
+  }: {
+    order: { orderId: string }
+    onClose: () => void
+  }) => (
+    <div data-testid="sold-detail-panel">
+      <span>{order.orderId}</span>
+      <button onClick={onClose}>Close panel</button>
+    </div>
+  ),
+}))
+
+import { fetchUserApps, fetchActiveListingsPaginated, updateListing, fetchSoldOrders } from '../../features/ebay/api'
 import type { EbayAppSummary } from '../../features/ebay/api'
 import type { EbayLiveListing } from '../../features/ebay/mockListings'
 import { useListingsStore } from '../../store/listings'
@@ -345,6 +383,37 @@ describe('ListingsPage — split-panel edit', () => {
         'l1',
         expect.objectContaining({ pictureUrls: expect.any(Array) }),
       )
+    })
+  })
+})
+
+const mockFetchSoldOrders = vi.mocked(fetchSoldOrders)
+
+describe('ListingsPage — Sold tab', () => {
+  beforeEach(() => {
+    mockFetchUserApps.mockReset()
+    mockFetchActiveListingsPaginated.mockReset()
+    mockFetchSoldOrders.mockReset()
+  })
+
+  it('shows the Sold tab button', async () => {
+    mockFetchUserApps.mockResolvedValue([])
+    mockFetchActiveListingsPaginated.mockResolvedValue(pagedResult([]))
+    renderListingsPage()
+    const soldTab = screen.getByRole('tab', { name: /sold/i })
+    expect(soldTab).toBeTruthy()
+  })
+
+  it('renders SoldOrdersTable when Sold tab is clicked', async () => {
+    const user = userEvent.setup()
+    mockFetchUserApps.mockResolvedValue([makeApp()])
+    mockFetchActiveListingsPaginated.mockResolvedValue(pagedResult([]))
+    mockFetchSoldOrders.mockResolvedValue({ orders: [], total: 0 })
+    renderListingsPage()
+    await waitFor(() => expect(screen.getByTestId('listings-table')).toBeInTheDocument())
+    await user.click(screen.getByRole('tab', { name: /sold/i }))
+    await waitFor(() => {
+      expect(screen.getByTestId('sold-orders-table')).toBeInTheDocument()
     })
   })
 })

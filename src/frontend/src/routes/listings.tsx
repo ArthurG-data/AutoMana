@@ -13,8 +13,12 @@ import {
   fetchUserApps,
   fetchActiveListingsPaginated,
   updateListing,
+  fetchSoldOrders,
   type EbayAppSummary,
 } from '../features/ebay/api'
+import { SoldOrdersTable } from '../features/ebay/components/SoldOrdersTable'
+import { SoldOrderDetailPanel } from '../features/ebay/components/SoldOrderDetailPanel'
+import type { SoldOrder, DisplayStatus } from '../features/ebay/soldOrders'
 import { enrichWithCatalog } from '../features/ebay/lib/catalogEnrich'
 import { useListingsStore } from '../store/listings'
 import type { EbayLiveListing } from '../features/ebay/mockListings'
@@ -43,6 +47,9 @@ export function ListingsPage() {
   const [saveError, setSaveError] = useState<string | null>(null)
   const [imageUrls, setImageUrls] = useState<string[]>([])
   const [productionApps, setProductionApps] = useState<EbayAppSummary[]>([])
+  const [soldOrders, setSoldOrders] = useState<SoldOrder[]>([])
+  const [isSoldLoading, setIsSoldLoading] = useState(false)
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
   const storeSet = useListingsStore((s) => s.setListings)
   const selectedListing = useListingsStore((s) => s.getById(selectedId ?? ''))
   const storeUpdateListing = useListingsStore((s) => s.updateListing)
@@ -165,12 +172,43 @@ export function ListingsPage() {
     setIsLoadingMore(false)
   }, [storeSet])
 
+  useEffect(() => {
+    if (tab !== 'sold') return
+    let cancelled = false
+    async function loadSold() {
+      setIsSoldLoading(true)
+      try {
+        const results = await Promise.allSettled(
+          productionApps.map((app) =>
+            fetchSoldOrders(app.app_code, 25, 0).then(({ orders }) =>
+              orders.map((o) => ({ ...o, appName: app.app_name }))
+            )
+          )
+        )
+        if (cancelled) return
+        const merged: SoldOrder[] = []
+        results.forEach((r) => { if (r.status === 'fulfilled') merged.push(...r.value) })
+        setSoldOrders(merged)
+      } finally {
+        if (!cancelled) setIsSoldLoading(false)
+      }
+    }
+    loadSold()
+    return () => { cancelled = true }
+  }, [tab, productionApps])
+
   function handleRowClick(id: string) {
     setSelectedId(id)
     setPanelMode('detail')
     setSaveError(null)
     const listing = listingsRef.current.find((l) => l.itemId === id)
     setImageUrls(listing?.imageUrl ? [listing.imageUrl] : [])
+  }
+
+  function handleOrderStatusChange(orderId: string, newStatus: DisplayStatus) {
+    setSoldOrders((prev) =>
+      prev.map((o) => o.orderId === orderId ? { ...o, displayStatus: newStatus, local_status: newStatus } : o)
+    )
   }
 
   async function handleUpdateListing(values: ListingFormValues, appCode: string) {
@@ -272,6 +310,9 @@ export function ListingsPage() {
               {t === 'active' && !isLoading && (
                 <span className={styles.tabCount}>{listings.length}</span>
               )}
+              {t === 'sold' && !isSoldLoading && soldOrders.length > 0 && (
+                <span className={styles.tabCount}>{soldOrders.length}</span>
+              )}
             </button>
           ))}
         </div>
@@ -345,9 +386,27 @@ export function ListingsPage() {
         )}
 
         {tab === 'sold' && (
-          <div className={styles.emptyState}>
-            <Icon kind="bag" size={32} color="var(--hd-sub)" />
-            <p>Order history coming soon</p>
+          <div className={selectedOrderId ? styles.withPanel : undefined}>
+            <div>
+              <SoldOrdersTable
+                orders={soldOrders}
+                isLoading={isSoldLoading}
+                selectedId={selectedOrderId ?? undefined}
+                onRowClick={(id) => setSelectedOrderId(id)}
+              />
+            </div>
+            {selectedOrderId && (() => {
+              const order = soldOrders.find((o) => o.orderId === selectedOrderId)
+              return order ? (
+                <div>
+                  <SoldOrderDetailPanel
+                    order={order}
+                    onClose={() => setSelectedOrderId(null)}
+                    onStatusChange={handleOrderStatusChange}
+                  />
+                </div>
+              ) : null
+            })()}
           </div>
         )}
 
