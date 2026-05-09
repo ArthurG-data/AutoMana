@@ -228,7 +228,7 @@ class EbaySellingRepository(EbayApiClient):
 
         headers = {**self.auth_header(token), "Content-Type": "application/json"}
         logger.info(
-            "ebay_create_shipping_fulfillment",
+            "Creating eBay shipping fulfillment",
             extra={"order_id": order_id},
         )
         response = await self.send("POST", url, json=body, headers=headers)
