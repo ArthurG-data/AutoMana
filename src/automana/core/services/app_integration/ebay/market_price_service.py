@@ -101,16 +101,32 @@ async def fetch_card_market_price(
     **kwargs,
 ) -> CardMarketData:
     settings = get_settings()
-    app_id = settings.ebay_app_id or ""
+    if not settings.ebay_app_id:
+        raise ValueError("ebay_app_id is not configured; cannot call Finding API")
+    app_id = settings.ebay_app_id
+
+    logger.info(
+        "ebay_fetch_card_market_price_requested",
+        extra={
+            "card_name": card_name,
+            "set_code": set_code,
+            "condition_id": condition_id,
+            "is_foil": is_foil,
+            "frame": frame,
+            "days_back": days_back,
+            "limit": limit,
+        },
+    )
 
     query = build_query_string(card_name, set_code, is_foil, frame)
     min_date = datetime.now(timezone.utc) - timedelta(days=min(days_back, 90))
-    capped_limit = min(limit, 200)
+    sold_limit = min(limit, 100)
+    active_limit = min(limit, 200)
 
     browse_params = {
         "q": query,
         "category_ids": [str(_MTG_CATEGORY_ID)],
-        "limit": capped_limit,
+        "limit": active_limit,
         "offset": 0,
     }
     if condition_id is not None:
@@ -132,7 +148,7 @@ async def fetch_card_market_price(
             category_id=_MTG_CATEGORY_ID,
             condition_id=condition_id,
             min_date=min_date,
-            limit=capped_limit,
+            limit=sold_limit,
         )
 
     async def _fetch_active() -> dict:
@@ -140,12 +156,12 @@ async def fetch_card_market_price(
 
     results = await asyncio.gather(_fetch_sold(), _fetch_active(), return_exceptions=True)
 
-    if isinstance(results[0], Exception):
+    if isinstance(results[0], BaseException):
         logger.warning("Finding API failed; returning empty sold list", extra={"error": str(results[0])})
     else:
         sold_raw = results[0]
 
-    if isinstance(results[1], Exception):
+    if isinstance(results[1], BaseException):
         logger.warning("Browse API failed; returning empty active list", extra={"error": str(results[1])})
     else:
         active_raw = results[1]
