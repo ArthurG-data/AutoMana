@@ -15,7 +15,6 @@ class PricePoint(BaseModel):
     sold_date: Optional[datetime] = None
     relevance_score: float = 0.0
     item_country: Optional[str] = None
-    ships_to_au: Optional[bool] = None
 
     model_config = ConfigDict(populate_by_name=True, extra="allow")
 

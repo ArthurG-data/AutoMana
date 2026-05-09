@@ -26,9 +26,11 @@ function fmtDate(iso: string | null): string {
 function PriceTable({
   rows,
   showSoldDate,
+  ownItemId,
 }: {
   rows: PricePoint[]
   showSoldDate: boolean
+  ownItemId?: string
 }) {
   if (rows.length === 0) return <p className={styles.empty}>No results</p>
   return (
@@ -49,9 +51,13 @@ function PriceTable({
       <tbody>
         {rows.map((r) => {
           const total = r.shipping_cost != null ? r.price + r.shipping_cost : null
+          const isOwn = ownItemId != null && r.item_id === ownItemId
           return (
-            <tr key={r.item_id}>
-              <td className={styles.titleCell}>{r.title}</td>
+            <tr key={r.item_id} className={isOwn ? styles.ownRow : undefined}>
+              <td className={styles.titleCell}>
+                {isOwn && <span className={styles.ownBadge}>You</span>}
+                {r.title}
+              </td>
               <td className={styles.priceCell}>{fmt(r.price, r.currency)}</td>
               <td className={styles.shippingCell}>
                 {r.shipping_cost != null ? fmt(r.shipping_cost, r.currency) : '—'}
@@ -65,11 +71,7 @@ function PriceTable({
                 {r.item_country === 'AU' ? (
                   <span className={styles.badgeLocal}>Local</span>
                 ) : r.item_country ? (
-                  <span className={styles.badgeIntl}>
-                    {r.item_country}
-                    {r.ships_to_au === true && <span className={styles.yes}> ✓</span>}
-                    {r.ships_to_au === false && <span className={styles.no}> ✗</span>}
-                  </span>
+                  <span className={styles.badgeIntl}>{r.item_country}</span>
                 ) : '—'}
               </td>
               <td>{(r.relevance_score * 100).toFixed(0)}%</td>
@@ -191,7 +193,7 @@ export function MarketComparePanel({ listing, onBack }: MarketComparePanelProps)
             <h3 className={styles.sectionTitle}>
               Active listings ({data.active_aggregates.count})
             </h3>
-            <PriceTable rows={data.active} showSoldDate={false} />
+            <PriceTable rows={data.active} showSoldDate={false} ownItemId={listing.itemId} />
           </section>
         </>
       )}

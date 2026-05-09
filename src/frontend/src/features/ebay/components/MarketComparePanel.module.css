@@ -157,14 +157,22 @@
   color: var(--hd-muted, #888);
 }
 
-.yes {
-  color: var(--hd-accent);
-  font-weight: 700;
+.ownRow {
+  background: color-mix(in srgb, var(--hd-accent) 8%, transparent);
 }
 
-.no {
-  color: var(--hd-red, #e55);
+.ownBadge {
+  display: inline-block;
+  font-size: 9px;
   font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--hd-accent);
+  color: #000;
+  margin-right: 6px;
+  vertical-align: middle;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .link {

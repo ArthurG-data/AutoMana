@@ -61,19 +61,6 @@ def _browse_items_to_price_points(raw_data: dict) -> list[PricePoint]:
 
         item_country: Optional[str] = item.get("itemLocation", {}).get("country") or None
 
-        ships_to_au: Optional[bool] = None
-        ship_to = item.get("shipToLocations", {})
-        included = ship_to.get("regionIncluded", [])
-        excluded = ship_to.get("regionExcluded", [])
-        if included:
-            ships = any(
-                r.get("regionType") == "WORLDWIDE" or r.get("regionId") == "AU"
-                for r in included
-            )
-            if ships and any(r.get("regionId") == "AU" for r in excluded):
-                ships = False
-            ships_to_au = ships
-
         points.append(
             PricePoint(
                 item_id=item.get("itemId", ""),
@@ -85,7 +72,6 @@ def _browse_items_to_price_points(raw_data: dict) -> list[PricePoint]:
                 url=item.get("itemWebUrl"),
                 sold_date=None,
                 item_country=item_country,
-                ships_to_au=ships_to_au,
             )
         )
     return points
