@@ -45,9 +45,11 @@ export function ImagePicker({ images, onChange, appCode, maxImages = 12 }: Image
     }
   }
 
-  function handleFiles(files: FileList | null) {
+  async function handleFiles(files: FileList | null) {
     if (!files) return
-    Array.from(files).forEach((file) => uploadFile(file))
+    for (const file of Array.from(files)) {
+      await uploadFile(file)
+    }
   }
 
   function handleRetry(slot: UploadSlot) {
@@ -71,7 +73,7 @@ export function ImagePicker({ images, onChange, appCode, maxImages = 12 }: Image
     <div className={styles.picker}>
       <div className={styles.grid}>
         {images.map((url, i) => (
-          <div key={url + i} className={styles.thumb}>
+          <div key={url} className={styles.thumb}>
             <img src={url} alt={`Image ${i + 1}`} className={styles.thumbImg} />
             <button
               type="button"
