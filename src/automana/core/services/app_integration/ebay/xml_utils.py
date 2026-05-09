@@ -126,3 +126,14 @@ def generate_get_my_ebay_selling_request_xml(entries_per_page: int = 3, page_num
     ET.SubElement(pagination, "PageNumber").text = str(max(page_number, 1))
 
     return '<?xml version="1.0" encoding="utf-8"?>' + ET.tostring(root, encoding="utf-8", method="xml").decode("utf-8")
+
+@register_request_generator("UploadSiteHostedPicturesRequest")
+def generate_upload_site_hosted_pictures_request_xml() -> str:
+    """Generate XML for eBay's UploadSiteHostedPictures Trading API call."""
+    root = ET.Element(
+        "UploadSiteHostedPicturesRequest",
+        xmlns="urn:ebay:apis:eBLBaseComponents",
+    )
+    ET.SubElement(root, "PictureSystemVersion").text = "2"
+    ET.SubElement(root, "PictureSet").text = "Supersize"
+    return ET.tostring(root, encoding="utf-8", method="xml").decode("utf-8")
