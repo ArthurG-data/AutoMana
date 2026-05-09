@@ -197,3 +197,41 @@ class EbaySellingRepository(EbayApiClient):
         if not url:
             raise ValueError("eBay returned no picture URL in upload response")
         return url
+
+    async def create_shipping_fulfillment(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Mark an eBay order as shipped via the Fulfillment REST API."""
+        token = payload.get("token")
+        order_id = payload.get("order_id")
+        if not token:
+            raise ValueError("Token is required")
+        if not order_id:
+            raise ValueError("order_id is required")
+
+        base = (
+            "https://api.sandbox.ebay.com"
+            if self.environment == "sandbox"
+            else "https://api.ebay.com"
+        )
+        url = f"{base}/sell/fulfillment/v1/order/{order_id}/shippingFulfillment"
+
+        body: Dict[str, Any] = {
+            "lineItems": [
+                {"lineItemId": lid, "quantity": 1}
+                for lid in payload.get("line_item_ids", [])
+            ],
+            "shippedDate": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+        }
+        if payload.get("tracking_number"):
+            body["trackingNumber"] = payload["tracking_number"]
+        if payload.get("carrier_code"):
+            body["shippingCarrierCode"] = payload["carrier_code"]
+
+        headers = {**self.auth_header(token), "Content-Type": "application/json"}
+        logger.info(
+            "ebay_create_shipping_fulfillment",
+            extra={"order_id": order_id},
+        )
+        response = await self.send("POST", url, json=body, headers=headers)
+        if response.status_code in (200, 201, 204):
+            return {"success": True, "order_id": order_id}
+        return self._parse_response(response)
