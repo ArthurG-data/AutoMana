@@ -66,14 +66,26 @@ vi.mock('../../features/ebay/components/ListingDetailPanel', () => ({
 }))
 
 vi.mock('../../features/ebay/components/ListingFormPanel', () => ({
-  ListingFormPanel: ({ onCancel }: { onCancel: () => void }) => (
-    <div data-testid="form-panel">
+  ListingFormPanel: ({
+    onCancel,
+    onSave,
+    imageUrls,
+  }: {
+    onCancel: () => void
+    onSave: (values: Record<string, unknown>, appCode: string) => void
+    imageUrls?: string[]
+  }) => (
+    <div
+      data-testid="form-panel"
+      data-images={(imageUrls ?? []).join(',')}
+    >
       <button onClick={onCancel}>Cancel</button>
+      <button onClick={() => onSave({ title: 'Test', price: 10, quantity: 1, conditionId: 3000, description: '' }, 'automana_au')}>Save</button>
     </div>
   ),
 }))
 
-import { fetchUserApps, fetchActiveListingsPaginated } from '../../features/ebay/api'
+import { fetchUserApps, fetchActiveListingsPaginated, updateListing } from '../../features/ebay/api'
 import type { EbayAppSummary } from '../../features/ebay/api'
 import type { EbayLiveListing } from '../../features/ebay/mockListings'
 import { useListingsStore } from '../../store/listings'
@@ -81,6 +93,7 @@ import { ListingsPage } from '../listings'
 
 const mockFetchUserApps = vi.mocked(fetchUserApps)
 const mockFetchActiveListingsPaginated = vi.mocked(fetchActiveListingsPaginated)
+const mockUpdateListing = vi.mocked(updateListing)
 
 function makeApp(overrides: Partial<EbayAppSummary> = {}): EbayAppSummary {
   return {
@@ -292,5 +305,46 @@ describe('ListingsPage — split-panel edit', () => {
     await userEvent.click(screen.getByRole('button', { name: /edit listing/i }))
     await userEvent.click(screen.getByRole('button', { name: /cancel/i }))
     expect(screen.getByTestId('detail-panel')).toBeInTheDocument()
+  })
+
+  it('pre-populates imageUrls from selectedListing.imageUrl in edit panel', async () => {
+    const listing = makeListing({ itemId: 'l1', cardName: 'Ragavan', imageUrl: 'https://img.example.com/ragavan.jpg' })
+    mockFetchActiveListingsPaginated.mockResolvedValue(pagedResult([listing]))
+
+    render(<ListingsPage />)
+    await waitFor(() => expect(screen.getByTestId('listings-table')).toBeInTheDocument())
+
+    useListingsStore.getState().setListings([listing])
+
+    await userEvent.click(screen.getByTestId('listings-table'))
+    await waitFor(() => screen.getByTestId('detail-panel'))
+    await userEvent.click(screen.getByRole('button', { name: /edit listing/i }))
+
+    const formPanel = screen.getByTestId('form-panel')
+    expect(formPanel.getAttribute('data-images')).toBe('https://img.example.com/ragavan.jpg')
+  })
+
+  it('passes imageUrls to updateListing as pictureUrls', async () => {
+    mockUpdateListing.mockResolvedValue(undefined as unknown as ReturnType<typeof updateListing>)
+    const listing = makeListing({ itemId: 'l1', cardName: 'Ragavan', imageUrl: 'https://img.example.com/ragavan.jpg' })
+    mockFetchActiveListingsPaginated.mockResolvedValue(pagedResult([listing]))
+
+    render(<ListingsPage />)
+    await waitFor(() => expect(screen.getByTestId('listings-table')).toBeInTheDocument())
+
+    useListingsStore.getState().setListings([listing])
+
+    await userEvent.click(screen.getByTestId('listings-table'))
+    await waitFor(() => screen.getByTestId('detail-panel'))
+    await userEvent.click(screen.getByRole('button', { name: /edit listing/i }))
+    await userEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    await waitFor(() => {
+      expect(mockUpdateListing).toHaveBeenCalledWith(
+        'automana_au',
+        'l1',
+        expect.objectContaining({ pictureUrls: expect.any(Array) }),
+      )
+    })
   })
 })
