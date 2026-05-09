@@ -535,24 +535,24 @@ class LineItemType(BaseModel):
     itemLocation: Optional[BuyerAddressType]
 
 class FulfillmentResponse(BaseModel):
-    orderId: Optional[str]
-    legacyOrderId: Optional[str]
-    creationDate: Optional[str]
-    lastModifiedDate: Optional[str]
-    orderFulfillmentStatus: Optional[str]
-    orderPaymentStatus: Optional[str]
-    sellerId: Optional[str]
-    buyer: Optional[BuyerType]
+    orderId: Optional[str] = None
+    legacyOrderId: Optional[str] = None
+    creationDate: Optional[str] = None
+    lastModifiedDate: Optional[str] = None
+    orderFulfillmentStatus: Optional[str] = None
+    orderPaymentStatus: Optional[str] = None
+    sellerId: Optional[str] = None
+    buyer: Optional[BuyerType] = None
 
-    pricingSummary: Optional[PricingSummaryType]
-    cancelStatus: Optional[CancelStatusType]
-    paymentSummary: Optional[PaymentSummaryType]
-    fulfillmentStartInstructions: Optional[List[FulfillmentStartInstructionsType]]
-    fulfillmentHrefs: Optional[List[str]]
-    lineItems: Optional[List[LineItemType]]
-    salesRecordReference: Optional[str]
-    totalFeeBasisAmount: Optional[BaseCostType]
-    totalMarketplaceFee: Optional[BaseCostType]
+    pricingSummary: Optional[PricingSummaryType] = None
+    cancelStatus: Optional[CancelStatusType] = None
+    paymentSummary: Optional[PaymentSummaryType] = None
+    fulfillmentStartInstructions: Optional[List[FulfillmentStartInstructionsType]] = None
+    fulfillmentHrefs: Optional[List[str]] = None
+    lineItems: Optional[List[LineItemType]] = None
+    salesRecordReference: Optional[str] = None
+    totalFeeBasisAmount: Optional[BaseCostType] = None
+    totalMarketplaceFee: Optional[BaseCostType] = None
     local_status: Optional[str] = None  # AutoMana override — not from eBay
 
 class ListingHistoryResponse(BaseModel):
