@@ -143,4 +143,25 @@ describe('ListingFormPanel', () => {
     expect(onSave).not.toHaveBeenCalled()
     expect(screen.getByText(/price must be greater than 0/i)).toBeInTheDocument()
   })
+
+  it('calls onSave with the selected app_code in create mode', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined)
+    render(
+      <ListingFormPanel
+        mode="create"
+        initialValues={{ title: 'Ragavan MH2 NM', price: 62, quantity: 1, conditionId: 3000, description: '' }}
+        availableApps={[makeApp(), makeApp({ app_code: 'app2', app_name: 'App 2' })]}
+        onSave={onSave}
+        onCancel={vi.fn()}
+        isSaving={false}
+        error={null}
+      />
+    )
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: /app/i }), 'app2')
+    await userEvent.click(screen.getByRole('button', { name: /create/i }))
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Ragavan MH2 NM' }),
+      'app2',
+    )
+  })
 })
