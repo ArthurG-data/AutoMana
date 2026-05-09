@@ -1,0 +1,140 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 20px 0;
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.title {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.query {
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  color: var(--hd-muted, #888);
+}
+
+.backBtn {
+  background: transparent;
+  border: 1px solid var(--hd-border, #333);
+  color: inherit;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.backBtn:hover {
+  background: var(--hd-surface, #1a1a1a);
+}
+
+.status {
+  color: var(--hd-muted, #888);
+  font-size: 13px;
+}
+
+.errorBox {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  color: var(--hd-red, #e55);
+  font-size: 13px;
+}
+
+.summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  background: var(--hd-surface, #111);
+  border: 1px solid var(--hd-border, #2a2a2a);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.summaryCell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.summaryLabel {
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--hd-muted, #888);
+}
+
+.summaryValue {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.sectionTitle {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0 0 10px;
+  color: var(--hd-muted, #888);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.table th {
+  text-align: left;
+  padding: 6px 10px;
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--hd-muted, #888);
+  border-bottom: 1px solid var(--hd-border, #2a2a2a);
+}
+
+.table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--hd-border, #1e1e1e);
+  vertical-align: middle;
+}
+
+.titleCell {
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.priceCell {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.link {
+  color: var(--hd-accent);
+  text-decoration: none;
+  font-size: 11px;
+}
+.link:hover {
+  text-decoration: underline;
+}
+
+.empty {
+  color: var(--hd-muted, #888);
+  font-size: 12px;
+  padding: 12px 0;
+}

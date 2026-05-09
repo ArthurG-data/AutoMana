@@ -1,5 +1,6 @@
 import { apiClient, ApiError } from '../../lib/apiClient'
 import { parseCardTitle, type EbayLiveListing } from './mockListings'
+import { mapRawToSoldOrder, type SoldOrder } from './soldOrders'
 
 export interface EbayScopeItem {
   scope_url: string
@@ -341,4 +342,138 @@ export async function uploadListingPicture(
   const url = body?.data?.url ?? body?.url
   if (!url) throw new ApiError('No URL returned from picture upload', 200)
   return { url }
+}
+
+// ── Sold orders ────────────────────────────────────────────────────────────
+
+export async function fetchSoldOrders(
+  appCode: string,
+  limit = 25,
+  offset = 0,
+): Promise<{ orders: SoldOrder[]; hasMore: boolean }> {
+  const raw = await apiClient<unknown>(
+    `/integrations/ebay/listing/history?app_code=${encodeURIComponent(appCode)}&limit=${limit}&offset=${offset}`
+  )
+  const paged = raw as { data?: unknown; pagination?: { has_next?: boolean } }
+  const items = Array.isArray(paged.data) ? (paged.data as Record<string, unknown>[]) : []
+  const hasMore = paged.pagination?.has_next ?? false
+  return {
+    orders: items.map((item) => mapRawToSoldOrder(item, appCode, '')),
+    hasMore,
+  }
+}
+
+export async function markOrderSent(
+  appCode: string,
+  orderId: string,
+  lineItemIds: string[],
+): Promise<void> {
+  await apiClient<unknown>(
+    `/integrations/ebay/listing/orders/${encodeURIComponent(orderId)}/fulfill`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ app_code: appCode, line_item_ids: lineItemIds }),
+    },
+  )
+}
+
+export async function markOrderSentWithTracking(
+  appCode: string,
+  orderId: string,
+  lineItemIds: string[],
+  carrierCode: string,
+  trackingNumber: string,
+): Promise<void> {
+  await apiClient<unknown>(
+    `/integrations/ebay/listing/orders/${encodeURIComponent(orderId)}/fulfill`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        app_code: appCode,
+        line_item_ids: lineItemIds,
+        carrier_code: carrierCode,
+        tracking_number: trackingNumber,
+      }),
+    },
+  )
+}
+
+export async function updateOrderLocalStatus(
+  appCode: string,
+  orderId: string,
+  localStatus: 'in_transit' | 'complete',
+): Promise<void> {
+  await apiClient<unknown>(
+    `/integrations/ebay/listing/orders/${encodeURIComponent(orderId)}/status`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ app_code: appCode, local_status: localStatus }),
+    },
+  )
+}
+
+// ── Market price research ──────────────────────────────────────────────────
+
+export interface PricePoint {
+  item_id: string
+  title: string
+  price: number
+  currency: string
+  condition: string | null
+  url: string | null
+  sold_date: string | null
+  relevance_score: number
+}
+
+export interface PriceAggregates {
+  count: number
+  min: number | null
+  max: number | null
+  mean: number | null
+  median: number | null
+  p25: number | null
+  p75: number | null
+}
+
+export interface CardMarketData {
+  query: string
+  card_name: string
+  set_code: string | null
+  condition_id: number | null
+  is_foil: boolean | null
+  frame: string | null
+  as_of: string
+  sold: PricePoint[]
+  active: PricePoint[]
+  sold_aggregates: PriceAggregates
+  active_aggregates: PriceAggregates
+  suggested_price: number | null
+}
+
+const STYLE_TO_FRAME: Record<string, string> = {
+  'Extended Art': 'extended_art',
+  Showcase: 'showcase',
+  Borderless: 'borderless',
+}
+
+export async function fetchMarketPrice(
+  listing: EbayLiveListing,
+): Promise<CardMarketData> {
+  const params = new URLSearchParams()
+  params.set('card_name', listing.cardName)
+  params.set('app_code', listing.appCode)
+  if (listing.setCode) params.set('set_code', listing.setCode)
+  if (listing.conditionId !== undefined && listing.conditionId !== null)
+    params.set('condition_id', String(listing.conditionId))
+
+  const finishLower = listing.finish.toLowerCase()
+  if (finishLower === 'regular') params.set('is_foil', 'false')
+  else if (finishLower.includes('foil')) params.set('is_foil', 'true')
+
+  const frame = STYLE_TO_FRAME[listing.style]
+  if (frame) params.set('frame', frame)
+
+  return apiClient<CardMarketData>(
+    `/integrations/ebay/market-price/?${params.toString()}`,
+  )
 }

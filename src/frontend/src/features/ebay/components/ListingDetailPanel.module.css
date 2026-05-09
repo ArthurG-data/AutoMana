@@ -123,6 +123,27 @@
 }
 .link:hover { text-decoration: underline; }
 
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.compareBtn {
+  width: 100%;
+  padding: 10px 16px;
+  background: transparent;
+  color: var(--hd-accent);
+  border: 1px solid var(--hd-accent);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.compareBtn:hover {
+  background: color-mix(in srgb, var(--hd-accent) 10%, transparent);
+}
+
 .editBtn {
   width: 100%;
   padding: 10px 16px;

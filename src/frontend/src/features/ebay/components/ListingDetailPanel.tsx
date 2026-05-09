@@ -7,9 +7,10 @@ interface ListingDetailPanelProps {
   listing: EbayLiveListing
   onEdit: () => void
   onClose: () => void
+  onCompare: () => void
 }
 
-export function ListingDetailPanel({ listing, onEdit, onClose }: ListingDetailPanelProps) {
+export function ListingDetailPanel({ listing, onEdit, onClose, onCompare }: ListingDetailPanelProps) {
   return (
     <div className={styles.panel}>
       <div className={styles.header}>
@@ -62,9 +63,14 @@ export function ListingDetailPanel({ listing, onEdit, onClose }: ListingDetailPa
         </div>
       </div>
 
-      <button onClick={onEdit} className={styles.editBtn}>
-        Edit listing
-      </button>
+      <div className={styles.actions}>
+        <button onClick={onCompare} className={styles.compareBtn}>
+          Compare market
+        </button>
+        <button onClick={onEdit} className={styles.editBtn}>
+          Edit listing
+        </button>
+      </div>
     </div>
   )
 }

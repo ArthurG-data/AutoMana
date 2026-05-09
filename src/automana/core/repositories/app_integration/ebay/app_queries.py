@@ -60,3 +60,25 @@ SET redirect_uri = $1,
 WHERE app_code = $2
 RETURNING app_code;
 """
+
+get_order_statuses_query = """
+SELECT order_id, local_status, tracking_number, carrier_code, shipped_at
+FROM app_integration.ebay_order_status
+WHERE app_code = $1
+  AND order_id = ANY($2::TEXT[])
+"""
+
+upsert_order_status_query = """
+INSERT INTO app_integration.ebay_order_status
+    (order_id, app_code, local_status, tracking_number, carrier_code, shipped_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, now())
+ON CONFLICT (order_id, app_code) DO UPDATE SET
+    local_status    = EXCLUDED.local_status,
+    tracking_number = COALESCE(EXCLUDED.tracking_number,
+                               app_integration.ebay_order_status.tracking_number),
+    carrier_code    = COALESCE(EXCLUDED.carrier_code,
+                               app_integration.ebay_order_status.carrier_code),
+    shipped_at      = COALESCE(EXCLUDED.shipped_at,
+                               app_integration.ebay_order_status.shipped_at),
+    updated_at      = now()
+"""

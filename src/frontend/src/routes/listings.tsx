@@ -8,12 +8,17 @@ import { Icon } from '../components/design-system/Icon'
 import { ListingsTable } from '../features/ebay/components/ListingsTable'
 import { ListingDetailPanel } from '../features/ebay/components/ListingDetailPanel'
 import { ListingFormPanel, CONDITION_OPTIONS, type ListingFormValues } from '../features/ebay/components/ListingFormPanel'
+import { MarketComparePanel } from '../features/ebay/components/MarketComparePanel'
 import {
   fetchUserApps,
   fetchActiveListingsPaginated,
   updateListing,
+  fetchSoldOrders,
   type EbayAppSummary,
 } from '../features/ebay/api'
+import { SoldOrdersTable } from '../features/ebay/components/SoldOrdersTable'
+import { SoldOrderDetailPanel } from '../features/ebay/components/SoldOrderDetailPanel'
+import type { SoldOrder, DisplayStatus } from '../features/ebay/soldOrders'
 import { enrichWithCatalog } from '../features/ebay/lib/catalogEnrich'
 import { useListingsStore } from '../store/listings'
 import type { EbayLiveListing } from '../features/ebay/mockListings'
@@ -37,11 +42,16 @@ export function ListingsPage() {
   const [failedApps, setFailedApps] = useState<string[]>([])
   const [dismissedApps, setDismissedApps] = useState<Set<string>>(new Set())
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [panelMode, setPanelMode] = useState<'detail' | 'edit'>('detail')
+  const [panelMode, setPanelMode] = useState<'detail' | 'edit' | 'compare'>('detail')
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [imageUrls, setImageUrls] = useState<string[]>([])
   const [productionApps, setProductionApps] = useState<EbayAppSummary[]>([])
+  const [soldOrders, setSoldOrders] = useState<SoldOrder[]>([])
+  const [isSoldLoading, setIsSoldLoading] = useState(false)
+  const [isSoldLoadingMore, setIsSoldLoadingMore] = useState(false)
+  const [hasSoldMore, setHasSoldMore] = useState(false)
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
   const storeSet = useListingsStore((s) => s.setListings)
   const selectedListing = useListingsStore((s) => s.getById(selectedId ?? ''))
   const storeUpdateListing = useListingsStore((s) => s.updateListing)
@@ -53,6 +63,10 @@ export function ListingsPage() {
   const listingsRef = useRef<EbayLiveListing[]>([])
   const isLoadingMoreRef = useRef(false)
   const sentinelRef = useRef<HTMLDivElement | null>(null)
+  const soldOffsetsRef = useRef<Record<string, number>>({})
+  const soldHasMoreRef = useRef<Record<string, boolean>>({})
+  const isSoldLoadingMoreRef = useRef(false)
+  const soldSentinelRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -164,12 +178,79 @@ export function ListingsPage() {
     setIsLoadingMore(false)
   }, [storeSet])
 
+  useEffect(() => {
+    if (tab !== 'sold') return
+    soldOffsetsRef.current = {}
+    soldHasMoreRef.current = {}
+    let cancelled = false
+    async function loadSold() {
+      setIsSoldLoading(true)
+      try {
+        const results = await Promise.allSettled(
+          productionApps.map((app) =>
+            fetchSoldOrders(app.app_code, LIMIT, 0).then(({ orders, hasMore: more }) => {
+              soldHasMoreRef.current[app.app_code] = more
+              soldOffsetsRef.current[app.app_code] = orders.length
+              return orders.map((o) => ({ ...o, appName: app.app_name }))
+            })
+          )
+        )
+        if (cancelled) return
+        const merged: SoldOrder[] = []
+        results.forEach((r) => { if (r.status === 'fulfilled') merged.push(...r.value) })
+        setSoldOrders(merged)
+        setHasSoldMore(Object.values(soldHasMoreRef.current).some(Boolean))
+      } finally {
+        if (!cancelled) setIsSoldLoading(false)
+      }
+    }
+    loadSold()
+    return () => { cancelled = true }
+  }, [tab, productionApps])
+
+  const loadMoreSold = useCallback(async () => {
+    if (isSoldLoadingMoreRef.current) return
+    const pendingApps = appsRef.current.filter((a) => soldHasMoreRef.current[a.app_code])
+    if (pendingApps.length === 0) return
+
+    isSoldLoadingMoreRef.current = true
+    setIsSoldLoadingMore(true)
+
+    const results = await Promise.allSettled(
+      pendingApps.map((app) =>
+        fetchSoldOrders(
+          app.app_code,
+          LIMIT,
+          soldOffsetsRef.current[app.app_code] ?? 0,
+        ).then(({ orders, hasMore: more }) => {
+          soldHasMoreRef.current[app.app_code] = more
+          soldOffsetsRef.current[app.app_code] = (soldOffsetsRef.current[app.app_code] ?? 0) + orders.length
+          return orders.map((o) => ({ ...o, appName: app.app_name }))
+        })
+      )
+    )
+
+    const newOrders: SoldOrder[] = []
+    results.forEach((r) => { if (r.status === 'fulfilled') newOrders.push(...r.value) })
+    if (newOrders.length > 0) setSoldOrders((prev) => [...prev, ...newOrders])
+
+    setHasSoldMore(Object.values(soldHasMoreRef.current).some(Boolean))
+    isSoldLoadingMoreRef.current = false
+    setIsSoldLoadingMore(false)
+  }, [])
+
   function handleRowClick(id: string) {
     setSelectedId(id)
     setPanelMode('detail')
     setSaveError(null)
     const listing = listingsRef.current.find((l) => l.itemId === id)
     setImageUrls(listing?.imageUrl ? [listing.imageUrl] : [])
+  }
+
+  function handleOrderStatusChange(orderId: string, newStatus: DisplayStatus) {
+    setSoldOrders((prev) =>
+      prev.map((o) => o.orderId === orderId ? { ...o, displayStatus: newStatus, local_status: newStatus } : o)
+    )
   }
 
   async function handleUpdateListing(values: ListingFormValues, appCode: string) {
@@ -207,6 +288,18 @@ export function ListingsPage() {
       setIsSaving(false)
     }
   }
+
+  useEffect(() => {
+    if (isSoldLoading || tab !== 'sold') return
+    const el = soldSentinelRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      (entries) => { if (entries[0].isIntersecting) loadMoreSold() },
+      { rootMargin: '200px' },
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [isSoldLoading, tab, loadMoreSold])
 
   // Set up IntersectionObserver once the sentinel is in the DOM (after initial load).
   useEffect(() => {
@@ -271,42 +364,48 @@ export function ListingsPage() {
               {t === 'active' && !isLoading && (
                 <span className={styles.tabCount}>{listings.length}</span>
               )}
+              {t === 'sold' && !isSoldLoading && soldOrders.length > 0 && (
+                <span className={styles.tabCount}>{soldOrders.length}</span>
+              )}
             </button>
           ))}
         </div>
 
         {/* ── Content ───────────────────────────────────────────── */}
         {tab === 'active' && (
-          <div className={selectedId ? styles.withPanel : undefined}>
-            <div>
-              <ListingsTable
-                listings={listings}
-                isLoading={isLoading}
-                selectedId={selectedId ?? undefined}
-                onRowClick={handleRowClick}
-              />
-              {!isLoading && (
-                <>
-                  <div ref={sentinelRef} style={{ height: 1 }} aria-hidden />
-                  {isLoadingMore && (
-                    <div className={styles.loadingMore}>Loading more listings…</div>
-                  )}
-                  {!hasMore && listings.length > 0 && !isLoadingMore && (
-                    <div className={styles.endOfList}>
-                      {listings.length} listing{listings.length !== 1 ? 's' : ''} total
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
+          <div className={selectedId && panelMode !== 'compare' ? styles.withPanel : undefined}>
+            {panelMode !== 'compare' && (
+              <div>
+                <ListingsTable
+                  listings={listings}
+                  isLoading={isLoading}
+                  selectedId={selectedId ?? undefined}
+                  onRowClick={handleRowClick}
+                />
+                {!isLoading && (
+                  <>
+                    <div ref={sentinelRef} style={{ height: 1 }} aria-hidden />
+                    {isLoadingMore && (
+                      <div className={styles.loadingMore}>Loading more listings…</div>
+                    )}
+                    {!hasMore && listings.length > 0 && !isLoadingMore && (
+                      <div className={styles.endOfList}>
+                        {listings.length} listing{listings.length !== 1 ? 's' : ''} total
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
 
-            {selectedId && selectedListing && (
+            {selectedId && selectedListing && panelMode !== 'compare' && (
               <div>
                 {panelMode === 'detail' ? (
                   <ListingDetailPanel
                     listing={selectedListing}
                     onEdit={() => setPanelMode('edit')}
                     onClose={() => { setSelectedId(null); setPanelMode('detail') }}
+                    onCompare={() => setPanelMode('compare')}
                   />
                 ) : (
                   <ListingFormPanel
@@ -330,13 +429,51 @@ export function ListingsPage() {
                 )}
               </div>
             )}
+
+            {selectedId && selectedListing && panelMode === 'compare' && (
+              <MarketComparePanel
+                listing={selectedListing}
+                onBack={() => setPanelMode('detail')}
+              />
+            )}
           </div>
         )}
 
         {tab === 'sold' && (
-          <div className={styles.emptyState}>
-            <Icon kind="bag" size={32} color="var(--hd-sub)" />
-            <p>Order history coming soon</p>
+          <div className={selectedOrderId ? styles.withPanel : undefined}>
+            <div>
+              <SoldOrdersTable
+                orders={soldOrders}
+                isLoading={isSoldLoading}
+                selectedId={selectedOrderId ?? undefined}
+                onRowClick={(id) => setSelectedOrderId(id)}
+              />
+              {!isSoldLoading && (
+                <>
+                  <div ref={soldSentinelRef} style={{ height: 1 }} aria-hidden />
+                  {isSoldLoadingMore && (
+                    <div className={styles.loadingMore}>Loading more orders…</div>
+                  )}
+                  {!hasSoldMore && soldOrders.length > 0 && !isSoldLoadingMore && (
+                    <div className={styles.endOfList}>
+                      {soldOrders.length} order{soldOrders.length !== 1 ? 's' : ''} total
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+            {selectedOrderId && (() => {
+              const order = soldOrders.find((o) => o.orderId === selectedOrderId)
+              return order ? (
+                <div>
+                  <SoldOrderDetailPanel
+                    order={order}
+                    onClose={() => setSelectedOrderId(null)}
+                    onStatusChange={handleOrderStatusChange}
+                  />
+                </div>
+              ) : null
+            })()}
           </div>
         )}
 
