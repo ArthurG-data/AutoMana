@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { uploadListingPicture } from '../api'
 import styles from './ImagePicker.module.css'
 
@@ -23,16 +23,28 @@ export function ImagePicker({ images, onChange, appCode, maxImages = 12 }: Image
   const [urlError, setUrlError] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const accumulatedRef = useRef<string[]>(images)
+
+  useEffect(() => {
+    accumulatedRef.current = images
+  }, [images])
 
   const uploadingCount = slots.filter((s) => s.status === 'uploading').length
   const atLimit = images.length + uploadingCount >= maxImages
 
   async function uploadFile(file: File) {
+    const MAX_BYTES = 12 * 1024 * 1024
+    if (file.size > MAX_BYTES) {
+      const id = crypto.randomUUID()
+      setSlots((prev) => [...prev, { id, status: 'error', file, error: 'Image must be 12 MB or smaller' }])
+      return
+    }
     const id = crypto.randomUUID()
     setSlots((prev) => [...prev, { id, status: 'uploading', file }])
     try {
       const { url } = await uploadListingPicture(appCode, file)
-      onChange([...images, url])
+      accumulatedRef.current = [...accumulatedRef.current, url]
+      onChange(accumulatedRef.current)
       setSlots((prev) => prev.filter((s) => s.id !== id))
     } catch (err) {
       setSlots((prev) =>

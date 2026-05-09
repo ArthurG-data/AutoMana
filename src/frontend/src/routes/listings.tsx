@@ -192,6 +192,7 @@ export function ListingsPage() {
         title: values.title,
         conditionId: values.conditionId,
         conditionLabel,
+        imageUrl: imageUrls[0] ?? null,
       }
       storeUpdateListing(selectedId, patch)
       const updated = listingsRef.current.map((l) =>

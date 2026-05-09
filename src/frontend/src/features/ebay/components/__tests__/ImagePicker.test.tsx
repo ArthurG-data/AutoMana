@@ -109,6 +109,37 @@ describe('ImagePicker', () => {
     expect(document.querySelector('input[type="file"]')).not.toBeInTheDocument()
   })
 
+  it('accumulates multiple sequentially-uploaded images without losing earlier URLs', async () => {
+    let resolve1!: (v: { url: string }) => void
+    let resolve2!: (v: { url: string }) => void
+    mockUpload
+      .mockReturnValueOnce(new Promise<{ url: string }>((res) => { resolve1 = res }))
+      .mockReturnValueOnce(new Promise<{ url: string }>((res) => { resolve2 = res }))
+
+    const onChange = vi.fn()
+    render(<ImagePicker images={[]} onChange={onChange} appCode="automana_au" />)
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file1 = new File([new Uint8Array([1])], 'a.jpg', { type: 'image/jpeg' })
+    const file2 = new File([new Uint8Array([2])], 'b.jpg', { type: 'image/jpeg' })
+
+    // Fire both files at once (FileList with 2 files)
+    fireEvent.change(fileInput, { target: { files: [file1, file2] } })
+
+    resolve1({ url: 'https://i.ebayimg.com/a.jpg' })
+    await waitFor(() => {
+      expect(onChange).toHaveBeenCalledWith(['https://i.ebayimg.com/a.jpg'])
+    })
+
+    resolve2({ url: 'https://i.ebayimg.com/b.jpg' })
+    await waitFor(() => {
+      expect(onChange).toHaveBeenCalledWith([
+        'https://i.ebayimg.com/a.jpg',
+        'https://i.ebayimg.com/b.jpg',
+      ])
+    })
+  })
+
   it('retrying a failed upload re-attempts upload', async () => {
     mockUpload
       .mockRejectedValueOnce(new Error('fail'))
