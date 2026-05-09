@@ -91,6 +91,17 @@ export function ListingsNewPage() {
     )
   }
 
+  if (productionApps.length === 0) {
+    return (
+      <AppShell active="listings">
+        <TopBar title="New listing" breadcrumb="LISTINGS › NEW" />
+        <div className={styles.loading}>
+          No connected eBay apps found. Connect an app in Settings before creating a listing.
+        </div>
+      </AppShell>
+    )
+  }
+
   return (
     <AppShell active="listings">
       <TopBar title="New listing" breadcrumb="LISTINGS › NEW" />

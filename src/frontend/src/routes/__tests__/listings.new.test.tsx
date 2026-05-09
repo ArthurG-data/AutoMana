@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { CardSummary } from '../../features/cards/types'
 import type { ListingFormValues } from '../../features/ebay/components/ListingFormPanel'
+import type { EbayAppSummary } from '../../features/ebay/api'
 
 const mockNavigate = vi.fn()
 
@@ -55,18 +56,21 @@ vi.mock('../../features/ebay/components/ListingFormPanel', () => ({
     initialValues,
     isSaving,
     error,
+    availableApps,
   }: {
     onSave: (v: ListingFormValues, appCode: string) => Promise<void>
     onCancel: () => void
     initialValues: Partial<ListingFormValues>
     isSaving: boolean
     error: string | null
+    availableApps: EbayAppSummary[]
   }) => (
     <div
       data-testid="listing-form"
       data-title={initialValues.title ?? ''}
       data-saving={String(isSaving)}
       data-error={error ?? ''}
+      data-apps={availableApps.map((a) => a.app_code).join(',')}
     >
       <button
         onClick={() =>
@@ -84,7 +88,6 @@ vi.mock('../../features/ebay/components/ListingFormPanel', () => ({
 }))
 
 import { fetchUserApps, createListing } from '../../features/ebay/api'
-import type { EbayAppSummary } from '../../features/ebay/api'
 import { ListingsNewPage } from '../listings_.new'
 
 const mockFetchUserApps = vi.mocked(fetchUserApps)
@@ -180,17 +183,13 @@ describe('ListingsNewPage', () => {
   })
 
   it('only passes PRODUCTION apps to form', async () => {
-    const user = userEvent.setup()
     mockFetchUserApps.mockResolvedValue([
       makeApp({ environment: 'SANDBOX', app_code: 'sandbox_app', app_name: 'Sandbox App' }),
       makeApp({ environment: 'PRODUCTION', app_code: 'automana_au', app_name: 'AutoMana AU' }),
     ])
-    mockCreateListing.mockResolvedValue(undefined)
     render(<ListingsNewPage />)
     await waitFor(() => expect(screen.getByTestId('listing-form')).toBeInTheDocument())
-    await user.click(screen.getByRole('button', { name: 'Save' }))
-    await waitFor(() => {
-      expect(mockCreateListing).toHaveBeenCalled()
-    })
+    const form = screen.getByTestId('listing-form')
+    expect(form.getAttribute('data-apps')).toBe('automana_au')
   })
 })
