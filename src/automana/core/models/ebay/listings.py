@@ -553,6 +553,7 @@ class FulfillmentResponse(BaseModel):
     salesRecordReference: Optional[str]
     totalFeeBasisAmount: Optional[BaseCostType]
     totalMarketplaceFee: Optional[BaseCostType]
+    local_status: Optional[str] = None  # AutoMana override — not from eBay
 
 class ListingHistoryResponse(BaseModel):
     href : str|None
