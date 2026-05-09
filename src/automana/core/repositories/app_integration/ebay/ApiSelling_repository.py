@@ -4,6 +4,7 @@ import logging
 from typing import Dict, Any
 from datetime import datetime, timezone, timedelta
 import httpx
+import xmltodict
 
 logger = logging.getLogger(__name__)
 
@@ -185,7 +186,6 @@ class EbaySellingRepository(EbayApiClient):
             response = await client.post(self._get_base_url(), files=files, headers=headers)
         response.raise_for_status()
 
-        import xmltodict
         parsed = xmltodict.parse(response.text)
         resp_data = parsed.get("UploadSiteHostedPicturesResponse", {})
         ack = resp_data.get("Ack", "")
