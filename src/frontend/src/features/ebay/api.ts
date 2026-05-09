@@ -425,6 +425,7 @@ export interface PricePoint {
   sold_date: string | null
   relevance_score: number
   item_country: string | null
+  listed_at: string | null
 }
 
 export interface PriceAggregates {

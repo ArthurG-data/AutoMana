@@ -61,6 +61,14 @@ def _browse_items_to_price_points(raw_data: dict) -> list[PricePoint]:
 
         item_country: Optional[str] = item.get("itemLocation", {}).get("country") or None
 
+        listed_at = None
+        raw_created = item.get("itemCreationDate")
+        if raw_created:
+            try:
+                listed_at = datetime.fromisoformat(raw_created.replace("Z", "+00:00"))
+            except ValueError:
+                pass
+
         points.append(
             PricePoint(
                 item_id=item.get("itemId", ""),
@@ -72,6 +80,7 @@ def _browse_items_to_price_points(raw_data: dict) -> list[PricePoint]:
                 url=item.get("itemWebUrl"),
                 sold_date=None,
                 item_country=item_country,
+                listed_at=listed_at,
             )
         )
     return points

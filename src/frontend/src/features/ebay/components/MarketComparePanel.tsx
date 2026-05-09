@@ -23,13 +23,17 @@ function fmtDate(iso: string | null): string {
   })
 }
 
+const normalise = (id: string) => id.split('|')[1] ?? id
+
 function PriceTable({
   rows,
   showSoldDate,
+  showListedAt,
   ownItemId,
 }: {
   rows: PricePoint[]
   showSoldDate: boolean
+  showListedAt: boolean
   ownItemId?: string
 }) {
   if (rows.length === 0) return <p className={styles.empty}>No results</p>
@@ -42,7 +46,8 @@ function PriceTable({
           <th>Shipping</th>
           <th>Total</th>
           <th>Condition</th>
-          {showSoldDate && <th>Sold date</th>}
+          {showSoldDate && <th>Sold</th>}
+          {showListedAt && <th>Listed</th>}
           <th>Origin</th>
           <th>Score</th>
           <th></th>
@@ -51,8 +56,6 @@ function PriceTable({
       <tbody>
         {rows.map((r) => {
           const total = r.shipping_cost != null ? r.price + r.shipping_cost : null
-          // Browse API returns v1|{numericId}|0; Trading API returns the plain numeric ID.
-          const normalise = (id: string) => id.split('|')[1] ?? id
           const isOwn = ownItemId != null && normalise(r.item_id) === normalise(ownItemId)
           return (
             <tr key={r.item_id} className={isOwn ? styles.ownRow : undefined}>
@@ -75,6 +78,7 @@ function PriceTable({
               </td>
               <td>{r.condition ?? '—'}</td>
               {showSoldDate && <td>{fmtDate(r.sold_date)}</td>}
+              {showListedAt && <td className={styles.dateCell}>{fmtDate(r.listed_at)}</td>}
               <td className={styles.originCell}>
                 {r.item_country === 'AU' ? (
                   <span className={styles.badgeLocal}>Local</span>
@@ -85,17 +89,10 @@ function PriceTable({
               <td>{(r.relevance_score * 100).toFixed(0)}%</td>
               <td>
                 {r.url ? (
-                  <a
-                    href={r.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className={styles.link}
-                  >
+                  <a href={r.url} target="_blank" rel="noreferrer" className={styles.link}>
                     View
                   </a>
-                ) : (
-                  '—'
-                )}
+                ) : '—'}
               </td>
             </tr>
           )
@@ -109,6 +106,7 @@ export function MarketComparePanel({ listing, onBack }: MarketComparePanelProps)
   const [data, setData] = useState<CardMarketData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [localOnly, setLocalOnly] = useState(true)
 
   useEffect(() => {
     let cancelled = false
@@ -194,14 +192,35 @@ export function MarketComparePanel({ listing, onBack }: MarketComparePanelProps)
             <h3 className={styles.sectionTitle}>
               Sold listings ({data.sold_aggregates.count})
             </h3>
-            <PriceTable rows={data.sold} showSoldDate={true} />
+            <PriceTable rows={data.sold} showSoldDate={true} showListedAt={false} />
           </section>
 
           <section>
-            <h3 className={styles.sectionTitle}>
-              Active listings ({data.active_aggregates.count})
-            </h3>
-            <PriceTable rows={data.active} showSoldDate={false} ownItemId={listing.itemId} />
+            <div className={styles.sectionHeader}>
+              <h3 className={styles.sectionTitle}>
+                Active listings ({data.active_aggregates.count})
+              </h3>
+              <div className={styles.toggle}>
+                <button
+                  className={localOnly ? styles.toggleActive : styles.toggleBtn}
+                  onClick={() => setLocalOnly(true)}
+                >
+                  Local
+                </button>
+                <button
+                  className={!localOnly ? styles.toggleActive : styles.toggleBtn}
+                  onClick={() => setLocalOnly(false)}
+                >
+                  All
+                </button>
+              </div>
+            </div>
+            <PriceTable
+              rows={localOnly ? data.active.filter((r) => r.item_country === 'AU') : data.active}
+              showSoldDate={false}
+              showListedAt={true}
+              ownItemId={listing.itemId}
+            />
           </section>
         </>
       )}
