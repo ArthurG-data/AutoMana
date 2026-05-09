@@ -2,11 +2,14 @@ import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+from uuid import UUID
 
 from automana.core.models.ebay.market_price import CardMarketData, PriceAggregates, PricePoint
 from automana.core.repositories.app_integration.ebay.ApiFinding_repository import EbayFindingAPIRepository
 from automana.core.repositories.app_integration.ebay.ApiBrowse_repository import EbayBrowseAPIRepository
+from automana.core.repositories.app_integration.ebay.auth_repository import EbayAuthRepository
 from automana.core.service_registry import ServiceRegistry
+from automana.core.services.app_integration.ebay._auth_context import resolve_token
 from automana.core.services.app_integration.ebay.market_price_scorer import (
     build_query_string,
     score_title,
@@ -82,15 +85,17 @@ def _score_and_filter(
 
 @ServiceRegistry.register(
     path="integrations.ebay.market_price",
-    db_repositories=[],
+    db_repositories=["auth"],
     api_repositories=["ebay_finding", "search"],
     runs_in_transaction=False,
 )
 async def fetch_card_market_price(
+    auth_repository: EbayAuthRepository,
     ebay_finding_repository: EbayFindingAPIRepository,
     search_repository: EbayBrowseAPIRepository,
     card_name: str,
-    token: str,
+    user_id: UUID,
+    app_code: str,
     set_code: Optional[str] = None,
     condition_id: Optional[int] = None,
     is_foil: Optional[bool] = None,
@@ -104,6 +109,14 @@ async def fetch_card_market_price(
     if not settings.ebay_app_id:
         raise ValueError("ebay_app_id is not configured; cannot call Finding API")
     app_id = settings.ebay_app_id
+
+    token = await resolve_token(auth_repository, user_id=user_id, app_code=app_code)
+
+    raw_env = await auth_repository.get_environment(app_code=app_code)
+    if raw_env:
+        env = raw_env.lower()
+        ebay_finding_repository.environment = env
+        search_repository.environment = env
 
     logger.info(
         "ebay_fetch_card_market_price_requested",
