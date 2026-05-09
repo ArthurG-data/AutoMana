@@ -74,3 +74,31 @@ def test_frame_match_bonus():
 def test_score_capped_at_one():
     score = score_title("Sheoldred Apocalypse DMR foil showcase MTG", "Sheoldred Apocalypse", "DMR", True, "showcase")
     assert 0.0 <= score <= 1.0
+
+
+def test_lot_in_name_not_rejected():
+    # "lot" is a reject keyword but "Lotus" should NOT be rejected
+    score = score_title("Black Lotus LEA MTG", "Black Lotus", "LEA", None, None)
+    assert score > 0.0
+
+def test_alternate_art_not_rejected():
+    # "alter" is a reject keyword but "alternate" should NOT be rejected
+    score = score_title("Sheoldred Apocalypse DMR alternate art MTG", "Sheoldred Apocalypse", "DMR", None, None)
+    assert score > 0.0
+
+def test_possessive_card_name_matches():
+    # apostrophe in card name should not block matching
+    score = score_title("Urza's Saga MH2 MTG", "Urza's Saga", "MH2", None, None)
+    assert score >= 0.5
+
+def test_extended_art_frame_matches():
+    # "extended_art" frame should match "extended art" in title
+    score_with = score_title("Sheoldred Apocalypse extended art MTG", "Sheoldred Apocalypse", None, None, "extended_art")
+    score_without = score_title("Sheoldred Apocalypse MTG", "Sheoldred Apocalypse", None, None, None)
+    assert score_with > score_without
+
+def test_nonfoil_no_hyphen_not_treated_as_foil():
+    # "nonfoil" without hyphen should NOT get foil bonus when is_foil=True
+    score_nonfoil = score_title("Sheoldred Apocalypse nonfoil MTG", "Sheoldred Apocalypse", None, True, None)
+    score_base = score_title("Sheoldred Apocalypse MTG", "Sheoldred Apocalypse", None, None, None)
+    assert score_nonfoil <= score_base
