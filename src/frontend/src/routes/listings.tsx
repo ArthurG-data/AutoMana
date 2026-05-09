@@ -8,6 +8,7 @@ import { Icon } from '../components/design-system/Icon'
 import { ListingsTable } from '../features/ebay/components/ListingsTable'
 import { ListingDetailPanel } from '../features/ebay/components/ListingDetailPanel'
 import { ListingFormPanel, CONDITION_OPTIONS, type ListingFormValues } from '../features/ebay/components/ListingFormPanel'
+import { MarketComparePanel } from '../features/ebay/components/MarketComparePanel'
 import {
   fetchUserApps,
   fetchActiveListingsPaginated,
@@ -37,7 +38,7 @@ export function ListingsPage() {
   const [failedApps, setFailedApps] = useState<string[]>([])
   const [dismissedApps, setDismissedApps] = useState<Set<string>>(new Set())
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [panelMode, setPanelMode] = useState<'detail' | 'edit'>('detail')
+  const [panelMode, setPanelMode] = useState<'detail' | 'edit' | 'compare'>('detail')
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [imageUrls, setImageUrls] = useState<string[]>([])
@@ -277,36 +278,39 @@ export function ListingsPage() {
 
         {/* ── Content ───────────────────────────────────────────── */}
         {tab === 'active' && (
-          <div className={selectedId ? styles.withPanel : undefined}>
-            <div>
-              <ListingsTable
-                listings={listings}
-                isLoading={isLoading}
-                selectedId={selectedId ?? undefined}
-                onRowClick={handleRowClick}
-              />
-              {!isLoading && (
-                <>
-                  <div ref={sentinelRef} style={{ height: 1 }} aria-hidden />
-                  {isLoadingMore && (
-                    <div className={styles.loadingMore}>Loading more listings…</div>
-                  )}
-                  {!hasMore && listings.length > 0 && !isLoadingMore && (
-                    <div className={styles.endOfList}>
-                      {listings.length} listing{listings.length !== 1 ? 's' : ''} total
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
+          <div className={selectedId && panelMode !== 'compare' ? styles.withPanel : undefined}>
+            {panelMode !== 'compare' && (
+              <div>
+                <ListingsTable
+                  listings={listings}
+                  isLoading={isLoading}
+                  selectedId={selectedId ?? undefined}
+                  onRowClick={handleRowClick}
+                />
+                {!isLoading && (
+                  <>
+                    <div ref={sentinelRef} style={{ height: 1 }} aria-hidden />
+                    {isLoadingMore && (
+                      <div className={styles.loadingMore}>Loading more listings…</div>
+                    )}
+                    {!hasMore && listings.length > 0 && !isLoadingMore && (
+                      <div className={styles.endOfList}>
+                        {listings.length} listing{listings.length !== 1 ? 's' : ''} total
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
 
-            {selectedId && selectedListing && (
+            {selectedId && selectedListing && panelMode !== 'compare' && (
               <div>
                 {panelMode === 'detail' ? (
                   <ListingDetailPanel
                     listing={selectedListing}
                     onEdit={() => setPanelMode('edit')}
                     onClose={() => { setSelectedId(null); setPanelMode('detail') }}
+                    onCompare={() => setPanelMode('compare')}
                   />
                 ) : (
                   <ListingFormPanel
@@ -329,6 +333,13 @@ export function ListingsPage() {
                   />
                 )}
               </div>
+            )}
+
+            {selectedId && selectedListing && panelMode === 'compare' && (
+              <MarketComparePanel
+                listing={selectedListing}
+                onBack={() => setPanelMode('detail')}
+              />
             )}
           </div>
         )}
