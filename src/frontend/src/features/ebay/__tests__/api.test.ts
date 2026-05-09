@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { registerEbayApp, fetchActiveListings } from '../api'
+import { registerEbayApp, fetchActiveListings, uploadListingPicture } from '../api'
 
 vi.mock('../../../lib/apiClient', () => ({
   apiClient: vi.fn(),
@@ -375,5 +375,42 @@ describe('fetchActiveListings', () => {
   it('propagates errors from apiClient', async () => {
     mockApiClient.mockRejectedValue(new Error('API 401: unauthorized'))
     await expect(fetchActiveListings('my_app')).rejects.toThrow('API 401: unauthorized')
+  })
+})
+
+describe('uploadListingPicture', () => {
+  it('POSTs FormData to /listing/upload-picture with correct app_code', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: { url: 'https://i.ebayimg.com/img.jpg' }, success: true }),
+    })
+    vi.stubGlobal('fetch', mockFetch)
+
+    const file = new File([new Uint8Array([1, 2, 3])], 'test.jpg', { type: 'image/jpeg' })
+    const result = await uploadListingPicture('automana_au', file)
+
+    expect(result).toEqual({ url: 'https://i.ebayimg.com/img.jpg' })
+    const [url, options] = mockFetch.mock.calls[0]
+    expect(url).toContain('/listing/upload-picture')
+    expect(url).toContain('app_code=automana_au')
+    expect(options.method).toBe('POST')
+    expect(options.body).toBeInstanceOf(FormData)
+    // No Content-Type header — browser sets multipart/form-data + boundary automatically
+    expect((options.headers ?? {})['Content-Type']).toBeUndefined()
+
+    vi.unstubAllGlobals()
+  })
+
+  it('throws ApiError when response is not ok', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+    })
+    vi.stubGlobal('fetch', mockFetch)
+
+    const file = new File([new Uint8Array([1])], 'img.jpg', { type: 'image/jpeg' })
+    await expect(uploadListingPicture('automana_au', file)).rejects.toThrow()
+
+    vi.unstubAllGlobals()
   })
 })
