@@ -51,10 +51,15 @@ function PriceTable({
       <tbody>
         {rows.map((r) => {
           const total = r.shipping_cost != null ? r.price + r.shipping_cost : null
-          const isOwn = ownItemId != null && r.item_id === ownItemId
+          // Browse API returns v1|{numericId}|0; Trading API returns the plain numeric ID.
+          const normalise = (id: string) => id.split('|')[1] ?? id
+          const isOwn = ownItemId != null && normalise(r.item_id) === normalise(ownItemId)
           return (
             <tr key={r.item_id} className={isOwn ? styles.ownRow : undefined}>
-              <td className={styles.titleCell}>{r.title}</td>
+              <td className={styles.titleCell}>
+                {isOwn && <span className={styles.ownBadge}>Yours</span>}
+                {r.title}
+              </td>
               <td className={styles.priceCell}>{fmt(r.price, r.currency)}</td>
               <td className={styles.shippingCell}>
                 {r.shipping_cost != null ? fmt(r.shipping_cost, r.currency) : '—'}

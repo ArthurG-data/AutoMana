@@ -161,6 +161,20 @@
   background: color-mix(in srgb, var(--hd-accent) 8%, transparent);
 }
 
+.ownBadge {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--hd-accent);
+  color: #000;
+  margin-right: 6px;
+  vertical-align: middle;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 .link {
   color: var(--hd-accent);
   text-decoration: none;
