@@ -7,7 +7,7 @@ import { Button } from '../components/ui/Button'
 import { Icon } from '../components/design-system/Icon'
 import { ListingsTable } from '../features/ebay/components/ListingsTable'
 import { ListingDetailPanel } from '../features/ebay/components/ListingDetailPanel'
-import { ListingFormPanel, type ListingFormValues } from '../features/ebay/components/ListingFormPanel'
+import { ListingFormPanel, CONDITION_OPTIONS, type ListingFormValues } from '../features/ebay/components/ListingFormPanel'
 import {
   fetchUserApps,
   fetchActiveListingsPaginated,
@@ -175,7 +175,14 @@ export function ListingsPage() {
         conditionID: values.conditionId,
         ...(values.description ? { description: values.description } : {}),
       })
-      const patch = { price: values.price, title: values.title }
+      const conditionLabel =
+        CONDITION_OPTIONS.find((o) => o.value === values.conditionId)?.label ?? ''
+      const patch = {
+        price: values.price,
+        title: values.title,
+        conditionId: values.conditionId,
+        conditionLabel,
+      }
       storeUpdateListing(selectedId, patch)
       const updated = listingsRef.current.map((l) =>
         l.itemId === selectedId ? { ...l, ...patch } : l
@@ -300,7 +307,7 @@ export function ListingsPage() {
                     initialValues={{
                       title: selectedListing.title,
                       price: selectedListing.price,
-                      quantity: 1,
+                      quantity: selectedListing.quantity ?? 1,
                       conditionId: selectedListing.conditionId ?? 3000,
                       description: '',
                     }}

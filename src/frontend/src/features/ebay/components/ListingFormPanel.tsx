@@ -11,7 +11,7 @@ export interface ListingFormValues {
   description: string
 }
 
-const CONDITION_OPTIONS = [
+export const CONDITION_OPTIONS = [
   { label: 'Near Mint (NM)', value: 3000 },
   { label: 'Lightly Played (LP)', value: 4000 },
   { label: 'Moderately Played (MP)', value: 5000 },

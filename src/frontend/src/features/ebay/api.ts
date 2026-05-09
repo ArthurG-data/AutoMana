@@ -110,6 +110,7 @@ interface RawEbayItem {
   conditionDisplayName?: string | null
   pictureDetails?: { GalleryURL?: string | string[] } | null
   listingDetails?: { viewItemUrl?: string | null; startTime?: string | null } | null
+  quantity?: number | null
   itemSpecifics?: {
     NameValueList?:
       | Array<{ Name: string; Value: string | string[] }>
@@ -199,6 +200,7 @@ function mapToLiveListing(raw: RawEbayItem): Omit<EbayLiveListing, 'appCode' | '
       raw.conditionDescription ??
       ebayConditionLabel(raw.conditionID),
     conditionId: raw.conditionID ?? undefined,
+    quantity: raw.quantity ?? undefined,
     // ItemSpecifics is the primary source; fall back to title-extracted value.
     finish: getFinish(raw.itemSpecifics) || titleFinish || 'Regular',
     style: getStyle(raw.itemSpecifics) || titleStyle,
