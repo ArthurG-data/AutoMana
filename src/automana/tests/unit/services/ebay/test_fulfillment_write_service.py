@@ -56,6 +56,8 @@ async def test_mark_order_shipped_calls_ebay_and_upserts_local(auth_repo, app_re
     upsert_kwargs = app_repo.upsert_order_status.call_args[1]
     assert upsert_kwargs["order_id"] == "ord-1"
     assert upsert_kwargs["local_status"] == "sent"
+    assert upsert_kwargs.get("tracking_number") is None
+    assert upsert_kwargs.get("carrier_code") is None
 
 
 @pytest.mark.asyncio
