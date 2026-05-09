@@ -54,10 +54,7 @@ function PriceTable({
           const isOwn = ownItemId != null && r.item_id === ownItemId
           return (
             <tr key={r.item_id} className={isOwn ? styles.ownRow : undefined}>
-              <td className={styles.titleCell}>
-                {isOwn && <span className={styles.ownBadge}>You</span>}
-                {r.title}
-              </td>
+              <td className={styles.titleCell}>{r.title}</td>
               <td className={styles.priceCell}>{fmt(r.price, r.currency)}</td>
               <td className={styles.shippingCell}>
                 {r.shipping_cost != null ? fmt(r.shipping_cost, r.currency) : '—'}
