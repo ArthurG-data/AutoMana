@@ -370,3 +370,17 @@
 .errorBannerDismiss:hover {
   color: var(--hd-text);
 }
+
+/* ── Split-panel layout (active when a listing is selected) ─── */
+.withPanel {
+  display: grid;
+  grid-template-columns: 1fr 400px;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .withPanel {
+    grid-template-columns: 1fr;
+  }
+}
