@@ -157,10 +157,6 @@
   color: var(--hd-muted, #888);
 }
 
-.shipsCell {
-  text-align: center;
-}
-
 .yes {
   color: var(--hd-accent);
   font-weight: 700;

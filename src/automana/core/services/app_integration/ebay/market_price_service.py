@@ -163,6 +163,7 @@ async def fetch_card_market_price(
         "category_ids": [str(_MTG_CATEGORY_ID)],
         "limit": active_limit,
         "offset": 0,
+        "fieldgroups": "EXTENDED",
     }
     if condition_id is not None:
         browse_params["filter"] = [f"conditionIds:{{{condition_id}}}"]
