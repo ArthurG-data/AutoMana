@@ -31,7 +31,7 @@ const mockCard: CardSummary = {
   price_change_7d: 0,
   price_change_30d: 0,
   image_uri: null,
-  image_normal: null,
+  image_normal: 'https://cards.scryfall.io/ragavan.jpg',
   spark: [],
 }
 
@@ -50,34 +50,35 @@ vi.mock('../../components/layout/TopBar', () => ({
 }))
 
 vi.mock('../../features/ebay/components/ListingFormPanel', () => ({
+  CONDITION_OPTIONS: [{ label: 'Near Mint (NM)', value: 3000 }],
   ListingFormPanel: ({
     onSave,
     onCancel,
     initialValues,
     isSaving,
     error,
+    imageUrls,
     availableApps,
   }: {
-    onSave: (v: ListingFormValues, appCode: string) => Promise<void>
+    onSave: (v: { title: string; price: number; quantity: number; conditionId: number; description: string }, appCode: string) => Promise<void>
     onCancel: () => void
-    initialValues: Partial<ListingFormValues>
+    initialValues: { title?: string; price?: number; quantity?: number; conditionId?: number; description?: string }
     isSaving: boolean
     error: string | null
-    availableApps: EbayAppSummary[]
+    imageUrls?: string[]
+    availableApps: Array<{ app_code: string; app_name: string }>
   }) => (
     <div
       data-testid="listing-form"
       data-title={initialValues.title ?? ''}
       data-saving={String(isSaving)}
       data-error={error ?? ''}
+      data-images={(imageUrls ?? []).join(',')}
       data-apps={availableApps.map((a) => a.app_code).join(',')}
     >
       <button
         onClick={() =>
-          onSave(
-            { title: 'Test', price: 10, quantity: 1, conditionId: 3000, description: '' },
-            'automana_au',
-          )
+          onSave({ title: 'Test', price: 10, quantity: 1, conditionId: 3000, description: '' }, 'automana_au')
         }
       >
         Save
@@ -155,6 +156,7 @@ describe('ListingsNewPage', () => {
         startPrice: { currency: 'AUD', value: 10 },
         quantity: 1,
         conditionID: 3000,
+        pictureUrls: [],
       })
       expect(mockNavigate).toHaveBeenCalledWith({ to: '/listings' })
     })
@@ -191,5 +193,30 @@ describe('ListingsNewPage', () => {
     await waitFor(() => expect(screen.getByTestId('listing-form')).toBeInTheDocument())
     const form = screen.getByTestId('listing-form')
     expect(form.getAttribute('data-apps')).toBe('automana_au')
+  })
+
+  it('pre-populates imageUrls with card image_normal when card is selected', async () => {
+    const user = userEvent.setup()
+    mockFetchUserApps.mockResolvedValue([makeApp()])
+    render(<ListingsNewPage />)
+    await waitFor(() => screen.getByText('Pick card'))
+    await user.click(screen.getByText('Pick card'))
+    const form = screen.getByTestId('listing-form')
+    expect(form.getAttribute('data-images')).toBe('https://cards.scryfall.io/ragavan.jpg')
+  })
+
+  it('passes imageUrls to createListing as pictureUrls', async () => {
+    const user = userEvent.setup()
+    mockFetchUserApps.mockResolvedValue([makeApp()])
+    mockCreateListing.mockResolvedValue(undefined)
+    render(<ListingsNewPage />)
+    await waitFor(() => screen.getByTestId('listing-form'))
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => {
+      expect(mockCreateListing).toHaveBeenCalledWith(
+        'automana_au',
+        expect.objectContaining({ pictureUrls: expect.any(Array) })
+      )
+    })
   })
 })

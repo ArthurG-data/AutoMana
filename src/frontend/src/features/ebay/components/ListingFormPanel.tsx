@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import type { EbayAppSummary } from '../api'
 import styles from './ListingFormPanel.module.css'
+import { ImagePicker } from './ImagePicker'
 
 export interface ListingFormValues {
   title: string
@@ -24,6 +25,8 @@ interface ListingFormPanelProps {
   initialValues: Partial<ListingFormValues>
   availableApps: EbayAppSummary[]
   appCode?: string
+  imageUrls?: string[]
+  onImageChange?: (urls: string[]) => void
   onSave: (values: ListingFormValues, appCode: string) => Promise<void>
   onCancel: () => void
   isSaving: boolean
@@ -35,6 +38,8 @@ export function ListingFormPanel({
   initialValues,
   availableApps,
   appCode: fixedAppCode,
+  imageUrls = [],
+  onImageChange,
   onSave,
   onCancel,
   isSaving,
@@ -152,6 +157,17 @@ export function ListingFormPanel({
             placeholder="Any extra notes for the buyer"
           />
         </label>
+
+        {onImageChange && (
+          <div className={styles.field}>
+            <span className={styles.label}>Images (up to 12)</span>
+            <ImagePicker
+              images={imageUrls}
+              onChange={onImageChange}
+              appCode={fixedAppCode ?? selectedAppCode}
+            />
+          </div>
+        )}
 
         {mode === 'create' && (
           <label className={styles.field} aria-label="App">

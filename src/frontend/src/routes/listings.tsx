@@ -40,6 +40,7 @@ export function ListingsPage() {
   const [panelMode, setPanelMode] = useState<'detail' | 'edit'>('detail')
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [imageUrls, setImageUrls] = useState<string[]>([])
   const [productionApps, setProductionApps] = useState<EbayAppSummary[]>([])
   const storeSet = useListingsStore((s) => s.setListings)
   const selectedListing = useListingsStore((s) => s.getById(selectedId ?? ''))
@@ -163,6 +164,14 @@ export function ListingsPage() {
     setIsLoadingMore(false)
   }, [storeSet])
 
+  function handleRowClick(id: string) {
+    setSelectedId(id)
+    setPanelMode('detail')
+    setSaveError(null)
+    const listing = listingsRef.current.find((l) => l.itemId === id)
+    setImageUrls(listing?.imageUrl ? [listing.imageUrl] : [])
+  }
+
   async function handleUpdateListing(values: ListingFormValues, appCode: string) {
     if (!selectedId || !selectedListing) return
     setIsSaving(true)
@@ -174,6 +183,7 @@ export function ListingsPage() {
         quantity: values.quantity,
         conditionID: values.conditionId,
         ...(values.description ? { description: values.description } : {}),
+        pictureUrls: imageUrls,
       })
       const conditionLabel =
         CONDITION_OPTIONS.find((o) => o.value === values.conditionId)?.label ?? ''
@@ -182,6 +192,7 @@ export function ListingsPage() {
         title: values.title,
         conditionId: values.conditionId,
         conditionLabel,
+        imageUrl: imageUrls[0] ?? null,
       }
       storeUpdateListing(selectedId, patch)
       const updated = listingsRef.current.map((l) =>
@@ -272,11 +283,7 @@ export function ListingsPage() {
                 listings={listings}
                 isLoading={isLoading}
                 selectedId={selectedId ?? undefined}
-                onRowClick={(id) => {
-                  setSelectedId(id)
-                  setPanelMode('detail')
-                  setSaveError(null)
-                }}
+                onRowClick={handleRowClick}
               />
               {!isLoading && (
                 <>
@@ -313,6 +320,8 @@ export function ListingsPage() {
                     }}
                     availableApps={productionApps}
                     appCode={selectedListing.appCode}
+                    imageUrls={imageUrls}
+                    onImageChange={setImageUrls}
                     onSave={handleUpdateListing}
                     onCancel={() => setPanelMode('detail')}
                     isSaving={isSaving}

@@ -4,6 +4,22 @@ import { describe, it, expect, vi } from 'vitest'
 import { ListingFormPanel } from '../ListingFormPanel'
 import type { EbayAppSummary } from '../../api'
 
+vi.mock('../ImagePicker', () => ({
+  ImagePicker: ({
+    images,
+    onChange,
+  }: {
+    images: string[]
+    onChange: (imgs: string[]) => void
+  }) => (
+    <div data-testid="image-picker" data-images={images.join(',')}>
+      <button onClick={() => onChange([...images, 'https://new.jpg'])}>
+        Add image
+      </button>
+    </div>
+  ),
+}))
+
 function makeApp(overrides: Partial<EbayAppSummary> = {}): EbayAppSummary {
   return {
     app_id: 'a1',
@@ -163,5 +179,25 @@ describe('ListingFormPanel', () => {
       expect.objectContaining({ title: 'Ragavan MH2 NM' }),
       'app2',
     )
+  })
+
+  it('renders ImagePicker with provided imageUrls', () => {
+    render(
+      <ListingFormPanel
+        mode="create"
+        initialValues={{ title: 'Card NM MTG', price: 10, quantity: 1, conditionId: 3000, description: '' }}
+        availableApps={[makeApp()]}
+        onSave={vi.fn()}
+        onCancel={vi.fn()}
+        isSaving={false}
+        error={null}
+        imageUrls={['https://example.com/img.jpg']}
+        onImageChange={vi.fn()}
+        appCode="automana_au"
+      />
+    )
+    const picker = screen.getByTestId('image-picker')
+    expect(picker).toBeInTheDocument()
+    expect(picker.getAttribute('data-images')).toBe('https://example.com/img.jpg')
   })
 })

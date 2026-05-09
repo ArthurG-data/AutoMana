@@ -1,4 +1,4 @@
-import { apiClient } from '../../lib/apiClient'
+import { apiClient, ApiError } from '../../lib/apiClient'
 import { parseCardTitle, type EbayLiveListing } from './mockListings'
 
 export interface EbayScopeItem {
@@ -263,18 +263,29 @@ export interface ListingItemPayload {
   quantity: number
   conditionID: number
   description?: string
+  pictureUrls?: string[]
 }
 
 export async function createListing(
   appCode: string,
   item: ListingItemPayload,
 ): Promise<void> {
+  const body: Record<string, unknown> = {
+    title: item.title,
+    startPrice: item.startPrice,
+    quantity: item.quantity,
+    conditionID: item.conditionID,
+    ...(item.description ? { description: item.description } : {}),
+    ...(item.pictureUrls?.length
+      ? { pictureDetails: { PictureURL: item.pictureUrls } }
+      : {}),
+  }
   await apiClient<unknown>(
     `/integrations/ebay/listing/?app_code=${encodeURIComponent(appCode)}`,
     {
       method: 'POST',
       headers: { 'Idempotency-Key': crypto.randomUUID() },
-      body: JSON.stringify(item),
+      body: JSON.stringify(body),
     },
   )
 }
@@ -284,11 +295,50 @@ export async function updateListing(
   itemId: string,
   item: ListingItemPayload,
 ): Promise<void> {
+  const body: Record<string, unknown> = {
+    itemID: itemId,
+    title: item.title,
+    startPrice: item.startPrice,
+    quantity: item.quantity,
+    conditionID: item.conditionID,
+    ...(item.description ? { description: item.description } : {}),
+    ...(item.pictureUrls?.length
+      ? { pictureDetails: { PictureURL: item.pictureUrls } }
+      : {}),
+  }
   await apiClient<unknown>(
     `/integrations/ebay/listing/${encodeURIComponent(itemId)}?app_code=${encodeURIComponent(appCode)}`,
     {
       method: 'PUT',
-      body: JSON.stringify({ itemID: itemId, ...item }),
+      body: JSON.stringify(body),
     },
   )
+}
+
+export async function uploadListingPicture(
+  appCode: string,
+  file: File,
+): Promise<{ url: string }> {
+  const { useAuthStore } = await import('../../store/auth')
+  const token = useAuthStore.getState().token
+  const formData = new FormData()
+  formData.append('file', file)
+  const res = await fetch(
+    `/api/integrations/ebay/listing/upload-picture?app_code=${encodeURIComponent(appCode)}`,
+    {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: formData,
+    },
+  )
+  if (!res.ok) {
+    throw new ApiError(`API ${res.status}: upload-picture`, res.status)
+  }
+  const body = (await res.json()) as { data?: { url: string }; url?: string }
+  const url = body?.data?.url ?? body?.url
+  if (!url) throw new ApiError('No URL returned from picture upload', 200)
+  return { url }
 }

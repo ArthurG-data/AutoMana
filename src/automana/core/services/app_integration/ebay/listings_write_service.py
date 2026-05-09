@@ -224,3 +224,31 @@ async def end_listing(
         "marketplace_id": marketplace_id,
     }
     return await selling_repository.delete_listing(payload)
+
+
+@ServiceRegistry.register(
+    path="integrations.ebay.selling.listings.upload_picture",
+    db_repositories=["auth"],
+    api_repositories=["selling"],
+)
+async def upload_listing_picture(
+    auth_repository: EbayAuthRepository,
+    selling_repository: EbaySellingRepository,
+    user_id: UUID,
+    app_code: str,
+    file_bytes: bytes,
+    content_type: str,
+    **kwargs: Any,
+) -> Dict[str, str]:
+    """Upload a picture for an eBay listing."""
+    token = await resolve_token(auth_repository, user_id=user_id, app_code=app_code)
+    url = await selling_repository.upload_picture(
+        token=token,
+        file_bytes=file_bytes,
+        content_type=content_type,
+    )
+    logger.info(
+        "ebay_picture_uploaded",
+        extra={"user_id": str(user_id), "app_code": app_code},
+    )
+    return {"url": url}

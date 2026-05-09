@@ -25,6 +25,7 @@ export function ListingsNewPage() {
   const [isLoadingApps, setIsLoadingApps] = useState(true)
   const [productionApps, setProductionApps] = useState<EbayAppSummary[]>([])
   const [selectedCard, setSelectedCard] = useState<CardSummary | null>(null)
+  const [imageUrls, setImageUrls] = useState<string[]>([])
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
 
@@ -57,6 +58,11 @@ export function ListingsNewPage() {
     conditionId: 3000,
   }
 
+  function handleCardSelect(card: CardSummary) {
+    setSelectedCard(card)
+    setImageUrls(card.image_normal ? [card.image_normal] : [])
+  }
+
   async function handleSave(values: ListingFormValues, appCode: string) {
     setIsSaving(true)
     setSaveError(null)
@@ -66,6 +72,7 @@ export function ListingsNewPage() {
         startPrice: { currency: 'AUD', value: values.price },
         quantity: values.quantity,
         conditionID: values.conditionId,
+        pictureUrls: imageUrls,
         ...(values.description ? { description: values.description } : {}),
       })
       navigate({ to: '/listings' })
@@ -108,7 +115,7 @@ export function ListingsNewPage() {
       <div className={styles.page}>
         <div className={styles.split}>
           <CardPicker
-            onSelect={setSelectedCard}
+            onSelect={handleCardSelect}
             selectedId={selectedCard?.card_version_id}
           />
           <div className={styles.formWrapper}>
@@ -121,6 +128,9 @@ export function ListingsNewPage() {
               onCancel={handleCancel}
               isSaving={isSaving}
               error={saveError}
+              imageUrls={imageUrls}
+              onImageChange={setImageUrls}
+              appCode={productionApps[0]?.app_code ?? ''}
             />
           </div>
         </div>
