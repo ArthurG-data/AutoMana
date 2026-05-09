@@ -42,13 +42,13 @@ def test_exact_card_name_match_contributes_half():
     score = score_title("Sheoldred the Apocalypse NM MTG", "Sheoldred the Apocalypse", None, None, None)
     assert score >= 0.5
 
-def test_reject_keyword_gives_zero():
+def test_reject_keyword_gives_hard_reject():
     score = score_title("Sheoldred Apocalypse proxy MTG", "Sheoldred Apocalypse", None, None, None)
-    assert score == 0.0
+    assert score < 0.0
 
-def test_reject_keyword_psa_gives_zero():
+def test_reject_keyword_psa_gives_hard_reject():
     score = score_title("Sheoldred Apocalypse PSA 10 MTG", "Sheoldred Apocalypse", None, None, None)
-    assert score == 0.0
+    assert score < 0.0
 
 def test_set_code_bonus():
     base = score_title("Sheoldred Apocalypse MTG", "Sheoldred Apocalypse", None, None, None)
