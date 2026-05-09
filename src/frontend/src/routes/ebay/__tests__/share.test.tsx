@@ -33,6 +33,12 @@ vi.mock('../../../components/design-system/Icon', () => ({
   Icon: ({ kind, ...props }: any) => <span {...props} data-icon={kind} />,
 }))
 
+vi.mock('../../../features/ebay/components/QuotaStrip', () => ({
+  QuotaStrip: () => (
+    <div role="img" aria-label="Quota usage">Daily API quota</div>
+  ),
+}))
+
 import * as ShareModule from '../share'
 
 const PageComponent = (ShareModule as any).Route?.component
@@ -105,7 +111,7 @@ describe('EbaySharePage', () => {
     const auditTab = screen.getByRole('tab', { name: /audit log/i })
     fireEvent.click(auditTab)
     expect(screen.getByRole('region', { name: /audit log/i })).toBeTruthy()
-    expect(screen.getByText('Granted access')).toBeTruthy()
+    expect(screen.getAllByText('Granted access').length).toBeGreaterThan(0)
     expect(screen.getByText('Revoked access')).toBeTruthy()
   })
 

@@ -69,3 +69,9 @@ class EbayAuthAPIRepository(EbayApiClient):
         headers = AuthHeader(app_id=app_id, secret=secret).to_header()
         data = ExangeRefreshData(token=refresh_token, scope=scope).to_data()
         return await self._post(self.base_url["token_url"], headers=headers, data=data)
+
+    async def get_app_token(self, app_id: str, secret: str, scope: str) -> dict:
+        """Client credentials grant — returns an application-level access token."""
+        headers = AuthHeader(app_id=app_id, secret=secret).to_header()
+        data = {"grant_type": "client_credentials", "scope": scope}
+        return await self._post(self.base_url["token_url"], headers=headers, data=data)

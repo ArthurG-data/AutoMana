@@ -1,15 +1,13 @@
-import asyncio
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
 from automana.core.models.ebay.market_price import CardMarketData, PriceAggregates, PricePoint
-from automana.core.repositories.app_integration.ebay.ApiFinding_repository import EbayFindingAPIRepository
 from automana.core.repositories.app_integration.ebay.ApiBrowse_repository import EbayBrowseAPIRepository
 from automana.core.repositories.app_integration.ebay.auth_repository import EbayAuthRepository
 from automana.core.service_registry import ServiceRegistry
-from automana.core.services.app_integration.ebay._auth_context import resolve_token
+from automana.core.services.app_integration.ebay._auth_context import resolve_app_token
 from automana.core.services.app_integration.ebay.market_price_scorer import (
     build_query_string,
     score_title,
@@ -52,15 +50,37 @@ def _browse_items_to_price_points(raw_data: dict) -> list[PricePoint]:
             price = float(price_block.get("value", 0))
         except (TypeError, ValueError):
             price = 0.0
+
+        shipping_cost: Optional[float] = None
+        shipping_options = item.get("shippingOptions", [])
+        if shipping_options:
+            try:
+                shipping_cost = float(shipping_options[0].get("shippingCost", {}).get("value", 0))
+            except (TypeError, ValueError):
+                shipping_cost = None
+
+        item_country: Optional[str] = item.get("itemLocation", {}).get("country") or None
+
+        listed_at = None
+        raw_created = item.get("itemCreationDate")
+        if raw_created:
+            try:
+                listed_at = datetime.fromisoformat(raw_created.replace("Z", "+00:00"))
+            except ValueError:
+                pass
+
         points.append(
             PricePoint(
                 item_id=item.get("itemId", ""),
                 title=item.get("title", ""),
                 price=price,
                 currency=price_block.get("currency", ""),
+                shipping_cost=shipping_cost,
                 condition=item.get("condition"),
                 url=item.get("itemWebUrl"),
                 sold_date=None,
+                item_country=item_country,
+                listed_at=listed_at,
             )
         )
     return points
@@ -85,12 +105,11 @@ def _score_and_filter(
 @ServiceRegistry.register(
     path="integrations.ebay.market_price",
     db_repositories=["auth"],
-    api_repositories=["ebay_finding", "search"],
+    api_repositories=["search"],
     runs_in_transaction=False,
 )
 async def fetch_card_market_price(
     auth_repository: EbayAuthRepository,
-    ebay_finding_repository: EbayFindingAPIRepository,
     search_repository: EbayBrowseAPIRepository,
     card_name: str,
     user_id: UUID,
@@ -102,22 +121,21 @@ async def fetch_card_market_price(
     days_back: int = 30,
     limit: int = 50,
     match_threshold: float = 0.3,
+    marketplace_id: str = "EBAY_AU",
     **kwargs,
 ) -> CardMarketData:
     app_settings = await auth_repository.get_app_settings(app_code=app_code, user_id=user_id)
     if not app_settings:
         raise ValueError(f"No eBay app found for app_code={app_code!r}")
-    app_id = app_settings["app_id"]
 
     env = app_settings["environment"].lower()
-    if env != ebay_finding_repository.environment:
-        ebay_finding_repository.environment = env
-        ebay_finding_repository.base_url = ebay_finding_repository._get_base_url()
     if env != search_repository.environment:
         search_repository.environment = env
         search_repository.base_url = search_repository._get_base_url()
 
-    token = await resolve_token(auth_repository, user_id=user_id, app_code=app_code)
+    # App token (client credentials) is required for Browse API public search.
+    # The eBay Finding API was decommissioned Feb 2025; sold data is unavailable.
+    app_token = await resolve_app_token(app_settings)
 
     logger.info(
         "ebay_fetch_card_market_price_requested",
@@ -133,8 +151,6 @@ async def fetch_card_market_price(
     )
 
     query = build_query_string(card_name, set_code, is_foil, frame)
-    min_date = datetime.now(timezone.utc) - timedelta(days=min(days_back, 90))
-    sold_limit = min(limit, 100)
     active_limit = min(limit, 200)
 
     browse_params = {
@@ -142,43 +158,25 @@ async def fetch_card_market_price(
         "category_ids": [str(_MTG_CATEGORY_ID)],
         "limit": active_limit,
         "offset": 0,
+        "fieldgroups": "EXTENDED",
     }
     if condition_id is not None:
         browse_params["filter"] = [f"conditionIds:{{{condition_id}}}"]
 
     browse_headers = {
-        "Authorization": f"Bearer {token}",
+        "Authorization": f"Bearer {app_token}",
         "Accept": "application/json",
         "Content-Type": "application/json",
+        "X-EBAY-C-MARKETPLACE-ID": marketplace_id,
     }
 
     sold_raw: list[dict] = []
     active_raw: dict = {}
 
-    async def _fetch_sold() -> list[dict]:
-        return await ebay_finding_repository.find_completed_items(
-            keywords=query,
-            app_id=app_id,
-            category_id=_MTG_CATEGORY_ID,
-            condition_id=condition_id,
-            min_date=min_date,
-            limit=sold_limit,
-        )
-
-    async def _fetch_active() -> dict:
-        return await search_repository.search_items(browse_params, headers=browse_headers)
-
-    results = await asyncio.gather(_fetch_sold(), _fetch_active(), return_exceptions=True)
-
-    if isinstance(results[0], BaseException):
-        logger.warning("Finding API failed; returning empty sold list", extra={"error": str(results[0])})
-    else:
-        sold_raw = results[0]
-
-    if isinstance(results[1], BaseException):
-        logger.warning("Browse API failed; returning empty active list", extra={"error": str(results[1])})
-    else:
-        active_raw = results[1]
+    try:
+        active_raw = await search_repository.search_items(browse_params, headers=browse_headers)
+    except Exception as exc:
+        logger.warning("Browse API failed; returning empty active list", extra={"error": str(exc)})
 
     sold_points = _score_and_filter(
         _finding_items_to_price_points(sold_raw),

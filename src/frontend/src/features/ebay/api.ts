@@ -419,10 +419,13 @@ export interface PricePoint {
   title: string
   price: number
   currency: string
+  shipping_cost: number | null
   condition: string | null
   url: string | null
   sold_date: string | null
   relevance_score: number
+  item_country: string | null
+  listed_at: string | null
 }
 
 export interface PriceAggregates {

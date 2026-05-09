@@ -53,7 +53,7 @@
 
 .summary {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
   gap: 12px;
   background: var(--hd-surface, #111);
   border: 1px solid var(--hd-border, #2a2a2a);
@@ -80,13 +80,62 @@
   font-weight: 600;
 }
 
+.summaryValueSm {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
 .sectionTitle {
   font-size: 13px;
   font-weight: 600;
-  margin: 0 0 10px;
+  margin: 0;
   color: var(--hd-muted, #888);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+.toggle {
+  display: flex;
+  border: 1px solid var(--hd-border, #333);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.toggleBtn {
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  background: transparent;
+  color: var(--hd-muted, #888);
+  border: none;
+  cursor: pointer;
+}
+.toggleBtn:hover {
+  background: var(--hd-surface, #1a1a1a);
+  color: inherit;
+}
+
+.toggleActive {
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--hd-accent);
+  color: #000;
+  border: none;
+  cursor: pointer;
+}
+
+.dateCell {
+  white-space: nowrap;
+  color: var(--hd-muted, #888);
+  font-size: 11px;
 }
 
 .table {
@@ -122,6 +171,57 @@
 .priceCell {
   font-weight: 600;
   white-space: nowrap;
+}
+
+.shippingCell {
+  white-space: nowrap;
+  color: var(--hd-muted, #888);
+}
+
+.totalCell {
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--hd-accent);
+}
+
+.originCell {
+  white-space: nowrap;
+}
+
+.badgeLocal {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--hd-accent) 15%, transparent);
+  color: var(--hd-accent);
+}
+
+.badgeIntl {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--hd-muted, #888) 15%, transparent);
+  color: var(--hd-muted, #888);
+}
+
+.ownRow {
+  background: color-mix(in srgb, var(--hd-accent) 8%, transparent);
+}
+
+.ownBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  background: var(--hd-accent);
+  color: #000;
+  margin-right: 6px;
+  vertical-align: middle;
+  flex-shrink: 0;
 }
 
 .link {
