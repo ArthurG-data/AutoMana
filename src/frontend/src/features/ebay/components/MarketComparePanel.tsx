@@ -57,7 +57,13 @@ function PriceTable({
           return (
             <tr key={r.item_id} className={isOwn ? styles.ownRow : undefined}>
               <td className={styles.titleCell}>
-                {isOwn && <span className={styles.ownBadge}>Yours</span>}
+                {isOwn && (
+                  <span className={styles.ownBadge} title="Your listing">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                      <path d="M21.41 11.58l-9-9A2 2 0 0 0 11 2H4a2 2 0 0 0-2 2v7c0 .53.21 1.04.59 1.41l9 9c.37.37.88.59 1.41.59s1.04-.22 1.41-.59l7-7c.38-.37.59-.88.59-1.41s-.21-1.04-.59-1.42zM5.5 7a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/>
+                    </svg>
+                  </span>
+                )}
                 {r.title}
               </td>
               <td className={styles.priceCell}>{fmt(r.price, r.currency)}</td>
