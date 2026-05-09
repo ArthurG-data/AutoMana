@@ -1,8 +1,9 @@
 from automana.core.repositories.app_integration.ebay.EbayApiRepository import EbayApiClient
-from automana.core.services.app_integration.ebay.xml_utils import generate_add_fixed_price_item_request_xml, generate_end_item_request_xml, generate_get_item_request_xml, generate_revise_item_request_xml, generate_get_my_ebay_selling_request_xml
+from automana.core.services.app_integration.ebay.xml_utils import generate_add_fixed_price_item_request_xml, generate_end_item_request_xml, generate_get_item_request_xml, generate_revise_item_request_xml, generate_get_my_ebay_selling_request_xml, generate_upload_site_hosted_pictures_request_xml
 import logging
 from typing import Dict, Any
 from datetime import datetime, timezone, timedelta
+import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -162,3 +163,36 @@ class EbaySellingRepository(EbayApiClient):
         headers = self.auth_header(token)
         response = await self.send("GET", url, headers=headers, params=params)
         return self._parse_response(response)
+
+    async def upload_picture(
+        self,
+        token: str,
+        file_bytes: bytes,
+        content_type: str,
+        marketplace_id: str = "15",
+    ) -> str:
+        xml_payload = generate_upload_site_hosted_pictures_request_xml()
+        headers = self.trading_headers(
+            token,
+            marketplace_id=marketplace_id,
+            call_name="UploadSiteHostedPictures",
+        )
+        files = {
+            "XML Payload": ("payload.xml", xml_payload.encode("utf-8"), "text/xml;charset=utf-8"),
+            "image": ("image", file_bytes, content_type),
+        }
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.post(self._get_base_url(), files=files, headers=headers)
+        response.raise_for_status()
+
+        import xmltodict
+        parsed = xmltodict.parse(response.text)
+        resp_data = parsed.get("UploadSiteHostedPicturesResponse", {})
+        ack = resp_data.get("Ack", "")
+        if ack not in ("Success", "Warning"):
+            errors = resp_data.get("Errors", {})
+            raise ValueError(f"eBay upload rejected: {errors}")
+        url = resp_data.get("SiteHostedPictureDetails", {}).get("FullURL")
+        if not url:
+            raise ValueError("eBay returned no picture URL in upload response")
+        return url
