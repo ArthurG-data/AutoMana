@@ -175,6 +175,17 @@ export function ListingsTable({ listings, isLoading = false, selectedId, onRowCl
                   ].filter(Boolean).join(' ')}
                   onClick={() => onRowClick?.(listing.itemId)}
                   style={{ cursor: onRowClick ? 'pointer' : 'default' }}
+                  {...(onRowClick ? {
+                    tabIndex: 0,
+                    role: 'button',
+                    'aria-pressed': listing.itemId === selectedId,
+                    onKeyDown: (e: React.KeyboardEvent) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        onRowClick(listing.itemId)
+                      }
+                    },
+                  } : {})}
                 >
                   {/* Card name + thumbnail */}
                   <td>

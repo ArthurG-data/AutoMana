@@ -194,4 +194,12 @@ describe('ListingsTable — row selection', () => {
     expect(screen.queryByRole('link', { name: /ragavan/i })).toBeNull()
     expect(screen.getByText('Ragavan')).toBeInTheDocument()
   })
+
+  it('clicking the eBay link does not fire onRowClick', async () => {
+    const onRowClick = vi.fn()
+    const listing = makeListing({ itemId: 'abc', viewItemUrl: 'https://www.ebay.com.au/itm/123' })
+    render(<ListingsTable listings={[listing]} onRowClick={onRowClick} />)
+    await userEvent.click(screen.getByTitle('View on eBay'))
+    expect(onRowClick).not.toHaveBeenCalled()
+  })
 })
