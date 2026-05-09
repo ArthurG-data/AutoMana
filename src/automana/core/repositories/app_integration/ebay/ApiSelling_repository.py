@@ -182,6 +182,7 @@ class EbaySellingRepository(EbayApiClient):
             "XML Payload": ("payload.xml", xml_payload.encode("utf-8"), "text/xml;charset=utf-8"),
             "image": ("image", file_bytes, content_type),
         }
+        # send() only supports XML text bodies; multipart requires a direct httpx call.
         async with httpx.AsyncClient(timeout=30) as client:
             response = await client.post(self._get_base_url(), files=files, headers=headers)
         response.raise_for_status()

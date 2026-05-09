@@ -211,6 +211,9 @@ async def upload_listing_picture(
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File must be an image (image/* content type required)")
     file_bytes = await file.read()
+    MAX_IMAGE_BYTES = 12 * 1024 * 1024  # 12 MB — eBay's per-image limit
+    if len(file_bytes) > MAX_IMAGE_BYTES:
+        raise HTTPException(status_code=413, detail="Image must be 12 MB or smaller")
     try:
         result = await service_manager.execute_service(
             "integrations.ebay.selling.listings.upload_picture",

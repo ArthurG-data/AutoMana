@@ -61,3 +61,24 @@ def test_upload_picture_rejects_non_image():
 
     assert response.status_code == 400
     assert "image" in response.json()["detail"].lower()
+
+
+def test_upload_picture_rejects_oversized_file():
+    fake_user = make_fake_user()
+    mock_sm = make_mock_service_manager()
+
+    app.dependency_overrides[get_current_active_user] = lambda: fake_user
+    app.dependency_overrides[get_service_manager] = lambda: mock_sm
+    try:
+        client = TestClient(app)
+        # 13 MB of fake data
+        big_bytes = b"x" * (13 * 1024 * 1024)
+        response = client.post(
+            "/listing/upload-picture?app_code=automana_au",
+            files={"file": ("big.jpg", io.BytesIO(big_bytes), "image/jpeg")},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 413
+    assert "12 MB" in response.json()["detail"]
