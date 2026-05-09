@@ -1,12 +1,9 @@
-import logging
 from typing import Optional
 
 from fastapi import APIRouter, Query, HTTPException
 
 from automana.api.dependancies.service_deps import ServiceManagerDep
 from automana.core.models.ebay.market_price import CardMarketData
-
-logger = logging.getLogger(__name__)
 
 market_router = APIRouter(prefix="/market-price", tags=["eBay Market Price"])
 
