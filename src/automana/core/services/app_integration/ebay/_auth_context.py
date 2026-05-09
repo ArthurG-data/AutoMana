@@ -29,7 +29,9 @@ from automana.core.utils.redis_cache import get_redis_client
 logger = logging.getLogger(__name__)
 
 _KEY = "ebay:access_token:{user_id}:{app_code}"
+_APP_KEY = "ebay:app_token:{app_code}"
 _MARGIN = 60  # seconds — expire cache slightly before eBay does
+_BROWSE_SCOPE = "https://api.ebay.com/oauth/api_scope"
 
 
 async def resolve_token(
@@ -110,4 +112,45 @@ async def resolve_token(
     )
     logger.info("ebay_token_cache_populated", extra={"app_code": app_code, "user_id": str(user_id)})
 
+    return access_token
+
+
+async def resolve_app_token(app_settings: dict) -> str:
+    """Return a client-credentials (application-level) eBay access token.
+
+    Used for public Browse API calls that require an app token, not a user token.
+    Cached in Redis per app_id; no user context needed.
+    """
+    app_id = app_settings["app_id"]
+    cache_key = _APP_KEY.format(app_code=app_id)
+
+    _redis = await get_redis_client()
+    cached = await _redis.get(cache_key)
+    if cached:
+        logger.info("ebay_app_token_cache_hit", extra={"app_id": app_id})
+        return json.loads(cached)["access_token"]
+
+    from automana.core.repositories.app_integration.ebay.ApiAuth_repository import (
+        EbayAuthAPIRepository,
+    )
+
+    env = app_settings["environment"].lower()
+    api_repo = EbayAuthAPIRepository(environment=env)
+    result = await api_repo.get_app_token(
+        app_id=app_id,
+        secret=app_settings["decrypted_secret"],
+        scope=_BROWSE_SCOPE,
+    )
+
+    access_token = result.get("access_token")
+    if not access_token:
+        raise ValueError(f"eBay client credentials returned no access_token for app_id={app_id!r}")
+
+    expires_in = result.get("expires_in", 7200)
+    await _redis.setex(
+        cache_key,
+        max(expires_in - _MARGIN, _MARGIN),
+        json.dumps({"access_token": access_token}),
+    )
+    logger.info("ebay_app_token_cache_populated", extra={"app_id": app_id})
     return access_token
