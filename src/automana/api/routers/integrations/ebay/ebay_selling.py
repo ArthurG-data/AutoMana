@@ -1,7 +1,7 @@
 from automana.core.models.ebay import listings as listings_model
 from fastapi import APIRouter, HTTPException, Query, Header, UploadFile, File
 from pydantic import BaseModel
-from typing import Annotated, Any, Dict, Optional
+from typing import Annotated, Any, Dict, List, Optional
 from uuid import UUID
 from automana.api.dependancies.service_deps import ServiceManagerDep
 from automana.api.dependancies.auth.users import CurrentUserDep
@@ -24,6 +24,19 @@ class BuildListingRequest(BaseModel):
     description_mode: str = "full"
     brand_config: Optional[Dict[str, Any]] = None
     marketplace_id: str = "15"
+
+
+class FulfillOrderRequest(BaseModel):
+    app_code: str
+    line_item_ids: List[str]
+    tracking_number: Optional[str] = None
+    carrier_code: Optional[str] = None
+
+
+class UpdateOrderStatusRequest(BaseModel):
+    app_code: str
+    local_status: str
+
 
 ebay_listing_router = APIRouter(prefix='/listing', tags=['listings'])
 
@@ -223,6 +236,56 @@ async def upload_listing_picture(
             content_type=file.content_type,
         )
         return ApiResponse(data=result, message="Picture uploaded successfully")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@ebay_listing_router.post("/orders/{order_id}/fulfill", description="Mark an order as shipped on eBay")
+async def fulfill_order(
+    order_id: str,
+    body: FulfillOrderRequest,
+    user: CurrentUserDep,
+    service_manager: ServiceManagerDep,
+):
+    try:
+        result = await service_manager.execute_service(
+            "integrations.ebay.selling.fulfillment.ship",
+            user_id=user.unique_id,
+            app_code=body.app_code,
+            order_id=order_id,
+            line_item_ids=body.line_item_ids,
+            tracking_number=body.tracking_number,
+            carrier_code=body.carrier_code,
+        )
+        return ApiResponse(data=result, message="Order marked as shipped")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@ebay_listing_router.patch("/orders/{order_id}/status", description="Update local order lifecycle status")
+async def patch_order_status(
+    order_id: str,
+    body: UpdateOrderStatusRequest,
+    user: CurrentUserDep,
+    service_manager: ServiceManagerDep,
+):
+    if body.local_status not in {"in_transit", "complete"}:
+        raise HTTPException(
+            status_code=400,
+            detail="local_status must be one of ['complete', 'in_transit']",
+        )
+    try:
+        result = await service_manager.execute_service(
+            "integrations.ebay.selling.fulfillment.local_status",
+            order_id=order_id,
+            app_code=body.app_code,
+            local_status=body.local_status,
+        )
+        return ApiResponse(data=result, message="Order status updated")
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:
