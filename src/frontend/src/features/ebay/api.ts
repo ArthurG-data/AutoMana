@@ -474,6 +474,6 @@ export async function fetchMarketPrice(
   if (frame) params.set('frame', frame)
 
   return apiClient<CardMarketData>(
-    `/integrations/ebay/market-price?${params.toString()}`,
+    `/integrations/ebay/market-price/?${params.toString()}`,
   )
 }
