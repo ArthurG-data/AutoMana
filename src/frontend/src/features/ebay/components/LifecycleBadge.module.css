@@ -1,0 +1,16 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 12px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.sold     { color: var(--hd-red,    #e05252); background: color-mix(in srgb, var(--hd-red,    #e05252) 10%, transparent); border-color: color-mix(in srgb, var(--hd-red,    #e05252) 30%, transparent); }
+.sent     { color: var(--hd-accent, #7c6af7); background: color-mix(in srgb, var(--hd-accent, #7c6af7) 10%, transparent); border-color: color-mix(in srgb, var(--hd-accent, #7c6af7) 30%, transparent); }
+.transit  { color: var(--hd-amber,  #f7a535); background: color-mix(in srgb, var(--hd-amber,  #f7a535) 10%, transparent); border-color: color-mix(in srgb, var(--hd-amber,  #f7a535) 30%, transparent); }
+.complete { color: var(--hd-green,  #3fc870); background: color-mix(in srgb, var(--hd-green,  #3fc870) 10%, transparent); border-color: color-mix(in srgb, var(--hd-green,  #3fc870) 30%, transparent); }
