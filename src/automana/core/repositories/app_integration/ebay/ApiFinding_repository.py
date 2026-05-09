@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
 import logging
 
@@ -14,9 +14,18 @@ def _parse_finding_items(response: dict) -> list[dict]:
     """Extract a flat list of raw item dicts from the Finding API JSON response."""
     try:
         result_block = response["findCompletedItemsResponse"][0]
+        ack = result_block.get("ack", [None])[0]
+        if ack not in ("Success", "SuccessWithError", None):
+            error_msg = result_block.get("errorMessage", [{}])[0]
+            logger.warning(
+                "Finding API returned non-success ack",
+                extra={"ack": ack, "error": str(error_msg)[:300]},
+            )
+            return []
         search_result = result_block.get("searchResult", [{}])[0]
         raw_items = search_result.get("item", [])
     except (KeyError, IndexError):
+        logger.warning("Finding API response missing expected envelope", extra={"keys": list(response.keys())})
         return []
 
     out = []
@@ -93,8 +102,11 @@ class EbayFindingAPIRepository(EbayApiClient):
             filter_idx += 1
 
         if min_date is not None:
+            if min_date.tzinfo is None:
+                raise ValueError("min_date must be timezone-aware (UTC)")
+            utc_date = min_date.astimezone(timezone.utc)
             params[f"itemFilter({filter_idx}).name"] = "EndTimeFrom"
-            params[f"itemFilter({filter_idx}).value"] = min_date.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+            params[f"itemFilter({filter_idx}).value"] = utc_date.strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
         logger.info(
             "Finding API request",
