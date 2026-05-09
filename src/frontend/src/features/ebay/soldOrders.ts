@@ -31,7 +31,7 @@ export interface SoldOrder {
  * AutoMana-local override. Priority:
  * 1. eBay FULFILLED → complete (terminal, eBay always wins)
  * 2. local_status = in_transit → in_transit
- * 3. eBay IN_PROGRESS → sent
+ * 3. local_status = sent OR eBay IN_PROGRESS → sent
  * 4. Everything else → sold
  */
 export function deriveDisplayStatus(
@@ -40,7 +40,7 @@ export function deriveDisplayStatus(
 ): DisplayStatus {
   if (ebayStatus === 'FULFILLED') return 'complete'
   if (localStatus === 'in_transit') return 'in_transit'
-  if (ebayStatus === 'IN_PROGRESS') return 'sent'
+  if (localStatus === 'sent' || ebayStatus === 'IN_PROGRESS') return 'sent'
   return 'sold'
 }
 

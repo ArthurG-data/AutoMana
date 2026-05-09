@@ -13,9 +13,12 @@ describe('deriveDisplayStatus', () => {
     expect(deriveDisplayStatus('IN_PROGRESS', 'in_transit')).toBe('in_transit')
   })
 
-  it('returns sold when eBay status is NOT_STARTED and no in_transit override', () => {
+  it('returns sold when eBay status is NOT_STARTED and no local override', () => {
     expect(deriveDisplayStatus('NOT_STARTED', null)).toBe('sold')
-    expect(deriveDisplayStatus('NOT_STARTED', 'sent')).toBe('sold')
+  })
+
+  it('returns sent when local_status is sent and eBay has not caught up yet', () => {
+    expect(deriveDisplayStatus('NOT_STARTED', 'sent')).toBe('sent')
   })
 
   it('returns sent when eBay status is IN_PROGRESS and not in_transit', () => {

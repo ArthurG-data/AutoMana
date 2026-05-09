@@ -87,17 +87,20 @@ async def get_order_history(
 
 @ServiceRegistry.register(
     path="integrations.ebay.selling.fulfillment.local_status",
-    db_repositories=["app"],
+    db_repositories=["auth", "app"],
     api_repositories=[],
 )
 async def update_order_local_status(
+    auth_repository: EbayAuthRepository,
     app_repository: EbayAppRepository,
+    user_id: UUID,
     order_id: str,
     app_code: str,
     local_status: str,
     **kwargs: Any,
 ) -> Dict[str, str]:
     """Update the AutoMana-local lifecycle status for an order (no eBay call)."""
+    await resolve_token(auth_repository, user_id=user_id, app_code=app_code)
     logger.info(
         "ebay_update_order_local_status",
         extra={"action": "update_order_local_status", "order_id": order_id, "local_status": local_status},

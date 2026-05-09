@@ -408,7 +408,7 @@ describe('ListingsPage — Sold tab', () => {
     const user = userEvent.setup()
     mockFetchUserApps.mockResolvedValue([makeApp()])
     mockFetchActiveListingsPaginated.mockResolvedValue(pagedResult([]))
-    mockFetchSoldOrders.mockResolvedValue({ orders: [], total: 0 })
+    mockFetchSoldOrders.mockResolvedValue({ orders: [], hasMore: false })
     renderListingsPage()
     await waitFor(() => expect(screen.getByTestId('listings-table')).toBeInTheDocument())
     await user.click(screen.getByRole('tab', { name: /sold/i }))

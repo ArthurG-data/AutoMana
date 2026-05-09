@@ -93,12 +93,18 @@ async def test_get_order_history_local_status_none_when_no_row(auth_repo, app_re
 
 @pytest.mark.asyncio
 async def test_update_order_local_status_upserts(auth_repo, app_repo):
-    result = await update_order_local_status(
-        app_repository=app_repo,
-        order_id="ord-1",
-        app_code="myapp",
-        local_status="in_transit",
-    )
+    with patch(
+        "automana.core.services.app_integration.ebay.fulfillment_service.resolve_token",
+        new=AsyncMock(return_value="tok"),
+    ):
+        result = await update_order_local_status(
+            auth_repository=auth_repo,
+            app_repository=app_repo,
+            user_id=USER_ID,
+            order_id="ord-1",
+            app_code="myapp",
+            local_status="in_transit",
+        )
     app_repo.upsert_order_status.assert_awaited_once_with(
         order_id="ord-1",
         app_code="myapp",

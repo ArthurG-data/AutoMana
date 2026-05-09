@@ -281,6 +281,7 @@ async def patch_order_status(
     try:
         result = await service_manager.execute_service(
             "integrations.ebay.selling.fulfillment.local_status",
+            user_id=user.unique_id,
             order_id=order_id,
             app_code=body.app_code,
             local_status=body.local_status,
