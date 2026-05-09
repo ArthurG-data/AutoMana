@@ -7,15 +7,13 @@ _SINGLE_WORD_REJECTS: frozenset[str] = frozenset({
     "bundle", "signed", "psa", "bgs", "cgc", "graded",
 })
 
-_PHRASE_REJECTS: tuple[str, ...] = ("reprint lot",)
-
 # Pre-compile word-boundary patterns for single-word rejects
 _REJECT_PATTERNS: tuple[re.Pattern, ...] = tuple(
     re.compile(r"\b" + re.escape(kw) + r"\b") for kw in _SINGLE_WORD_REJECTS
 )
 
-# Keep REJECT_KEYWORDS as the public name (union of both sets) for external consumers
-REJECT_KEYWORDS: frozenset[str] = _SINGLE_WORD_REJECTS | frozenset(_PHRASE_REJECTS)
+# Keep REJECT_KEYWORDS as the public name for external consumers
+REJECT_KEYWORDS: frozenset[str] = _SINGLE_WORD_REJECTS
 
 _PUNCTUATION_RE = re.compile(r"[^\w\s]")
 
@@ -51,12 +49,9 @@ def score_title(
     # Normalize "nonfoil" → "non-foil" before all checks
     normalized = lower.replace("nonfoil", "non-foil")
 
-    # Hard reject — single-word with boundaries, phrases as substrings
+    # Hard reject — single-word with boundaries
     for pattern in _REJECT_PATTERNS:
         if pattern.search(normalized):
-            return 0.0
-    for phrase in _PHRASE_REJECTS:
-        if phrase in normalized:
             return 0.0
 
     score = 0.0
