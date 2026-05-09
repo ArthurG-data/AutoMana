@@ -329,3 +329,111 @@ export function feeEstimate(price: number): number {
   // Rough eBay + PayPal combined (~13.25%)
   return price * (1 - 0.1325)
 }
+
+// ── Live listing types ─────────────────────────────────────────────────────
+
+export interface EbayLiveListing {
+  itemId: string
+  title: string
+  cardName: string
+  setCode: string
+  setInfo: string
+  price: number
+  currency: string
+  conditionLabel: string
+  finish: string
+  style: string
+  daysListed: number
+  watchCount: number
+  viewItemUrl: string
+  imageUrl: string | null
+  appCode: string
+  appName: string
+}
+
+// ── Title parsing ──────────────────────────────────────────────────────────
+
+const NOISE_TOKEN_RE = /^(MTG|FOIL|NM\+?|LP|MP|HP|PLD|EX|VG|GD|PR)$/i
+const SET_CODE_RE = /^[A-Z0-9]{2,5}$/
+
+// Ordered longest-first so "Surge Foil" is caught before bare "Foil".
+const FINISH_PHRASES: [RegExp, string][] = [
+  [/\bsurge\s+foil\b/gi,                        'Surge Foil'],
+  [/\betched\s+foil\b/gi,                        'Etched Foil'],
+  [/\bgalaxy\s+foil\b/gi,                        'Galaxy Foil'],
+  [/\bgilded\s+foil\b/gi,                        'Gilded Foil'],
+  [/\btextured\s+foil\b/gi,                      'Textured Foil'],
+  [/\boil\s+slick\s+(?:rainbow\s+)?foil\b/gi,   'Oil Slick Foil'],
+  [/\bdouble\s+rainbow\s+foil\b/gi,             'Double Rainbow Foil'],
+  [/\bstep[-\s]and[-\s]compleat\s+foil\b/gi,   'Compleat Foil'],
+  [/\bnon[-\s]foil\b/gi,                         'Regular'],
+  [/\bfoil\b/gi,                                 'Foil'],
+]
+
+const STYLE_PHRASES: [RegExp, string][] = [
+  [/\bfull[\s-]?art\b/gi,        'Full Art'],
+  [/\bextended\s+art\b/gi,       'Extended Art'],
+  [/\bretro\s+frame\b/gi,        'Retro Frame'],
+  [/\bold\s+(?:border(?:ed)?|frame)\b/gi, 'Old Frame'],
+  [/\bborderless\b/gi,           'Borderless'],
+  [/\bshowcase\b/gi,             'Showcase'],
+  [/\balternate\s+art\b/gi,      'Alternate Art'],
+  [/\balt\s+art\b/gi,            'Alt Art'],
+  [/\bserializ(?:ed)?\b/gi,      'Serialized'],
+  [/\bpromo\s+pack\b/gi,         'Promo Pack'],
+  [/\bpromo\b/gi,                'Promo'],
+  [/\bretro\b/gi,                'Retro'],
+]
+
+export type ParsedTitle = {
+  cardName: string
+  setCode: string
+  setInfo: string
+  titleFinish: string
+  titleStyle: string
+}
+
+export function parseCardTitle(title: string): ParsedTitle {
+  let work = title.trim()
+  let titleFinish = ''
+  let titleStyle = ''
+
+  for (const [re, label] of FINISH_PHRASES) {
+    if (re.test(work)) {
+      titleFinish = label
+      work = work.replace(re, ' ')
+      break
+    }
+  }
+  for (const [re, label] of STYLE_PHRASES) {
+    if (re.test(work)) {
+      titleStyle = label
+      work = work.replace(re, ' ')
+      break
+    }
+  }
+
+  // Remove empty parentheses and common separator characters used by eBay sellers.
+  work = work.replace(/\(\s*\)/g, ' ').replace(/[|\-–—]/g, ' ').trim()
+
+  const tokens = work.split(/\s+/).filter(Boolean)
+  let i = tokens.length - 1
+  const setTokens: string[] = []
+  let setCode = ''
+
+  while (i >= 0) {
+    const tok = tokens[i]
+    if (NOISE_TOKEN_RE.test(tok)) { i--; continue }
+    if (/^#\d+$/.test(tok)) { setTokens.unshift(tok); i--; continue }
+    if (SET_CODE_RE.test(tok)) {
+      if (!setCode) setCode = tok
+      setTokens.unshift(tok)
+      i--
+      continue
+    }
+    break
+  }
+
+  const cardName = i >= 0 ? tokens.slice(0, i + 1).join(' ') : title.trim()
+  return { cardName, setCode, setInfo: setTokens.join(' '), titleFinish, titleStyle }
+}

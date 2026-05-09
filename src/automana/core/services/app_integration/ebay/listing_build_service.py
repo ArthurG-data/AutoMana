@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from decimal import Decimal
 from typing import Any, Dict, Optional
-from uuid import UUID, uuid4
+from uuid import UUID, uuid4, uuid5, NAMESPACE_OID
 
 from automana.core.models.ebay.listing_inputs import (
     BrandConfig,
@@ -52,6 +52,7 @@ async def build_and_create_listing(
     description_mode: str = "full",
     brand_config: Optional[Dict[str, Any]] = None,
     marketplace_id: str = "15",
+    idempotency_key: Optional[str] = None,
     **kwargs: Any,
 ) -> Dict[str, Any]:
     """Fetch card data, build the ItemModel, and submit it to eBay.
@@ -90,7 +91,11 @@ async def build_and_create_listing(
     )
 
     item = build_mtg_listing(card_data, seller_input, brand, pricing)
-    idempotency_key = str(uuid4())
+    if not idempotency_key:
+        # Deterministic fallback for non-HTTP callers (e.g. future Celery tasks).
+        # uuid5 from the same inputs always produces the same key, so retries
+        # with identical arguments hit the Redis dedup cache correctly.
+        idempotency_key = str(uuid5(NAMESPACE_OID, f"{user_id}:{card_version_id}:{condition}:{foil}"))
 
     logger.info(
         "ebay_build_and_create_listing",

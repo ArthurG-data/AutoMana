@@ -12,15 +12,14 @@ logger = logging.getLogger(__name__)
 class EbayApiClient(BaseApiClient):
     """Base class for repositories that interact with external APIs"""
     
-    def _get_base_url(self, environment: str) -> str:
-        
+    def _get_base_url(self) -> str:
         mapping = {
             "sandbox": "https://api.sandbox.ebay.com",
             "production": "https://api.ebay.com",
         }
-        env = environment.lower()
+        env = self.environment.lower()
         if env not in mapping:
-            raise ValueError(f"Invalid eBay environment: {environment}")
+            raise ValueError(f"Invalid eBay environment: {self.environment}")
         return mapping[env]
     def map_http_error(self, error: httpx.HTTPStatusError) -> RepositoryError:
         status = error.response.status_code

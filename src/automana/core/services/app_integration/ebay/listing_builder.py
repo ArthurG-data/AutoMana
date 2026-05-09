@@ -6,7 +6,10 @@ owns decisions.
 """
 from __future__ import annotations
 
+import html as _html
 from typing import Optional
+
+_esc = _html.escape
 
 from automana.core.models.ebay.listing_inputs import (
     BrandConfig,
@@ -149,7 +152,7 @@ def map_condition_to_ebay_id(condition: Condition) -> int:
 def build_condition_description(condition: Condition, note: Optional[str] = None) -> str:
     base = _CONDITION_DESCRIPTION_MAP[condition]
     if note:
-        return f"{base} Seller note: {note}"
+        return f"{base} Seller note: {_esc(note)}"
     return base
 
 
@@ -212,7 +215,7 @@ def build_item_specifics(card: CardData, seller: SellerInput) -> dict:
 def _oracle_to_html(oracle_text: Optional[str]) -> str:
     if not oracle_text:
         return ""
-    return oracle_text.replace("\n", "<br/>")
+    return _esc(oracle_text).replace("\n", "<br/>")
 
 
 def _condition_label(condition: Condition) -> str:
@@ -236,8 +239,8 @@ def build_description_html(
         foil_line = "<p><strong>Finish:</strong> Foil</p>" if seller.foil else ""
         return (
             '<div style="font-family:Arial,sans-serif;font-size:14px;color:#333;">'
-            f"<h2>{card.card_name}</h2>"
-            f"<p><strong>Set:</strong> {card.set_name} ({card.set_code.upper()})</p>"
+            f"<h2>{_esc(card.card_name)}</h2>"
+            f"<p><strong>Set:</strong> {_esc(card.set_name)} ({_esc(card.set_code.upper())})</p>"
             f"<p><strong>Condition:</strong> {cond_label} — {cond_desc}</p>"
             f"<p><strong>Language:</strong> {lang_label}</p>"
             f"{foil_line}"
@@ -254,40 +257,43 @@ def build_description_html(
 
     flavor_block = ""
     if card.flavor_text:
-        flavor_block = f'<p style="font-style:italic;color:#777;">{card.flavor_text}</p>'
+        flavor_block = f'<p style="font-style:italic;color:#777;">{_esc(card.flavor_text)}</p>'
 
     stats_block = ""
     if card.power and card.toughness:
-        stats_block = f"<p><strong>P/T:</strong> {card.power}/{card.toughness}</p>"
+        stats_block = f"<p><strong>P/T:</strong> {_esc(card.power)}/{_esc(card.toughness)}</p>"
     elif card.loyalty:
-        stats_block = f"<p><strong>Loyalty:</strong> {card.loyalty}</p>"
+        stats_block = f"<p><strong>Loyalty:</strong> {_esc(card.loyalty)}</p>"
 
     seller_note_block = ""
     if seller.condition_note:
-        seller_note_block = f"<br/><em>Seller note: {seller.condition_note}</em>"
+        seller_note_block = f"<br/><em>Seller note: {_esc(seller.condition_note)}</em>"
 
     image_html = ""
     if card.image_url:
+        safe_url = _esc(card.image_url, quote=True)
+        safe_name = _esc(card.card_name, quote=True)
         image_html = (
             '<div style="text-align:center;margin-bottom:16px;">'
-            f'<img src="{card.image_url}" alt="{card.card_name}" '
+            f'<img src="{safe_url}" alt="{safe_name}" '
             'style="max-width:260px;border-radius:8px;"/>'
             "</div>"
         )
 
-    ac = brand.accent_color
+    # accent_color goes inside a style="color:..." attribute — escape to prevent attribute escape
+    ac = _esc(brand.accent_color, quote=True)
 
     return (
-        f"{brand.header_html}"
+        f"{brand.header_html}"  # trusted markup — intentional pass-through
         '<div style="font-family:Arial,sans-serif;font-size:14px;color:#333;'
         'max-width:640px;margin:0 auto;">'
         f"{image_html}"
-        f'<h2 style="color:{ac};">{card.card_name}</h2>'
+        f'<h2 style="color:{ac};">{_esc(card.card_name)}</h2>'
         '<table style="width:100%;border-collapse:collapse;margin-bottom:12px;">'
         f'<tr><td style="padding:4px 8px;font-weight:bold;">Set</td>'
-        f'<td style="padding:4px 8px;">{card.set_name} ({card.set_code.upper()}) #{collector}</td></tr>'
+        f'<td style="padding:4px 8px;">{_esc(card.set_name)} ({_esc(card.set_code.upper())}) #{_esc(collector)}</td></tr>'
         f'<tr style="background:#f9f9f9;"><td style="padding:4px 8px;font-weight:bold;">Type</td>'
-        f'<td style="padding:4px 8px;">{type_line}</td></tr>'
+        f'<td style="padding:4px 8px;">{_esc(type_line)}</td></tr>'
         f'<tr><td style="padding:4px 8px;font-weight:bold;">Rarity</td>'
         f'<td style="padding:4px 8px;">{rarity_display}</td></tr>'
         f'<tr style="background:#f9f9f9;"><td style="padding:4px 8px;font-weight:bold;">Language</td>'
@@ -309,7 +315,7 @@ def build_description_html(
         f"{seller_note_block}"
         "</div>"
         '<div style="font-size:12px;color:#666;border-top:1px solid #eee;padding-top:10px;">'
-        f"{brand.footer_html}"
+        f"{brand.footer_html}"  # trusted markup — intentional pass-through
         "</div>"
         "</div>"
     )

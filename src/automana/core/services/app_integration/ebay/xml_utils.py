@@ -101,10 +101,26 @@ def generate_get_my_ebay_selling_request_xml(entries_per_page: int = 3, page_num
     root = ET.Element("GetMyeBaySellingRequest", xmlns="urn:ebay:apis:eBLBaseComponents")
     ET.SubElement(root, "ErrorLanguage").text = "en_US"
     ET.SubElement(root, "WarningLevel").text = "High"
+
+    # Explicitly request fields that eBay omits from the default ActiveList response.
+    for selector in (
+        "ActiveList.ItemArray.Item.ItemID",
+        "ActiveList.ItemArray.Item.Title",
+        "ActiveList.ItemArray.Item.BuyItNowPrice",
+        "ActiveList.ItemArray.Item.SellingStatus",
+        "ActiveList.ItemArray.Item.ConditionID",
+        "ActiveList.ItemArray.Item.ConditionDisplayName",
+        "ActiveList.ItemArray.Item.PictureDetails",
+        "ActiveList.ItemArray.Item.ItemSpecifics",
+        "ActiveList.ItemArray.Item.ListingDetails",
+        "ActiveList.ItemArray.Item.WatchCount",
+        "ActiveList.PaginationResult",
+    ):
+        ET.SubElement(root, "OutputSelector").text = selector
+
     active_list = ET.SubElement(root, "ActiveList")
     ET.SubElement(active_list, "Sort").text = "TimeLeft"
 
-    # Add Pagination block
     pagination = ET.SubElement(active_list, "Pagination")
     ET.SubElement(pagination, "EntriesPerPage").text = str(entries_per_page)
     ET.SubElement(pagination, "PageNumber").text = str(max(page_number, 1))

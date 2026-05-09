@@ -4,17 +4,13 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { AppShell } from '../components/layout/AppShell'
 import { TopBar } from '../components/layout/TopBar'
 import { PriceBand } from '../components/design-system/PriceBand'
-import { AIBadge } from '../components/design-system/AIBadge'
 import {
   StrategyCard,
   buildStrategies,
   type StrategyKind,
 } from '../features/ebay/components/StrategyCard'
-import {
-  MOCK_ACTIVE_LISTINGS,
-  formatUSD,
-  feeEstimate,
-} from '../features/ebay/mockListings'
+import { formatUSD, feeEstimate } from '../features/ebay/mockListings'
+import { useListingsStore } from '../store/listings'
 import styles from './ListingDetail.module.css'
 
 export const Route = createFileRoute('/listings_/$id')({
@@ -23,7 +19,7 @@ export const Route = createFileRoute('/listings_/$id')({
 
 function ListingDetailPage() {
   const { id } = Route.useParams()
-  const listing = MOCK_ACTIVE_LISTINGS.find((l) => l.id === id)
+  const listing = useListingsStore((s) => s.getById(id))
   const [selectedStrategy, setSelectedStrategy] = useState<StrategyKind>('balanced')
 
   if (!listing) {
@@ -31,7 +27,10 @@ function ListingDetailPage() {
       <AppShell active="listings">
         <TopBar title="Listing not found" breadcrumb="LISTINGS › NOT FOUND" />
         <div className={styles.notFound}>
-          <p>Listing <code>{id}</code> was not found.</p>
+          <p>
+            Listing <code>{id}</code> was not found.{' '}
+            Listings are loaded when you visit the listings page.
+          </p>
           <Link to="/listings" className={styles.backLink}>
             ← Back to listings
           </Link>
@@ -40,66 +39,98 @@ function ListingDetailPage() {
     )
   }
 
-  const strategies = buildStrategies(listing.marketPrice)
+  // Use the listing price as market price proxy until MTGStock data is synced.
+  const marketPrice = listing.price || 0
+  const strategies = buildStrategies(marketPrice)
   const active = strategies.find((s) => s.kind === selectedStrategy) ?? strategies[1]
-
-  // Mid recommended price for selected strategy
   const midPct = (active.pctRange[0] + active.pctRange[1]) / 2
-  const recommendedPrice = listing.marketPrice * (1 + midPct / 100)
+  const recommendedPrice = marketPrice * (1 + midPct / 100)
   const payout = feeEstimate(recommendedPrice)
-  const pl = payout - listing.costBasis
+
+  const displaySet = listing.setCode || '—'
+  const displayName = listing.cardName
 
   return (
     <AppShell active="listings">
       <TopBar
-        title={listing.cardName}
-        breadcrumb={`LISTINGS › ${listing.setCode.toUpperCase()} › ${listing.cardName.toUpperCase()}`}
+        title={displayName}
+        breadcrumb={`LISTINGS › ${displaySet} › ${displayName.toUpperCase()}`}
       />
 
       <div className={styles.page}>
-        {/* ── Three-column layout ───────────────────── */}
         <div className={styles.threeCol}>
-          {/* LEFT: card art + info panel */}
+          {/* LEFT: card image + info panel */}
           <aside className={styles.cardPanel} aria-label="Card details">
-            <div className={styles.cardArtPlaceholder} aria-label={listing.cardName}>
-              <div className={styles.cardArtInner}>
-                <span className={styles.cardArtName}>{listing.cardName}</span>
-                <span className={styles.cardArtSet}>{listing.setCode}</span>
+            {listing.imageUrl ? (
+              <img
+                src={listing.imageUrl}
+                alt={displayName}
+                className={styles.cardImage}
+              />
+            ) : (
+              <div className={styles.cardArtPlaceholder} aria-label={displayName}>
+                <div className={styles.cardArtInner}>
+                  <span className={styles.cardArtName}>{displayName}</span>
+                  <span className={styles.cardArtSet}>{displaySet}</span>
+                </div>
               </div>
-            </div>
+            )}
 
             <div className={styles.cardInfo}>
               <div className={styles.cardInfoRow}>
-                <span className={styles.infoLabel}>Listing ID</span>
-                <span className={styles.infoValue}>{listing.id.toUpperCase()}</span>
+                <span className={styles.infoLabel}>eBay ID</span>
+                <span className={styles.infoValue}>{listing.itemId}</span>
               </div>
               <div className={styles.cardInfoRow}>
-                <span className={styles.infoLabel}>Days listed</span>
-                <span className={styles.infoValue}>{listing.daysListed}d</span>
-              </div>
-              <div className={styles.cardInfoRow}>
-                <span className={styles.infoLabel}>Views</span>
-                <span className={styles.infoValue}>{listing.views}</span>
-              </div>
-              <div className={styles.cardInfoRow}>
-                <span className={styles.infoLabel}>Watchers</span>
-                <span className={styles.infoValue}>{listing.watchers}</span>
+                <span className={styles.infoLabel}>Set</span>
+                <span className={styles.infoValue}>{displaySet}</span>
               </div>
               <div className={styles.cardInfoRow}>
                 <span className={styles.infoLabel}>Condition</span>
-                <span className={styles.infoValue}>{listing.condition}</span>
+                <span className={styles.infoValue}>{listing.conditionLabel || '—'}</span>
               </div>
               <div className={styles.cardInfoRow}>
-                <span className={styles.infoLabel}>Cost basis</span>
-                <span className={styles.infoValue}>{formatUSD(listing.costBasis)}</span>
+                <span className={styles.infoLabel}>Finish</span>
+                <span className={styles.infoValue}>{listing.finish}</span>
+              </div>
+              {listing.style && (
+                <div className={styles.cardInfoRow}>
+                  <span className={styles.infoLabel}>Style</span>
+                  <span className={styles.infoValue}>{listing.style}</span>
+                </div>
+              )}
+              <div className={styles.cardInfoRow}>
+                <span className={styles.infoLabel}>Days listed</span>
+                <span className={styles.infoValue}>
+                  {listing.daysListed > 0 ? `${listing.daysListed}d` : '—'}
+                </span>
+              </div>
+              <div className={styles.cardInfoRow}>
+                <span className={styles.infoLabel}>Watchers</span>
+                <span className={styles.infoValue}>{listing.watchCount}</span>
               </div>
               <div className={styles.cardInfoRow}>
                 <span className={styles.infoLabel}>Listed at</span>
-                <span className={styles.infoValueAccent}>{formatUSD(listing.listedPrice)}</span>
+                <span className={styles.infoValueAccent}>
+                  {listing.price > 0
+                    ? `${listing.currency} ${listing.price.toFixed(2)}`
+                    : '—'}
+                </span>
               </div>
               <div className={styles.cardInfoRow}>
-                <span className={styles.infoLabel}>AI status</span>
-                <AIBadge status={listing.aiStatus} showLabel size="sm" />
+                <span className={styles.infoLabel}>App</span>
+                <span className={styles.infoValue}>{listing.appName || listing.appCode}</span>
+              </div>
+              <div className={styles.cardInfoRow}>
+                <span className={styles.infoLabel}>eBay listing</span>
+                <a
+                  href={listing.viewItemUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={styles.ebayLink}
+                >
+                  View ↗
+                </a>
               </div>
             </div>
           </aside>
@@ -109,11 +140,14 @@ function ListingDetailPage() {
             <div className={styles.sectionHeader}>
               <h2 className={styles.sectionTitle}>Strategy advisor</h2>
               <p className={styles.sectionSub}>
-                Market at <strong>{formatUSD(listing.marketPrice)}</strong> — select a strategy
+                Listed at{' '}
+                <strong>
+                  {listing.currency} {listing.price.toFixed(2)}
+                </strong>{' '}
+                — connect MTGStock to see market price
               </p>
             </div>
 
-            {/* Strategy cards */}
             <div className={styles.strategyList}>
               {strategies.map((strategy) => (
                 <StrategyCard
@@ -125,26 +159,25 @@ function ListingDetailPage() {
               ))}
             </div>
 
-            {/* Market band visualization */}
             <div className={styles.bandSection}>
-              <div className={styles.bandLabel}>Market price band</div>
+              <div className={styles.bandLabel}>Price band (estimated)</div>
               <PriceBand
-                low={listing.marketBand.low}
-                p25={listing.marketBand.p25}
-                market={listing.marketBand.median}
-                p75={listing.marketBand.p75}
-                high={listing.marketBand.high}
+                low={marketPrice * 0.8}
+                p25={marketPrice * 0.9}
+                market={marketPrice}
+                p75={marketPrice * 1.1}
+                high={marketPrice * 1.2}
                 listed={recommendedPrice}
               />
               <div className={styles.bandLegend}>
                 <span className={styles.bandLegendItem}>
-                  <span className={styles.bandLegendDotLow} /> Low: {formatUSD(listing.marketBand.low)}
+                  <span className={styles.bandLegendDotLow} /> −20%
                 </span>
                 <span className={styles.bandLegendItem}>
-                  <span className={styles.bandLegendDotMid} /> Median: {formatUSD(listing.marketBand.median)}
+                  <span className={styles.bandLegendDotMid} /> Listed
                 </span>
                 <span className={styles.bandLegendItem}>
-                  <span className={styles.bandLegendDotHigh} /> High: {formatUSD(listing.marketBand.high)}
+                  <span className={styles.bandLegendDotHigh} /> +20%
                 </span>
               </div>
             </div>
@@ -184,25 +217,10 @@ function ListingDetailPage() {
               <span className={styles.payoutValueHighlight}>{formatUSD(payout)}</span>
             </div>
 
-            <div className={styles.payoutDivider} />
-
-            <div className={styles.payoutItem}>
-              <span className={styles.payoutLabel}>Cost basis</span>
-              <span className={styles.payoutValue}>{formatUSD(listing.costBasis)}</span>
-            </div>
-            <div className={styles.payoutItem}>
-              <span className={styles.payoutLabel}>Profit / Loss</span>
-              <span className={pl >= 0 ? styles.payoutPL : styles.payoutPLNeg}>
-                {pl >= 0 ? '+' : ''}{formatUSD(pl)}
-              </span>
-            </div>
-
             <div className={styles.payoutActions}>
-              <button className={styles.applyBtn}>
-                Apply strategy
-              </button>
+              <button className={styles.applyBtn}>Apply strategy</button>
               <Link to="/listings" className={styles.cancelLink}>
-                Cancel
+                ← All listings
               </Link>
             </div>
           </aside>
