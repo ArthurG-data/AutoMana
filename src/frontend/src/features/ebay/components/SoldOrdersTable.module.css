@@ -1,0 +1,69 @@
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.table th {
+  padding: 8px 12px;
+  text-align: left;
+  font-size: 11px;
+  color: var(--hd-sub, #555);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--hd-border, #1a1a1f);
+  background: var(--hd-surface-alt, #090909);
+}
+
+.row {
+  cursor: pointer;
+  border-bottom: 1px solid var(--hd-border-subtle, #13131a);
+  transition: background 120ms;
+}
+.row:hover { background: var(--hd-hover, #111118); }
+.row[data-selected="true"] {
+  background: color-mix(in srgb, var(--hd-accent, #7c6af7) 8%, transparent);
+  border-left: 2px solid var(--hd-accent, #7c6af7);
+}
+
+.rowFaded { opacity: 0.55; }
+.rowFaded:hover { opacity: 1; }
+
+.table td { padding: 11px 12px; vertical-align: middle; }
+
+.cardTitle { color: var(--hd-text, #e8e8e8); font-weight: 500; }
+.cardMeta  { font-size: 11px; color: var(--hd-sub, #555); margin-top: 2px; }
+
+.priceCell { color: var(--hd-text, #e8e8e8); font-variant-numeric: tabular-nums; }
+.buyerCell { font-size: 12px; color: var(--hd-sub2, #777); }
+.msgCell   { text-align: center; width: 36px; }
+.dateCell  { font-size: 11px; color: var(--hd-sub, #555); white-space: nowrap; }
+
+.msgIcon {
+  color: var(--hd-sub, #555);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  transition: color 120ms, background 120ms;
+}
+.msgIcon:hover {
+  color: var(--hd-accent, #7c6af7);
+  background: color-mix(in srgb, var(--hd-accent, #7c6af7) 12%, transparent);
+}
+
+.skeletonRow td { padding: 12px 12px; }
+.skeletonCell {
+  height: 12px;
+  width: 100%;
+  border-radius: 4px;
+  background: var(--hd-skeleton, #1a1a1f);
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0%, 100% { opacity: 0.4; }
+  50%       { opacity: 0.8; }
+}
