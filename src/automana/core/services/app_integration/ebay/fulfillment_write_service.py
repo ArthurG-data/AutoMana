@@ -44,6 +44,9 @@ async def mark_order_shipped(
     )
 
     token = await resolve_token(auth_repository, user_id=user_id, app_code=app_code)
+    env = await auth_repository.get_environment(app_code=app_code)
+    if env:
+        selling_repository.environment = env.lower()
 
     result = await selling_repository.create_shipping_fulfillment({
         "token": token,

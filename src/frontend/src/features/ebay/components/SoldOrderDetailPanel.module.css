@@ -51,6 +51,10 @@
 .infoVal        { font-size: 12px; color: var(--hd-text, #e8e8e8); }
 .infoValAccent  { font-size: 12px; color: var(--hd-accent, #7c6af7); }
 .infoValMono    { font-size: 11px; color: var(--hd-sub, #555); font-family: monospace; }
+.infoValNeg     { font-size: 12px; color: var(--hd-red, #e05252); }
+.infoValNet     { font-size: 13px; color: var(--hd-green, #52c07a); font-weight: 700; }
+.infoKeyNet     { font-size: 12px; color: var(--hd-text, #e8e8e8); font-weight: 600; }
+.infoDivider    { border: none; border-top: 1px dashed var(--hd-border, #1a1a1f); margin: 6px 0; }
 
 /* Message banner */
 .messageBanner {

@@ -31,35 +31,30 @@ class EbayApiClient(BaseApiClient):
                 message=f"Authentication failed: {body}",
                 status_code=status,
                 error_data=error_data,
-                source_exception=error,
             )
         if status == 403:
             return ebay_api_exception.EbayBuyApiForbiddenError(
                 message=f"Permission denied: {body}",
                 status_code=status,
                 error_data=error_data,
-                source_exception=error,
             )
         if status == 404:
             return ebay_api_exception.EbayBuyApiNotFoundError(
                 message=f"Resource not found: {body}",
                 status_code=status,
                 error_data=error_data,
-                source_exception=error,
             )
         if status == 429:
             return ebay_api_exception.EbayBuyApiRateLimitError(
                 message=f"Rate limit exceeded: {body}",
                 status_code=status,
                 error_data=error_data,
-                source_exception=error,
             )
 
         return ebay_api_exception.EbayBaseRepositoryError(
             message=f"HTTP error {status}: {body}",
             status_code=status,
             error_data=error_data,
-            source_exception=error,
         )
     
     def auth_header(self, token: str) -> Dict[str, str]:

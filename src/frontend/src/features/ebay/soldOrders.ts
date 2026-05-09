@@ -17,13 +17,19 @@ export interface SoldOrder {
   orderFulfillmentStatus: string | null
   orderPaymentStatus: string | null
   buyerUsername: string | null
-  totalAmount: number | null
+  totalAmount: number | null      // pricingSummary.total (buyer paid)
   currency: string | null
   lineItems: SoldOrderLineItem[]
   local_status: string | null
   displayStatus: DisplayStatus
   appCode: string
   appName: string
+
+  // Financial breakdown
+  itemSubtotal: number | null     // pricingSummary.priceSubtotal (listed price × qty)
+  shippingCollected: number | null // pricingSummary.deliveryCost (shipping buyer paid)
+  ebayFee: number | null          // totalMarketplaceFee
+  netPayout: number | null        // paymentSummary.totalDueSeller
 }
 
 /**
@@ -44,6 +50,18 @@ export function deriveDisplayStatus(
   return 'sold'
 }
 
+// Handles both eBay field names (value/currency) and Pydantic-serialized names (text/currencyID).
+function extractAmount(obj: Record<string, unknown> | null | undefined): number | null {
+  if (!obj) return null
+  const raw = obj.value ?? obj.text
+  return raw != null ? Number(raw) : null
+}
+
+function extractCurrency(obj: Record<string, unknown> | null | undefined): string | null {
+  if (!obj) return null
+  return (obj.currency ?? obj.currencyID as string | null) ?? null
+}
+
 export function mapRawToSoldOrder(
   raw: Record<string, unknown>,
   appCode: string,
@@ -55,6 +73,9 @@ export function mapRawToSoldOrder(
   const lineItems = (raw.lineItems as Record<string, unknown>[] | null) ?? []
   const ebayStatus = (raw.orderFulfillmentStatus as string | null) ?? null
   const localStatus = (raw.local_status as string | null) ?? null
+  const paymentSummary = raw.paymentSummary as Record<string, unknown> | null
+  const totalDueSeller = paymentSummary?.totalDueSeller as Record<string, unknown> | null
+  const marketplaceFee = raw.totalMarketplaceFee as Record<string, unknown> | null
 
   return {
     orderId: (raw.orderId as string) ?? '',
@@ -63,8 +84,8 @@ export function mapRawToSoldOrder(
     orderFulfillmentStatus: ebayStatus,
     orderPaymentStatus: (raw.orderPaymentStatus as string | null) ?? null,
     buyerUsername: (buyer?.username as string | null) ?? null,
-    totalAmount: total?.value != null ? Number(total.value) : null,
-    currency: (total?.currency as string | null) ?? null,
+    totalAmount: extractAmount(total),
+    currency: extractCurrency(total),
     lineItems: lineItems.map((li) => ({
       lineItemId: (li.lineItemId as string | null) ?? null,
       legacyItemId: (li.legacyItemId as string | null) ?? null,
@@ -76,5 +97,9 @@ export function mapRawToSoldOrder(
     displayStatus: deriveDisplayStatus(ebayStatus, localStatus),
     appCode,
     appName,
+    itemSubtotal: extractAmount(pricing?.priceSubtotal as Record<string, unknown> | null),
+    shippingCollected: extractAmount(pricing?.deliveryCost as Record<string, unknown> | null),
+    ebayFee: extractAmount(marketplaceFee),
+    netPayout: extractAmount(totalDueSeller),
   }
 }

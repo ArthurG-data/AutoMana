@@ -17,7 +17,7 @@ class SellerInfoType(BaseModel):
 class BaseCostType(BaseModel):
     currencyID: Optional[str] = Field(None, alias="currency")
     text: Optional[str | float] = Field(None, alias="value")
-    model_config = ConfigDict(populate_by_name=True, extra="allow")
+    model_config = ConfigDict(populate_by_name=True, extra="allow", serialize_by_alias=True)
 
 class ReturnPolicyType(BaseModel):
     Description: Optional[str] = Field(None, alias="description")
@@ -191,12 +191,12 @@ class BuyerAddressType(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 class AddressType(BaseModel):
-    addressLine1: Optional[str]
-    addressLine2: Optional[str]
-    city: Optional[str]
-    stateOrProvince: Optional[str]
-    postalCode: Optional[str]
-    countryCode: Optional[str]
+    addressLine1: Optional[str] = None
+    addressLine2: Optional[str] = None
+    city: Optional[str] = None
+    stateOrProvince: Optional[str] = None
+    postalCode: Optional[str] = None
+    countryCode: Optional[str] = None
     model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 class SellerProfilesType(BaseModel):
@@ -491,48 +491,50 @@ class BuyerRegistrationAddressType(BaseModel):
     email: Optional[str]=None
 
 class BuyerType(BaseModel):
-    username: Optional[str]
-    taxAddress: Optional[BuyerAddressType]
-    buyerRegistrationAddress: Optional[BuyerRegistrationAddressType]
+    # All fields must default to None: eBay omits any key it has no value for,
+    # and Pydantic v2 treats Optional[T] without = None as a *required* field.
+    username: Optional[str] = None
+    taxAddress: Optional[BuyerAddressType] = None
+    buyerRegistrationAddress: Optional[BuyerRegistrationAddressType] = None
 
 class PricingSummaryType(BaseModel):
-    priceSubtotal: Optional[BaseCostType]
-    deliveryCost: Optional[BaseCostType]
-    total: Optional[BaseCostType]
+    priceSubtotal: Optional[BaseCostType] = None
+    deliveryCost: Optional[BaseCostType] = None
+    total: Optional[BaseCostType] = None
 
 class CancelStatusType(BaseModel):
-    cancelState: Optional[str]
-    cancelRequests: Optional[List[dict]]
+    cancelState: Optional[str] = None
+    cancelRequests: Optional[List[dict]] = None
 
 class PaymentSummaryType(BaseModel):
-    totalDueSeller: Optional[BaseCostType]
-    refunds: Optional[List[dict]]
-    payments: Optional[List[dict]]
+    totalDueSeller: Optional[BaseCostType] = None
+    refunds: Optional[List[dict]] = None
+    payments: Optional[List[dict]] = None
 
 class FulfillmentStartInstructionsType(BaseModel):
-    fulfillmentInstructionsType: Optional[str]
-    minEstimatedDeliveryDate: Optional[str]
-    maxEstimatedDeliveryDate: Optional[str]
-    ebaySupportedFulfillment: Optional[bool]
-    shippingStep: Optional[dict]
+    fulfillmentInstructionsType: Optional[str] = None
+    minEstimatedDeliveryDate: Optional[str] = None
+    maxEstimatedDeliveryDate: Optional[str] = None
+    ebaySupportedFulfillment: Optional[bool] = None
+    shippingStep: Optional[dict] = None
 
 class LineItemType(BaseModel):
-    lineItemId: Optional[str]
-    legacyItemId: Optional[str]
-    title: Optional[str]
-    lineItemCost: Optional[BaseCostType]
-    quantity: Optional[int]
-    soldFormat: Optional[str]
-    listingMarketplaceId: Optional[str]
-    purchaseMarketplaceId: Optional[str]
-    lineItemFulfillmentStatus: Optional[str]
-    total: Optional[BaseCostType]
-    deliveryCost: Optional[dict]
-    appliedPromotions: Optional[List[dict]]
-    taxes: Optional[List[dict]]
-    properties: Optional[dict]
-    lineItemFulfillmentInstructions: Optional[dict]
-    itemLocation: Optional[BuyerAddressType]
+    lineItemId: Optional[str] = None
+    legacyItemId: Optional[str] = None
+    title: Optional[str] = None
+    lineItemCost: Optional[BaseCostType] = None
+    quantity: Optional[int] = None
+    soldFormat: Optional[str] = None
+    listingMarketplaceId: Optional[str] = None
+    purchaseMarketplaceId: Optional[str] = None
+    lineItemFulfillmentStatus: Optional[str] = None
+    total: Optional[BaseCostType] = None
+    deliveryCost: Optional[dict] = None
+    appliedPromotions: Optional[List[dict]] = None
+    taxes: Optional[List[dict]] = None
+    properties: Optional[dict] = None
+    lineItemFulfillmentInstructions: Optional[dict] = None
+    itemLocation: Optional[BuyerAddressType] = None
 
 class FulfillmentResponse(BaseModel):
     orderId: Optional[str] = None
@@ -657,13 +659,13 @@ class PaginatedListings(BaseModel):
         )
 
     def __iter__(self):
-        return iter(self.orders)
+        return iter(self.items)
     def __len__(self):
-        return len(self.orders)
+        return len(self.items)
     def __next__(self):
-        return next(iter(self.orders))
-    
-    def __getitem__(self, index: int) -> Optional[FulfillmentResponse]:
-        if self.orders:
-            return self.orders[index]
+        return next(iter(self.items))
+
+    def __getitem__(self, index: int) -> Optional[ItemModel]:
+        if self.items:
+            return self.items[index]
         return None

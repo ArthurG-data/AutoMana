@@ -50,6 +50,9 @@ async def get_order_history(
     )
 
     token = await resolve_token(auth_repository, user_id=user_id, app_code=app_code)
+    env = await auth_repository.get_environment(app_code=app_code)
+    if env:
+        selling_repository.environment = env.lower()
     payload: Dict[str, Any] = {"token": token, "limit": limit, "offset": offset}
     raw = await selling_repository.get_history(payload)
 
