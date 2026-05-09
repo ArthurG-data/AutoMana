@@ -251,3 +251,41 @@ export async function fetchActiveListingsPaginated(
     hasMore,
   }
 }
+
+// ── Listing writes ─────────────────────────────────────────────────────────
+
+export interface ListingItemPayload {
+  title: string
+  startPrice: { currency: string; value: number }
+  quantity: number
+  conditionID: number
+  description?: string
+}
+
+export async function createListing(
+  appCode: string,
+  item: ListingItemPayload,
+): Promise<void> {
+  await apiClient<unknown>(
+    `/integrations/ebay/listing/?app_code=${encodeURIComponent(appCode)}`,
+    {
+      method: 'POST',
+      headers: { 'Idempotency-Key': crypto.randomUUID() },
+      body: JSON.stringify(item),
+    },
+  )
+}
+
+export async function updateListing(
+  appCode: string,
+  itemId: string,
+  item: ListingItemPayload,
+): Promise<void> {
+  await apiClient<unknown>(
+    `/integrations/ebay/listing/${encodeURIComponent(itemId)}?app_code=${encodeURIComponent(appCode)}`,
+    {
+      method: 'PUT',
+      body: JSON.stringify({ itemID: itemId, ...item }),
+    },
+  )
+}
