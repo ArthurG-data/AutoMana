@@ -53,7 +53,7 @@
 
 .summary {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
   gap: 12px;
   background: var(--hd-surface, #111);
   border: 1px solid var(--hd-border, #2a2a2a);
@@ -77,6 +77,11 @@
 
 .summaryValue {
   font-size: 18px;
+  font-weight: 600;
+}
+
+.summaryValueSm {
+  font-size: 13px;
   font-weight: 600;
 }
 

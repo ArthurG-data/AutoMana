@@ -49,7 +49,7 @@ function PriceTable({
           {showSoldDate && <th>Sold</th>}
           {showListedAt && <th>Listed</th>}
           <th>Origin</th>
-          <th>Score</th>
+          <th>Similarity</th>
           <th></th>
         </tr>
       </thead>
@@ -130,6 +130,23 @@ export function MarketComparePanel({ listing, onBack }: MarketComparePanelProps)
     }
   }, [listing.itemId])
 
+  const filteredActive = data
+    ? localOnly
+      ? data.active.filter((r) => r.item_country === 'AU')
+      : data.active
+    : []
+
+  const activeFloor = filteredActive.length > 0
+    ? Math.min(...filteredActive.map((r) => r.price))
+    : null
+
+  const listedDates = filteredActive
+    .map((r) => r.listed_at)
+    .filter((d): d is string => d !== null)
+    .sort()
+  const minListed = listedDates[0] ?? null
+  const maxListed = listedDates[listedDates.length - 1] ?? null
+
   const suggestedPrice = data?.suggested_price ?? null
   const priceColor =
     suggestedPrice == null
@@ -183,8 +200,20 @@ export function MarketComparePanel({ listing, onBack }: MarketComparePanelProps)
             <div className={styles.summaryCell}>
               <span className={styles.summaryLabel}>Active floor</span>
               <span className={styles.summaryValue}>
-                {fmt(data.active_aggregates.min)}
+                {activeFloor != null ? fmt(activeFloor, listing.currency) : '—'}
               </span>
+            </div>
+            <div className={styles.summaryCell}>
+              <span className={styles.summaryLabel}>Listings</span>
+              <span className={styles.summaryValue}>{filteredActive.length}</span>
+            </div>
+            <div className={styles.summaryCell}>
+              <span className={styles.summaryLabel}>Oldest listed</span>
+              <span className={styles.summaryValueSm}>{fmtDate(minListed)}</span>
+            </div>
+            <div className={styles.summaryCell}>
+              <span className={styles.summaryLabel}>Newest listed</span>
+              <span className={styles.summaryValueSm}>{fmtDate(maxListed)}</span>
             </div>
           </div>
 
@@ -198,7 +227,7 @@ export function MarketComparePanel({ listing, onBack }: MarketComparePanelProps)
           <section>
             <div className={styles.sectionHeader}>
               <h3 className={styles.sectionTitle}>
-                Active listings ({data.active_aggregates.count})
+                Active listings ({filteredActive.length})
               </h3>
               <div className={styles.toggle}>
                 <button
@@ -216,7 +245,7 @@ export function MarketComparePanel({ listing, onBack }: MarketComparePanelProps)
               </div>
             </div>
             <PriceTable
-              rows={localOnly ? data.active.filter((r) => r.item_country === 'AU') : data.active}
+              rows={filteredActive}
               showSoldDate={false}
               showListedAt={true}
               ownItemId={listing.itemId}
