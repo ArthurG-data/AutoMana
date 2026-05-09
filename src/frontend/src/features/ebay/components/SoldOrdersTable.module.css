@@ -1,3 +1,40 @@
+/* Filter bar */
+.filterBar {
+  display: flex;
+  gap: 6px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--hd-border, #1a1a1f);
+  background: var(--hd-surface-alt, #090909);
+  flex-wrap: wrap;
+}
+
+.filterChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--hd-border, #1a1a1f);
+  background: transparent;
+  color: var(--hd-sub, #555);
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: color 0.12s, border-color 0.12s, background 0.12s;
+}
+.filterChip:hover { color: var(--hd-text, #e8e8e8); border-color: var(--hd-border-strong, #2a2a32); }
+
+.filterChipActive {
+  background: color-mix(in srgb, var(--hd-accent, #7c6af7) 12%, transparent);
+  border-color: var(--hd-accent, #7c6af7);
+  color: var(--hd-accent, #7c6af7);
+}
+
+.filterChipCount {
+  font-size: 10px;
+  opacity: 0.7;
+}
+
 .table {
   width: 100%;
   border-collapse: collapse;
@@ -14,6 +51,16 @@
   border-bottom: 1px solid var(--hd-border, #1a1a1f);
   background: var(--hd-surface-alt, #090909);
 }
+
+.thSortable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.thSortable:hover { color: var(--hd-text, #e8e8e8); }
+
+.sortArrowInactive { margin-left: 3px; opacity: 0.25; font-size: 9px; }
+.sortArrowActive   { margin-left: 3px; color: var(--hd-accent, #7c6af7); font-size: 9px; }
 
 .row {
   cursor: pointer;
@@ -35,6 +82,7 @@
 .cardMeta  { font-size: 11px; color: var(--hd-sub, #555); margin-top: 2px; }
 
 .priceCell { color: var(--hd-text, #e8e8e8); font-variant-numeric: tabular-nums; }
+.netCell   { color: var(--hd-green, #52c07a); font-variant-numeric: tabular-nums; font-weight: 600; }
 .buyerCell { font-size: 12px; color: var(--hd-sub2, #777); }
 .msgCell   { text-align: center; width: 36px; }
 .dateCell  { font-size: 11px; color: var(--hd-sub, #555); white-space: nowrap; }

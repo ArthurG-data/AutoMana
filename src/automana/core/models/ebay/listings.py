@@ -17,7 +17,7 @@ class SellerInfoType(BaseModel):
 class BaseCostType(BaseModel):
     currencyID: Optional[str] = Field(None, alias="currency")
     text: Optional[str | float] = Field(None, alias="value")
-    model_config = ConfigDict(populate_by_name=True, extra="allow")
+    model_config = ConfigDict(populate_by_name=True, extra="allow", serialize_by_alias=True)
 
 class ReturnPolicyType(BaseModel):
     Description: Optional[str] = Field(None, alias="description")

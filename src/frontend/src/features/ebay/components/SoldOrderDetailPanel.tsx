@@ -130,6 +130,40 @@ export function SoldOrderDetailPanel({ order, onClose, onStatusChange }: Props) 
         </div>
       </div>
 
+      {/* Financials */}
+      <div className={styles.section}>
+        <div className={styles.sectionLabel}>Financials</div>
+        <div className={styles.infoRow}>
+          <span className={styles.infoKey}>Item price</span>
+          <span className={styles.infoVal}>
+            {order.itemSubtotal != null ? `$${order.itemSubtotal.toFixed(2)}` : '—'}
+          </span>
+        </div>
+        <div className={styles.infoRow}>
+          <span className={styles.infoKey}>Shipping (buyer paid)</span>
+          <span className={styles.infoVal}>
+            {order.shippingCollected != null ? `+$${order.shippingCollected.toFixed(2)}` : '—'}
+          </span>
+        </div>
+        <div className={styles.infoRow}>
+          <span className={styles.infoKey}>eBay fee</span>
+          <span className={styles.infoValNeg}>
+            {order.ebayFee != null ? `-$${order.ebayFee.toFixed(2)}` : '—'}
+          </span>
+        </div>
+        <hr className={styles.infoDivider} />
+        <div className={styles.infoRow}>
+          <span className={styles.infoKeyNet}>You receive</span>
+          <span className={styles.infoValNet}>
+            {order.netPayout != null
+              ? `$${order.netPayout.toFixed(2)}${order.currency ? ` ${order.currency}` : ''}`
+              : order.totalAmount != null && order.ebayFee != null
+                ? `~$${(order.totalAmount - order.ebayFee).toFixed(2)}`
+                : '—'}
+          </span>
+        </div>
+      </div>
+
       {/* Message banner */}
       <div className={styles.messageBanner}>
         <span className={styles.messageBannerIcon}>💬</span>

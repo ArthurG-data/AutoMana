@@ -354,9 +354,17 @@ export async function fetchSoldOrders(
   const raw = await apiClient<unknown>(
     `/integrations/ebay/listing/history?app_code=${encodeURIComponent(appCode)}&limit=${limit}&offset=${offset}`
   )
-  const paged = raw as { data?: unknown; pagination?: { has_next?: boolean } }
-  const items = Array.isArray(paged.data) ? (paged.data as Record<string, unknown>[]) : []
-  const hasMore = paged.pagination?.has_next ?? false
+  let items: Record<string, unknown>[]
+  let hasMore: boolean
+  if (Array.isArray(raw)) {
+    // apiClient already unwrapped body.data from the PaginatedResponse wrapper
+    items = raw as Record<string, unknown>[]
+    hasMore = items.length === limit
+  } else {
+    const paged = raw as { data?: unknown; pagination?: { has_next?: boolean } }
+    items = Array.isArray(paged.data) ? (paged.data as Record<string, unknown>[]) : []
+    hasMore = paged.pagination?.has_next ?? (items.length === limit)
+  }
   return {
     orders: items.map((item) => mapRawToSoldOrder(item, appCode, '')),
     hasMore,

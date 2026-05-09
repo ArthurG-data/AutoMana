@@ -18,6 +18,10 @@ function makeOrder(overrides: Partial<SoldOrder> = {}): SoldOrder {
     displayStatus: 'sold',
     appCode: 'myapp',
     appName: 'My App',
+    itemSubtotal: null,
+    shippingCollected: null,
+    ebayFee: null,
+    netPayout: null,
     ...overrides,
   }
 }
