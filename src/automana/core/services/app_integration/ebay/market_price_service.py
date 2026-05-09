@@ -50,12 +50,22 @@ def _browse_items_to_price_points(raw_data: dict) -> list[PricePoint]:
             price = float(price_block.get("value", 0))
         except (TypeError, ValueError):
             price = 0.0
+
+        shipping_cost: Optional[float] = None
+        shipping_options = item.get("shippingOptions", [])
+        if shipping_options:
+            try:
+                shipping_cost = float(shipping_options[0].get("shippingCost", {}).get("value", 0))
+            except (TypeError, ValueError):
+                shipping_cost = None
+
         points.append(
             PricePoint(
                 item_id=item.get("itemId", ""),
                 title=item.get("title", ""),
                 price=price,
                 currency=price_block.get("currency", ""),
+                shipping_cost=shipping_cost,
                 condition=item.get("condition"),
                 url=item.get("itemWebUrl"),
                 sold_date=None,

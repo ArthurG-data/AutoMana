@@ -37,6 +37,8 @@ function PriceTable({
         <tr>
           <th>Title</th>
           <th>Price</th>
+          <th>Shipping</th>
+          <th>Total</th>
           <th>Condition</th>
           {showSoldDate && <th>Sold date</th>}
           <th>Score</th>
@@ -44,29 +46,38 @@ function PriceTable({
         </tr>
       </thead>
       <tbody>
-        {rows.map((r) => (
-          <tr key={r.item_id}>
-            <td className={styles.titleCell}>{r.title}</td>
-            <td className={styles.priceCell}>{fmt(r.price, r.currency)}</td>
-            <td>{r.condition ?? '—'}</td>
-            {showSoldDate && <td>{fmtDate(r.sold_date)}</td>}
-            <td>{(r.relevance_score * 100).toFixed(0)}%</td>
-            <td>
-              {r.url ? (
-                <a
-                  href={r.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className={styles.link}
-                >
-                  View
-                </a>
-              ) : (
-                '—'
-              )}
-            </td>
-          </tr>
-        ))}
+        {rows.map((r) => {
+          const total = r.shipping_cost != null ? r.price + r.shipping_cost : null
+          return (
+            <tr key={r.item_id}>
+              <td className={styles.titleCell}>{r.title}</td>
+              <td className={styles.priceCell}>{fmt(r.price, r.currency)}</td>
+              <td className={styles.shippingCell}>
+                {r.shipping_cost != null ? fmt(r.shipping_cost, r.currency) : '—'}
+              </td>
+              <td className={styles.totalCell}>
+                {total != null ? fmt(total, r.currency) : '—'}
+              </td>
+              <td>{r.condition ?? '—'}</td>
+              {showSoldDate && <td>{fmtDate(r.sold_date)}</td>}
+              <td>{(r.relevance_score * 100).toFixed(0)}%</td>
+              <td>
+                {r.url ? (
+                  <a
+                    href={r.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={styles.link}
+                  >
+                    View
+                  </a>
+                ) : (
+                  '—'
+                )}
+              </td>
+            </tr>
+          )
+        })}
       </tbody>
     </table>
   )

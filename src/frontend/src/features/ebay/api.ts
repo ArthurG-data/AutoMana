@@ -419,6 +419,7 @@ export interface PricePoint {
   title: string
   price: number
   currency: string
+  shipping_cost: number | null
   condition: string | null
   url: string | null
   sold_date: string | null

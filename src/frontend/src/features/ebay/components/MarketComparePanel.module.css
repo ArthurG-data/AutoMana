@@ -124,6 +124,17 @@
   white-space: nowrap;
 }
 
+.shippingCell {
+  white-space: nowrap;
+  color: var(--hd-muted, #888);
+}
+
+.totalCell {
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--hd-accent);
+}
+
 .link {
   color: var(--hd-accent);
   text-decoration: none;

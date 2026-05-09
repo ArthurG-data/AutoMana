@@ -9,6 +9,7 @@ class PricePoint(BaseModel):
     title: str
     price: float
     currency: str
+    shipping_cost: Optional[float] = None
     condition: Optional[str] = None
     url: Optional[str] = None
     sold_date: Optional[datetime] = None
