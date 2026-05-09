@@ -14,7 +14,6 @@ from automana.core.services.app_integration.ebay.market_price_scorer import (
     build_query_string,
     score_title,
 )
-from automana.core.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -105,10 +104,10 @@ async def fetch_card_market_price(
     match_threshold: float = 0.6,
     **kwargs,
 ) -> CardMarketData:
-    settings = get_settings()
-    if not settings.ebay_app_id:
-        raise ValueError("ebay_app_id is not configured; cannot call Finding API")
-    app_id = settings.ebay_app_id
+    app_settings = await auth_repository.get_app_settings(app_code=app_code, user_id=user_id)
+    if not app_settings:
+        raise ValueError(f"No eBay app found for app_code={app_code!r}")
+    app_id = app_settings["app_id"]
 
     token = await resolve_token(auth_repository, user_id=user_id, app_code=app_code)
 

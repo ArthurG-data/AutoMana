@@ -38,5 +38,5 @@ async def get_market_price(
             match_threshold=match_threshold,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=401, detail=str(exc))
+        raise HTTPException(status_code=400, detail=str(exc))
     return result
