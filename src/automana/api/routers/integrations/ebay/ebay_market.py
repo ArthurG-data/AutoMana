@@ -21,7 +21,7 @@ async def get_market_price(
     frame: Optional[str] = Query(None, description="Frame variant: showcase, extended_art, borderless, normal"),
     days_back: int = Query(30, ge=1, le=90, description="Lookback window for sold items"),
     limit: int = Query(50, ge=1, le=200, description="Max results per source"),
-    match_threshold: float = Query(0.6, ge=0.0, le=1.0, description="Minimum relevance score (0–1)"),
+    match_threshold: float = Query(0.3, ge=0.0, le=1.0, description="Minimum relevance score (0–1)"),
 ) -> CardMarketData:
     try:
         result: CardMarketData = await service_manager.execute_service(

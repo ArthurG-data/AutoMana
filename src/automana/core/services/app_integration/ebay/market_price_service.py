@@ -101,7 +101,7 @@ async def fetch_card_market_price(
     frame: Optional[str] = None,
     days_back: int = 30,
     limit: int = 50,
-    match_threshold: float = 0.6,
+    match_threshold: float = 0.3,
     **kwargs,
 ) -> CardMarketData:
     app_settings = await auth_repository.get_app_settings(app_code=app_code, user_id=user_id)
@@ -114,8 +114,12 @@ async def fetch_card_market_price(
     raw_env = await auth_repository.get_environment(app_code=app_code)
     if raw_env:
         env = raw_env.lower()
-        ebay_finding_repository.environment = env
-        search_repository.environment = env
+        if env != ebay_finding_repository.environment:
+            ebay_finding_repository.environment = env
+            ebay_finding_repository.base_url = ebay_finding_repository._get_base_url()
+        if env != search_repository.environment:
+            search_repository.environment = env
+            search_repository.base_url = search_repository._get_base_url()
 
     logger.info(
         "ebay_fetch_card_market_price_requested",
