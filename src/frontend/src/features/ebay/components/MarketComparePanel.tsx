@@ -219,16 +219,6 @@ export function MarketComparePanel({ listing, onBack }: MarketComparePanelProps)
               <span className={styles.summaryLabel}>Listings</span>
               <span className={styles.summaryValue}>{filteredActive.length}</span>
             </div>
-            <div className={styles.summaryCell}>
-              <span className={styles.summaryLabel}>Listed</span>
-              <span className={styles.summaryValueSm}>
-                {minListed
-                  ? listedSame
-                    ? fmtDate(minListed)
-                    : `${fmtDate(minListed)} – ${fmtDate(maxListed)}`
-                  : '—'}
-              </span>
-            </div>
           </div>
 
           <section>
