@@ -202,4 +202,13 @@ describe('ListingsTable — row selection', () => {
     await userEvent.click(screen.getByTitle('View on eBay'))
     expect(onRowClick).not.toHaveBeenCalled()
   })
+
+  it('pressing Enter on the eBay link does not fire onRowClick', async () => {
+    const onRowClick = vi.fn()
+    const listing = makeListing({ itemId: 'abc', viewItemUrl: 'https://www.ebay.com.au/itm/123' })
+    render(<ListingsTable listings={[listing]} onRowClick={onRowClick} />)
+    screen.getByTitle('View on eBay').focus()
+    await userEvent.keyboard('{Enter}')
+    expect(onRowClick).not.toHaveBeenCalled()
+  })
 })

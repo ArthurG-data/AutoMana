@@ -180,6 +180,7 @@ export function ListingsTable({ listings, isLoading = false, selectedId, onRowCl
                     role: 'button',
                     'aria-pressed': listing.itemId === selectedId,
                     onKeyDown: (e: React.KeyboardEvent) => {
+                      if (e.target !== e.currentTarget) return
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault()
                         onRowClick(listing.itemId)
