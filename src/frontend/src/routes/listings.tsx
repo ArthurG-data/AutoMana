@@ -1,14 +1,17 @@
 // src/frontend/src/routes/listings.tsx
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { AppShell } from '../components/layout/AppShell'
 import { TopBar } from '../components/layout/TopBar'
 import { Button } from '../components/ui/Button'
 import { Icon } from '../components/design-system/Icon'
 import { ListingsTable } from '../features/ebay/components/ListingsTable'
+import { ListingDetailPanel } from '../features/ebay/components/ListingDetailPanel'
+import { ListingFormPanel, CONDITION_OPTIONS, type ListingFormValues } from '../features/ebay/components/ListingFormPanel'
 import {
   fetchUserApps,
   fetchActiveListingsPaginated,
+  updateListing,
   type EbayAppSummary,
 } from '../features/ebay/api'
 import { enrichWithCatalog } from '../features/ebay/lib/catalogEnrich'
@@ -25,6 +28,7 @@ type Tab = 'active' | 'sold' | 'saved'
 const LIMIT = 25
 
 export function ListingsPage() {
+  const navigate = useNavigate()
   const [tab, setTab] = useState<Tab>('active')
   const [listings, setListings] = useState<EbayLiveListing[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -32,7 +36,14 @@ export function ListingsPage() {
   const [hasMore, setHasMore] = useState(false)
   const [failedApps, setFailedApps] = useState<string[]>([])
   const [dismissedApps, setDismissedApps] = useState<Set<string>>(new Set())
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [panelMode, setPanelMode] = useState<'detail' | 'edit'>('detail')
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [productionApps, setProductionApps] = useState<EbayAppSummary[]>([])
   const storeSet = useListingsStore((s) => s.setListings)
+  const selectedListing = useListingsStore((s) => s.getById(selectedId ?? ''))
+  const storeUpdateListing = useListingsStore((s) => s.updateListing)
 
   // Pagination state in refs — updates don't need to trigger re-renders
   const appsRef = useRef<EbayAppSummary[]>([])
@@ -50,6 +61,7 @@ export function ListingsPage() {
         const apps = await fetchUserApps()
         const productionApps = apps.filter((a) => a.environment === 'PRODUCTION')
         appsRef.current = productionApps
+        setProductionApps(productionApps)
 
         const results = await Promise.allSettled(
           productionApps.map((app) =>
@@ -151,6 +163,40 @@ export function ListingsPage() {
     setIsLoadingMore(false)
   }, [storeSet])
 
+  async function handleUpdateListing(values: ListingFormValues, appCode: string) {
+    if (!selectedId || !selectedListing) return
+    setIsSaving(true)
+    setSaveError(null)
+    try {
+      await updateListing(appCode, selectedId, {
+        title: values.title,
+        startPrice: { currency: 'AUD', value: values.price },
+        quantity: values.quantity,
+        conditionID: values.conditionId,
+        ...(values.description ? { description: values.description } : {}),
+      })
+      const conditionLabel =
+        CONDITION_OPTIONS.find((o) => o.value === values.conditionId)?.label ?? ''
+      const patch = {
+        price: values.price,
+        title: values.title,
+        conditionId: values.conditionId,
+        conditionLabel,
+      }
+      storeUpdateListing(selectedId, patch)
+      const updated = listingsRef.current.map((l) =>
+        l.itemId === selectedId ? { ...l, ...patch } : l
+      )
+      listingsRef.current = updated
+      setListings(updated)
+      setPanelMode('detail')
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to update listing')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   // Set up IntersectionObserver once the sentinel is in the DOM (after initial load).
   useEffect(() => {
     if (isLoading || tab !== 'active') return
@@ -177,6 +223,7 @@ export function ListingsPage() {
               variant="accent"
               size="sm"
               icon={<Icon kind="plus" size={12} color="currentColor" />}
+              onClick={() => navigate({ to: '/listings/new' })}
             >
               New listing
             </Button>
@@ -219,22 +266,62 @@ export function ListingsPage() {
 
         {/* ── Content ───────────────────────────────────────────── */}
         {tab === 'active' && (
-          <>
-            <ListingsTable listings={listings} isLoading={isLoading} />
-            {!isLoading && (
-              <>
-                <div ref={sentinelRef} style={{ height: 1 }} aria-hidden />
-                {isLoadingMore && (
-                  <div className={styles.loadingMore}>Loading more listings…</div>
+          <div className={selectedId ? styles.withPanel : undefined}>
+            <div>
+              <ListingsTable
+                listings={listings}
+                isLoading={isLoading}
+                selectedId={selectedId ?? undefined}
+                onRowClick={(id) => {
+                  setSelectedId(id)
+                  setPanelMode('detail')
+                  setSaveError(null)
+                }}
+              />
+              {!isLoading && (
+                <>
+                  <div ref={sentinelRef} style={{ height: 1 }} aria-hidden />
+                  {isLoadingMore && (
+                    <div className={styles.loadingMore}>Loading more listings…</div>
+                  )}
+                  {!hasMore && listings.length > 0 && !isLoadingMore && (
+                    <div className={styles.endOfList}>
+                      {listings.length} listing{listings.length !== 1 ? 's' : ''} total
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {selectedId && selectedListing && (
+              <div>
+                {panelMode === 'detail' ? (
+                  <ListingDetailPanel
+                    listing={selectedListing}
+                    onEdit={() => setPanelMode('edit')}
+                    onClose={() => { setSelectedId(null); setPanelMode('detail') }}
+                  />
+                ) : (
+                  <ListingFormPanel
+                    mode="edit"
+                    initialValues={{
+                      title: selectedListing.title,
+                      price: selectedListing.price,
+                      quantity: selectedListing.quantity ?? 1,
+                      conditionId: selectedListing.conditionId ?? 3000,
+                      description: '',
+                    }}
+                    availableApps={productionApps}
+                    appCode={selectedListing.appCode}
+                    onSave={handleUpdateListing}
+                    onCancel={() => setPanelMode('detail')}
+                    isSaving={isSaving}
+                    error={saveError}
+                  />
                 )}
-                {!hasMore && listings.length > 0 && !isLoadingMore && (
-                  <div className={styles.endOfList}>
-                    {listings.length} listing{listings.length !== 1 ? 's' : ''} total
-                  </div>
-                )}
-              </>
+              </div>
             )}
-          </>
+          </div>
         )}
 
         {tab === 'sold' && (

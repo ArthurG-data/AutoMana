@@ -1,0 +1,138 @@
+/* src/frontend/src/features/ebay/components/ListingDetailPanel.module.css */
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: var(--hd-surface);
+  border: 1px solid var(--hd-border);
+  border-radius: 12px;
+  padding: 20px;
+  position: sticky;
+  top: 24px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--hd-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.closeBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--hd-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  transition: color 0.1s;
+}
+.closeBtn:hover { color: var(--hd-text); }
+
+.image {
+  width: 100%;
+  border-radius: 8px;
+  object-fit: contain;
+  max-height: 180px;
+}
+
+.imagePlaceholder {
+  width: 100%;
+  aspect-ratio: 5 / 7;
+  max-height: 180px;
+  background: var(--hd-surface-alt);
+  border: 1px solid var(--hd-border);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.placeholderName {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--hd-text);
+  text-align: center;
+  padding: 0 8px;
+}
+
+.placeholderSet {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--hd-sub);
+}
+
+.fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--hd-sub);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  white-space: nowrap;
+}
+
+.value {
+  font-size: 12px;
+  color: var(--hd-text);
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.valueAccent {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--hd-accent);
+  text-align: right;
+}
+
+.link {
+  font-size: 12px;
+  color: var(--hd-accent);
+  text-decoration: none;
+}
+.link:hover { text-decoration: underline; }
+
+.editBtn {
+  width: 100%;
+  padding: 10px 16px;
+  background: var(--hd-accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.12s;
+}
+.editBtn:hover { opacity: 0.88; }

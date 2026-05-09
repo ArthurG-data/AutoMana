@@ -8,6 +8,8 @@ import styles from './ListingsTable.module.css'
 interface ListingsTableProps {
   listings: EbayLiveListing[]
   isLoading?: boolean
+  selectedId?: string
+  onRowClick?: (id: string) => void
 }
 
 type SortKey = 'cardName' | 'setCode' | 'appName' | 'conditionLabel' | 'finish' | 'style' | 'price' | 'daysListed' | 'watchCount'
@@ -24,7 +26,7 @@ function SortIndicator({ active, dir }: { active: boolean; dir: SortDir }) {
   )
 }
 
-export function ListingsTable({ listings, isLoading = false }: ListingsTableProps) {
+export function ListingsTable({ listings, isLoading = false, selectedId, onRowClick }: ListingsTableProps) {
   const [filter, setFilter] = useState('')
   const [sortKey, setSortKey] = useState<SortKey | null>(null)
   const [sortDir, setSortDir] = useState<SortDir>('asc')
@@ -165,7 +167,27 @@ export function ListingsTable({ listings, isLoading = false }: ListingsTableProp
             {!isLoading && visible.map((listing) => {
               const appColor = appColors[listing.appCode] ?? APP_PALETTE[0]
               return (
-                <tr key={listing.itemId} className={styles.row}>
+                <tr
+                  key={listing.itemId}
+                  className={[
+                    styles.row,
+                    listing.itemId === selectedId ? styles.rowSelected : '',
+                  ].filter(Boolean).join(' ')}
+                  onClick={() => onRowClick?.(listing.itemId)}
+                  style={{ cursor: onRowClick ? 'pointer' : 'default' }}
+                  {...(onRowClick ? {
+                    tabIndex: 0,
+                    role: 'button',
+                    'aria-pressed': listing.itemId === selectedId,
+                    onKeyDown: (e: React.KeyboardEvent) => {
+                      if (e.target !== e.currentTarget) return
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        onRowClick(listing.itemId)
+                      }
+                    },
+                  } : {})}
+                >
                   {/* Card name + thumbnail */}
                   <td>
                     <div className={styles.nameCell}>
@@ -178,19 +200,24 @@ export function ListingsTable({ listings, isLoading = false }: ListingsTableProp
                         />
                       )}
                       <div className={styles.nameText}>
-                        <Link
-                          to="/listings_/$id"
-                          params={{ id: listing.itemId }}
-                          className={styles.cardName}
-                        >
-                          {listing.cardName}
-                        </Link>
+                        {onRowClick ? (
+                          <span className={styles.cardName}>{listing.cardName}</span>
+                        ) : (
+                          <Link
+                            to="/listings_/$id"
+                            params={{ id: listing.itemId }}
+                            className={styles.cardName}
+                          >
+                            {listing.cardName}
+                          </Link>
+                        )}
                         <a
                           href={listing.viewItemUrl}
                           target="_blank"
                           rel="noopener noreferrer"
                           className={styles.ebayLink}
                           title="View on eBay"
+                          onClick={(e) => e.stopPropagation()}
                         >
                           eBay ↗
                         </a>

@@ -1,0 +1,129 @@
+/* src/frontend/src/features/ebay/components/ListingFormPanel.module.css */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: var(--hd-surface);
+  border: 1px solid var(--hd-border);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--hd-text);
+}
+
+.fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 80px;
+  gap: 10px;
+}
+
+.label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--hd-sub);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.input,
+.select,
+.textarea {
+  background: var(--hd-bg);
+  border: 1px solid var(--hd-border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 13px;
+  color: var(--hd-text);
+  font-family: var(--font-sans);
+  width: 100%;
+  box-sizing: border-box;
+  transition: border-color 0.12s;
+}
+
+.input:focus,
+.select:focus,
+.textarea:focus {
+  outline: none;
+  border-color: var(--hd-accent);
+}
+
+.inputSmall {
+  composes: input;
+  text-align: center;
+}
+
+.textarea {
+  resize: vertical;
+  min-height: 72px;
+}
+
+.error {
+  padding: 8px 12px;
+  background: rgba(227, 94, 108, 0.08);
+  border: 1px solid rgba(227, 94, 108, 0.25);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--hd-red);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.cancelBtn {
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid var(--hd-border);
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--hd-muted);
+  cursor: pointer;
+  transition: color 0.1s, border-color 0.1s;
+}
+.cancelBtn:hover {
+  color: var(--hd-text);
+  border-color: var(--hd-text);
+}
+
+.saveBtn {
+  padding: 8px 18px;
+  background: var(--hd-accent);
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #fff;
+  cursor: pointer;
+  transition: opacity 0.12s;
+}
+.saveBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.saveBtn:not(:disabled):hover {
+  opacity: 0.88;
+}

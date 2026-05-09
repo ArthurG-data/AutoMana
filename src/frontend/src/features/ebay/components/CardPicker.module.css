@@ -1,0 +1,38 @@
+/* src/frontend/src/features/ebay/components/CardPicker.module.css */
+.picker {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  border-right: 1px solid var(--hd-border);
+}
+
+.searchBar {
+  padding: 16px;
+  border-bottom: 1px solid var(--hd-border);
+  background: var(--hd-surface);
+}
+
+.searchInput {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--hd-bg);
+  border: 1px solid var(--hd-border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--hd-text);
+  font-family: var(--font-sans);
+  transition: border-color 0.12s;
+}
+.searchInput:focus {
+  outline: none;
+  border-color: var(--hd-accent);
+}
+
+.loading {
+  padding: 24px;
+  font-size: 13px;
+  color: var(--hd-muted);
+  text-align: center;
+}

@@ -3,10 +3,16 @@ import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import React from 'react'
 
+vi.mock('@tanstack/react-router', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@tanstack/react-router')>()
+  return { ...actual, useNavigate: () => vi.fn() }
+})
+
 vi.mock('../../features/ebay/api', () => ({
   fetchUserApps: vi.fn(),
   fetchActiveListings: vi.fn(),
   fetchActiveListingsPaginated: vi.fn(),
+  updateListing: vi.fn(),
 }))
 
 vi.mock('../../features/ebay/lib/catalogEnrich', () => ({
@@ -22,19 +28,55 @@ vi.mock('../../components/layout/TopBar', () => ({
 }))
 
 vi.mock('../../features/ebay/components/ListingsTable', () => ({
-  ListingsTable: ({ listings, isLoading }: { listings: { appName: string }[]; isLoading?: boolean }) => (
+  ListingsTable: ({
+    listings,
+    isLoading,
+    onRowClick,
+  }: {
+    listings: { appName: string; itemId: string }[]
+    isLoading?: boolean
+    onRowClick?: (id: string) => void
+  }) => (
     <div
       data-testid="listings-table"
       data-loading={String(isLoading)}
       data-count={listings.length}
       data-app-names={listings.map((l) => l.appName).join(',')}
+      onClick={() => listings[0] && onRowClick?.(listings[0].itemId)}
     />
+  ),
+}))
+
+vi.mock('../../features/ebay/components/ListingDetailPanel', () => ({
+  ListingDetailPanel: ({
+    listing,
+    onEdit,
+    onClose,
+  }: {
+    listing: { cardName: string }
+    onEdit: () => void
+    onClose: () => void
+  }) => (
+    <div data-testid="detail-panel">
+      <span>{listing.cardName}</span>
+      <button onClick={onEdit}>Edit listing</button>
+      <button onClick={onClose}>Close panel</button>
+    </div>
+  ),
+}))
+
+vi.mock('../../features/ebay/components/ListingFormPanel', () => ({
+  ListingFormPanel: ({ onCancel }: { onCancel: () => void }) => (
+    <div data-testid="form-panel">
+      <button onClick={onCancel}>Cancel</button>
+    </div>
   ),
 }))
 
 import { fetchUserApps, fetchActiveListingsPaginated } from '../../features/ebay/api'
 import type { EbayAppSummary } from '../../features/ebay/api'
 import type { EbayLiveListing } from '../../features/ebay/mockListings'
+import { useListingsStore } from '../../store/listings'
 import { ListingsPage } from '../listings'
 
 const mockFetchUserApps = vi.mocked(fetchUserApps)
@@ -86,6 +128,10 @@ function pagedResult(listings: EbayLiveListing[], hasMore = false) {
 function renderListingsPage() {
   return render(<ListingsPage />)
 }
+
+beforeEach(() => {
+  useListingsStore.setState({ listings: [] })
+})
 
 describe('ListingsPage Active tab', () => {
   beforeEach(() => {
@@ -202,5 +248,49 @@ describe('ListingsPage Active tab', () => {
     await waitFor(() => {
       expect(mockFetchActiveListingsPaginated).not.toHaveBeenCalled()
     })
+  })
+})
+
+describe('ListingsPage — split-panel edit', () => {
+  beforeEach(() => {
+    mockFetchUserApps.mockResolvedValue([makeApp()])
+    mockFetchActiveListingsPaginated.mockResolvedValue(
+      pagedResult([makeListing({ itemId: 'l1', cardName: 'Ragavan' })])
+    )
+  })
+
+  it('shows detail panel after clicking a row', async () => {
+    render(<ListingsPage />)
+    await waitFor(() => expect(screen.getByTestId('listings-table')).toBeInTheDocument())
+
+    useListingsStore.getState().setListings([makeListing({ itemId: 'l1', cardName: 'Ragavan' })])
+
+    await userEvent.click(screen.getByTestId('listings-table'))
+    await waitFor(() => expect(screen.getByTestId('detail-panel')).toBeInTheDocument())
+  })
+
+  it('switches to form panel when Edit listing is clicked', async () => {
+    render(<ListingsPage />)
+    await waitFor(() => expect(screen.getByTestId('listings-table')).toBeInTheDocument())
+
+    useListingsStore.getState().setListings([makeListing({ itemId: 'l1', cardName: 'Ragavan' })])
+
+    await userEvent.click(screen.getByTestId('listings-table'))
+    await waitFor(() => screen.getByTestId('detail-panel'))
+    await userEvent.click(screen.getByRole('button', { name: /edit listing/i }))
+    expect(screen.getByTestId('form-panel')).toBeInTheDocument()
+  })
+
+  it('returns to detail panel when Cancel is clicked in form', async () => {
+    render(<ListingsPage />)
+    await waitFor(() => expect(screen.getByTestId('listings-table')).toBeInTheDocument())
+
+    useListingsStore.getState().setListings([makeListing({ itemId: 'l1', cardName: 'Ragavan' })])
+
+    await userEvent.click(screen.getByTestId('listings-table'))
+    await waitFor(() => screen.getByTestId('detail-panel'))
+    await userEvent.click(screen.getByRole('button', { name: /edit listing/i }))
+    await userEvent.click(screen.getByRole('button', { name: /cancel/i }))
+    expect(screen.getByTestId('detail-panel')).toBeInTheDocument()
   })
 })

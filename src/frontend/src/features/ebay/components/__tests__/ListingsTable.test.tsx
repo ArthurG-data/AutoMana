@@ -1,4 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi } from 'vitest'
 import { ListingsTable } from '../ListingsTable'
 import type { EbayLiveListing } from '../../mockListings'
@@ -148,5 +149,66 @@ describe('ListingsTable', () => {
     const cells = screen.getAllByText(/^\$\d+\.00$/)
     expect(cells[0].textContent).toBe('$100.00')
     expect(cells[1].textContent).toBe('$10.00')
+  })
+})
+
+describe('ListingsTable — row selection', () => {
+  it('calls onRowClick with the listing itemId when a row is clicked', async () => {
+    const onRowClick = vi.fn()
+    const listing = makeListing({ itemId: 'abc123' })
+    render(
+      <ListingsTable
+        listings={[listing]}
+        isLoading={false}
+        onRowClick={onRowClick}
+      />
+    )
+    const rows = document.querySelectorAll('tbody tr')
+    await userEvent.click(rows[0])
+    expect(onRowClick).toHaveBeenCalledWith('abc123')
+  })
+
+  it('adds a selected style class to the row matching selectedId', () => {
+    const listing = makeListing({ itemId: 'sel1' })
+    render(
+      <ListingsTable
+        listings={[listing]}
+        isLoading={false}
+        selectedId="sel1"
+        onRowClick={vi.fn()}
+      />
+    )
+    const rows = document.querySelectorAll('tbody tr')
+    expect(rows[0].className).toMatch(/rowSelected/)
+  })
+
+  it('renders card name as plain text (not a link) when onRowClick is provided', () => {
+    const listing = makeListing({ itemId: 'l1', cardName: 'Ragavan' })
+    render(
+      <ListingsTable
+        listings={[listing]}
+        isLoading={false}
+        onRowClick={vi.fn()}
+      />
+    )
+    expect(screen.queryByRole('link', { name: /ragavan/i })).toBeNull()
+    expect(screen.getByText('Ragavan')).toBeInTheDocument()
+  })
+
+  it('clicking the eBay link does not fire onRowClick', async () => {
+    const onRowClick = vi.fn()
+    const listing = makeListing({ itemId: 'abc', viewItemUrl: 'https://www.ebay.com.au/itm/123' })
+    render(<ListingsTable listings={[listing]} onRowClick={onRowClick} />)
+    await userEvent.click(screen.getByTitle('View on eBay'))
+    expect(onRowClick).not.toHaveBeenCalled()
+  })
+
+  it('pressing Enter on the eBay link does not fire onRowClick', async () => {
+    const onRowClick = vi.fn()
+    const listing = makeListing({ itemId: 'abc', viewItemUrl: 'https://www.ebay.com.au/itm/123' })
+    render(<ListingsTable listings={[listing]} onRowClick={onRowClick} />)
+    screen.getByTitle('View on eBay').focus()
+    await userEvent.keyboard('{Enter}')
+    expect(onRowClick).not.toHaveBeenCalled()
   })
 })

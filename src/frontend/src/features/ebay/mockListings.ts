@@ -341,6 +341,8 @@ export interface EbayLiveListing {
   price: number
   currency: string
   conditionLabel: string
+  conditionId?: number
+  quantity?: number
   finish: string
   style: string
   daysListed: number

@@ -12,6 +12,8 @@ interface SearchResultsProps {
   fetchNextPage: () => void
   hasNextPage?: boolean
   isFetchingNextPage?: boolean
+  onSelect?: (card: CardSummary) => void
+  selectedId?: string
 }
 
 export function SearchResults({
@@ -20,6 +22,8 @@ export function SearchResults({
   fetchNextPage,
   hasNextPage,
   isFetchingNextPage,
+  onSelect,
+  selectedId,
 }: SearchResultsProps) {
   const navigate = useNavigate()
   const lastCardRef = useRef<HTMLButtonElement>(null)
@@ -54,8 +58,15 @@ export function SearchResults({
             <button
               key={card.card_version_id}
               ref={isLastCard ? lastCardRef : null}
-              className={styles.card}
-              onClick={() => navigate({ to: '/cards/$id', params: { id: card.card_version_id } })}
+              className={[
+                styles.card,
+                card.card_version_id === selectedId ? styles.cardSelected : '',
+              ].filter(Boolean).join(' ')}
+              onClick={() =>
+                onSelect
+                  ? onSelect(card)
+                  : navigate({ to: '/cards/$id', params: { id: card.card_version_id } })
+              }
             >
               <CardArt
                 name={card.card_name}

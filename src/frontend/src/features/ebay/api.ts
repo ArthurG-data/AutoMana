@@ -110,6 +110,7 @@ interface RawEbayItem {
   conditionDisplayName?: string | null
   pictureDetails?: { GalleryURL?: string | string[] } | null
   listingDetails?: { viewItemUrl?: string | null; startTime?: string | null } | null
+  quantity?: number | null
   itemSpecifics?: {
     NameValueList?:
       | Array<{ Name: string; Value: string | string[] }>
@@ -198,6 +199,8 @@ function mapToLiveListing(raw: RawEbayItem): Omit<EbayLiveListing, 'appCode' | '
       raw.conditionDisplayName ??
       raw.conditionDescription ??
       ebayConditionLabel(raw.conditionID),
+    conditionId: raw.conditionID ?? undefined,
+    quantity: raw.quantity ?? undefined,
     // ItemSpecifics is the primary source; fall back to title-extracted value.
     finish: getFinish(raw.itemSpecifics) || titleFinish || 'Regular',
     style: getStyle(raw.itemSpecifics) || titleStyle,
@@ -250,4 +253,42 @@ export async function fetchActiveListingsPaginated(
     items: items.map((item) => ({ ...mapToLiveListing(item), appCode, appName: '' })),
     hasMore,
   }
+}
+
+// ── Listing writes ─────────────────────────────────────────────────────────
+
+export interface ListingItemPayload {
+  title: string
+  startPrice: { currency: string; value: number }
+  quantity: number
+  conditionID: number
+  description?: string
+}
+
+export async function createListing(
+  appCode: string,
+  item: ListingItemPayload,
+): Promise<void> {
+  await apiClient<unknown>(
+    `/integrations/ebay/listing/?app_code=${encodeURIComponent(appCode)}`,
+    {
+      method: 'POST',
+      headers: { 'Idempotency-Key': crypto.randomUUID() },
+      body: JSON.stringify(item),
+    },
+  )
+}
+
+export async function updateListing(
+  appCode: string,
+  itemId: string,
+  item: ListingItemPayload,
+): Promise<void> {
+  await apiClient<unknown>(
+    `/integrations/ebay/listing/${encodeURIComponent(itemId)}?app_code=${encodeURIComponent(appCode)}`,
+    {
+      method: 'PUT',
+      body: JSON.stringify({ itemID: itemId, ...item }),
+    },
+  )
 }
