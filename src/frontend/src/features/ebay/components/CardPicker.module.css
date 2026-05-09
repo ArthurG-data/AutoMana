@@ -2,7 +2,6 @@
 .picker {
   display: flex;
   flex-direction: column;
-  gap: 0;
   height: 100%;
   overflow: hidden;
   border-right: 1px solid var(--hd-border);

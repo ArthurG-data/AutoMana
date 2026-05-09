@@ -1,5 +1,5 @@
 // src/frontend/src/features/ebay/components/CardPicker.tsx
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { cardInfiniteSearchQueryOptions } from '../../cards/api'
 import { SearchResults } from '../../cards/components/SearchResults'
@@ -13,9 +13,15 @@ interface CardPickerProps {
 
 export function CardPicker({ onSelect, selectedId }: CardPickerProps) {
   const [q, setQ] = useState('')
+  const [debouncedQ, setDebouncedQ] = useState('')
+
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedQ(q), 300)
+    return () => clearTimeout(id)
+  }, [q])
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =
-    useInfiniteQuery(cardInfiniteSearchQueryOptions({ q: q || undefined }))
+    useInfiniteQuery(cardInfiniteSearchQueryOptions({ q: debouncedQ || undefined }))
 
   const cards = data?.pages.flatMap((p) => p.cards) ?? []
   const total = data?.pages[0]?.pagination?.total_count ?? cards.length
