@@ -1,4 +1,6 @@
-﻿from uuid import UUID
+﻿from __future__ import annotations
+
+from uuid import UUID
 import logging
 from automana.core.repositories.abstract_repositories.AbstractDBRepository import AbstractRepository
 from automana.core.repositories.app_integration.ebay import app_queries
@@ -81,3 +83,25 @@ class EbayAppRepository(AbstractRepository):
 
     async def list(self):
         raise NotImplementedError("Method 'list' is not implemented in EbayAccountRepository")
+
+    async def get_order_statuses(
+        self, app_code: str, order_ids: list[str]
+    ) -> dict[str, dict]:
+        rows = await self.execute_query(
+            app_queries.get_order_statuses_query, (app_code, order_ids)
+        )
+        return {row["order_id"]: dict(row) for row in (rows or [])}
+
+    async def upsert_order_status(
+        self,
+        order_id: str,
+        app_code: str,
+        local_status: str,
+        tracking_number: str | None = None,
+        carrier_code: str | None = None,
+        shipped_at=None,
+    ) -> None:
+        await self.execute_command(
+            app_queries.upsert_order_status_query,
+            (order_id, app_code, local_status, tracking_number, carrier_code, shipped_at),
+        )
