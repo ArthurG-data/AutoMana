@@ -1,5 +1,6 @@
 import { apiClient, ApiError } from '../../lib/apiClient'
 import { parseCardTitle, type EbayLiveListing } from './mockListings'
+import { mapRawToSoldOrder, type SoldOrder } from './soldOrders'
 
 export interface EbayScopeItem {
   scope_url: string
@@ -341,4 +342,72 @@ export async function uploadListingPicture(
   const url = body?.data?.url ?? body?.url
   if (!url) throw new ApiError('No URL returned from picture upload', 200)
   return { url }
+}
+
+// ── Sold orders ────────────────────────────────────────────────────────────
+
+export async function fetchSoldOrders(
+  appCode: string,
+  limit = 25,
+  offset = 0,
+): Promise<{ orders: SoldOrder[]; hasMore: boolean }> {
+  const raw = await apiClient<unknown>(
+    `/integrations/ebay/listing/history?app_code=${encodeURIComponent(appCode)}&limit=${limit}&offset=${offset}`
+  )
+  const paged = raw as { data?: unknown; pagination?: { has_next?: boolean } }
+  const items = Array.isArray(paged.data) ? (paged.data as Record<string, unknown>[]) : []
+  const hasMore = paged.pagination?.has_next ?? false
+  return {
+    orders: items.map((item) => mapRawToSoldOrder(item, appCode, '')),
+    hasMore,
+  }
+}
+
+export async function markOrderSent(
+  appCode: string,
+  orderId: string,
+  lineItemIds: string[],
+): Promise<void> {
+  await apiClient<unknown>(
+    `/integrations/ebay/listing/orders/${encodeURIComponent(orderId)}/fulfill`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ app_code: appCode, line_item_ids: lineItemIds }),
+    },
+  )
+}
+
+export async function markOrderSentWithTracking(
+  appCode: string,
+  orderId: string,
+  lineItemIds: string[],
+  carrierCode: string,
+  trackingNumber: string,
+): Promise<void> {
+  await apiClient<unknown>(
+    `/integrations/ebay/listing/orders/${encodeURIComponent(orderId)}/fulfill`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        app_code: appCode,
+        line_item_ids: lineItemIds,
+        carrier_code: carrierCode,
+        tracking_number: trackingNumber,
+      }),
+    },
+  )
+}
+
+export async function updateOrderLocalStatus(
+  appCode: string,
+  orderId: string,
+  localStatus: 'in_transit' | 'complete',
+): Promise<void> {
+  await apiClient<unknown>(
+    `/integrations/ebay/listing/orders/${encodeURIComponent(orderId)}/status`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ app_code: appCode, local_status: localStatus }),
+    },
+  )
 }
