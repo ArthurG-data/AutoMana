@@ -109,17 +109,15 @@ async def fetch_card_market_price(
         raise ValueError(f"No eBay app found for app_code={app_code!r}")
     app_id = app_settings["app_id"]
 
-    token = await resolve_token(auth_repository, user_id=user_id, app_code=app_code)
+    env = app_settings["environment"].lower()
+    if env != ebay_finding_repository.environment:
+        ebay_finding_repository.environment = env
+        ebay_finding_repository.base_url = ebay_finding_repository._get_base_url()
+    if env != search_repository.environment:
+        search_repository.environment = env
+        search_repository.base_url = search_repository._get_base_url()
 
-    raw_env = await auth_repository.get_environment(app_code=app_code)
-    if raw_env:
-        env = raw_env.lower()
-        if env != ebay_finding_repository.environment:
-            ebay_finding_repository.environment = env
-            ebay_finding_repository.base_url = ebay_finding_repository._get_base_url()
-        if env != search_repository.environment:
-            search_repository.environment = env
-            search_repository.base_url = search_repository._get_base_url()
+    token = await resolve_token(auth_repository, user_id=user_id, app_code=app_code)
 
     logger.info(
         "ebay_fetch_card_market_price_requested",
