@@ -141,7 +141,13 @@ class EbaySellingRepository(EbayApiClient):
         return self._parse_response(response)
 
     async def get_history(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """Get eBay order history via the Fulfillment REST API (last 2 years)."""
+        """Get eBay order history via the Fulfillment REST API.
+
+        eBay enforces a hard 90-day lookback on the ``creationdate`` filter
+        for getOrders (REST Fulfillment API).  Requesting a wider window causes
+        a 400 response whose JSON body is silently returned without "orders",
+        producing zero results.  We stay inside the limit with a 90-day window.
+        """
         logger.info("Getting the history of an eBay listing")
         token = payload.get("token")
         if not token:
@@ -154,15 +160,31 @@ class EbaySellingRepository(EbayApiClient):
         )
 
         now = datetime.now(timezone.utc)
-        two_years_ago = now - timedelta(days=728)
+        # eBay Fulfillment API getOrders: maximum lookback is 90 days.
+        # Requesting beyond 90 days returns a 400 error, not an empty result set.
+        ninety_days_ago = now - timedelta(days=90)
         params = {
-            "filter": f"creationdate:[{two_years_ago.strftime('%Y-%m-%dT%H:%M:%SZ')}..{now.strftime('%Y-%m-%dT%H:%M:%SZ')}]",
+            "filter": f"creationdate:[{ninety_days_ago.strftime('%Y-%m-%dT%H:%M:%SZ')}..{now.strftime('%Y-%m-%dT%H:%M:%SZ')}]",
             "limit": payload.get("limit", 10),
             "offset": payload.get("offset", 0),
         }
 
         headers = self.auth_header(token)
         response = await self.send("GET", url, headers=headers, params=params)
+
+        # Raise on 4xx/5xx so errors are never silently treated as empty order
+        # lists.  The base send() does not call raise_for_status() itself because
+        # other callers (create_shipping_fulfillment) need to inspect status codes
+        # directly.
+        if response.status_code >= 400:
+            raise self.map_http_error(
+                httpx.HTTPStatusError(
+                    message=f"eBay getOrders returned HTTP {response.status_code}",
+                    request=response.request,
+                    response=response,
+                )
+            )
+
         return self._parse_response(response)
 
     async def upload_picture(
