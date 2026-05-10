@@ -129,6 +129,7 @@ class CreateCard(BaseCard):
     tcgplayer_id: Optional[int]=None
     tcgplayer_etched_id: Optional[int]=None
     cardmarket_id: Optional[int]=None
+    card_back_id: Optional[UUID] = None
 
     @field_validator("artist", mode="after")
     @classmethod
@@ -186,6 +187,7 @@ class CreateCard(BaseCard):
         self.tcgplayer_id,
         self.tcgplayer_etched_id,
         self.cardmarket_id,
+        self.card_back_id,
     )
     def model_dump_for_sql(self) -> Dict[str, Any]:
         """
