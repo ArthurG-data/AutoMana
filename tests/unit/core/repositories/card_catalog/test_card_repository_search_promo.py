@@ -1,6 +1,6 @@
 """Unit tests: card_repository.search() promo_type filter and facets."""
 import pytest
-from unittest.mock import AsyncMock, call
+from unittest.mock import AsyncMock
 from automana.core.repositories.card_catalog.card_repository import CardReferenceRepository
 
 pytestmark = pytest.mark.unit
