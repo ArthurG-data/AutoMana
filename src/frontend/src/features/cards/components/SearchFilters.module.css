@@ -16,3 +16,4 @@
 .promoSummary { font-family: var(--font-mono); font-size: 11px; color: var(--hd-muted); cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; user-select: none; }
 .promoSummary::-webkit-details-marker { display: none; }
 .promoList { margin-top: 8px; max-height: 180px; overflow-y: auto; display: flex; flex-direction: column; gap: 1px; }
+.promoDropdown[open] .promoCaret { display: inline-block; transform: rotate(180deg); }

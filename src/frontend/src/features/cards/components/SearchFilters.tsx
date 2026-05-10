@@ -141,7 +141,7 @@ export function SearchFilters({ params, promoTypeFacets }: SearchFiltersProps) {
           <details className={styles.promoDropdown}>
             <summary className={styles.promoSummary}>
               <span>{selectedPromoCount > 0 ? `${selectedPromoCount} selected` : 'All types'}</span>
-              <span aria-hidden="true">▾</span>
+              <span aria-hidden="true" className={styles.promoCaret}>▾</span>
             </summary>
             <div className={styles.promoList}>
               {promoTypeFacets.map((pt) => (

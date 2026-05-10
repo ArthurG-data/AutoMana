@@ -1,10 +1,11 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { SearchFilters } from '../SearchFilters'
 
+const navigateMock = vi.fn()
 vi.mock('@tanstack/react-router', () => ({
-  useNavigate: () => () => vi.fn(),
+  useNavigate: () => navigateMock,
 }))
 
 const createTestQueryClient = () =>
@@ -41,5 +42,16 @@ describe('SearchFilters — promo type dropdown', () => {
       { wrapper: Wrapper },
     )
     expect(screen.getByText(/2 selected/i)).toBeTruthy()
+  })
+
+  it('calls navigate when a promo type checkbox is toggled', () => {
+    navigateMock.mockClear()
+    render(
+      <SearchFilters params={BASE_PARAMS} promoTypeFacets={['prerelease']} />,
+      { wrapper: Wrapper },
+    )
+    const checkbox = screen.getByLabelText('Prerelease')
+    fireEvent.click(checkbox)
+    expect(navigateMock).toHaveBeenCalledOnce()
   })
 })
