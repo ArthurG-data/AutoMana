@@ -108,6 +108,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
             LEFT JOIN card_catalog.card_external_identifier cei
                 ON cei.card_version_id = v.card_version_id AND cei.card_identifier_ref_id = 1
             WHERE $1 % v.card_name
+              AND cv.is_digital = false
             ORDER BY score DESC
             LIMIT $2
         """
