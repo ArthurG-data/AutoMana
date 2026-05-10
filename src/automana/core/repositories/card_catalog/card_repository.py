@@ -84,23 +84,28 @@ class CardReferenceRepository(AbstractRepository[Any]):
                  ) -> dict[str, Any]|None:
         query = """
             SELECT
-                cv.card_version_id,
-                uc.card_name,
-                r.rarity_name,
-                s.set_name,
-                s.set_code,
-                uc.cmc,
-                cv.oracle_text,
-                s.released_at,
-                s.digital,
-                cvi.image_uris->>'large' AS image_large,
+                v.card_version_id,
+                v.card_name,
+                v.rarity_name,
+                v.set_name,
+                v.set_code,
+                v.cmc,
+                v.oracle_text,
+                v.mana_cost,
+                v.type_line,
+                v.collector_number,
+                v.promo_types,
+                v.legalities,
+                v.is_multifaced,
+                v.is_digital          AS digital,
+                v.illustrations->0->>'artist_name'              AS artist,
+                v.illustrations->0->'image_uris'->>'large'      AS image_large,
                 ARRAY(
                     SELECT LOWER(cf.code)
                     FROM card_catalog.card_version_finish cvf
                     JOIN card_catalog.card_finished cf ON cf.finish_id = cvf.finish_id
-                    WHERE cvf.card_version_id = cv.card_version_id
+                    WHERE cvf.card_version_id = v.card_version_id
                 ) AS available_finishes,
-                cv.is_multifaced,
                 cv.card_back_id,
                 COALESCE(
                     (
@@ -110,23 +115,22 @@ class CardReferenceRepository(AbstractRepository[Any]):
                                    ON fi.face_id = face.card_faces_id
                         JOIN   card_catalog.illustrations i
                                    ON i.illustration_id = fi.illustration_id
-                        WHERE  face.card_version_id = cv.card_version_id
+                        WHERE  face.card_version_id = v.card_version_id
                           AND  face.face_index = 1
                         LIMIT  1
                     ),
                     CASE
-                        WHEN cv.is_multifaced = TRUE
-                         AND cvi.image_uris->>'large' LIKE '%/front/%'
-                        THEN replace(cvi.image_uris->>'large', '/front/', '/back/')
+                        WHEN v.is_multifaced = TRUE
+                         AND v.illustrations->0->'image_uris'->>'large' LIKE '%/front/%'
+                        THEN replace(
+                            v.illustrations->0->'image_uris'->>'large',
+                            '/front/', '/back/'
+                        )
                     END
                 ) AS back_face_image_uri
-            FROM card_catalog.unique_cards_ref uc
-            JOIN card_catalog.card_version cv ON uc.unique_card_id = cv.unique_card_id
-            JOIN card_catalog.rarities_ref r ON cv.rarity_id = r.rarity_id
-            JOIN card_catalog.sets s ON cv.set_id = s.set_id
-            LEFT JOIN card_catalog.card_version_illustration cvi
-                ON cvi.card_version_id = cv.card_version_id
-            WHERE cv.card_version_id = $1;
+            FROM card_catalog.v_card_versions_complete v
+            JOIN card_catalog.card_version cv ON cv.card_version_id = v.card_version_id
+            WHERE v.card_version_id = $1;
         """
         result = await self.execute_query(query, (card_id,))
         return result[0] if result else None
