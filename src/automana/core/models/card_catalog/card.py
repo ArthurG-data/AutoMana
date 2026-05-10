@@ -44,6 +44,9 @@ class CardDetail(BaseCard):
         default=None,
         title="Daily sold average prices in dollars for selected time range"
     )
+    is_multifaced: bool = Field(default=False)
+    card_back_id: Optional[UUID] = Field(default=None)
+    back_face_image_uri: Optional[str] = Field(default=None)
 
 class CardFace(BaseModel):
     name: str
