@@ -82,17 +82,32 @@ class CardReferenceRepository(AbstractRepository[Any]):
     async def get(self,
                   card_id: UUID,
                  ) -> dict[str, Any]|None:
-        # if a list
-
-        query = """ SELECT cv.card_version_id, uc.card_name, r.rarity_name, s.set_name, s.set_code, uc.cmc, cv.oracle_text, s.released_at, s.digital, r.rarity_name,
-                           cvi.image_uris->>'large' AS image_large
-                FROM card_catalog.unique_cards_ref uc
-                JOIN card_catalog.card_version cv ON uc.unique_card_id = cv.unique_card_id
-                JOIN card_catalog.rarities_ref r ON cv.rarity_id = r.rarity_id
-                JOIN card_catalog.sets s ON cv.set_id = s.set_id
-                LEFT JOIN card_catalog.card_version_illustration cvi ON cvi.card_version_id = cv.card_version_id
-                WHERE cv.card_version_id = $1;"""
-
+        query = """
+            SELECT
+                cv.card_version_id,
+                uc.card_name,
+                r.rarity_name,
+                s.set_name,
+                s.set_code,
+                uc.cmc,
+                cv.oracle_text,
+                s.released_at,
+                s.digital,
+                cvi.image_uris->>'large' AS image_large,
+                ARRAY(
+                    SELECT LOWER(cf.code)
+                    FROM card_catalog.card_version_finish cvf
+                    JOIN card_catalog.card_finished cf ON cf.finish_id = cvf.finish_id
+                    WHERE cvf.card_version_id = cv.card_version_id
+                ) AS available_finishes
+            FROM card_catalog.unique_cards_ref uc
+            JOIN card_catalog.card_version cv ON uc.unique_card_id = cv.unique_card_id
+            JOIN card_catalog.rarities_ref r ON cv.rarity_id = r.rarity_id
+            JOIN card_catalog.sets s ON cv.set_id = s.set_id
+            LEFT JOIN card_catalog.card_version_illustration cvi
+                ON cvi.card_version_id = cv.card_version_id
+            WHERE cv.card_version_id = $1;
+        """
         result = await self.execute_query(query, (card_id,))
         return result[0] if result else None
 
@@ -719,7 +734,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
                     AVG(ppd.list_avg_cents)::float / 100 AS list_avg_price,
                     AVG(ppd.sold_avg_cents)::float / 100 AS sold_avg_price
                 FROM pricing.print_price_daily ppd
-                JOIN pricing.card_finished f ON f.finish_id = ppd.finish_id
+                JOIN card_catalog.card_finished f ON f.finish_id = ppd.finish_id
                 WHERE ppd.card_version_id = $1
                   AND ppd.price_date >= $2
                   AND ppd.price_date <= $3
@@ -732,7 +747,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
                     AVG(ppw.list_avg_cents)::float / 100 AS list_avg_price,
                     AVG(ppw.sold_avg_cents)::float / 100 AS sold_avg_price
                 FROM pricing.print_price_weekly ppw
-                JOIN pricing.card_finished f ON f.finish_id = ppw.finish_id
+                JOIN card_catalog.card_finished f ON f.finish_id = ppw.finish_id
                 WHERE ppw.card_version_id = $1
                   AND ppw.price_week >= $2
                   AND ppw.price_week <= $3
@@ -765,7 +780,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
                     AVG(ppd.list_avg_cents)::float / 100 AS list_avg_price,
                     AVG(ppd.sold_avg_cents)::float / 100 AS sold_avg_price
                 FROM pricing.print_price_daily ppd
-                JOIN pricing.card_finished f ON f.finish_id = ppd.finish_id
+                JOIN card_catalog.card_finished f ON f.finish_id = ppd.finish_id
                 WHERE ppd.card_version_id = $1
                   AND ppd.price_date >= $2
                   AND ppd.price_date <= $3
