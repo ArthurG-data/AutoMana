@@ -103,6 +103,7 @@ async def card_search_params(
     oracle_text: Optional[str] = Query(None, description="Filter by oracle text (full-text search)"),
     format: Optional[str] = Query(None, description="Filter by format legality (e.g. 'standard', 'modern')"),
     layout: Optional[str] = Query(None, description="Filter by layout type (e.g. 'normal', 'token', 'saga')"),
+    promo_type: Optional[List[str]] = Query(None, description="Filter by promo type (repeatable: ?promo_type=prerelease&promo_type=buyabox)"),
 ):
     """Card search parameters"""
     # Use 'q' if provided, otherwise fall back to 'name'
@@ -127,4 +128,5 @@ async def card_search_params(
         "oracle_text": oracle_text,
         "format": format,
         "layout": layout,
+        "promo_type": promo_type,
     }

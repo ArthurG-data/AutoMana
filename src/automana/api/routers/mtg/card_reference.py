@@ -220,6 +220,7 @@ async def list_cards(
                 has_next=len(cards) == pagination.limit,
                 has_previous=pagination.offset > 0,
             ),
+            facets={"promo_types": result.promo_type_facets},
         )
     except HTTPException:
         raise
