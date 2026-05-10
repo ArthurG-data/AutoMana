@@ -44,6 +44,7 @@ from automana.core.services.app_integration.ebay._auth_context import resolve_to
 from automana.core.services.app_integration.ebay._idempotency import (
     get_idempotency_store,
 )
+from automana.core.utils.redis_cache import invalidate_cache_pattern
 
 logger = logging.getLogger(__name__)
 
@@ -136,6 +137,7 @@ async def create_listing(
             },
         )
 
+    await invalidate_cache_pattern(f"ebay:active_listings:{user_id}:{app_code}:*")
     return result
 
 
@@ -172,7 +174,9 @@ async def update_listing(
         "token": token,
         "marketplace_id": marketplace_id,
     }
-    return await selling_repository.update_listing(payload)
+    result = await selling_repository.update_listing(payload)
+    await invalidate_cache_pattern(f"ebay:active_listings:{user_id}:{app_code}:*")
+    return result
 
 
 @ServiceRegistry.register(
@@ -223,7 +227,9 @@ async def end_listing(
         "verify": verify,
         "marketplace_id": marketplace_id,
     }
-    return await selling_repository.delete_listing(payload)
+    result = await selling_repository.delete_listing(payload)
+    await invalidate_cache_pattern(f"ebay:active_listings:{user_id}:{app_code}:*")
+    return result
 
 
 @ServiceRegistry.register(

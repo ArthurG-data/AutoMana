@@ -1,6 +1,7 @@
 // src/frontend/src/routes/listings.tsx
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { useQueryClient } from '@tanstack/react-query'
 import { AppShell } from '../components/layout/AppShell'
 import { TopBar } from '../components/layout/TopBar'
 import { Button } from '../components/ui/Button'
@@ -10,10 +11,10 @@ import { ListingDetailPanel } from '../features/ebay/components/ListingDetailPan
 import { ListingFormPanel, CONDITION_OPTIONS, type ListingFormValues } from '../features/ebay/components/ListingFormPanel'
 import { MarketComparePanel } from '../features/ebay/components/MarketComparePanel'
 import {
-  fetchUserApps,
-  fetchActiveListingsPaginated,
   updateListing,
-  fetchSoldOrders,
+  userAppsQueryOptions,
+  activeListingsPageQueryOptions,
+  soldOrdersPageQueryOptions,
   type EbayAppSummary,
 } from '../features/ebay/api'
 import { SoldOrdersTable } from '../features/ebay/components/SoldOrdersTable'
@@ -24,16 +25,26 @@ import { useListingsStore } from '../store/listings'
 import type { EbayLiveListing } from '../features/ebay/mockListings'
 import styles from './Listings.module.css'
 
+const LIMIT = 25
+
 export const Route = createFileRoute('/listings')({
+  loader: async ({ context: { queryClient } }) => {
+    const apps = await queryClient.fetchQuery(userAppsQueryOptions())
+    const productionApps = apps.filter((a) => a.environment === 'PRODUCTION')
+    await Promise.allSettled(
+      productionApps.map((app) =>
+        queryClient.prefetchQuery(activeListingsPageQueryOptions(app.app_code, LIMIT, 0))
+      )
+    )
+  },
   component: ListingsPage,
 })
 
 type Tab = 'active' | 'sold' | 'saved'
 
-const LIMIT = 25
-
 export function ListingsPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [tab, setTab] = useState<Tab>('active')
   const [listings, setListings] = useState<EbayLiveListing[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -74,18 +85,22 @@ export function ListingsPage() {
     async function load() {
       setIsLoading(true)
       try {
-        const apps = await fetchUserApps()
+        // fetchQuery returns cached data if still fresh (staleTime not exceeded),
+        // otherwise fetches from network and populates the persisted cache.
+        const apps = await queryClient.fetchQuery(userAppsQueryOptions())
         const productionApps = apps.filter((a) => a.environment === 'PRODUCTION')
         appsRef.current = productionApps
         setProductionApps(productionApps)
 
         const results = await Promise.allSettled(
           productionApps.map((app) =>
-            fetchActiveListingsPaginated(app.app_code, LIMIT, 0).then(({ items, hasMore: more, total }) => {
-              hasMoreRef.current[app.app_code] = more
-              offsetsRef.current[app.app_code] = items.length
-              return { items: items.map((item) => ({ ...item, appName: app.app_name })), total }
-            })
+            queryClient
+              .fetchQuery(activeListingsPageQueryOptions(app.app_code, LIMIT, 0))
+              .then(({ items, hasMore: more, total }) => {
+                hasMoreRef.current[app.app_code] = more
+                offsetsRef.current[app.app_code] = items.length
+                return { items: items.map((item) => ({ ...item, appName: app.app_name })), total }
+              })
           )
         )
 
@@ -112,9 +127,10 @@ export function ListingsPage() {
         setFailedApps(failed)
         setHasMore(Object.values(hasMoreRef.current).some(Boolean))
 
-        // Enrich with canonical names in the background — table is already visible.
+        // queryClient.fetchQuery inside enrichWithCatalog deduplicates concurrent
+        // name lookups and caches results for 24h via cardSuggestQueryOptions.
         try {
-          const enriched = await enrichWithCatalog(merged)
+          const enriched = await enrichWithCatalog(merged, queryClient)
           if (!cancelled) {
             listingsRef.current = enriched
             setListings(enriched)
@@ -131,7 +147,7 @@ export function ListingsPage() {
     }
     load()
     return () => { cancelled = true }
-  }, [])
+  }, [queryClient, storeSet])
 
   const loadMore = useCallback(async () => {
     if (isLoadingMoreRef.current) return
@@ -142,17 +158,16 @@ export function ListingsPage() {
     setIsLoadingMore(true)
 
     const results = await Promise.allSettled(
-      pendingApps.map((app) =>
-        fetchActiveListingsPaginated(
-          app.app_code,
-          LIMIT,
-          offsetsRef.current[app.app_code] ?? 0,
-        ).then(({ items, hasMore: more }) => {
-          hasMoreRef.current[app.app_code] = more
-          offsetsRef.current[app.app_code] = (offsetsRef.current[app.app_code] ?? 0) + items.length
-          return items.map((item) => ({ ...item, appName: app.app_name }))
-        })
-      )
+      pendingApps.map((app) => {
+        const offset = offsetsRef.current[app.app_code] ?? 0
+        return queryClient
+          .fetchQuery(activeListingsPageQueryOptions(app.app_code, LIMIT, offset))
+          .then(({ items, hasMore: more }) => {
+            hasMoreRef.current[app.app_code] = more
+            offsetsRef.current[app.app_code] = offset + items.length
+            return items.map((item) => ({ ...item, appName: app.app_name }))
+          })
+      })
     )
 
     const newItems: EbayLiveListing[] = []
@@ -166,9 +181,8 @@ export function ListingsPage() {
       setListings(merged)
       storeSet(merged)
 
-      // Enrich only the new batch, then splice into position.
       try {
-        const enriched = await enrichWithCatalog(newItems)
+        const enriched = await enrichWithCatalog(newItems, queryClient)
         const current = listingsRef.current
         const updated = [...current.slice(0, current.length - newItems.length), ...enriched]
         listingsRef.current = updated
@@ -182,7 +196,7 @@ export function ListingsPage() {
     setHasMore(Object.values(hasMoreRef.current).some(Boolean))
     isLoadingMoreRef.current = false
     setIsLoadingMore(false)
-  }, [storeSet])
+  }, [queryClient, storeSet])
 
   useEffect(() => {
     if (tab !== 'sold') return
@@ -194,11 +208,13 @@ export function ListingsPage() {
       try {
         const results = await Promise.allSettled(
           productionApps.map((app) =>
-            fetchSoldOrders(app.app_code, LIMIT, 0).then(({ orders, hasMore: more }) => {
-              soldHasMoreRef.current[app.app_code] = more
-              soldOffsetsRef.current[app.app_code] = orders.length
-              return orders.map((o) => ({ ...o, appName: app.app_name }))
-            })
+            queryClient
+              .fetchQuery(soldOrdersPageQueryOptions(app.app_code, LIMIT, 0))
+              .then(({ orders, hasMore: more }) => {
+                soldHasMoreRef.current[app.app_code] = more
+                soldOffsetsRef.current[app.app_code] = orders.length
+                return orders.map((o) => ({ ...o, appName: app.app_name }))
+              })
           )
         )
         if (cancelled) return
@@ -212,7 +228,7 @@ export function ListingsPage() {
     }
     loadSold()
     return () => { cancelled = true }
-  }, [tab, productionApps])
+  }, [tab, productionApps, queryClient])
 
   const loadMoreSold = useCallback(async () => {
     if (isSoldLoadingMoreRef.current) return
@@ -223,17 +239,16 @@ export function ListingsPage() {
     setIsSoldLoadingMore(true)
 
     const results = await Promise.allSettled(
-      pendingApps.map((app) =>
-        fetchSoldOrders(
-          app.app_code,
-          LIMIT,
-          soldOffsetsRef.current[app.app_code] ?? 0,
-        ).then(({ orders, hasMore: more }) => {
-          soldHasMoreRef.current[app.app_code] = more
-          soldOffsetsRef.current[app.app_code] = (soldOffsetsRef.current[app.app_code] ?? 0) + orders.length
-          return orders.map((o) => ({ ...o, appName: app.app_name }))
-        })
-      )
+      pendingApps.map((app) => {
+        const offset = soldOffsetsRef.current[app.app_code] ?? 0
+        return queryClient
+          .fetchQuery(soldOrdersPageQueryOptions(app.app_code, LIMIT, offset))
+          .then(({ orders, hasMore: more }) => {
+            soldHasMoreRef.current[app.app_code] = more
+            soldOffsetsRef.current[app.app_code] = offset + orders.length
+            return orders.map((o) => ({ ...o, appName: app.app_name }))
+          })
+      })
     )
 
     const newOrders: SoldOrder[] = []
@@ -243,7 +258,7 @@ export function ListingsPage() {
     setHasSoldMore(Object.values(soldHasMoreRef.current).some(Boolean))
     isSoldLoadingMoreRef.current = false
     setIsSoldLoadingMore(false)
-  }, [])
+  }, [queryClient])
 
   function handleRowClick(id: string) {
     setSelectedId(id)

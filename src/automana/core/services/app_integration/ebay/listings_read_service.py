@@ -29,6 +29,9 @@ from automana.core.repositories.app_integration.ebay.ApiSelling_repository impor
 )
 from automana.core.service_registry import ServiceRegistry
 from automana.core.services.app_integration.ebay._auth_context import resolve_token
+from automana.core.utils.redis_cache import get_from_cache, set_to_cache
+
+_ACTIVE_LISTINGS_TTL = 60
 
 logger = logging.getLogger(__name__)
 
@@ -130,6 +133,12 @@ async def get_active_listings(
     # eBay's API is 1-indexed. Convert once, document why.
     page_number = (offset // limit) + 1 if limit else 1
 
+    cache_key = f"ebay:active_listings:{user_id}:{app_code}:{limit}:{page_number}"
+    cached = await get_from_cache(cache_key)
+    if cached is not None:
+        logger.info("ebay_active_listings_cache_hit", extra={"cache_key": cache_key})
+        return listings_model.PaginatedListings.model_validate(cached)
+
     payload: Dict[str, Any] = {
         "token": token,
         "limit": limit,
@@ -172,9 +181,11 @@ async def get_active_listings(
                 },
             )
 
-    return listings_model.PaginatedListings.from_parts(
+    result = listings_model.PaginatedListings.from_parts(
         items=items,
         total=total,
         offset=offset,
         limit=limit,
     )
+    await set_to_cache(cache_key, result.model_dump(), expiry_seconds=_ACTIVE_LISTINGS_TTL)
+    return result

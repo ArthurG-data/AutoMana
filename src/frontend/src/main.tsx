@@ -2,10 +2,16 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { RouterProvider, createRouter } from '@tanstack/react-router'
-import { QueryClientProvider } from '@tanstack/react-query'
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
+import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister'
 import { routeTree } from './routeTree.gen'
 import { queryClient } from './lib/queryClient'
 import './styles/global.css'
+
+const persister = createSyncStoragePersister({
+  storage: window.localStorage,
+  key: 'automana-rq-cache',
+})
 
 const router = createRouter({
   routeTree,
@@ -29,9 +35,12 @@ async function enableMocking() {
 enableMocking().then(() => {
   ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
-      <QueryClientProvider client={queryClient}>
+      <PersistQueryClientProvider
+        client={queryClient}
+        persistOptions={{ persister, maxAge: 30 * 60 * 1000 }}
+      >
         <RouterProvider router={router} />
-      </QueryClientProvider>
+      </PersistQueryClientProvider>
     </React.StrictMode>
   )
 })

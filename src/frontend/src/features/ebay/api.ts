@@ -1,3 +1,4 @@
+import { queryOptions } from '@tanstack/react-query'
 import { apiClient, ApiError } from '../../lib/apiClient'
 import { parseCardTitle, type EbayLiveListing } from './mockListings'
 import { mapRawToSoldOrder, type SoldOrder } from './soldOrders'
@@ -491,4 +492,37 @@ export async function fetchMarketPrice(
   return apiClient<CardMarketData>(
     `/integrations/ebay/market-price/?${params.toString()}`,
   )
+}
+
+// ── React Query option factories ───────────────────────────────────────────
+// Route loader prefetches via these; component reads from the same keys,
+// so on return visits data is served from localStorage (persistQueryClient).
+
+export function userAppsQueryOptions() {
+  return queryOptions({
+    queryKey: ['ebay', 'apps'] as const,
+    queryFn: fetchUserApps,
+    staleTime: 5 * 60_000,
+    gcTime: 15 * 60_000,
+  })
+}
+
+export function activeListingsPageQueryOptions(appCode: string, limit: number, offset: number) {
+  return queryOptions({
+    queryKey: ['listings', 'active', appCode, offset] as const,
+    queryFn: () => fetchActiveListingsPaginated(appCode, limit, offset),
+    staleTime: 60_000,
+    gcTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+  })
+}
+
+export function soldOrdersPageQueryOptions(appCode: string, limit: number, offset: number) {
+  return queryOptions({
+    queryKey: ['listings', 'sold', appCode, offset] as const,
+    queryFn: () => fetchSoldOrders(appCode, limit, offset),
+    staleTime: 2 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnWindowFocus: false,
+  })
 }
