@@ -10,7 +10,7 @@ from automana.api.schemas.StandardisedQueryResponse import (
     ErrorResponse,
     PaginationInfo,
 )
-from automana.core.models.card_catalog.set import NewSet, NewSets, UpdatedSet, SetBrowseItem
+from automana.core.models.card_catalog.set import NewSet, NewSets, UpdatedSet
 
 logger = logging.getLogger(__name__)
 
