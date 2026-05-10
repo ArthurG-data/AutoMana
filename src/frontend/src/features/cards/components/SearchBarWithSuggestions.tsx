@@ -1,5 +1,5 @@
 // src/frontend/src/features/cards/components/SearchBarWithSuggestions.tsx
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Icon } from '../../../components/design-system/Icon'
@@ -9,6 +9,8 @@ import type { CardSuggestion } from '../types'
 import styles from './SearchBarWithSuggestions.module.css'
 
 const MIN_CHARS = 2
+const SUGGESTION_SCORE_THRESHOLD = 0.5
+const SUGGESTION_MIN_COUNT = 3
 
 interface SearchBarWithSuggestionsProps {
   placeholder?: string
@@ -16,7 +18,7 @@ interface SearchBarWithSuggestionsProps {
 
 export function SearchBarWithSuggestions({ placeholder = 'Search any card by name, set, or artist…' }: SearchBarWithSuggestionsProps) {
   const [query, setQuery] = useState('')
-  const [selectedIndex, setSelectedIndex] = useState(0)
+  const [selectedIndex, setSelectedIndex] = useState(-1)
   const [showDropdown, setShowDropdown] = useState(false)
   const navigate = useNavigate()
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -29,11 +31,15 @@ export function SearchBarWithSuggestions({ placeholder = 'Search any card by nam
     enabled: shouldFetch,
   })
 
-  const suggestions = data?.suggestions ?? []
+  const suggestions = useMemo(() => {
+    const raw = data?.suggestions ?? []
+    if (raw.length < SUGGESTION_MIN_COUNT) return raw
+    return raw.filter((s) => s.score >= SUGGESTION_SCORE_THRESHOLD)
+  }, [data])
 
   // Reset selected index when suggestions change
   useEffect(() => {
-    setSelectedIndex(0)
+    setSelectedIndex(-1)
   }, [suggestions])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -55,7 +61,7 @@ export function SearchBarWithSuggestions({ placeholder = 'Search any card by nam
   }
 
   const handleSelectSuggestion = (suggestion: CardSuggestion) => {
-    navigate({ to: '/search', search: { q: suggestion.card_name } })
+    navigate({ to: '/cards/$id', params: { id: suggestion.card_version_id } })
     setShowDropdown(false)
     setQuery('')
   }
@@ -70,15 +76,15 @@ export function SearchBarWithSuggestions({ placeholder = 'Search any card by nam
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault()
-        setSelectedIndex((prev) => (prev + 1) % suggestions.length)
+        setSelectedIndex((prev) => (prev < 0 ? 0 : (prev + 1) % suggestions.length))
         break
       case 'ArrowUp':
         e.preventDefault()
-        setSelectedIndex((prev) => (prev - 1 + suggestions.length) % suggestions.length)
+        setSelectedIndex((prev) => (prev < 0 ? suggestions.length - 1 : (prev - 1 + suggestions.length) % suggestions.length))
         break
       case 'Enter':
         e.preventDefault()
-        if (showDropdown && suggestions.length > 0) {
+        if (showDropdown && selectedIndex >= 0 && suggestions[selectedIndex]) {
           handleSelectSuggestion(suggestions[selectedIndex])
         } else if (query.trim()) {
           handleSearch(query)

@@ -1,6 +1,6 @@
 from uuid import UUID
 from datetime import datetime, timezone, date, timedelta
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import  Optional, List, Dict, Any, Callable
 from pathlib import Path
 import hashlib
@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 class CardSearchResult:
     cards: List[BaseCard]
     total_count: int
+    promo_type_facets: List[str] = field(default_factory=list)
 
 @dataclass
 class ProcessingStats:
@@ -148,6 +149,7 @@ async def search_cards(card_repository: CardReferenceRepository
                    , oracle_text: Optional[str] = None
                    , format: Optional[str] = None
                    , layout: Optional[str] = None
+                   , promo_type: Optional[List[str]] = None
                    # Pagination
                    , limit: int = 100
                    , offset: int = 0
@@ -170,6 +172,7 @@ async def search_cards(card_repository: CardReferenceRepository
             "oracle_text": oracle_text,
             "format": format,
             "layout": layout,
+            "promo_type": promo_type,
             "limit": limit,
             "offset": offset,
             "sort_by": sort_by,
@@ -185,6 +188,7 @@ async def search_cards(card_repository: CardReferenceRepository
             return CardSearchResult(
                 cards=[BaseCard.model_validate(c) for c in cached["cards"]],
                 total_count=cached["total_count"],
+                promo_type_facets=cached.get("promo_type_facets", []),
             )
 
         if card_id:
@@ -208,15 +212,22 @@ async def search_cards(card_repository: CardReferenceRepository
                                                offset=offset,
                                                sort_by=sort_by,
                                                card_type=card_type,
-                                               sort_order=sort_order)
+                                               sort_order=sort_order,
+                                               promo_type=promo_type)
             cards = raw.get("cards", [])
             total_count = raw.get("total_count", 0)
+            promo_type_facets = raw.get("promo_type_facets", [])
             result = CardSearchResult(
                 cards=[BaseCard.model_validate(card) for card in cards],
                 total_count=total_count,
+                promo_type_facets=promo_type_facets,
             )
 
-        cache_data = {"cards": [c.model_dump() for c in result.cards], "total_count": result.total_count}
+        cache_data = {
+            "cards": [c.model_dump() for c in result.cards],
+            "total_count": result.total_count,
+            "promo_type_facets": result.promo_type_facets,
+        }
         await set_to_cache(
             cache_key,
             json.loads(BaseCard.to_json_safe(cache_data)),
@@ -561,11 +572,10 @@ class EnhancedCardImportService:
                 
                             continue
                         
-                        # Validate and create card; explode finishes so each
-                        # finish variant (nonfoil / foil / etched) becomes its
-                        # own card_version row.  Promo treatments (surgefoil,
-                        # ripplefoil, etc.) are stored in promo_card via the
-                        # stored procedure — they do not change the finish value.
+                        # Explode finishes so each finish variant (nonfoil / foil / etched)
+                        # becomes its own card_version row.  Promo treatments (surgefoil,
+                        # ripplefoil, etc.) are stored in promo_card via the stored
+                        # procedure — they do not change the finish value.
                         card = card_schemas.CreateCard.model_validate(card_json)
                         if card:
                             for finish in (card.finishes or ["nonfoil"]):

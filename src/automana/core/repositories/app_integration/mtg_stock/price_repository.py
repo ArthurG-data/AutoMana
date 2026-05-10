@@ -340,7 +340,7 @@ class PriceRepository(AbstractRepository):
             FROM pricing.mtg_card_products mcp
             JOIN pricing.source_product sp ON sp.product_id = mcp.product_id
             JOIN pricing.price_observation po ON po.source_product_id = sp.source_product_id
-            JOIN pricing.card_finished cf ON cf.finish_id = po.finish_id
+            JOIN card_catalog.card_finished cf ON cf.finish_id = po.finish_id
             WHERE upper(cf.code) = 'NONFOIL'
           ),
           foil AS (
@@ -348,7 +348,7 @@ class PriceRepository(AbstractRepository):
             FROM pricing.mtg_card_products mcp
             JOIN pricing.source_product sp ON sp.product_id = mcp.product_id
             JOIN pricing.price_observation po ON po.source_product_id = sp.source_product_id
-            JOIN pricing.card_finished cf ON cf.finish_id = po.finish_id
+            JOIN card_catalog.card_finished cf ON cf.finish_id = po.finish_id
             WHERE upper(cf.code) <> 'NONFOIL'
           )
         SELECT

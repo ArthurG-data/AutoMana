@@ -2,7 +2,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { http, HttpResponse } from 'msw'
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query'
+import { server } from '../../../../mocks/server'
 import { SearchBarWithSuggestions } from '../SearchBarWithSuggestions'
 
 const createTestQueryClient = () => new QueryClient({
@@ -99,7 +101,7 @@ describe('SearchBarWithSuggestions', () => {
     }, { timeout: 500 })
   })
 
-  it('navigates to search page when suggestion is selected', async () => {
+  it('navigates to card detail page when suggestion is selected', async () => {
     const user = userEvent.setup()
     render(<SearchBarWithSuggestions />, { wrapper: Wrapper })
 
@@ -110,10 +112,13 @@ describe('SearchBarWithSuggestions', () => {
       expect(screen.getByText('Ragavan, Nimble Pilferer')).toBeInTheDocument()
     })
 
-    const suggestion = screen.getByText('Ragavan, Nimble Pilferer')
-    await user.click(suggestion)
+    await user.click(screen.getByText('Ragavan, Nimble Pilferer'))
 
-    // Input should be cleared after selection
+    expect(mockNavigate).toHaveBeenCalledTimes(1)
+    expect(mockNavigate).toHaveBeenCalledWith({
+      to: '/cards/$id',
+      params: { id: 'ragavan-mh2' },
+    })
     expect(input.value).toBe('')
   })
 
@@ -150,5 +155,74 @@ describe('SearchBarWithSuggestions', () => {
 
     // Should not show Ragavan results for "ring" search
     expect(screen.queryByText('Ragavan, Nimble Pilferer')).not.toBeInTheDocument()
+  })
+
+  it('hides suggestions with score < 0.5 when 3 or more are returned', async () => {
+    server.use(
+      http.get('/api/catalog/mtg/card-reference/suggest', () =>
+        HttpResponse.json({
+          suggestions: [
+            { card_version_id: 'ragavan-mh2',    card_name: 'Ragavan, Nimble Pilferer', set_code: 'MH2', collector_number: '1', rarity_name: 'mythic', score: 0.9 },
+            { card_version_id: 'one-ring-ltr',   card_name: 'The One Ring',             set_code: 'LTR', collector_number: '1', rarity_name: 'mythic', score: 0.7 },
+            { card_version_id: 'bowmasters-ltr', card_name: 'Orcish Bowmasters',        set_code: 'LTR', collector_number: '1', rarity_name: 'rare',   score: 0.3 },
+          ],
+        })
+      )
+    )
+
+    const user = userEvent.setup()
+    render(<SearchBarWithSuggestions />, { wrapper: Wrapper })
+
+    const input = screen.getByPlaceholderText(/Search any card/)
+    await user.type(input, 'rag')
+
+    await waitFor(() => {
+      expect(screen.getByText('Ragavan, Nimble Pilferer')).toBeInTheDocument()
+    })
+
+    expect(screen.getByText('The One Ring')).toBeInTheDocument()
+    expect(screen.queryByText('Orcish Bowmasters')).not.toBeInTheDocument()
+  })
+
+  it('shows all suggestions when fewer than 3 are returned, regardless of score', async () => {
+    server.use(
+      http.get('/api/catalog/mtg/card-reference/suggest', () =>
+        HttpResponse.json({
+          suggestions: [
+            { card_version_id: 'ragavan-mh2',  card_name: 'Ragavan, Nimble Pilferer', set_code: 'MH2', collector_number: '1', rarity_name: 'mythic', score: 0.31 },
+            { card_version_id: 'one-ring-ltr', card_name: 'The One Ring',             set_code: 'LTR', collector_number: '1', rarity_name: 'mythic', score: 0.32 },
+          ],
+        })
+      )
+    )
+
+    const user = userEvent.setup()
+    render(<SearchBarWithSuggestions />, { wrapper: Wrapper })
+
+    const input = screen.getByPlaceholderText(/Search any card/)
+    await user.type(input, 'ra')
+
+    await waitFor(() => {
+      expect(screen.getByText('Ragavan, Nimble Pilferer')).toBeInTheDocument()
+    })
+
+    expect(screen.getByText('The One Ring')).toBeInTheDocument()
+  })
+
+  it('pressing Enter without arrow navigation goes to search results, not a card detail page', async () => {
+    const user = userEvent.setup()
+    render(<SearchBarWithSuggestions />, { wrapper: Wrapper })
+
+    const input = screen.getByPlaceholderText(/Search any card/)
+    await user.type(input, 'rag')
+
+    await waitFor(() => {
+      expect(screen.getByText('Ragavan, Nimble Pilferer')).toBeInTheDocument()
+    })
+
+    await user.keyboard('{Enter}')
+
+    expect(mockNavigate).toHaveBeenCalledTimes(1)
+    expect(mockNavigate).toHaveBeenCalledWith({ to: '/search', search: { q: 'rag' } })
   })
 })
