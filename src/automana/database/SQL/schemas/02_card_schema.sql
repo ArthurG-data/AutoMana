@@ -691,7 +691,8 @@ CREATE OR REPLACE FUNCTION card_catalog.insert_full_card_version(
     p_multiverse_ids JSONB,
     p_tcgplayer_id INT,
     p_tcgplayer_etched_id INT,
-    p_cardmarket_id INT
+    p_cardmarket_id INT,
+    p_card_back_id UUID DEFAULT NULL
 )
 RETURNS UUID AS $$
 DECLARE
@@ -802,7 +803,7 @@ BEGIN
         collector_number, rarity_id, border_color_id,
         frame_id, layout_id, is_promo, is_digital,
         is_oversized, full_art, textless, booster,
-        variation, frame_effects, lang
+        variation, frame_effects, lang, card_back_id
     ) VALUES (
         v_unique_card_id, p_oracle_text, v_set_id,
         p_collector_number, v_rarity_id, v_border_color_id,
@@ -810,7 +811,8 @@ BEGIN
         p_oversized, p_full_art, p_textless, p_booster,
         p_variation,
         COALESCE(p_frame_effects, '{}'),
-        COALESCE(p_lang, 'en')
+        COALESCE(p_lang, 'en'),
+        p_card_back_id
     )
     ON CONFLICT (unique_card_id, set_id, collector_number, lang) DO NOTHING
     RETURNING card_version_id INTO v_card_version_id;
