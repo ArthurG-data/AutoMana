@@ -35,6 +35,7 @@ class BaseCard(BaseModel):
 
 class CardDetail(BaseCard):
     image_large: Optional[str] = Field(default=None, title="URL to large-sized card image from Scryfall")
+    available_finishes: Optional[List[str]] = Field(default_factory=list)
     price_history_list_avg: Optional[List[float]] = Field(
         default=None,
         title="Daily list average prices in dollars for selected time range"
@@ -236,7 +237,7 @@ class CreateCard(BaseCard):
 
             "image_uris": data["image_uris"] or [],
 
-            "finish": (data.get("finishes") or ["nonfoil"])[0],
+            "finishes": data.get("finishes") or ["nonfoil"],
             "frame_effects": data.get("frame_effects") or [],
             "lang": data.get("lang") or "en",
 
