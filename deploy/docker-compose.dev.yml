@@ -87,6 +87,7 @@ services:
       - frontend-node-modules:/app/node_modules
     environment:
       VITE_HMR_HOST: automana.duckdns.org
+      VITE_DISABLE_MSW: "true"
     restart: unless-stopped
     networks:
       - backend-network

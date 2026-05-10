@@ -12,6 +12,10 @@ export default defineConfig({
   ],
   server: {
     allowedHosts: ['automana.duckdns.org'],
+    watch: {
+      usePolling: true,
+      interval: 300,
+    },
     proxy: {
       '/api': 'http://backend:8000',
     },

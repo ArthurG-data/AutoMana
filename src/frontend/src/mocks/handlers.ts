@@ -1,7 +1,6 @@
 // src/frontend/src/mocks/handlers.ts
-import { http, HttpResponse } from 'msw'
-import { MOCK_CARDS, MOCK_CARD_DETAIL } from './data'
-import type { CardSearchResponse, CardSuggestResponse } from '../features/cards/types'
+import { http, HttpResponse, passthrough } from 'msw'
+import { MOCK_CARD_DETAIL } from './data'
 import {
   MOCK_AUTHORIZED_USERS,
   MOCK_PENDING_INVITES,
@@ -49,52 +48,13 @@ export const handlers = [
   }),
 
 
-  http.get('/api/catalog/mtg/card-reference/', ({ request }) => {
-    const url = new URL(request.url)
-    const q = (url.searchParams.get('q') ?? '').toLowerCase()
-    const rarity = url.searchParams.get('rarity')
-    const finish = url.searchParams.get('finish')
-
-    let cards = MOCK_CARDS
-    if (q) cards = cards.filter((c) => c.card_name.toLowerCase().includes(q))
-    if (rarity) cards = cards.filter((c) => c.rarity_name === rarity)
-    if (finish) cards = cards.filter((c) => c.finish === finish)
-
-    const response: CardSearchResponse = {
-      cards,
-      total: cards.length,
-      page: 1,
-      per_page: 20,
-    }
-    return HttpResponse.json(response)
-  }),
-
-  http.get('/api/catalog/mtg/card-reference/suggest', ({ request }) => {
-    const url = new URL(request.url)
-    const q = (url.searchParams.get('q') ?? '').toLowerCase()
-    const limit = parseInt(url.searchParams.get('limit') ?? '10', 10)
-
-    let suggestions = MOCK_CARDS
-    if (q) suggestions = suggestions.filter((c) => c.card_name.toLowerCase().includes(q))
-    suggestions = suggestions.slice(0, limit)
-
-    const response: CardSuggestResponse = {
-      suggestions: suggestions.map((c) => ({
-        card_version_id: c.card_version_id,
-        card_name: c.card_name,
-        set_code: c.set_code,
-        collector_number: '1',
-        rarity_name: c.rarity_name,
-        scryfall_id: undefined,
-        score: 1.0,
-      })),
-    }
-    return HttpResponse.json(response)
-  }),
-
+  http.get('/api/catalog/mtg/card-reference/', () => passthrough()),
+  http.get('/api/catalog/mtg/card-reference/suggest', () => passthrough()),
+  http.get('/api/catalog/mtg/card-reference/stats', () => passthrough()),
+  http.get('/api/catalog/mtg/card-reference/:id/price-history', () => passthrough()),
   http.get('/api/catalog/mtg/card-reference/:id', ({ params }) => {
     const card = MOCK_CARD_DETAIL[params.id as string]
-    if (!card) return new HttpResponse(null, { status: 404 })
-    return HttpResponse.json(card)
+    if (card) return HttpResponse.json(card)
+    return passthrough()
   }),
 ]
