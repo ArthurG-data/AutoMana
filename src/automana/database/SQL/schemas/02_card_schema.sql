@@ -157,7 +157,10 @@ CREATE TABLE IF NOT EXISTS card_catalog.card_version (
     is_multifaced BOOLEAN DEFAULT false, 
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now(),
-    UNIQUE (unique_card_id, set_id, collector_number)
+    finish VARCHAR(20) NOT NULL DEFAULT 'nonfoil',
+    frame_effects TEXT[] NOT NULL DEFAULT '{}',
+    lang VARCHAR(5) NOT NULL DEFAULT 'en',
+    CONSTRAINT card_version_unique_per_finish_lang UNIQUE (unique_card_id, set_id, collector_number, finish, lang)
 );
 
 CREATE TABLE IF NOT EXISTS card_catalog.illustrations(
@@ -178,6 +181,7 @@ CREATE TABLE IF NOT EXISTS card_catalog.illustration_artist (
 CREATE TABLE IF NOT EXISTS card_catalog.card_version_illustration (
     card_version_id UUID PRIMARY KEY REFERENCES card_catalog.card_version(card_version_id),
     illustration_id UUID NOT NULL REFERENCES card_catalog.illustrations(illustration_id),
+    image_uris JSONB,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -413,7 +417,7 @@ illustrations_agg AS (
     jsonb_agg(
       jsonb_build_object(
         'illustration_id', cvi.illustration_id,
-        'image_uris', i.image_uris,
+        'image_uris', cvi.image_uris,
         'added_on', i.added_on,
         'artist_id', ar.artist_id,
         'artist_name', ar.artist_name
@@ -502,6 +506,11 @@ SELECT
     fr.frame_year,
     lr.layout_name,
     
+    -- Treatment and language
+    cv.finish,
+    cv.frame_effects,
+    cv.lang,
+
     -- Flags
     cv.is_promo,
     cv.is_digital,
@@ -634,6 +643,9 @@ CREATE OR REPLACE FUNCTION card_catalog.insert_full_card_version(
     p_card_faces JSONB,
     --new
     p_image_uris JSONB,
+    p_finish VARCHAR(20),
+    p_frame_effects TEXT[],
+    p_lang VARCHAR(5),
     --external ids
     p_scryfall_id UUID,
     p_oracle_id UUID,
@@ -749,15 +761,18 @@ BEGIN
         collector_number, rarity_id, border_color_id,
         frame_id, layout_id, is_promo, is_digital,
         is_oversized, full_art, textless, booster,
-        variation
+        variation, finish, frame_effects, lang
     ) VALUES (
         v_unique_card_id, p_oracle_text, v_set_id,
         p_collector_number, v_rarity_id, v_border_color_id,
         v_frame_id, v_layout_id, p_is_promo, p_is_digital,
         p_oversized, p_full_art, p_textless, p_booster,
-        p_variation
+        p_variation,
+        COALESCE(p_finish, 'nonfoil'),
+        COALESCE(p_frame_effects, '{}'),
+        COALESCE(p_lang, 'en')
     )
-    ON CONFLICT (unique_card_id, set_id, collector_number) DO NOTHING
+    ON CONFLICT (unique_card_id, set_id, collector_number, finish, lang) DO NOTHING
     RETURNING card_version_id INTO v_card_version_id;
 
     IF v_card_version_id IS NULL THEN
@@ -767,6 +782,8 @@ BEGIN
     WHERE unique_card_id = v_unique_card_id
         AND set_id = v_set_id
         AND collector_number = p_collector_number
+        AND finish = COALESCE(p_finish, 'nonfoil')
+        AND lang = COALESCE(p_lang, 'en')
     LIMIT 1;
     END IF;
     --add the ids
@@ -892,34 +909,58 @@ BEGIN
         END IF;
 
         -- Link illustration and artist for single-faced card.
-        INSERT INTO card_catalog.illustrations (illustration_id, image_uris)
-        VALUES (p_illustration_id, p_image_uris)
-        ON CONFLICT (illustration_id)
-        DO UPDATE SET
-            image_uris = EXCLUDED.image_uris,
-            updated_at = now()
+        -- illustrations row is an art-deduplication anchor only; image_uris
+        -- is now stored per card_version in card_version_illustration so that
+        -- reprints of the same art in different sets each keep their own URLs.
+        INSERT INTO card_catalog.illustrations (illustration_id)
+        VALUES (p_illustration_id)
+        ON CONFLICT (illustration_id) DO NOTHING
         RETURNING illustration_id INTO v_illustration_id;
 
         INSERT INTO card_catalog.illustration_artist (illustration_id, artist_id)
         VALUES (p_illustration_id, v_artist_uuid)
         ON CONFLICT (illustration_id, artist_id) DO NOTHING;
 
-        
-        --card illustrations
+        -- Store image_uris per card_version (not per illustration)
         WITH exists AS (
             SELECT card_version_id, illustration_id
             FROM card_catalog.card_version_illustration
             WHERE card_version_id = v_card_version_id
                 AND illustration_id = p_illustration_id
         )
-        INSERT INTO card_catalog.card_version_illustration (card_version_id, illustration_id)
-        SELECT v_card_version_id, p_illustration_id
+        INSERT INTO card_catalog.card_version_illustration (card_version_id, illustration_id, image_uris)
+        SELECT v_card_version_id, p_illustration_id, p_image_uris
         WHERE NOT EXISTS (SELECT 1 FROM exists);
 
     ELSE
         UPDATE card_catalog.card_version
         SET is_multifaced = true
         WHERE card_version_id = v_card_version_id;
+
+        -- Store per-version image_uris for multi-faced cards.
+        -- Adventure cards carry top-level illustration_id/image_uris; DFCs use the front face.
+        v_illustration_id := COALESCE(
+            p_illustration_id,
+            (p_card_faces -> 0 ->> 'illustration_id')::UUID
+        );
+        IF v_illustration_id IS NOT NULL THEN
+            INSERT INTO card_catalog.illustrations (illustration_id)
+            VALUES (v_illustration_id)
+            ON CONFLICT (illustration_id) DO NOTHING;
+
+            INSERT INTO card_catalog.card_version_illustration (card_version_id, illustration_id, image_uris)
+            SELECT v_card_version_id,
+                   v_illustration_id,
+                   CASE WHEN p_illustration_id IS NOT NULL
+                        THEN p_image_uris
+                        ELSE p_card_faces -> 0 -> 'image_uris'
+                   END
+            WHERE NOT EXISTS (
+                SELECT 1 FROM card_catalog.card_version_illustration
+                WHERE card_version_id = v_card_version_id
+            );
+        END IF;
+
         FOR v_face IN SELECT * FROM jsonb_array_elements(p_card_faces) LOOP
             v_artist_uuid := NULL;
             v_illustration_id := NULL;
@@ -953,7 +994,7 @@ BEGIN
                 LIMIT 1;
             END IF;
 
-            IF v_face ->> 'illustration_id' IS NOT NULL AND v_face ->> 'artist_id' IS NOT NULL THEN
+            IF v_face ->> 'illustration_id' IS NOT NULL THEN
                 v_illustration_id := (v_face ->> 'illustration_id')::UUID;
                 v_artist_uuid := (v_face ->> 'artist_id')::UUID;
                 v_artist_name := (v_face ->> 'artist')::TEXT;
@@ -1127,6 +1168,9 @@ BEGIN
                 (v_card ->> 'variation')::BOOLEAN,
                 v_card -> 'card_faces',
                 v_card -> 'image_uris',
+                COALESCE(v_card ->> 'finish', 'nonfoil'),
+                ARRAY(SELECT jsonb_array_elements_text(COALESCE(v_card -> 'frame_effects', '[]'::jsonb))),
+                COALESCE(v_card ->> 'lang', 'en'),
                 (v_card ->> 'scryfall_id')::UUID,
                 (v_card ->> 'oracle_id')::UUID,
                 v_card -> 'multiverse_ids',
@@ -1141,7 +1185,7 @@ BEGIN
             
         EXCEPTION
             WHEN unique_violation THEN
-                IF SQLERRM LIKE '%card_version_unique_card_id_set_id_collector_number_key%' THEN
+                IF SQLERRM LIKE '%card_version_unique_per_finish_lang%' THEN
                     -- Skipped (already exists)
                     v_skipped_inserts := v_skipped_inserts + 1;
                 ELSE

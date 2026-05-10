@@ -544,8 +544,14 @@ class EnhancedCardImportService:
             async with self.storage_service.open_stream(file_name, "rb") as f:
                 cards_iter = ijson.items(f, "item")
 
+                _IMPORT_LANGUAGES = {"en", "ja"}
+
                 for card_json in cards_iter:
                     try:
+                        # Skip non-EN/JA cards (all_cards dataset includes all languages)
+                        if card_json.get("lang", "en") not in _IMPORT_LANGUAGES:
+                            continue
+
                         # Skip batches if resuming
                         if batch_count < resume_from_batch:
                             if len(batch) >= self.config.batch_size:
@@ -555,10 +561,15 @@ class EnhancedCardImportService:
                 
                             continue
                         
-                        # Validate and create card
+                        # Validate and create card; explode finishes so each
+                        # finish variant (nonfoil / foil / etched) becomes its
+                        # own card_version row.  Promo treatments (surgefoil,
+                        # ripplefoil, etc.) are stored in promo_card via the
+                        # stored procedure — they do not change the finish value.
                         card = card_schemas.CreateCard.model_validate(card_json)
                         if card:
-                            batch.append(card)
+                            for finish in (card.finishes or ["nonfoil"]):
+                                batch.append(card.model_copy(update={"finishes": [finish]}))
                             self.stats.total_cards += 1
                         
                         # Process batch when full

@@ -23,15 +23,16 @@ export const MOCK_CARDS: CardSummary[] = [
 export const MOCK_CARD_DETAIL: Record<string, CardDetail> = {
   'ragavan-mh2': {
     ...MOCK_CARDS[0],
+    available_finishes: ['nonfoil', 'foil', 'etched'],
     mana_cost: '{R}',
     type_line: 'Legendary Creature — Monkey Pirate',
     oracle_text: "Whenever Ragavan, Nimble Pilferer deals combat damage to a player, create a Treasure token and exile the top card of that player's library. Until end of turn, you may cast that card.\nDash {R}",
     artist: 'Simon Dominic',
     price_history: makeSpark(50, 84.5, 365),
     prints: [
-      { id: 'ragavan-mh2-foil',   set_code: 'MH2', set_name: 'Modern Horizons 2', finish: 'foil',     price: 110.0, image_uri: null },
-      { id: 'ragavan-mh2-etched', set_code: 'MH2', set_name: 'Modern Horizons 2', finish: 'etched',   price: 95.0,  image_uri: null },
-      { id: 'ragavan-mh2-retro',  set_code: 'MH2', set_name: 'Modern Horizons 2', finish: 'non-foil', price: 88.0,  image_uri: null },
+      { id: 'ragavan-mh2-foil',   set: 'MH2', set_name: 'Modern Horizons 2', finish: 'foil',     price: 110.0, image_uri: null },
+      { id: 'ragavan-mh2-etched', set: 'MH2', set_name: 'Modern Horizons 2', finish: 'etched',   price: 95.0,  image_uri: null },
+      { id: 'ragavan-mh2-retro',  set: 'MH2', set_name: 'Modern Horizons 2', finish: 'non-foil', price: 88.0,  image_uri: null },
     ],
   },
 }

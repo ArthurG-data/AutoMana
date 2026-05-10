@@ -7,6 +7,7 @@ import styles from './PriceCharts.module.css'
 
 interface PriceChartsProps {
   card: CardDetail
+  finish?: string
 }
 
 const TIME_RANGES = [
@@ -42,11 +43,11 @@ function trimNulls(
   }
 }
 
-export function PriceCharts({ card }: PriceChartsProps) {
+export function PriceCharts({ card, finish }: PriceChartsProps) {
   const [selectedRange, setSelectedRange] = useState<'1w' | '1m' | '3m' | '1y' | 'all'>('all')
 
   const { data: priceData, isLoading } = useQuery(
-    cardPriceHistoryQueryOptions(card.card_version_id, selectedRange)
+    cardPriceHistoryQueryOptions(card.card_version_id, selectedRange, finish)
   )
 
   const rawList = priceData?.price_history_list_avg ?? []

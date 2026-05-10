@@ -35,6 +35,7 @@ class BaseCard(BaseModel):
 
 class CardDetail(BaseCard):
     image_large: Optional[str] = Field(default=None, title="URL to large-sized card image from Scryfall")
+    available_finishes: List[str] = Field(default_factory=list)
     price_history_list_avg: Optional[List[float]] = Field(
         default=None,
         title="Daily list average prices in dollars for selected time range"
@@ -56,6 +57,7 @@ class CardFace(BaseModel):
     artist: Optional[str] = None
     artist_id: Optional[UUID] = None
     illustration_id: Optional[UUID] = None
+    image_uris: Optional[Dict[str, Any]] = None
     supertypes: List[str] = []
     types: List[str] = []
     subtypes: List[str] = []
@@ -109,6 +111,8 @@ class CreateCard(BaseCard):
     textless : Optional[bool]=False
     power : Optional[Union[int, str]] = None
     lang : Optional[str]='en'
+    finishes: Optional[List[str]] = Field(default_factory=list)
+    frame_effects: Optional[List[str]] = Field(default_factory=list)
     loyalty : Optional[Union[int, str]]=None
     promo_types : Optional[List[str]]=[]
     toughness : Optional[Union[int, str]]=None
@@ -233,7 +237,11 @@ class CreateCard(BaseCard):
 
             "image_uris": data["image_uris"] or [],
 
-            "scryfall_id": data["id"],  
+            "finishes": data.get("finishes") or ["nonfoil"],
+            "frame_effects": data.get("frame_effects") or [],
+            "lang": data.get("lang") or "en",
+
+            "scryfall_id": data["id"],
             "oracle_id": data["oracle_id"],
             "multiverse_ids": data["multiverse_ids"] or [],
             "tcgplayer_id": data["tcgplayer_id"],
