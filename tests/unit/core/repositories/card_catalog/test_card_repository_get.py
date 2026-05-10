@@ -49,3 +49,13 @@ async def test_get_returns_none_when_card_not_found():
     repo = _make_repo([])
     result = await repo.get(card_id=UUID("00000000-0000-0000-0000-000000000000"))
     assert result is None
+
+
+@pytest.mark.asyncio
+async def test_get_query_lowercases_finish_codes():
+    repo = _make_repo([{**_BASE_ROW, "available_finishes": []}])
+    await repo.get(card_id=_CARD_ID)
+    sql = repo.execute_query.await_args.args[0]
+    assert "LOWER(cf.code)" in sql
+    assert "card_version_finish" in sql
+    assert "card_catalog.card_finished" in sql
