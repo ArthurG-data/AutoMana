@@ -87,9 +87,22 @@ class UpdatedSet(BaseModel):
             self.parent_set
         )
  
+class SetBrowseItem(BaseModel):
+    set_id: UUID = Field(title="Set UUID")
+    set_name: str = Field(title="Full set name")
+    set_code: str = Field(title="Three-to-five letter set code")
+    set_type: str = Field(title="Category of set (expansion, masters, …)")
+    card_count: int = Field(title="Number of card versions in this set")
+    released_at: datetime.date = Field(title="Official release date")
+    icon_svg_uri: Optional[str] = Field(default=None, title="Scryfall SVG icon URL")
+
+    class Config:
+        from_attributes = True
+
+
 class NewSets(BaseModel):
     items : List[NewSet]
- 
+
     def __iter__(self):
         return iter(self.items)
     def __len__(self):
@@ -100,7 +113,7 @@ class NewSets(BaseModel):
         self.items[index] = value
     def __delitem__(self, index):
         del self.items[index]
-    
+
     def model_dump_for_db(self) -> List[Dict[str, Any]]:
         """
         Alternative: Use model_dump with custom serialization

@@ -202,3 +202,23 @@ class SetReferenceRepository(AbstractRepository[Any]):
         values.extend([limit, offset])
         logger.debug(f"Executing query: {query} with values: {values}")
         return await self.execute_query(query, tuple(values))
+
+    async def browse(self) -> list[dict]:
+        query = """
+            SELECT
+                vsm.set_id,
+                vsm.set_name,
+                vsm.set_code,
+                vsm.set_type,
+                vsm.card_count,
+                vsm.released_at,
+                iqr.icon_query_uri AS icon_svg_uri
+            FROM card_catalog.joined_set_materialized vsm
+            LEFT JOIN card_catalog.icon_set ics ON ics.set_id = vsm.set_id
+            LEFT JOIN card_catalog.icon_query_ref iqr
+                   ON iqr.icon_query_id = ics.icon_query_id
+            WHERE vsm.digital = FALSE
+            ORDER BY vsm.released_at DESC
+        """
+        rows = await self.execute_query(query)
+        return [dict(r) for r in rows]
