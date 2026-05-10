@@ -99,7 +99,7 @@ describe('SearchBarWithSuggestions', () => {
     }, { timeout: 500 })
   })
 
-  it('navigates to search page when suggestion is selected', async () => {
+  it('navigates to card detail page when suggestion is selected', async () => {
     const user = userEvent.setup()
     render(<SearchBarWithSuggestions />, { wrapper: Wrapper })
 
@@ -110,10 +110,13 @@ describe('SearchBarWithSuggestions', () => {
       expect(screen.getByText('Ragavan, Nimble Pilferer')).toBeInTheDocument()
     })
 
-    const suggestion = screen.getByText('Ragavan, Nimble Pilferer')
-    await user.click(suggestion)
+    await user.click(screen.getByText('Ragavan, Nimble Pilferer'))
 
-    // Input should be cleared after selection
+    expect(mockNavigate).toHaveBeenCalledTimes(1)
+    expect(mockNavigate).toHaveBeenCalledWith({
+      to: '/cards/$id',
+      params: { id: 'ragavan-mh2' },
+    })
     expect(input.value).toBe('')
   })
 
