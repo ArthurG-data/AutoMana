@@ -1,6 +1,6 @@
 ﻿import io
 from datetime import date
-from typing import Optional, Any, Dict
+from typing import Optional, Any, Dict, List
 from uuid import UUID
 from dataclasses import dataclass, field
 
@@ -166,6 +166,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
             oracle_text: Optional[str] = None,
             format: Optional[str] = None,
             layout: Optional[str] = None,
+            promo_type: Optional[List[str]] = None,
             limit: int = 100,
             offset: int = 0,
             sort_by: Optional[str] = "card_name",
@@ -266,6 +267,12 @@ class CardReferenceRepository(AbstractRepository[Any]):
             # Default: exclude tokens when no layout filter is specified
             conditions.append("v.layout_name NOT IN ('token', 'double_faced_token')")
 
+        if promo_type:
+            # && = array overlap: card has ANY of the selected promo types
+            conditions.append(f"v.promo_types && ${counter}")
+            values.append(promo_type)
+            counter += 1
+
         where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
 
         # Dynamic ORDER BY: prefer relevance when text search params are present.
@@ -325,9 +332,24 @@ class CardReferenceRepository(AbstractRepository[Any]):
         count_values = values[:-2]
         count_result = await self.execute_query(count_query, tuple(count_values))
         total_count = count_result[0]["total_count"] if count_result else 0
+
+        # Facet query — same WHERE conditions as count_query, using LATERAL unnest on promo_types.
+        # count_values = values[:-2] strips limit/offset (already computed above for count_query).
+        facet_query = f"""
+            SELECT array_agg(DISTINCT pt ORDER BY pt) AS promo_type_facets
+            FROM card_catalog.v_card_versions_complete v
+            JOIN card_catalog.sets s ON s.set_id = v.set_id
+            CROSS JOIN LATERAL unnest(v.promo_types) AS t(pt)
+            {where_clause}
+        """
+        facet_result = await self.execute_query(facet_query, tuple(count_values))
+        promo_type_facets = (
+            (facet_result[0]["promo_type_facets"] or []) if facet_result else []
+        )
         return {
             "cards": cards,
             "total_count": total_count,
+            "promo_type_facets": promo_type_facets,
         }
     async def list(self) -> dict[str, Any]:
         raise NotImplementedError("Method not implemented")
