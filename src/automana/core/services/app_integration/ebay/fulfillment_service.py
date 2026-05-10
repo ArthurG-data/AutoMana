@@ -18,6 +18,9 @@ from automana.core.repositories.app_integration.ebay.app_repository import EbayA
 from automana.core.repositories.app_integration.ebay.ApiSelling_repository import EbaySellingRepository
 from automana.core.service_registry import ServiceRegistry
 from automana.core.services.app_integration.ebay._auth_context import resolve_token
+from automana.core.utils.redis_cache import get_from_cache, set_to_cache, invalidate_cache_pattern
+
+_SOLD_ORDERS_TTL = 300
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +53,13 @@ async def get_order_history(
     )
 
     token = await resolve_token(auth_repository, user_id=user_id, app_code=app_code)
+
+    cache_key = f"ebay:sold_orders:{user_id}:{app_code}:{limit}:{offset}"
+    cached = await get_from_cache(cache_key)
+    if cached is not None:
+        logger.info("ebay_sold_orders_cache_hit", extra={"cache_key": cache_key})
+        return listings_model.PaginatedOrders.model_validate(cached)
+
     env = await auth_repository.get_environment(app_code=app_code)
     if env:
         selling_repository.environment = env.lower()
@@ -83,9 +93,11 @@ async def get_order_history(
                 extra={"action": "get_order_history", "raw_total": str(raw_total)},
             )
 
-    return listings_model.PaginatedOrders.from_parts(
+    result = listings_model.PaginatedOrders.from_parts(
         items=items, total=total, offset=offset, limit=limit,
     )
+    await set_to_cache(cache_key, result.model_dump(), expiry_seconds=_SOLD_ORDERS_TTL)
+    return result
 
 
 @ServiceRegistry.register(
@@ -113,4 +125,5 @@ async def update_order_local_status(
         app_code=app_code,
         local_status=local_status,
     )
+    await invalidate_cache_pattern(f"ebay:sold_orders:{user_id}:{app_code}:*")
     return {"order_id": order_id, "local_status": local_status}

@@ -1,22 +1,18 @@
-import { apiClient } from '../../../lib/apiClient'
+import type { QueryClient } from '@tanstack/react-query'
+import { cardSuggestQueryOptions } from '../../cards/api'
 import type { EbayLiveListing } from '../mockListings'
-
-interface CardSuggestion {
-  card_name: string
-  set_code: string
-}
 
 /**
  * Enriches eBay listings with canonical card names and set codes from the
  * AutoMana card catalog (backed by Scryfall data).
  *
- * Fires one /card-reference/suggest call per unique parsed card name, in
- * parallel. Failures are swallowed — the listing keeps its title-parsed values.
- * Listings are updated in place: cardName becomes the canonical Scryfall name,
- * setCode is filled from the catalog when the title parser couldn't find one.
+ * Uses queryClient.fetchQuery so React Query deduplicates concurrent calls for
+ * the same card name and caches results for 24h — eliminating the redundant
+ * API calls that fired on every previous mount.
  */
 export async function enrichWithCatalog(
   listings: EbayLiveListing[],
+  queryClient: QueryClient,
 ): Promise<EbayLiveListing[]> {
   const uniqueNames = [
     ...new Set(listings.map((l) => l.cardName).filter((n) => n.length >= 2)),
@@ -24,8 +20,8 @@ export async function enrichWithCatalog(
 
   const settled = await Promise.allSettled(
     uniqueNames.map(async (name) => {
-      const resp = await apiClient<{ suggestions: CardSuggestion[] }>(
-        `/card-reference/suggest?q=${encodeURIComponent(name)}&limit=1`,
+      const resp = await queryClient.fetchQuery(
+        cardSuggestQueryOptions({ q: name, limit: 1 }),
       )
       const first = resp.suggestions?.[0]
       return {
@@ -52,8 +48,6 @@ export async function enrichWithCatalog(
     return {
       ...listing,
       cardName: hit.cardName,
-      // Title-extracted set code wins (user knows their specific printing);
-      // catalog set code fills the gap when the title didn't have one.
       setCode: listing.setCode || hit.setCode,
     }
   })
