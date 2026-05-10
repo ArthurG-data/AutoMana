@@ -102,16 +102,23 @@ class CardReferenceRepository(AbstractRepository[Any]):
                 ) AS available_finishes,
                 cv.is_multifaced,
                 cv.card_back_id,
-                (
-                    SELECT i.image_uris->>'large'
-                    FROM   card_catalog.card_faces face
-                    JOIN   card_catalog.face_illustration fi
-                               ON fi.face_id = face.card_faces_id
-                    JOIN   card_catalog.illustrations i
-                               ON i.illustration_id = fi.illustration_id
-                    WHERE  face.card_version_id = cv.card_version_id
-                      AND  face.face_index = 1
-                    LIMIT  1
+                COALESCE(
+                    (
+                        SELECT i.image_uris->>'large'
+                        FROM   card_catalog.card_faces face
+                        JOIN   card_catalog.face_illustration fi
+                                   ON fi.face_id = face.card_faces_id
+                        JOIN   card_catalog.illustrations i
+                                   ON i.illustration_id = fi.illustration_id
+                        WHERE  face.card_version_id = cv.card_version_id
+                          AND  face.face_index = 1
+                        LIMIT  1
+                    ),
+                    CASE
+                        WHEN cv.is_multifaced = TRUE
+                         AND cvi.image_uris->>'large' LIKE '%/front/%'
+                        THEN replace(cvi.image_uris->>'large', '/front/', '/back/')
+                    END
                 ) AS back_face_image_uri
             FROM card_catalog.unique_cards_ref uc
             JOIN card_catalog.card_version cv ON uc.unique_card_id = cv.unique_card_id

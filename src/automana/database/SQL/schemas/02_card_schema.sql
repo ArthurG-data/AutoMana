@@ -1060,16 +1060,17 @@ BEGIN
                 VALUES (v_artist_uuid, v_artist_name)
                 ON CONFLICT DO NOTHING;
 
-                INSERT INTO card_catalog.illustrations (illustration_id)
-                VALUES (v_illustration_id)
-                ON CONFLICT DO NOTHING;
+                INSERT INTO card_catalog.illustrations (illustration_id, image_uris)
+                VALUES (v_illustration_id, v_face -> 'image_uris')
+                ON CONFLICT (illustration_id) DO UPDATE
+                    SET image_uris = EXCLUDED.image_uris,
+                        updated_at = now()
+                WHERE card_catalog.illustrations.image_uris IS DISTINCT FROM EXCLUDED.image_uris;
 
                 INSERT INTO card_catalog.illustration_artist (illustration_id, artist_id)
                 VALUES (v_illustration_id, v_artist_uuid)
                 ON CONFLICT DO NOTHING;
 
-                --INSERT INTO card_catalog.card_version_illustration (card_version_id, illustration_id)
-                --VALUES (v_card_version_id, v_illustration_id)
                 INSERT INTO card_catalog.face_illustration (face_id, illustration_id)
                 VALUES  (v_card_faces_id , v_illustration_id)
                 ON CONFLICT DO NOTHING;
