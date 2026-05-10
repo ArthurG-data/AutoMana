@@ -99,7 +99,7 @@ async def card_search_params(
     toughness: Optional[int] = Query(None, ge=0, description="Filter by toughness"),
     flavor_text: Optional[str] = Query(None, description="Filter by flavor text"),
     card_faces: Optional[List[UUID]] = Query(None, description="Filter by card faces"),
-    digital: Optional[bool] = Query(None, description="Filter by digital status"),
+    digital: bool = Query(False, description="Filter by digital status (default excludes MTGO/Arena-only cards)"),
     oracle_text: Optional[str] = Query(None, description="Filter by oracle text (full-text search)"),
     format: Optional[str] = Query(None, description="Filter by format legality (e.g. 'standard', 'modern')"),
     layout: Optional[str] = Query(None, description="Filter by layout type (e.g. 'normal', 'token', 'saga')"),
