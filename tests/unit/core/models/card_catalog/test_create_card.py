@@ -66,3 +66,18 @@ def test_prepare_for_db_last_value_none_when_not_set():
     card = CreateCard(**MINIMAL_CARD)
     result = card.prepare_for_db()
     assert result[-1] is None
+
+
+def test_model_dump_for_sql_includes_card_back_id():
+    back_id = UUID("0aeebaf5-8c7d-4636-9e82-8c27447861f7")
+    card = CreateCard(**MINIMAL_CARD, card_back_id=back_id)
+    dump = card.model_dump_for_sql()
+    assert "card_back_id" in dump
+    assert dump["card_back_id"] == str(back_id)
+
+
+def test_model_dump_for_sql_card_back_id_none_when_not_set():
+    card = CreateCard(**MINIMAL_CARD)
+    dump = card.model_dump_for_sql()
+    assert "card_back_id" in dump
+    assert dump["card_back_id"] is None

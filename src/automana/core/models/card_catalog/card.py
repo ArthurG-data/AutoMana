@@ -252,6 +252,7 @@ class CreateCard(BaseCard):
             "tcgplayer_id": data["tcgplayer_id"],
             "tcgplayer_etched_id": data["tcgplayer_etched_id"],
             "cardmarket_id": data["cardmarket_id"],
+            "card_back_id": data.get("card_back_id"),
         }
    
     @model_validator(mode='before')
