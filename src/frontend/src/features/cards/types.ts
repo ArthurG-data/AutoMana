@@ -36,6 +36,9 @@ export interface CardDetail extends CardSummary {
   price_history_list_avg?: number[]
   price_history_sold_avg?: number[]
   available_finishes?: string[]
+  is_multifaced?: boolean
+  card_back_id?: string | null
+  back_face_image_uri?: string | null
 }
 
 export interface CardSearchParams {
