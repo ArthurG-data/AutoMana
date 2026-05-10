@@ -61,5 +61,5 @@ async def test_rarity_facet_query_excludes_rarity_predicate():
     await repo.search(rarity="mythic")
     main_sql = repo.execute_query.call_args_list[0][0][0]
     rarity_facet_sql = repo.execute_query.call_args_list[3][0][0]
-    assert "rarity_name" in main_sql  # main query filters by rarity
-    assert "ILIKE" not in rarity_facet_sql  # facet query does NOT filter by rarity
+    assert "v.rarity_name ILIKE" in main_sql          # rarity predicate in main WHERE
+    assert "v.rarity_name ILIKE" not in rarity_facet_sql  # rarity predicate absent from facet WHERE
