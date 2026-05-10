@@ -208,6 +208,7 @@ async def search_cards(card_repository: CardReferenceRepository
                                                released_before=released_before,
                                                oracle_text=oracle_text,
                                                format=format,
+                                               layout=layout,
                                                limit=limit,
                                                offset=offset,
                                                sort_by=sort_by,

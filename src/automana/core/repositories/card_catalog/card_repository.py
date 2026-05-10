@@ -267,6 +267,12 @@ class CardReferenceRepository(AbstractRepository[Any]):
             # Default: exclude tokens when no layout filter is specified
             conditions.append("v.layout_name NOT IN ('token', 'double_faced_token')")
 
+        # Snapshot before adding the promo_type predicate so the facet query
+        # can omit it — facets must show all available types across the current
+        # base filter, not just types that co-occur with the selected ones.
+        facet_cond_stop = len(conditions)
+        facet_val_stop = len(values)
+
         if promo_type:
             # && = array overlap: card has ANY of the selected promo types
             conditions.append(f"v.promo_types && ${counter}")
@@ -274,6 +280,10 @@ class CardReferenceRepository(AbstractRepository[Any]):
             counter += 1
 
         where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
+        facet_where_clause = (
+            "WHERE " + " AND ".join(conditions[:facet_cond_stop])
+            if facet_cond_stop else ""
+        )
 
         # Dynamic ORDER BY: prefer relevance when text search params are present.
         if name_param_idx and oracle_param_idx:
@@ -333,16 +343,17 @@ class CardReferenceRepository(AbstractRepository[Any]):
         count_result = await self.execute_query(count_query, tuple(count_values))
         total_count = count_result[0]["total_count"] if count_result else 0
 
-        # Facet query — same WHERE conditions as count_query, using LATERAL unnest on promo_types.
-        # count_values = values[:-2] strips limit/offset (already computed above for count_query).
+        # Facet query uses facet_where_clause (excludes promo_type predicate) so
+        # all promo types present in the base filter remain selectable even after
+        # the user has already chosen one or more types.
         facet_query = f"""
             SELECT array_agg(DISTINCT pt ORDER BY pt) AS promo_type_facets
             FROM card_catalog.v_card_versions_complete v
             JOIN card_catalog.sets s ON s.set_id = v.set_id
             CROSS JOIN LATERAL unnest(v.promo_types) AS t(pt)
-            {where_clause}
+            {facet_where_clause}
         """
-        facet_result = await self.execute_query(facet_query, tuple(count_values))
+        facet_result = await self.execute_query(facet_query, tuple(values[:facet_val_stop]))
         promo_type_facets = (
             (facet_result[0]["promo_type_facets"] or []) if facet_result else []
         )
