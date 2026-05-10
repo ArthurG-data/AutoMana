@@ -195,7 +195,7 @@ chk_07_card_finished_core_codes AS (
         ) AS details
     FROM (VALUES ('NONFOIL'), ('FOIL'), ('ETCHED')) AS required(code)
     WHERE NOT EXISTS (
-        SELECT 1 FROM pricing.card_finished cf WHERE cf.code = required.code
+        SELECT 1 FROM card_catalog.card_finished cf WHERE cf.code = required.code
     )
 ),
 

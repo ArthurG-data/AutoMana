@@ -35,7 +35,7 @@ class BaseCard(BaseModel):
 
 class CardDetail(BaseCard):
     image_large: Optional[str] = Field(default=None, title="URL to large-sized card image from Scryfall")
-    available_finishes: Optional[List[str]] = Field(default_factory=list)
+    available_finishes: List[str] = Field(default_factory=list)
     price_history_list_avg: Optional[List[float]] = Field(
         default=None,
         title="Daily list average prices in dollars for selected time range"

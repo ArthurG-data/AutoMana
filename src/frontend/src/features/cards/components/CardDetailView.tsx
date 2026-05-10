@@ -44,6 +44,7 @@ export function CardDetailView({ card }: CardDetailViewProps) {
             <button
               key={f}
               onClick={() => setSelectedFinish(f)}
+              aria-pressed={f === selectedFinish}
               style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
             >
               <Chip
