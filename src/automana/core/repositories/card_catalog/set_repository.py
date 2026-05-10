@@ -1,6 +1,6 @@
 ﻿from dataclasses import dataclass, field
 from automana.core.repositories.abstract_repositories.AbstractDBRepository import AbstractRepository
-from typing import Any, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence
 from uuid import UUID
 from automana.core.models.card_catalog.set import NewSet
 import logging
@@ -203,7 +203,7 @@ class SetReferenceRepository(AbstractRepository[Any]):
         logger.debug(f"Executing query: {query} with values: {values}")
         return await self.execute_query(query, tuple(values))
 
-    async def browse(self) -> list[dict]:
+    async def browse(self) -> List[Dict]:
         query = """
             SELECT
                 vsm.set_id,
