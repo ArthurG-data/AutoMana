@@ -208,4 +208,21 @@ describe('SearchBarWithSuggestions', () => {
 
     expect(screen.getByText('The One Ring')).toBeInTheDocument()
   })
+
+  it('pressing Enter without arrow navigation goes to search results, not a card detail page', async () => {
+    const user = userEvent.setup()
+    render(<SearchBarWithSuggestions />, { wrapper: Wrapper })
+
+    const input = screen.getByPlaceholderText(/Search any card/)
+    await user.type(input, 'rag')
+
+    await waitFor(() => {
+      expect(screen.getByText('Ragavan, Nimble Pilferer')).toBeInTheDocument()
+    })
+
+    await user.keyboard('{Enter}')
+
+    expect(mockNavigate).toHaveBeenCalledTimes(1)
+    expect(mockNavigate).toHaveBeenCalledWith({ to: '/search', search: { q: 'rag' } })
+  })
 })

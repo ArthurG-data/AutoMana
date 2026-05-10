@@ -18,7 +18,7 @@ interface SearchBarWithSuggestionsProps {
 
 export function SearchBarWithSuggestions({ placeholder = 'Search any card by name, set, or artist…' }: SearchBarWithSuggestionsProps) {
   const [query, setQuery] = useState('')
-  const [selectedIndex, setSelectedIndex] = useState(0)
+  const [selectedIndex, setSelectedIndex] = useState(-1)
   const [showDropdown, setShowDropdown] = useState(false)
   const navigate = useNavigate()
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -39,7 +39,7 @@ export function SearchBarWithSuggestions({ placeholder = 'Search any card by nam
 
   // Reset selected index when suggestions change
   useEffect(() => {
-    setSelectedIndex(0)
+    setSelectedIndex(-1)
   }, [suggestions])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -76,15 +76,15 @@ export function SearchBarWithSuggestions({ placeholder = 'Search any card by nam
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault()
-        setSelectedIndex((prev) => (prev + 1) % suggestions.length)
+        setSelectedIndex((prev) => (prev < 0 ? 0 : (prev + 1) % suggestions.length))
         break
       case 'ArrowUp':
         e.preventDefault()
-        setSelectedIndex((prev) => (prev - 1 + suggestions.length) % suggestions.length)
+        setSelectedIndex((prev) => (prev < 0 ? suggestions.length - 1 : (prev - 1 + suggestions.length) % suggestions.length))
         break
       case 'Enter':
         e.preventDefault()
-        if (showDropdown && suggestions.length > 0) {
+        if (showDropdown && selectedIndex >= 0 && suggestions[selectedIndex]) {
           handleSelectSuggestion(suggestions[selectedIndex])
         } else if (query.trim()) {
           handleSearch(query)
