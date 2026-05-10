@@ -99,7 +99,20 @@ class CardReferenceRepository(AbstractRepository[Any]):
                     FROM card_catalog.card_version_finish cvf
                     JOIN card_catalog.card_finished cf ON cf.finish_id = cvf.finish_id
                     WHERE cvf.card_version_id = cv.card_version_id
-                ) AS available_finishes
+                ) AS available_finishes,
+                cv.is_multifaced,
+                cv.card_back_id,
+                (
+                    SELECT i.image_uris->>'large'
+                    FROM   card_catalog.card_faces face
+                    JOIN   card_catalog.face_illustration fi
+                               ON fi.face_id = face.card_faces_id
+                    JOIN   card_catalog.illustrations i
+                               ON i.illustration_id = fi.illustration_id
+                    WHERE  face.card_version_id = cv.card_version_id
+                      AND  face.face_index = 1
+                    LIMIT  1
+                ) AS back_face_image_uri
             FROM card_catalog.unique_cards_ref uc
             JOIN card_catalog.card_version cv ON uc.unique_card_id = cv.unique_card_id
             JOIN card_catalog.rarities_ref r ON cv.rarity_id = r.rarity_id
