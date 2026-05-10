@@ -17,7 +17,7 @@ const Wrapper = ({ children }: { children: React.ReactNode }) => (
 
 const BASE_PARAMS = { q: 'ragavan' }
 
-describe('SearchFilters — promo type dropdown', () => {
+describe('SearchFilters — filter facets', () => {
   it('hides promo section when promoTypeFacets is empty', () => {
     render(<SearchFilters params={BASE_PARAMS} promoTypeFacets={[]} rarityFacets={[]} />, { wrapper: Wrapper })
     expect(screen.queryByText(/promo type/i)).toBeNull()
