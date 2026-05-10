@@ -562,17 +562,14 @@ class EnhancedCardImportService:
                             continue
                         
                         # Validate and create card; explode finishes so each
-                        # finish variant (nonfoil/foil/etched/surge_foil) becomes
-                        # its own card_version row.
+                        # finish variant (nonfoil / foil / etched) becomes its
+                        # own card_version row.  Promo treatments (surgefoil,
+                        # ripplefoil, etc.) are stored in promo_card via the
+                        # stored procedure — they do not change the finish value.
                         card = card_schemas.CreateCard.model_validate(card_json)
                         if card:
-                            is_surge_foil = "surgefoil" in (card.promo_types or [])
-                            for raw_finish in (card.finishes or ["nonfoil"]):
-                                effective_finish = (
-                                    "surge_foil" if raw_finish == "foil" and is_surge_foil
-                                    else raw_finish
-                                )
-                                batch.append(card.model_copy(update={"finishes": [effective_finish]}))
+                            for finish in (card.finishes or ["nonfoil"]):
+                                batch.append(card.model_copy(update={"finishes": [finish]}))
                             self.stats.total_cards += 1
                         
                         # Process batch when full
