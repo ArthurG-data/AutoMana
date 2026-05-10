@@ -23,6 +23,7 @@ class ApiResponse(BaseModel, Generic[DataT]):
     
 class PaginatedResponse(ApiResponse[List[DataT]], Generic[DataT]):
     pagination: PaginationInfo
+    facets: Optional[Dict[str, List[str]]] = None
 
 class ErrorResponse(BaseModel):
     """Error response"""

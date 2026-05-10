@@ -1,6 +1,6 @@
 from uuid import UUID
 from datetime import datetime, timezone, date, timedelta
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import  Optional, List, Dict, Any, Callable
 from pathlib import Path
 import hashlib
@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 class CardSearchResult:
     cards: List[BaseCard]
     total_count: int
+    promo_type_facets: List[str] = field(default_factory=list)
 
 @dataclass
 class ProcessingStats:
@@ -561,15 +562,9 @@ class EnhancedCardImportService:
                 
                             continue
                         
-                        # Validate and create card; explode finishes so each
-                        # finish variant (nonfoil / foil / etched) becomes its
-                        # own card_version row.  Promo treatments (surgefoil,
-                        # ripplefoil, etc.) are stored in promo_card via the
-                        # stored procedure — they do not change the finish value.
                         card = card_schemas.CreateCard.model_validate(card_json)
                         if card:
-                            for finish in (card.finishes or ["nonfoil"]):
-                                batch.append(card.model_copy(update={"finishes": [finish]}))
+                            batch.append(card)
                             self.stats.total_cards += 1
                         
                         # Process batch when full
