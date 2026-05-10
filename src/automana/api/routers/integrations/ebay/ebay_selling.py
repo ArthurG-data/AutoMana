@@ -123,7 +123,7 @@ async def get_active_listings(
             pagination=PaginationInfo(
                 limit=limit,
                 offset=offset,
-                total_count=result.total if result.total is not None else len(result.items),
+                total_count=result.total,
                 has_next=result.has_more,
                 has_previous=offset > 0,
             ),

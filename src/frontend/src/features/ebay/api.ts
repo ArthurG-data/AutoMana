@@ -236,23 +236,27 @@ export async function fetchActiveListingsPaginated(
   appCode: string,
   limit: number,
   offset: number,
-): Promise<{ items: EbayLiveListing[]; hasMore: boolean }> {
+): Promise<{ items: EbayLiveListing[]; hasMore: boolean; total: number | null }> {
   const raw = await apiClient<unknown>(
     `/integrations/ebay/listing/active?app_code=${encodeURIComponent(appCode)}&limit=${limit}&offset=${offset}`
   )
   let items: RawEbayItem[]
   let hasMore: boolean
+  let total: number | null
   if (Array.isArray(raw)) {
     items = raw
     hasMore = items.length === limit
+    total = null
   } else {
-    const paged = raw as { data?: unknown; pagination?: { has_more?: boolean } }
+    const paged = raw as { data?: unknown; pagination?: { has_more?: boolean; total_count?: unknown } }
     items = Array.isArray(paged.data) ? (paged.data as RawEbayItem[]) : []
     hasMore = paged.pagination?.has_more ?? items.length === limit
+    total = typeof paged.pagination?.total_count === 'number' ? paged.pagination.total_count : null
   }
   return {
     items: items.map((item) => ({ ...mapToLiveListing(item), appCode, appName: '' })),
     hasMore,
+    total,
   }
 }
 

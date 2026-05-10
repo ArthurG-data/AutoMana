@@ -52,6 +52,7 @@ export function ListingsPage() {
   const [isSoldLoadingMore, setIsSoldLoadingMore] = useState(false)
   const [hasSoldMore, setHasSoldMore] = useState(false)
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
+  const [totalActive, setTotalActive] = useState<number | null>(null)
   const storeSet = useListingsStore((s) => s.setListings)
   const selectedListing = useListingsStore((s) => s.getById(selectedId ?? ''))
   const storeUpdateListing = useListingsStore((s) => s.updateListing)
@@ -80,10 +81,10 @@ export function ListingsPage() {
 
         const results = await Promise.allSettled(
           productionApps.map((app) =>
-            fetchActiveListingsPaginated(app.app_code, LIMIT, 0).then(({ items, hasMore: more }) => {
+            fetchActiveListingsPaginated(app.app_code, LIMIT, 0).then(({ items, hasMore: more, total }) => {
               hasMoreRef.current[app.app_code] = more
               offsetsRef.current[app.app_code] = items.length
-              return items.map((item) => ({ ...item, appName: app.app_name }))
+              return { items: items.map((item) => ({ ...item, appName: app.app_name })), total }
             })
           )
         )
@@ -92,13 +93,18 @@ export function ListingsPage() {
 
         const merged: EbayLiveListing[] = []
         const failed: string[] = []
+        let knownTotal: number | null = null
         results.forEach((result, i) => {
           if (result.status === 'fulfilled') {
-            merged.push(...result.value)
+            merged.push(...result.value.items)
+            if (result.value.total !== null) {
+              knownTotal = (knownTotal ?? 0) + result.value.total
+            }
           } else {
             failed.push(productionApps[i].app_name)
           }
         })
+        setTotalActive(knownTotal)
 
         listingsRef.current = merged
         setListings(merged)
@@ -362,7 +368,9 @@ export function ListingsPage() {
             >
               {t.charAt(0).toUpperCase() + t.slice(1)}
               {t === 'active' && !isLoading && (
-                <span className={styles.tabCount}>{listings.length}</span>
+                <span className={styles.tabCount}>
+                  {totalActive !== null ? totalActive : `${listings.length}${hasMore ? '+' : ''}`}
+                </span>
               )}
               {t === 'sold' && !isSoldLoading && soldOrders.length > 0 && (
                 <span className={styles.tabCount}>{soldOrders.length}</span>

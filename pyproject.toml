@@ -77,6 +77,7 @@ dependencies = [
     # TUI
     "textual>=0.80.0",
     "flower>=2.0.1",
+    "matplotlib>=3.10.9",
 ]
 
 [project.optional-dependencies]
