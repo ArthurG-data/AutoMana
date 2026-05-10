@@ -44,6 +44,9 @@ class CardDetail(BaseCard):
         default=None,
         title="Daily sold average prices in dollars for selected time range"
     )
+    is_multifaced: bool = Field(default=False)
+    card_back_id: Optional[UUID] = Field(default=None)
+    back_face_image_uri: Optional[str] = Field(default=None)
 
 class CardFace(BaseModel):
     name: str
@@ -129,6 +132,7 @@ class CreateCard(BaseCard):
     tcgplayer_id: Optional[int]=None
     tcgplayer_etched_id: Optional[int]=None
     cardmarket_id: Optional[int]=None
+    card_back_id: Optional[UUID] = None
 
     @field_validator("artist", mode="after")
     @classmethod
@@ -186,6 +190,7 @@ class CreateCard(BaseCard):
         self.tcgplayer_id,
         self.tcgplayer_etched_id,
         self.cardmarket_id,
+        self.card_back_id,
     )
     def model_dump_for_sql(self) -> Dict[str, Any]:
         """
@@ -247,6 +252,7 @@ class CreateCard(BaseCard):
             "tcgplayer_id": data["tcgplayer_id"],
             "tcgplayer_etched_id": data["tcgplayer_etched_id"],
             "cardmarket_id": data["cardmarket_id"],
+            "card_back_id": data.get("card_back_id"),
         }
    
     @model_validator(mode='before')

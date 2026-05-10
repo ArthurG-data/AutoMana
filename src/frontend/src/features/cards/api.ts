@@ -17,6 +17,7 @@ export function cardInfiniteSearchQueryOptions(params: Omit<CardSearchParams, 'p
       if (params.layout)   qs.set('layout', params.layout)
       if (params.minPrice != null) qs.set('min_price', String(params.minPrice))
       if (params.maxPrice != null) qs.set('max_price', String(params.maxPrice))
+      params.promoTypes?.forEach(pt => qs.append('promo_type', pt))
       qs.set('limit', '20')
       qs.set('offset', String(pageParam))
 
@@ -33,6 +34,7 @@ export function cardInfiniteSearchQueryOptions(params: Omit<CardSearchParams, 'p
       return {
         cards: body.data ?? [],
         pagination: body.pagination,
+        facets: (body.facets as { promo_types?: string[]; rarities?: string[] } | null) ?? null,
       }
     },
     initialPageParam: 0,

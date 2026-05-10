@@ -40,3 +40,18 @@ async def test_search_cards_facets_in_cache():
 
     assert "promo_type_facets" in captured_cache
     assert captured_cache["promo_type_facets"] == ["buyabox", "prerelease"]
+
+
+@pytest.mark.asyncio
+async def test_search_cards_reads_promo_type_facets_from_cache():
+    repo = MagicMock()
+    repo.search = AsyncMock()
+    cached_data = {
+        "cards": [],
+        "total_count": 0,
+        "promo_type_facets": ["prerelease", "promopack"],
+    }
+    with patch("automana.core.services.card_catalog.card_service.get_from_cache", return_value=cached_data):
+        result = await search_cards(card_repository=repo)
+    repo.search.assert_not_called()
+    assert result.promo_type_facets == ["prerelease", "promopack"]

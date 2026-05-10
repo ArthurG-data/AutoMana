@@ -1,12 +1,12 @@
 // src/frontend/src/features/cards/__tests__/api.test.ts
 import { describe, it, expect } from 'vitest'
 import { QueryClient } from '@tanstack/react-query'
-import { cardSearchQueryOptions, cardDetailQueryOptions } from '../api'
+import { cardInfiniteSearchQueryOptions, cardDetailQueryOptions } from '../api'
 
-describe('cardSearchQueryOptions', () => {
+describe('cardInfiniteSearchQueryOptions', () => {
   it.skip('returns cards from /api/catalog/mtg/card-reference/', async () => {
     // Test requires real backend connection - components work correctly with integration tests
-    const opts = cardSearchQueryOptions({ q: 'Ragavan' })
+    const opts = cardInfiniteSearchQueryOptions({ q: 'Ragavan' })
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     const data = await qc.fetchQuery(opts)
     expect(data.cards.length).toBeGreaterThan(0)

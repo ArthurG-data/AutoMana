@@ -590,7 +590,14 @@ LEFT JOIN games_agg ga ON cv.card_version_id = ga.card_version_id
 LEFT JOIN promo_types_agg pta ON cv.card_version_id = pta.card_version_id
 LEFT JOIN card_stats_agg csa ON cv.card_version_id = csa.card_version_id
 LEFT JOIN illustrations_agg ia ON cv.card_version_id = ia.card_version_id
-LEFT JOIN card_faces_agg cfa ON cv.card_version_id = cfa.card_version_id;
+LEFT JOIN card_faces_agg cfa ON cv.card_version_id = cfa.card_version_id
+WHERE cv.lang = 'en'
+   OR NOT EXISTS (
+       SELECT 1 FROM card_catalog.card_version en_cv
+       WHERE en_cv.set_id = cv.set_id
+         AND en_cv.collector_number = cv.collector_number
+         AND en_cv.lang = 'en'
+   );
 
 CREATE UNIQUE INDEX idx_v_card_versions_complete_pk ON card_catalog.v_card_versions_complete (card_version_id);
 CREATE INDEX idx_v_card_versions_complete_name ON card_catalog.v_card_versions_complete (card_name);
@@ -691,7 +698,8 @@ CREATE OR REPLACE FUNCTION card_catalog.insert_full_card_version(
     p_multiverse_ids JSONB,
     p_tcgplayer_id INT,
     p_tcgplayer_etched_id INT,
-    p_cardmarket_id INT
+    p_cardmarket_id INT,
+    p_card_back_id UUID DEFAULT NULL
 )
 RETURNS UUID AS $$
 DECLARE
@@ -802,7 +810,7 @@ BEGIN
         collector_number, rarity_id, border_color_id,
         frame_id, layout_id, is_promo, is_digital,
         is_oversized, full_art, textless, booster,
-        variation, frame_effects, lang
+        variation, frame_effects, lang, card_back_id
     ) VALUES (
         v_unique_card_id, p_oracle_text, v_set_id,
         p_collector_number, v_rarity_id, v_border_color_id,
@@ -810,7 +818,8 @@ BEGIN
         p_oversized, p_full_art, p_textless, p_booster,
         p_variation,
         COALESCE(p_frame_effects, '{}'),
-        COALESCE(p_lang, 'en')
+        COALESCE(p_lang, 'en'),
+        p_card_back_id
     )
     ON CONFLICT (unique_card_id, set_id, collector_number, lang) DO NOTHING
     RETURNING card_version_id INTO v_card_version_id;
@@ -1224,7 +1233,8 @@ BEGIN
                 v_card -> 'multiverse_ids',
                 (v_card ->> 'tcgplayer_id')::INT,
                 (v_card ->> 'tcgplayer_etched_id')::INT,
-                (v_card ->> 'cardmarket_id')::INT
+                (v_card ->> 'cardmarket_id')::INT,
+                (v_card ->> 'card_back_id')::UUID
             ) INTO v_result;
             
             -- Success

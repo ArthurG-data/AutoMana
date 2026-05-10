@@ -53,7 +53,8 @@ insert_full_card_query = """
         $38, -- multiverse_ids
         $39, -- tcgplayer_id
         $40, -- tcgplayer_etched_id
-        $41 -- cardmarket_id        
+        $41, -- cardmarket_id
+        $42  -- card_back_id
     );
 """
 

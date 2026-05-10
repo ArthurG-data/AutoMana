@@ -21,7 +21,7 @@ _CARD_ROW = {
 
 def _make_repo(cards_rows, count_rows, facet_rows):
     repo = CardReferenceRepository.__new__(CardReferenceRepository)
-    repo.execute_query = AsyncMock(side_effect=[cards_rows, count_rows, facet_rows])
+    repo.execute_query = AsyncMock(side_effect=[cards_rows, count_rows, facet_rows, [{"rarity_facets": []}]])
     return repo
 
 
@@ -54,3 +54,16 @@ async def test_search_facet_query_uses_lateral_unnest():
     facet_call_sql = repo.execute_query.call_args_list[2][0][0]
     assert "LATERAL unnest" in facet_call_sql
     assert "promo_type_facets" in facet_call_sql
+
+
+@pytest.mark.asyncio
+async def test_facet_query_excludes_promo_type_predicate():
+    """Facet query must not filter on promo_types so multi-select stays discoverable."""
+    repo = _make_repo([_CARD_ROW], [{"total_count": 1}], [{"promo_type_facets": ["buyabox", "prerelease"]}])
+    await repo.search(promo_type=["buyabox"])
+    main_call_sql = repo.execute_query.call_args_list[0][0][0]
+    facet_call_sql = repo.execute_query.call_args_list[2][0][0]
+    # Main query must contain the promo_type filter
+    assert "v.promo_types && $" in main_call_sql
+    # Facet query must NOT contain it — so other promo types remain visible
+    assert "v.promo_types && $" not in facet_call_sql

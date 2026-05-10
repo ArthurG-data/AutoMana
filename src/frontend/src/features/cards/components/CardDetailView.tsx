@@ -1,6 +1,7 @@
 // src/frontend/src/features/cards/components/CardDetailView.tsx
 import { useState } from 'react'
-import { CardArt } from '../../../components/design-system/CardArt'
+import { FlippableCardArt } from '../../../components/design-system/FlippableCardArt'
+import { buildScryfallBackUrl } from '../utils/scryfallBackUrl'
 import { AreaChart } from '../../../components/design-system/AreaChart'
 import { Pip, type ManaColor } from '../../../components/design-system/Pip'
 import { Chip } from '../../../components/ui/Chip'
@@ -23,6 +24,12 @@ export function CardDetailView({ card }: CardDetailViewProps) {
   const finishes = card.available_finishes?.length ? card.available_finishes : ['nonfoil']
   const [selectedFinish, setSelectedFinish] = useState(finishes[0])
 
+  const backUrl = card.is_multifaced
+    ? (card.back_face_image_uri ?? null)
+    : card.card_back_id
+      ? buildScryfallBackUrl(card.card_back_id)
+      : null
+
   const delta1d = card.price_change_1d
   const delta7d = card.price_change_7d
   const delta30d = card.price_change_30d
@@ -30,13 +37,12 @@ export function CardDetailView({ card }: CardDetailViewProps) {
   return (
     <div className={styles.layout}>
       <div className={styles.artCol}>
-        <CardArt
+        <FlippableCardArt
           name={card.card_name}
           w={420}
           h={585}
-          hue={20}
-          label={false}
-          imageUrl={card.image_large}
+          frontUrl={card.image_large ?? null}
+          backUrl={backUrl}
           style={{ borderRadius: 16 }}
         />
         <div className={styles.printChips}>
