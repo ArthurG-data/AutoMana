@@ -47,6 +47,12 @@ class CardDetail(BaseCard):
     is_multifaced: bool = Field(default=False)
     card_back_id: Optional[UUID] = Field(default=None)
     back_face_image_uri: Optional[str] = Field(default=None)
+    mana_cost: Optional[str] = Field(default=None)
+    type_line: Optional[str] = Field(default=None)
+    artist: Optional[str] = Field(default=None)
+    collector_number: Optional[str] = Field(default=None)
+    promo_types: List[str] = Field(default_factory=list)
+    legalities: Dict[str, str] = Field(default_factory=dict)
 
 class CardFace(BaseModel):
     name: str
