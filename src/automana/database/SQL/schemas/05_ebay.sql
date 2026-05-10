@@ -208,6 +208,9 @@ INSERT INTO app_integration.scopes (scope_url, scope_description) VALUES
     ('https://api.ebay.com/oauth/api_scope/sell.stores.readonly',                       'View eBay stores')
 ON CONFLICT (scope_url) DO NOTHING;
 
+-- ── eBay Order tables (ebay_order_status, ebay_order_source_product) are in
+-- ── 08_ebay_orders.sql — they depend on pricing functions defined in 06_prices.sql.
+
 -- VIEWS -----------------------------------------------------------------------------------------------------------------------------------------------
 
 --FUNCTIONS----------------------------------------------------------------------------------------------------------------------------------------------
