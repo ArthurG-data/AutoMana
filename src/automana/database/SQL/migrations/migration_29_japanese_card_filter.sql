@@ -271,3 +271,8 @@ SELECT
     MAX(cmc) AS max_cmc
 FROM card_catalog.v_card_versions_complete
 GROUP BY set_name, set_code;
+
+-- Restore grants wiped by DROP ... CASCADE
+GRANT SELECT ON card_catalog.v_card_versions_complete TO app_admin, app_rw, app_ro, app_readonly, app_agent, app_backend, app_celery;
+GRANT SELECT ON card_catalog.v_cards_by_name         TO app_admin, app_rw, app_ro, app_readonly, app_agent, app_backend, app_celery;
+GRANT SELECT ON card_catalog.v_cards_latest_version  TO app_admin, app_rw, app_ro, app_readonly, app_agent, app_backend, app_celery;
