@@ -199,7 +199,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
         oracle_param_idx: Optional[int] = None
 
         if name:
-            conditions.append(f"word_similarity(${counter}, v.card_name) > 0.3")
+            conditions.append(f"word_similarity(${counter}, v.card_name) > 0.45")
             values.append(name)
             name_param_idx = counter
             counter += 1
