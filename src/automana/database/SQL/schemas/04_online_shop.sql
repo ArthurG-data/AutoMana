@@ -38,11 +38,11 @@ CREATE TABLE IF NOT EXISTS user_collection.collection_items (
     item_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     collection_id UUID REFERENCES user_collection.collections(collection_id) ON DELETE CASCADE,
     unique_card_id UUID REFERENCES card_catalog.card_version(card_version_id) ON DELETE CASCADE,
-    finish_id SMALLINT NOT NULL DEFAULT 1 REFERENCES pricing.card_finished(finish_id),
+    finish_id SMALLINT NOT NULL DEFAULT 1 REFERENCES card_catalog.card_finished(finish_id),
     purchase_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     purchase_price DECIMAL(10,2),
-    condition VARCHAR(5) NOT NULL DEFAULT 'NM' REFERENCES pricing.card_condition(code),
-    currency_code VARCHAR(3) NOT NULL DEFAULT 'USD' REFERENCES pricing.currency_ref(currency_code),
+    condition VARCHAR(5) NOT NULL DEFAULT 'NM',
+    currency_code VARCHAR(3) NOT NULL DEFAULT 'USD',
     language_id INT REFERENCES card_catalog.language_ref(language_id)
 );
 

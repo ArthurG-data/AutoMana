@@ -126,7 +126,7 @@ async def delete_collection(user_collection_repository: CollectionRepository
     
 
 
-# Finish code → finish_id lookup (pricing.card_finished)
+# Finish code → finish_id lookup (card_catalog.card_finished)
 _FINISH_CODE_TO_ID = {"NONFOIL": 1, "FOIL": 2, "ETCHED": 3}
 
 

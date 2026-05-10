@@ -46,7 +46,7 @@ BEGIN
         value NUMERIC NOT NULL,
         scraped_at TIMESTAMP NOT NULL,
         condition_id INT REFERENCES pricing.card_condition(condition_id),
-        finish_id INT REFERENCES pricing.card_finished(finish_id),
+        finish_id INT REFERENCES card_catalog.card_finished(finish_id),
         UNIQUE(ts_date, game_id, print_id, source_id, metric_id, condition_id, finish_id)
     );
 
@@ -105,7 +105,7 @@ BEGIN
       JOIN pricing.card_condition cc
         ON lower(cc.description) = lower(s.condition_name)
       /* finish_id only when Foil; otherwise NULL */
-      LEFT JOIN pricing.card_finished cf
+      LEFT JOIN card_catalog.card_finished cf
         ON s.finish_name IS NOT NULL AND lower(cf.code) = 'foil'
     )
     INSERT INTO pricing.price_observation_stage 

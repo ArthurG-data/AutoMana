@@ -127,7 +127,7 @@ class CollectionRepository(AbstractRepository):
             JOIN card_catalog.card_version cv ON cv.card_version_id = ci.unique_card_id
             JOIN card_catalog.unique_cards_ref uc ON uc.unique_card_id = cv.unique_card_id
             JOIN card_catalog.sets s ON s.set_id = cv.set_id
-            JOIN pricing.card_finished cf ON cf.finish_id = ci.finish_id
+            JOIN card_catalog.card_finished cf ON cf.finish_id = ci.finish_id
             WHERE ci.item_id = $1 AND ci.collection_id = $2;
         """
         rows = await self.execute_query(query, (item_id, collection_id, user_id))
@@ -154,7 +154,7 @@ class CollectionRepository(AbstractRepository):
             JOIN card_catalog.card_version cv ON cv.card_version_id = ci.unique_card_id
             JOIN card_catalog.unique_cards_ref uc ON uc.unique_card_id = cv.unique_card_id
             JOIN card_catalog.sets s ON s.set_id = cv.set_id
-            JOIN pricing.card_finished cf ON cf.finish_id = ci.finish_id
+            JOIN card_catalog.card_finished cf ON cf.finish_id = ci.finish_id
             WHERE ci.collection_id = $1;
         """
         rows = await self.execute_query(query, (collection_id, user_id))

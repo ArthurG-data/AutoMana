@@ -124,7 +124,7 @@ BEGIN
       ON CONFLICT (code) DO NOTHING;
 
       -- upsert finishes for this batch (IMPORTANT)
-      INSERT INTO pricing.card_finished (code)
+      INSERT INTO card_catalog.card_finished (code)
       SELECT DISTINCT UPPER(s.finish_type)
       FROM pricing.mtgjson_card_prices_staging s
       WHERE s.price_date::date BETWEEN v_start AND v_end
@@ -138,7 +138,7 @@ BEGIN
       ),
       fin AS (
         SELECT cf.finish_id, cf.code
-        FROM pricing.card_finished cf
+        FROM card_catalog.card_finished cf
       ),
       cv AS (
         SELECT
@@ -276,7 +276,7 @@ BEGIN
       ),
       fin AS (
         SELECT cf.finish_id, cf.code
-        FROM pricing.card_finished cf
+        FROM card_catalog.card_finished cf
       ),
       cv AS (
         SELECT

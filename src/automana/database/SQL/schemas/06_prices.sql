@@ -28,7 +28,8 @@ CREATE TABLE IF NOT EXISTS pricing.data_provider (
 INSERT INTO pricing.data_provider (code, description) VALUES
   ('mtgstocks', 'MTGStocks price scrape'),
   ('mtgjson',   'MTGJson bulk data file'),
-  ('scryfall',  'Scryfall API')
+  ('scryfall',  'Scryfall API'),
+  ('ebay',      'eBay Fulfillment API — seller order history')
 ON CONFLICT (code) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS pricing.price_metric (
@@ -57,21 +58,39 @@ CREATE TABLE IF NOT EXISTS pricing.card_condition (
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS pricing.card_finished(
-    finish_id   SMALLSERIAL PRIMARY KEY,
-    code        TEXT UNIQUE NOT NULL,   -- 'nonfoil','foil','etched','gilded'
-    description TEXT,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
+-- card_catalog.card_finished is defined in 02_card_schema.sql (canonical finish reference).
 -- Maps MTGStocks name suffixes (e.g. "Surge Foil") to their finish_id.
 -- Used by load_staging_prices_batched, load_prices_from_staged_batched, and
 -- resolve_price_rejects to assign granular finishes instead of generic FOIL.
 CREATE TABLE IF NOT EXISTS pricing.mtgstock_name_finish_suffix (
     suffix     TEXT PRIMARY KEY,
-    finish_id  SMALLINT NOT NULL REFERENCES pricing.card_finished(finish_id)
+    finish_id  SMALLINT NOT NULL REFERENCES card_catalog.card_finished(finish_id)
 );
+
+-- Maps MTGStocks "A"-prefixed art set codes to lowercase Scryfall equivalents.
+CREATE TABLE IF NOT EXISTS pricing.mtgstock_art_set_map (
+    mtgstocks_set_code  TEXT PRIMARY KEY,
+    scryfall_set_code   TEXT NOT NULL,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Maps MTGStocks base set codes to Scryfall "t"-prefixed token set codes.
+CREATE TABLE IF NOT EXISTS pricing.mtgstock_token_set_map (
+    mtgstocks_set_code  TEXT PRIMARY KEY,
+    token_set_code      TEXT NOT NULL,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+INSERT INTO pricing.mtgstock_art_set_map (mtgstocks_set_code, scryfall_set_code) VALUES
+    ('AAINR', 'ainr'),
+    ('ADFT',  'adft'),
+    ('AEOE',  'aeoe'),
+    ('AFIN',  'afin'),
+    ('AATDM', 'aatdm'),
+    ('ASLD',  'asld'),
+    ('APRE',  'apre'),
+    ('AMAT',  'amat')
+ON CONFLICT (mtgstocks_set_code) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS pricing.card_game (
   game_id     SMALLSERIAL PRIMARY KEY,
@@ -121,23 +140,13 @@ INSERT INTO pricing.price_metric (code, description) VALUES
   ('price_market', 'Market price')
 ON CONFLICT (code) DO NOTHING;
 
--- Finishes
-INSERT INTO pricing.card_finished (code, description) VALUES
-  ('NONFOIL',      'Nonfoil'),
-  ('FOIL',         'Foil'),
-  ('ETCHED',       'Etched'),
-  ('SURGE_FOIL',   'Surge Foil'),
-  ('RIPPLE_FOIL',  'Ripple Foil'),
-  ('RAINBOW_FOIL', 'Rainbow Foil')
-ON CONFLICT (code) DO NOTHING;
-
 INSERT INTO pricing.mtgstock_name_finish_suffix (suffix, finish_id) VALUES
-  ('Surge Foil',    (SELECT finish_id FROM pricing.card_finished WHERE code = 'SURGE_FOIL')),
-  ('Ripple Foil',   (SELECT finish_id FROM pricing.card_finished WHERE code = 'RIPPLE_FOIL')),
-  ('Rainbow Foil',  (SELECT finish_id FROM pricing.card_finished WHERE code = 'RAINBOW_FOIL')),
-  ('Foil Etched',   (SELECT finish_id FROM pricing.card_finished WHERE code = 'ETCHED')),
-  ('Ripper Foil',   (SELECT finish_id FROM pricing.card_finished WHERE code = 'FOIL')),
-  ('Textured Foil', (SELECT finish_id FROM pricing.card_finished WHERE code = 'FOIL'))
+  ('Surge Foil',    (SELECT finish_id FROM card_catalog.card_finished WHERE code = 'SURGE_FOIL')),
+  ('Ripple Foil',   (SELECT finish_id FROM card_catalog.card_finished WHERE code = 'RIPPLE_FOIL')),
+  ('Rainbow Foil',  (SELECT finish_id FROM card_catalog.card_finished WHERE code = 'RAINBOW_FOIL')),
+  ('Foil Etched',   (SELECT finish_id FROM card_catalog.card_finished WHERE code = 'ETCHED')),
+  ('Ripper Foil',   (SELECT finish_id FROM card_catalog.card_finished WHERE code = 'FOIL')),
+  ('Textured Foil', (SELECT finish_id FROM card_catalog.card_finished WHERE code = 'FOIL'))
 ON CONFLICT (suffix) DO NOTHING;
 
 INSERT INTO pricing.price_source (code, name, currency_code) VALUES
@@ -157,7 +166,7 @@ LANGUAGE sql
 STABLE
 AS $$
   SELECT finish_id
-  FROM pricing.card_finished
+  FROM card_catalog.card_finished
   WHERE code = 'NONFOIL'
   LIMIT 1;
 $$;
@@ -192,7 +201,7 @@ CREATE TABLE IF NOT EXISTS pricing.price_observation(
     ts_date DATE NOT NULL,
     price_type_id INTEGER NOT NULL REFERENCES pricing.transaction_type(transaction_type_id),
     finish_id SMALLINT NOT NULL
-        REFERENCES pricing.card_finished(finish_id)
+        REFERENCES card_catalog.card_finished(finish_id)
         DEFAULT pricing.default_finish_id(),
 
     condition_id SMALLINT
@@ -264,7 +273,7 @@ CREATE TABLE IF NOT EXISTS pricing.print_price_daily (
         REFERENCES pricing.transaction_type(transaction_type_id),
     finish_id           SMALLINT    NOT NULL
         DEFAULT pricing.default_finish_id()
-        REFERENCES pricing.card_finished(finish_id),
+        REFERENCES card_catalog.card_finished(finish_id),
     condition_id        SMALLINT    NOT NULL
         DEFAULT pricing.default_condition_id()
         REFERENCES pricing.card_condition(condition_id),
@@ -323,7 +332,7 @@ CREATE TABLE IF NOT EXISTS pricing.print_price_weekly (
         REFERENCES pricing.transaction_type(transaction_type_id),
     finish_id           SMALLINT    NOT NULL
         DEFAULT pricing.default_finish_id()
-        REFERENCES pricing.card_finished(finish_id),
+        REFERENCES card_catalog.card_finished(finish_id),
     condition_id        SMALLINT    NOT NULL
         DEFAULT pricing.default_condition_id()
         REFERENCES pricing.card_condition(condition_id),
@@ -385,7 +394,7 @@ CREATE TABLE IF NOT EXISTS pricing.print_price_latest (
         REFERENCES pricing.transaction_type(transaction_type_id),
     finish_id           SMALLINT    NOT NULL
         DEFAULT pricing.default_finish_id()
-        REFERENCES pricing.card_finished(finish_id),
+        REFERENCES card_catalog.card_finished(finish_id),
     condition_id        SMALLINT    NOT NULL
         DEFAULT pricing.default_condition_id()
         REFERENCES pricing.card_condition(condition_id),
@@ -964,7 +973,7 @@ BEGIN
   -- Resolve promotion dimension IDs once — stable across all batches.
   v_finish_default_id := pricing.default_finish_id();
   SELECT cf.finish_id INTO v_finish_foil_id
-  FROM pricing.card_finished cf
+  FROM card_catalog.card_finished cf
   WHERE lower(cf.code) IN ('foil', 'foiled', 'premium')
   ORDER BY cf.finish_id LIMIT 1;
   IF v_finish_foil_id IS NULL THEN
@@ -1504,7 +1513,7 @@ BEGIN
 
   SELECT cf.finish_id
   INTO   v_finish_foil_id
-  FROM   pricing.card_finished cf
+  FROM   card_catalog.card_finished cf
   WHERE  lower(cf.code) IN ('foil', 'foiled', 'premium')
   ORDER  BY cf.finish_id
   LIMIT  1;
