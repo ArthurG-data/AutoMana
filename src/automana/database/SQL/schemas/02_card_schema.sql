@@ -71,6 +71,23 @@ CREATE TABLE IF NOT EXISTS card_catalog.layouts_ref (
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS card_catalog.card_finished (
+    finish_id   SMALLSERIAL PRIMARY KEY,
+    code        TEXT UNIQUE NOT NULL,
+    description TEXT,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+INSERT INTO card_catalog.card_finished (code, description) VALUES
+  ('NONFOIL',      'Nonfoil'),
+  ('FOIL',         'Foil'),
+  ('ETCHED',       'Etched'),
+  ('SURGE_FOIL',   'Surge Foil'),
+  ('RIPPLE_FOIL',  'Ripple Foil'),
+  ('RAINBOW_FOIL', 'Rainbow Foil')
+ON CONFLICT (code) DO NOTHING;
+
 CREATE TABLE IF NOT EXISTS card_catalog.keywords_ref (
     keyword_id SERIAL PRIMARY KEY,
     keyword_name VARCHAR(50) UNIQUE NOT NULL,
@@ -157,10 +174,9 @@ CREATE TABLE IF NOT EXISTS card_catalog.card_version (
     is_multifaced BOOLEAN DEFAULT false, 
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now(),
-    finish VARCHAR(20) NOT NULL DEFAULT 'nonfoil',
     frame_effects TEXT[] NOT NULL DEFAULT '{}',
     lang VARCHAR(5) NOT NULL DEFAULT 'en',
-    CONSTRAINT card_version_unique_per_finish_lang UNIQUE (unique_card_id, set_id, collector_number, finish, lang)
+    CONSTRAINT card_version_unique_per_print UNIQUE (unique_card_id, set_id, collector_number, lang)
 );
 
 CREATE TABLE IF NOT EXISTS card_catalog.illustrations(
@@ -185,6 +201,16 @@ CREATE TABLE IF NOT EXISTS card_catalog.card_version_illustration (
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
 );
+
+-- Which finishes (nonfoil/foil/etched/…) are available for each printing.
+CREATE TABLE IF NOT EXISTS card_catalog.card_version_finish (
+    card_version_id UUID     NOT NULL REFERENCES card_catalog.card_version(card_version_id) ON DELETE CASCADE,
+    finish_id       SMALLINT NOT NULL REFERENCES card_catalog.card_finished(finish_id),
+    PRIMARY KEY (card_version_id, finish_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_card_version_frame_effects
+    ON card_catalog.card_version USING GIN (frame_effects);
 
 --need to be added
 CREATE TABLE IF NOT EXISTS card_catalog.games_ref (
@@ -507,7 +533,6 @@ SELECT
     lr.layout_name,
     
     -- Treatment and language
-    cv.finish,
     cv.frame_effects,
     cv.lang,
 
@@ -573,6 +598,8 @@ CREATE INDEX idx_v_card_versions_complete_set ON card_catalog.v_card_versions_co
 CREATE INDEX idx_v_card_versions_complete_cmc ON card_catalog.v_card_versions_complete (cmc);
 CREATE INDEX idx_v_card_versions_complete_colors ON card_catalog.v_card_versions_complete USING GIN (color_identity);
 CREATE INDEX idx_v_card_versions_complete_types ON card_catalog.v_card_versions_complete USING GIN (types);
+CREATE INDEX IF NOT EXISTS idx_v_card_versions_complete_promo_types
+    ON card_catalog.v_card_versions_complete USING GIN (promo_types);
 CREATE INDEX idx_v_card_versions_complete_rarity ON card_catalog.v_card_versions_complete (rarity_name);
 CREATE INDEX idx_v_card_versions_complete_search ON card_catalog.v_card_versions_complete USING GIN (search_vector);
 CREATE INDEX idx_v_card_versions_complete_legalities ON card_catalog.v_card_versions_complete USING GIN (legalities);
@@ -605,6 +632,18 @@ CREATE INDEX gin_trgm_idx_v_card_versions_name
 GRANT SELECT ON card_catalog.v_card_name_suggest TO app_admin, app_rw, app_ro, agent_reader;
 
 --STORED PROCEDURE---------------------------
+-- Drop old overload that accepted p_finish VARCHAR(20) (singular).
+-- Signature changed to p_finishes TEXT[] (plural array); CREATE OR REPLACE
+-- cannot replace across signature changes so the old overload must be removed.
+DROP FUNCTION IF EXISTS card_catalog.insert_full_card_version(
+    text, int, text, boolean, text, text, text, text, text, text, text,
+    boolean, boolean, jsonb, jsonb, jsonb, jsonb, jsonb, uuid,
+    jsonb, jsonb, jsonb, jsonb, boolean, boolean, boolean, boolean,
+    text, text, text, text, jsonb, boolean, jsonb, jsonb,
+    varchar, text[], varchar,
+    uuid, uuid, jsonb, int, int, int
+);
+
 CREATE OR REPLACE FUNCTION card_catalog.insert_full_card_version(
     p_card_name TEXT,
     p_cmc INT,
@@ -643,7 +682,7 @@ CREATE OR REPLACE FUNCTION card_catalog.insert_full_card_version(
     p_card_faces JSONB,
     --new
     p_image_uris JSONB,
-    p_finish VARCHAR(20),
+    p_finishes TEXT[],
     p_frame_effects TEXT[],
     p_lang VARCHAR(5),
     --external ids
@@ -687,6 +726,8 @@ DECLARE
     v_keyword TEXT;
     v_keyword_id INT;
     v_card_faces_id UUID;
+    v_finish_code TEXT;
+    v_finish_id SMALLINT;
 BEGIN
     -- Insert or retrieve unique card
     INSERT INTO card_catalog.unique_cards_ref (card_name, cmc, mana_cost, reserved)
@@ -761,18 +802,17 @@ BEGIN
         collector_number, rarity_id, border_color_id,
         frame_id, layout_id, is_promo, is_digital,
         is_oversized, full_art, textless, booster,
-        variation, finish, frame_effects, lang
+        variation, frame_effects, lang
     ) VALUES (
         v_unique_card_id, p_oracle_text, v_set_id,
         p_collector_number, v_rarity_id, v_border_color_id,
         v_frame_id, v_layout_id, p_is_promo, p_is_digital,
         p_oversized, p_full_art, p_textless, p_booster,
         p_variation,
-        COALESCE(p_finish, 'nonfoil'),
         COALESCE(p_frame_effects, '{}'),
         COALESCE(p_lang, 'en')
     )
-    ON CONFLICT (unique_card_id, set_id, collector_number, finish, lang) DO NOTHING
+    ON CONFLICT (unique_card_id, set_id, collector_number, lang) DO NOTHING
     RETURNING card_version_id INTO v_card_version_id;
 
     IF v_card_version_id IS NULL THEN
@@ -782,7 +822,6 @@ BEGIN
     WHERE unique_card_id = v_unique_card_id
         AND set_id = v_set_id
         AND collector_number = p_collector_number
-        AND finish = COALESCE(p_finish, 'nonfoil')
         AND lang = COALESCE(p_lang, 'en')
     LIMIT 1;
     END IF;
@@ -849,7 +888,15 @@ BEGIN
         ON CONFLICT DO NOTHING;
     END LOOP;
 
- 
+    -- Finishes: record which treatments are available for this printing
+    FOR v_finish_code IN SELECT unnest(COALESCE(p_finishes, ARRAY['nonfoil'])) LOOP
+        INSERT INTO card_catalog.card_version_finish (card_version_id, finish_id)
+        SELECT v_card_version_id, cf.finish_id
+        FROM card_catalog.card_finished cf
+        WHERE UPPER(cf.code) = UPPER(v_finish_code)
+        ON CONFLICT DO NOTHING;
+    END LOOP;
+
     -- Type line handling
     IF p_card_faces IS NULL
     OR jsonb_typeof(p_card_faces) <> 'array'
@@ -951,7 +998,8 @@ BEGIN
             INSERT INTO card_catalog.card_version_illustration (card_version_id, illustration_id, image_uris)
             SELECT v_card_version_id,
                    v_illustration_id,
-                   CASE WHEN p_illustration_id IS NOT NULL
+                   CASE WHEN jsonb_typeof(p_image_uris) = 'object'
+                             AND p_image_uris <> '{}'::jsonb
                         THEN p_image_uris
                         ELSE p_card_faces -> 0 -> 'image_uris'
                    END
@@ -1168,7 +1216,7 @@ BEGIN
                 (v_card ->> 'variation')::BOOLEAN,
                 v_card -> 'card_faces',
                 v_card -> 'image_uris',
-                COALESCE(v_card ->> 'finish', 'nonfoil'),
+                ARRAY(SELECT jsonb_array_elements_text(COALESCE(v_card -> 'finishes', '["nonfoil"]'::jsonb))),
                 ARRAY(SELECT jsonb_array_elements_text(COALESCE(v_card -> 'frame_effects', '[]'::jsonb))),
                 COALESCE(v_card ->> 'lang', 'en'),
                 (v_card ->> 'scryfall_id')::UUID,
@@ -1185,7 +1233,7 @@ BEGIN
             
         EXCEPTION
             WHEN unique_violation THEN
-                IF SQLERRM LIKE '%card_version_unique_per_finish_lang%' THEN
+                IF SQLERRM LIKE '%card_version_unique_per_print%' THEN
                     -- Skipped (already exists)
                     v_skipped_inserts := v_skipped_inserts + 1;
                 ELSE
