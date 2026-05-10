@@ -10,6 +10,7 @@ const LAYOUTS = ['normal', 'token', 'transform', 'saga', 'adventure'] as const
 
 interface SearchFiltersProps {
   params: CardSearchParams
+  promoTypeFacets?: string[]
 }
 
 export function SearchFilters({ params }: SearchFiltersProps) {

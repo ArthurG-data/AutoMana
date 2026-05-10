@@ -46,6 +46,7 @@ export interface CardSearchParams {
   layout?: string
   minPrice?: number
   maxPrice?: number
+  promoTypes?: string[]
 }
 
 export interface PaginationInfo {
