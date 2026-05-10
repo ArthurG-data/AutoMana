@@ -8,17 +8,72 @@ const RARITIES = ['common', 'uncommon', 'rare', 'mythic'] as const
 const FINISHES = ['non-foil', 'foil', 'etched'] as const
 const LAYOUTS = ['normal', 'token', 'transform', 'saga', 'adventure'] as const
 
-interface SearchFiltersProps {
-  params: CardSearchParams
-  promoTypeFacets?: string[]
+const PROMO_TYPE_LABELS: Record<string, string> = {
+  arenaleague:        'Arena League',
+  boosterfun:         'Booster Fun',
+  boxtopper:          'Box Topper',
+  brawldeck:          'Brawl Deck',
+  bundle:             'Bundle',
+  buyabox:            'Buy a Box',
+  convention:         'Convention',
+  datestamped:        'Datestamped',
+  draftweekend:       'Draft Weekend',
+  duels:              'Duels',
+  event:              'Event',
+  fnm:                'Friday Night Magic',
+  gameday:            'Game Day',
+  gateway:            'Gateway',
+  giftbox:            'Gift Box',
+  gilded:             'Gilded',
+  instore:            'In-Store',
+  intropack:          'Intro Pack',
+  jpwalker:           'JP Planeswalker',
+  judgegift:          'Judge Gift',
+  league:             'League',
+  mediainsert:        'Media Insert',
+  neonink:            'Neon Ink',
+  openhouse:          'Open House',
+  planeswalkerdeck:   'Planeswalker Deck',
+  playerrewards:      'Player Rewards',
+  playpromo:          'Play Promo',
+  premiumdeck:        'Premium Deck',
+  prerelease:         'Prerelease',
+  promopack:          'Promo Pack',
+  release:            'Release',
+  serialized:         'Serialized',
+  setpromo:           'Set Promo',
+  starterdeck:        'Starter Deck',
+  stepandcompleat:    'Step and Compleat',
+  store:              'Store',
+  textured:           'Textured',
+  themepack:          'Theme Pack',
+  tourney:            'Tourney',
+  wizardsplaynetwork: 'Wizards Play Network',
 }
 
-export function SearchFilters({ params }: SearchFiltersProps) {
+function promoLabel(code: string): string {
+  return PROMO_TYPE_LABELS[code] ?? code.charAt(0).toUpperCase() + code.slice(1)
+}
+
+interface SearchFiltersProps {
+  params: CardSearchParams
+  promoTypeFacets: string[]
+}
+
+export function SearchFilters({ params, promoTypeFacets }: SearchFiltersProps) {
   const navigate = useNavigate({ from: '/search' })
 
   function update(patch: Partial<CardSearchParams>) {
     navigate({ search: (prev) => ({ ...prev, ...patch }) })
   }
+
+  function togglePromoType(pt: string) {
+    const current = params.promoTypes ?? []
+    const next = current.includes(pt) ? current.filter((x) => x !== pt) : [...current, pt]
+    update({ promoTypes: next.length > 0 ? next : undefined })
+  }
+
+  const selectedPromoCount = params.promoTypes?.length ?? 0
 
   return (
     <aside className={styles.filters}>
@@ -79,6 +134,30 @@ export function SearchFilters({ params }: SearchFiltersProps) {
           ))}
         </div>
       </section>
+
+      {promoTypeFacets.length > 0 && (
+        <section className={styles.group}>
+          <div className={styles.groupLabel}>Promo type</div>
+          <details className={styles.promoDropdown}>
+            <summary className={styles.promoSummary}>
+              <span>{selectedPromoCount > 0 ? `${selectedPromoCount} selected` : 'All types'}</span>
+              <span aria-hidden="true">▾</span>
+            </summary>
+            <div className={styles.promoList}>
+              {promoTypeFacets.map((pt) => (
+                <label key={pt} className={styles.checkRow}>
+                  <input
+                    type="checkbox"
+                    checked={params.promoTypes?.includes(pt) ?? false}
+                    onChange={() => togglePromoType(pt)}
+                  />
+                  {promoLabel(pt)}
+                </label>
+              ))}
+            </div>
+          </details>
+        </section>
+      )}
     </aside>
   )
 }

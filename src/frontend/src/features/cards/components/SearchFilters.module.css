@@ -12,3 +12,7 @@
 .finishGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .finishBtn { padding: 6px 10px; border-radius: 6px; font-size: 11px; font-family: var(--font-mono); border: 1px solid var(--hd-border); color: var(--hd-muted); background: transparent; cursor: pointer; }
 .finishActive { border-color: var(--hd-accent); color: var(--hd-accent); background: rgba(var(--hd-accent-rgb), 0.10); }
+.promoDropdown { margin-top: 6px; }
+.promoSummary { font-family: var(--font-mono); font-size: 11px; color: var(--hd-muted); cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; user-select: none; }
+.promoSummary::-webkit-details-marker { display: none; }
+.promoList { margin-top: 8px; max-height: 180px; overflow-y: auto; display: flex; flex-direction: column; gap: 1px; }
