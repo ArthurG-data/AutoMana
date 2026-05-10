@@ -9,7 +9,7 @@ DataT = TypeVar('DataT')
 class PaginationInfo(BaseModel):
     limit: int
     offset: int
-    total_count: int
+    total_count: Optional[int] = None
     has_next: bool
     has_previous: bool
 

@@ -16,10 +16,6 @@ function formatPrice(v: number): string {
   return v >= 10 ? `$${v.toFixed(0)}` : `$${v.toFixed(2)}`
 }
 
-function formatDate(d: Date): string {
-  return d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
-}
-
 function formatFullDate(d: Date): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
@@ -54,10 +50,31 @@ export function DualAreaChart({
   const Y_COUNT = 4
   const yTicks = Array.from({ length: Y_COUNT }, (_, i) => minY + (i / (Y_COUNT - 1)) * yRange)
 
-  const xStep = n > 365 ? 365 : n > 90 ? 30 : n > 30 ? 7 : 1
-  const xTicks: number[] = []
-  for (let i = 0; i < n; i += xStep) xTicks.push(i)
-  if (xTicks[xTicks.length - 1] !== n - 1) xTicks.push(n - 1)
+  // Adapt label format to the date span
+  const formatXLabel = (d: Date): string => {
+    if (n <= 60) return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    return d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
+  }
+
+  const MAX_X_TICKS = 12
+  const xStep = Math.max(1, Math.ceil(n / MAX_X_TICKS))
+  const rawTicks: number[] = []
+  for (let i = 0; i < n; i += xStep) rawTicks.push(i)
+
+  // Add last point only if its label differs from the last raw tick
+  const lastRaw = rawTicks[rawTicks.length - 1]
+  if (lastRaw !== n - 1 && formatXLabel(dates[n - 1]) !== formatXLabel(dates[lastRaw])) {
+    rawTicks.push(n - 1)
+  }
+
+  // Deduplicate by formatted label (keeps first occurrence)
+  const seenLabels = new Set<string>()
+  const xTicks = rawTicks.filter((idx) => {
+    const label = formatXLabel(dates[idx])
+    if (seenLabels.has(label)) return false
+    seenLabels.add(label)
+    return true
+  })
 
   const linePath = (data: (number | null)[]): string => {
     const parts: string[] = []
@@ -153,7 +170,7 @@ export function DualAreaChart({
           const y = PAD.top + ch + 8
           return (
             <text key={i} x={x} y={y} textAnchor="end" fontSize="8" fill="var(--hd-accent)" fontFamily="inherit" fontWeight="300" opacity="0.5" transform={`rotate(-90, ${x}, ${y})`}>
-              {formatDate(dates[idx])}
+              {formatXLabel(dates[idx])}
             </text>
           )
         })}

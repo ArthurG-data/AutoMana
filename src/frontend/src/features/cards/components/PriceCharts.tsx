@@ -17,11 +17,11 @@ const TIME_RANGES = [
   { label: 'ALL', key: 'all' as const },
 ]
 
-function buildDates(startIso: string, count: number): Date[] {
+function buildDates(startIso: string, count: number, stepDays: number = 1): Date[] {
   const start = new Date(startIso + 'T00:00:00')
   return Array.from({ length: count }, (_, i) => {
     const d = new Date(start)
-    d.setDate(d.getDate() + i)
+    d.setDate(d.getDate() + i * stepDays)
     return d
   })
 }
@@ -51,8 +51,9 @@ export function PriceCharts({ card }: PriceChartsProps) {
 
   const rawList = priceData?.price_history_list_avg ?? []
   const rawSold = priceData?.price_history_sold_avg ?? []
+  const stepDays = selectedRange === '1y' || selectedRange === 'all' ? 7 : 1
   const rawDates = priceData?.date_range
-    ? buildDates(priceData.date_range.start, rawList.length)
+    ? buildDates(priceData.date_range.start, rawList.length, stepDays)
     : []
 
   const { list: listAvg, sold: soldAvg, dates } = trimNulls(rawList, rawSold, rawDates)
