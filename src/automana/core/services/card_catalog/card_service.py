@@ -544,8 +544,14 @@ class EnhancedCardImportService:
             async with self.storage_service.open_stream(file_name, "rb") as f:
                 cards_iter = ijson.items(f, "item")
 
+                _IMPORT_LANGUAGES = {"en", "ja"}
+
                 for card_json in cards_iter:
                     try:
+                        # Skip non-EN/JA cards (all_cards dataset includes all languages)
+                        if card_json.get("lang", "en") not in _IMPORT_LANGUAGES:
+                            continue
+
                         # Skip batches if resuming
                         if batch_count < resume_from_batch:
                             if len(batch) >= self.config.batch_size:

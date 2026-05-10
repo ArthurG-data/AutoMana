@@ -146,7 +146,7 @@ async def download_cards_bulk(
     ops_repository: OpsRepository,
     ingestion_run_id: int = None,
     uris_to_download: list[dict] | None = None,
-    resource_type: str = "default_cards",
+    resource_type: str = "all_cards",
     storage_service: StorageService = None,
 ) -> dict:
     """Stream-download Scryfall card bulk files to disk.
@@ -182,19 +182,19 @@ async def download_cards_bulk(
 async def delete_old_scryfall_folders(keep: int = 3
                                , storage_service: StorageService = None):
     """Delete Scryfall raw files older than specified days to keep"""
-    list_default_cards = await storage_service.list_directory("*default-card*")
-    if not list_default_cards:
-        logger.warning("No default card files found; nothing to clean")
+    list_all_cards = await storage_service.list_directory("*all-card*")
+    if not list_all_cards:
+        logger.warning("No all-cards files found; nothing to clean")
         return {"deleted_runs": []}
 
     def _parse_date(filename: str) -> str:
         parts = filename.split("_")
         return parts[1] if len(parts) >= 2 else ""
 
-    list_default_cards.sort(key=lambda p: _parse_date(p), reverse=True)  # newest first
-    to_delete = list_default_cards[keep:]
+    list_all_cards.sort(key=lambda p: _parse_date(p), reverse=True)  # newest first
+    to_delete = list_all_cards[keep:]
     results = await storage_service.delete_files([str(d) for d in to_delete])
-    return {"deleted_runs": results, "kept": [str(d) for d in list_default_cards[:keep]]}
+    return {"deleted_runs": results, "kept": [str(d) for d in list_all_cards[:keep]]}
 
 @ServiceRegistry.register("staging.scryfall.download_and_load_migrations",
                          api_repositories=["scryfall"], db_repositories=["card", "ops"])
