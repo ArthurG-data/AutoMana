@@ -21,7 +21,7 @@ _CARD_ROW = {
 
 def _make_repo(cards_rows, count_rows, facet_rows):
     repo = CardReferenceRepository.__new__(CardReferenceRepository)
-    repo.execute_query = AsyncMock(side_effect=[cards_rows, count_rows, facet_rows])
+    repo.execute_query = AsyncMock(side_effect=[cards_rows, count_rows, facet_rows, [{"rarity_facets": []}]])
     return repo
 
 

@@ -192,6 +192,11 @@ class CardReferenceRepository(AbstractRepository[Any]):
         conditions: list[str] = []
         values: list[Any] = []
         counter = 1
+        # Parallel list for rarity facet query — receives every condition except rarity.
+        # Rarity sits mid-list so we can't use a simple snapshot; we maintain a separate list.
+        rf_conditions: list[str] = []
+        rf_values: list[Any] = []
+        rf_counter = 1
 
         # Track placeholder indices for relevance ORDER BY reuse —
         # the same $N bound in WHERE is referenced again in ORDER BY without
@@ -201,73 +206,108 @@ class CardReferenceRepository(AbstractRepository[Any]):
 
         if name:
             conditions.append(f"word_similarity(LOWER(${counter}), LOWER(v.card_name)) > 0.6")
+            rf_conditions.append(f"word_similarity(LOWER(${rf_counter}), LOWER(v.card_name)) > 0.6")
             values.append(name)
+            rf_values.append(name)
             name_param_idx = counter
             counter += 1
+            rf_counter += 1
 
         if color:
             # color_identity is text[]; caller must use canonical casing (e.g. 'White').
             conditions.append(f"${counter} = ANY(v.color_identity)")
+            rf_conditions.append(f"${rf_counter} = ANY(v.color_identity)")
             values.append(color)
+            rf_values.append(color)
             counter += 1
+            rf_counter += 1
 
         if rarity:
             conditions.append(f"v.rarity_name ILIKE ${counter}")
             values.append(f"%{rarity}%")
             counter += 1
+            # rf_ lists intentionally not updated — rarity excluded from facet query
 
         if set_name:
             conditions.append(f"v.set_name ILIKE ${counter}")
+            rf_conditions.append(f"v.set_name ILIKE ${rf_counter}")
             values.append(f"%{set_name}%")
+            rf_values.append(f"%{set_name}%")
             counter += 1
+            rf_counter += 1
 
         if mana_cost is not None:
             conditions.append(f"v.cmc = ${counter}")
+            rf_conditions.append(f"v.cmc = ${rf_counter}")
             values.append(mana_cost)
+            rf_values.append(mana_cost)
             counter += 1
+            rf_counter += 1
 
         if digital is not None:
             # v.is_digital is the per-card-version flag (differs from the old s.digital set-level flag).
             conditions.append(f"v.is_digital = ${counter}")
+            rf_conditions.append(f"v.is_digital = ${rf_counter}")
             values.append(digital)
+            rf_values.append(digital)
             counter += 1
+            rf_counter += 1
 
         if released_after:
             conditions.append(f"s.released_at > ${counter}")
+            rf_conditions.append(f"s.released_at > ${rf_counter}")
             values.append(released_after)
+            rf_values.append(released_after)
             counter += 1
+            rf_counter += 1
 
         if released_before:
             conditions.append(f"s.released_at < ${counter}")
+            rf_conditions.append(f"s.released_at < ${rf_counter}")
             values.append(released_before)
+            rf_values.append(released_before)
             counter += 1
+            rf_counter += 1
 
         if card_type:
             # types is text[]; caller must use canonical casing (e.g. 'Creature').
             conditions.append(f"${counter} = ANY(v.types)")
+            rf_conditions.append(f"${rf_counter} = ANY(v.types)")
             values.append(card_type)
+            rf_values.append(card_type)
             counter += 1
+            rf_counter += 1
 
         if oracle_text:
             conditions.append(f"v.search_vector @@ websearch_to_tsquery('english', ${counter})")
+            rf_conditions.append(f"v.search_vector @@ websearch_to_tsquery('english', ${rf_counter})")
             values.append(oracle_text)
+            rf_values.append(oracle_text)
             oracle_param_idx = counter
             counter += 1
+            rf_counter += 1
 
         if format:
             conditions.append(f"v.legalities->>${counter} = 'legal'")
+            rf_conditions.append(f"v.legalities->>${rf_counter} = 'legal'")
             values.append(format)
+            rf_values.append(format)
             counter += 1
+            rf_counter += 1
 
         if layout:
             conditions.append(f"v.layout_name = ${counter}")
+            rf_conditions.append(f"v.layout_name = ${rf_counter}")
             values.append(layout)
+            rf_values.append(layout)
             counter += 1
+            rf_counter += 1
         else:
             # Default: exclude tokens when no layout filter is specified
             conditions.append("v.layout_name NOT IN ('token', 'double_faced_token')")
+            rf_conditions.append("v.layout_name NOT IN ('token', 'double_faced_token')")
 
-        # Snapshot before adding the promo_type predicate so the facet query
+        # Snapshot before adding the promo_type predicate so the promo facet query
         # can omit it — facets must show all available types across the current
         # base filter, not just types that co-occur with the selected ones.
         facet_cond_stop = len(conditions)
@@ -276,14 +316,18 @@ class CardReferenceRepository(AbstractRepository[Any]):
         if promo_type:
             # && = array overlap: card has ANY of the selected promo types
             conditions.append(f"v.promo_types && ${counter}")
+            rf_conditions.append(f"v.promo_types && ${rf_counter}")
             values.append(promo_type)
+            rf_values.append(promo_type)
             counter += 1
+            rf_counter += 1
 
         where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
         facet_where_clause = (
             "WHERE " + " AND ".join(conditions[:facet_cond_stop])
             if facet_cond_stop else ""
         )
+        rarity_facet_where = "WHERE " + " AND ".join(rf_conditions) if rf_conditions else ""
 
         # Dynamic ORDER BY: prefer relevance when text search params are present.
         if name_param_idx and oracle_param_idx:
@@ -357,10 +401,24 @@ class CardReferenceRepository(AbstractRepository[Any]):
         promo_type_facets = (
             (facet_result[0]["promo_type_facets"] or []) if facet_result else []
         )
+
+        # Rarity facet query uses rf_conditions (excludes rarity predicate) so
+        # all rarities present in the current base filter remain visible even when
+        # the user has already applied a rarity filter.
+        rarity_facet_query = f"""
+            SELECT array_agg(DISTINCT v.rarity_name ORDER BY v.rarity_name) AS rarity_facets
+            FROM card_catalog.v_card_versions_complete v
+            JOIN card_catalog.sets s ON s.set_id = v.set_id
+            {rarity_facet_where}
+        """
+        rarity_result = await self.execute_query(rarity_facet_query, tuple(rf_values))
+        rarity_facets = (rarity_result[0]["rarity_facets"] or []) if rarity_result else []
+
         return {
             "cards": cards,
             "total_count": total_count,
             "promo_type_facets": promo_type_facets,
+            "rarity_facets": rarity_facets,
         }
     async def list(self) -> dict[str, Any]:
         raise NotImplementedError("Method not implemented")

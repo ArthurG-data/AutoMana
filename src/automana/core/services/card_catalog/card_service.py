@@ -24,6 +24,7 @@ class CardSearchResult:
     cards: List[BaseCard]
     total_count: int
     promo_type_facets: List[str] = field(default_factory=list)
+    rarity_facets: List[str] = field(default_factory=list)
 
 @dataclass
 class ProcessingStats:
@@ -189,6 +190,7 @@ async def search_cards(card_repository: CardReferenceRepository
                 cards=[BaseCard.model_validate(c) for c in cached["cards"]],
                 total_count=cached["total_count"],
                 promo_type_facets=cached.get("promo_type_facets", []),
+                rarity_facets=cached.get("rarity_facets", []),
             )
 
         if card_id:
@@ -218,16 +220,19 @@ async def search_cards(card_repository: CardReferenceRepository
             cards = raw.get("cards", [])
             total_count = raw.get("total_count", 0)
             promo_type_facets = raw.get("promo_type_facets", [])
+            rarity_facets = raw.get("rarity_facets", [])
             result = CardSearchResult(
                 cards=[BaseCard.model_validate(card) for card in cards],
                 total_count=total_count,
                 promo_type_facets=promo_type_facets,
+                rarity_facets=rarity_facets,
             )
 
         cache_data = {
             "cards": [c.model_dump() for c in result.cards],
             "total_count": result.total_count,
             "promo_type_facets": result.promo_type_facets,
+            "rarity_facets": result.rarity_facets,
         }
         await set_to_cache(
             cache_key,
