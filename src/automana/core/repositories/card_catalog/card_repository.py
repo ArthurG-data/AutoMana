@@ -200,7 +200,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
         oracle_param_idx: Optional[int] = None
 
         if name:
-            conditions.append(f"word_similarity(${counter}, v.card_name) > 0.45")
+            conditions.append(f"word_similarity(LOWER(${counter}), LOWER(v.card_name)) > 0.6")
             values.append(name)
             name_param_idx = counter
             counter += 1
@@ -279,12 +279,12 @@ class CardReferenceRepository(AbstractRepository[Any]):
         if name_param_idx and oracle_param_idx:
             order_clause = (
                 f"ORDER BY ("
-                f"word_similarity(${name_param_idx}, v.card_name) + "
+                f"word_similarity(LOWER(${name_param_idx}), LOWER(v.card_name)) + "
                 f"ts_rank_cd(v.search_vector, websearch_to_tsquery('english', ${oracle_param_idx}))"
                 f") DESC"
             )
         elif name_param_idx:
-            order_clause = f"ORDER BY word_similarity(${name_param_idx}, v.card_name) DESC"
+            order_clause = f"ORDER BY word_similarity(LOWER(${name_param_idx}), LOWER(v.card_name)) DESC"
         elif oracle_param_idx:
             order_clause = (
                 f"ORDER BY ts_rank_cd(v.search_vector, "
