@@ -1,5 +1,3 @@
-import pytest
-from uuid import UUID
 from automana.core.models.card_catalog.card import CardDetail
 
 MINIMAL = {
