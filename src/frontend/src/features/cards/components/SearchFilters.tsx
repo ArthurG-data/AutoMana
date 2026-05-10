@@ -4,7 +4,6 @@ import type { CardSearchParams } from '../types'
 import { SearchBarWithSuggestions } from './SearchBarWithSuggestions'
 import styles from './SearchFilters.module.css'
 
-const RARITIES = ['common', 'uncommon', 'rare', 'mythic'] as const
 const FINISHES = ['non-foil', 'foil', 'etched'] as const
 const LAYOUTS = ['normal', 'token', 'transform', 'saga', 'adventure'] as const
 
@@ -58,9 +57,10 @@ function promoLabel(code: string): string {
 interface SearchFiltersProps {
   params: CardSearchParams
   promoTypeFacets: string[]
+  rarityFacets: string[]
 }
 
-export function SearchFilters({ params, promoTypeFacets }: SearchFiltersProps) {
+export function SearchFilters({ params, promoTypeFacets, rarityFacets }: SearchFiltersProps) {
   const navigate = useNavigate({ from: '/search' })
 
   function update(patch: Partial<CardSearchParams>) {
@@ -88,22 +88,24 @@ export function SearchFilters({ params, promoTypeFacets }: SearchFiltersProps) {
         </button>
       </div>
 
-      <section className={styles.group}>
-        <div className={styles.groupLabel}>Rarity</div>
-        {RARITIES.map((r) => (
-          <label key={r} className={styles.checkRow}>
-            <input
-              type="checkbox"
-              checked={params.rarity === r}
-              onChange={(e) => update({ rarity: e.target.checked ? r : undefined })}
-            />
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-              <span className={[styles.rarityDot, styles[r]].join(' ')} />
-              {r.charAt(0).toUpperCase() + r.slice(1)}
-            </span>
-          </label>
-        ))}
-      </section>
+      {rarityFacets.length > 0 && (
+        <section className={styles.group}>
+          <div className={styles.groupLabel}>Rarity</div>
+          {rarityFacets.map((r) => (
+            <label key={r} className={styles.checkRow}>
+              <input
+                type="checkbox"
+                checked={params.rarity === r}
+                onChange={(e) => update({ rarity: e.target.checked ? r : undefined })}
+              />
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                <span className={[styles.rarityDot, styles[r]].join(' ')} />
+                {r.charAt(0).toUpperCase() + r.slice(1)}
+              </span>
+            </label>
+          ))}
+        </section>
+      )}
 
       <section className={styles.group}>
         <div className={styles.groupLabel}>Finish</div>

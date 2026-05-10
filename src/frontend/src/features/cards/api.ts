@@ -34,7 +34,7 @@ export function cardInfiniteSearchQueryOptions(params: Omit<CardSearchParams, 'p
       return {
         cards: body.data ?? [],
         pagination: body.pagination,
-        facets: (body.facets as { promo_types?: string[] } | null) ?? null,
+        facets: (body.facets as { promo_types?: string[]; rarities?: string[] } | null) ?? null,
       }
     },
     initialPageParam: 0,
