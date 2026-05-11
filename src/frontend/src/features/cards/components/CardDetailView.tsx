@@ -4,9 +4,9 @@ import { FlippableCardArt } from '../../../components/design-system/FlippableCar
 import { buildScryfallBackUrl } from '../utils/scryfallBackUrl'
 import { Button } from '../../../components/ui/Button'
 import { PriceCharts } from './PriceCharts'
-import { SetInfoBox } from './SetInfoBox'
+import { GameInfoCard } from './GameInfoCard'
+import { MarketCard } from './MarketCard'
 import { LegalityGrid } from './LegalityGrid'
-import { OracleCard } from './OracleCard'
 import type { CardDetail } from '../types'
 import styles from './CardDetailView.module.css'
 
@@ -24,10 +24,6 @@ export function CardDetailView({ card }: CardDetailViewProps) {
       ? buildScryfallBackUrl(card.card_back_id)
       : null
 
-  const delta1d = card.price_change_1d
-  const delta7d = card.price_change_7d
-  const delta30d = card.price_change_30d
-
   return (
     <div className={styles.layout}>
       <div className={styles.imagePanel}>
@@ -41,63 +37,29 @@ export function CardDetailView({ card }: CardDetailViewProps) {
       </div>
 
       <div className={styles.dataPanel}>
-        <SetInfoBox
-          setCode={card.set_code}
-          setName={card.set_name}
-          rarityName={card.rarity_name}
-          collectorNumber={card.collector_number}
-          promoTypes={card.promo_types}
-        />
-
-        <OracleCard
-          cardName={card.card_name}
-          manaCost={card.mana_cost}
-          typeLine={card.type_line}
-          oracleText={card.oracle_text}
-          artist={card.artist}
-          collectorNumber={card.collector_number}
-          rarityName={card.rarity_name}
-        />
-
-        <div className={styles.finishSelector}>
-          {finishes.map((f) => (
-            <button
-              key={f}
-              onClick={() => setSelectedFinish(f)}
-              aria-pressed={f === selectedFinish}
-              className={f === selectedFinish ? styles.finishActive : styles.finishBtn}
-            >
-              {f}
-            </button>
-          ))}
-        </div>
-
-        <div className={styles.priceSection}>
-          <div className={styles.priceLabel}>MARKET PRICE · {selectedFinish}</div>
-          <div className={styles.priceRow}>
-            <div className={styles.price}>
-              {card.price != null ? (
-                <>
-                  ${Math.floor(card.price)}
-                  <span className={styles.priceCents}>
-                    .{(card.price % 1).toFixed(2).slice(2)}
-                  </span>
-                </>
-              ) : 'N/A'}
-            </div>
-            <div className={styles.deltas}>
-              <span className={delta1d >= 0 ? styles.up : styles.down}>
-                {delta1d >= 0 ? '▲' : '▼'} {Math.abs(delta1d).toFixed(2)}% 1d
-              </span>
-              <span className={delta7d >= 0 ? styles.up : styles.down}>
-                {delta7d >= 0 ? '▲' : '▼'} {Math.abs(delta7d).toFixed(2)}% 7d
-              </span>
-              <span className={delta30d >= 0 ? styles.up : styles.down}>
-                {delta30d >= 0 ? '▲' : '▼'} {Math.abs(delta30d).toFixed(2)}% 30d
-              </span>
-            </div>
-          </div>
-        </div>
+        <section className={styles.topRow}>
+          <GameInfoCard
+            cardName={card.card_name}
+            setCode={card.set_code}
+            setName={card.set_name}
+            rarityName={card.rarity_name}
+            collectorNumber={card.collector_number}
+            promoTypes={card.promo_types}
+            manaCost={card.mana_cost}
+            typeLine={card.type_line}
+            oracleText={card.oracle_text}
+            artist={card.artist}
+          />
+          <MarketCard
+            price={card.price}
+            selectedFinish={selectedFinish}
+            finishes={finishes}
+            onFinishChange={setSelectedFinish}
+            delta1d={card.price_change_1d}
+            delta7d={card.price_change_7d}
+            delta30d={card.price_change_30d}
+          />
+        </section>
 
         <PriceCharts card={card} finish={selectedFinish} />
 

@@ -11,6 +11,7 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+  border: 1px solid var(--hd-border);
 }
 
 .label {
@@ -27,14 +28,25 @@
   text-transform: capitalize;
 }
 
-.legal { background: rgba(61,232,210,0.08); }
+.legal {
+  background: rgba(var(--hd-accent-rgb), 0.08);
+  border-color: rgba(var(--hd-accent-rgb), 0.20);
+}
 .legal .status { color: var(--hd-accent); }
 
-.notLegal { background: rgba(150,200,255,0.04); }
+.notLegal {
+  background: var(--hd-surface-alt);
+}
 .notLegal .status { color: var(--hd-sub); }
 
-.banned { background: rgba(227,94,108,0.08); }
+.banned {
+  background: rgba(227,94,108,0.10);
+  border-color: rgba(227,94,108,0.28);
+}
 .banned .status { color: var(--hd-red); }
 
-.restricted { background: rgba(255,200,80,0.08); }
-.restricted .status { color: #ffc850; }
+.restricted {
+  background: rgba(224,169,106,0.10);
+  border-color: rgba(224,169,106,0.28);
+}
+.restricted .status { color: var(--hd-amber); }

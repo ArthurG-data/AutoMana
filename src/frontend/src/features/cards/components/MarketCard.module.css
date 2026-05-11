@@ -1,0 +1,105 @@
+/* src/frontend/src/features/cards/components/MarketCard.module.css */
+.card {
+  background: var(--hd-surface);
+  border: 1px solid var(--hd-border);
+  border-radius: 12px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  border-top: 2px solid rgba(var(--hd-accent-rgb), 0.55);
+}
+
+.label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--hd-sub);
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+}
+
+.priceBlock {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.price {
+  font-family: var(--font-serif);
+  font-size: 40px;
+  font-weight: 400;
+  letter-spacing: -1px;
+  line-height: 1;
+  color: var(--hd-accent);
+}
+
+.priceCents {
+  color: var(--hd-muted);
+  font-size: 20px;
+}
+
+.priceMissing {
+  font-family: var(--font-serif);
+  font-size: 28px;
+  color: var(--hd-sub);
+}
+
+.deltas {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  text-align: right;
+  min-width: 90px;
+}
+
+.deltas > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 5px;
+}
+
+.arrow { font-size: 9px; }
+.period { color: var(--hd-sub); font-size: 9px; }
+
+.up   { color: var(--hd-accent); }
+.down { color: var(--hd-red); }
+
+.finishSelector {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+  border-top: 1px solid var(--hd-border);
+}
+
+.finishBtn,
+.finishActive {
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.finishBtn {
+  border: 1px solid var(--hd-border);
+  background: transparent;
+  color: var(--hd-sub);
+}
+
+.finishBtn:hover {
+  border-color: var(--hd-border-hot);
+  color: var(--hd-muted);
+}
+
+.finishActive {
+  border: 1px solid rgba(var(--hd-accent-rgb), 0.38);
+  background: rgba(var(--hd-accent-rgb), 0.11);
+  color: var(--hd-accent);
+}
