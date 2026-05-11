@@ -11,6 +11,13 @@ const FALLBACK_ICON = (
   </svg>
 )
 
+const SEARCH_ICON = (
+  <svg className={styles.filterIcon} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <circle cx="11" cy="11" r="7"/>
+    <path d="M21 21l-4.35-4.35"/>
+  </svg>
+)
+
 function SetRow({ set, onSelect }: { set: SetBrowseItem; onSelect: (code: string) => void }) {
   return (
     <button className={styles.row} onClick={() => onSelect(set.set_code)}>
@@ -54,13 +61,30 @@ export function SetBrowser({ onSelect }: SetBrowserProps) {
 
   return (
     <div className={styles.wrap}>
-      <input
-        className={styles.filterInput}
-        placeholder="Filter sets…"
-        value={filter}
-        onChange={e => setFilter(e.target.value)}
-        aria-label="Filter sets by name or code"
-      />
+      <header className={styles.hero}>
+        <h1 className={styles.heroTitle}>Browse Magic Sets</h1>
+        <span className={styles.heroAccent} aria-hidden />
+        <p className={styles.heroSub}>
+          <strong>{sets.length.toLocaleString()} sets</strong> · sorted by release date · newest first
+        </p>
+      </header>
+
+      <div className={styles.filterWrap}>
+        <div className={styles.filterField}>
+          {SEARCH_ICON}
+          <input
+            className={styles.filterInput}
+            placeholder="Filter sets — type a name or code…"
+            value={filter}
+            onChange={e => setFilter(e.target.value)}
+            aria-label="Filter sets by name or code"
+          />
+        </div>
+        <p className={styles.filterHint}>
+          e.g. <code>mkm</code>, <code>Karlov Manor</code>, <code>Eldraine</code>
+        </p>
+      </div>
+
       <div className={styles.list}>
         {filtered.length === 0
           ? <p className={styles.empty}>No sets match "{filter}"</p>
