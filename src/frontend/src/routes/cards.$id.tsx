@@ -22,21 +22,25 @@ function CardDetailPage() {
 
   const breadcrumb = (
     <span className={styles.crumb}>
-      <Link to="/search" className={styles.crumbLink}>SEARCH</Link>
-      <span className={styles.crumbSep} aria-hidden="true"> › </span>
-      {setCode ? (
-        <Link
-          to="/search"
-          search={{ set: setCode }}
-          className={styles.crumbLink}
-        >
-          {setCode.toUpperCase()}
-        </Link>
-      ) : (
-        <span className={styles.crumbCurrent}>—</span>
+      <Link
+        to="/search"
+        search={cardName ? { q: cardName } : undefined}
+        className={styles.crumbLink}
+      >
+        SEARCH
+      </Link>
+      {setCode && (
+        <>
+          <span className={styles.crumbSep} aria-hidden="true"> › </span>
+          <Link
+            to="/search"
+            search={{ set: setCode }}
+            className={styles.crumbLink}
+          >
+            {setCode.toUpperCase()}
+          </Link>
+        </>
       )}
-      <span className={styles.crumbSep} aria-hidden="true"> › </span>
-      <span className={styles.crumbCurrent}>{cardName.toUpperCase()}</span>
     </span>
   )
 
