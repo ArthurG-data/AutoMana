@@ -36,32 +36,37 @@ export function CardDetailView({ card }: CardDetailViewProps) {
       </div>
 
       <div className={styles.dataPanel}>
-        <section className={styles.topRow}>
-          <GameInfoCard
-            cardName={card.card_name}
-            setCode={card.set_code}
-            setName={card.set_name}
-            rarityName={card.rarity_name}
-            collectorNumber={card.collector_number}
-            promoTypes={card.promo_types}
-            manaCost={card.mana_cost}
-            typeLine={card.type_line}
-            oracleText={card.oracle_text}
-            artist={card.artist}
-            legalities={card.legalities}
-          />
-          <MarketCard
-            price={card.price}
-            selectedFinish={selectedFinish}
-            finishes={finishes}
-            onFinishChange={setSelectedFinish}
-            delta1d={card.price_change_1d}
-            delta7d={card.price_change_7d}
-            delta30d={card.price_change_30d}
-          />
+        <section className={styles.topGrid}>
+          <div className={styles.gameInfoSlot}>
+            <GameInfoCard
+              cardName={card.card_name}
+              setCode={card.set_code}
+              setName={card.set_name}
+              rarityName={card.rarity_name}
+              collectorNumber={card.collector_number}
+              promoTypes={card.promo_types}
+              manaCost={card.mana_cost}
+              typeLine={card.type_line}
+              oracleText={card.oracle_text}
+              artist={card.artist}
+              legalities={card.legalities}
+            />
+          </div>
+          <div className={styles.marketSlot}>
+            <MarketCard
+              price={card.price}
+              selectedFinish={selectedFinish}
+              finishes={finishes}
+              onFinishChange={setSelectedFinish}
+              delta1d={card.price_change_1d}
+              delta7d={card.price_change_7d}
+              delta30d={card.price_change_30d}
+            />
+          </div>
+          <div className={styles.chartSlot}>
+            <PriceCharts card={card} finish={selectedFinish} />
+          </div>
         </section>
-
-        <PriceCharts card={card} finish={selectedFinish} />
 
         <div className={styles.actions}>
           <Button variant="accent" style={{ flex: 1 }}>+ Add to collection</Button>
