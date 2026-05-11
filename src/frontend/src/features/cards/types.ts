@@ -92,3 +92,13 @@ export interface CatalogStats {
   data_source: string
   last_updated: string | null
 }
+
+export interface SetBrowseItem {
+  set_id: string
+  set_name: string
+  set_code: string
+  set_type: string
+  card_count: number
+  released_at: string
+  icon_svg_uri: string | null
+}
