@@ -145,6 +145,28 @@
   color: var(--hd-accent);
 }
 
+.promoRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.promoBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 3px 9px;
+  border-radius: 20px;
+  background: rgba(var(--hd-amber-rgb), 0.10);
+  border: 1px solid rgba(var(--hd-amber-rgb), 0.32);
+  color: var(--hd-amber);
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
 .titleRow {
   display: flex;
   align-items: baseline;
@@ -217,4 +239,28 @@
   color: var(--hd-sub);
   padding-top: 8px;
   border-top: 1px solid var(--hd-border);
+}
+
+.artistLink {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: var(--hd-text);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  transition: color 120ms ease;
+}
+
+.artistLink:hover {
+  color: var(--hd-accent);
+}
+
+.artistLink:focus-visible {
+  outline: 2px solid var(--hd-accent);
+  outline-offset: 2px;
+  border-radius: 3px;
 }

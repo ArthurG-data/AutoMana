@@ -5,13 +5,15 @@ import { useAuthStore } from '../../store/auth'
 import type { CardDetail, CardSearchParams, CardSearchResponse, CardSuggestParams, CardSuggestResponse, CatalogStats, SetBrowseItem } from './types'
 
 export function cardInfiniteSearchQueryOptions(params: Omit<CardSearchParams, 'page'>) {
+  const { group: _group, ...apiParams } = params
   return infiniteQueryOptions({
-    queryKey: ['cards', 'search', params],
+    queryKey: ['cards', 'search', apiParams],
     queryFn: async ({ pageParam = 0 }) => {
       const token = useAuthStore.getState().token
       const qs = new URLSearchParams()
       if (params.q)        qs.set('q', params.q)
       if (params.set)      qs.set('set', params.set)
+      if (params.artist)   qs.set('artist', params.artist)
       if (params.rarity)   qs.set('rarity', params.rarity)
       if (params.finish)   qs.set('finish', params.finish)
       if (params.layout)   qs.set('layout', params.layout)

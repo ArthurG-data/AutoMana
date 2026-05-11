@@ -62,10 +62,15 @@ describe('GameInfoCard', () => {
     expect(screen.queryByText(/^#/)).toBeNull()
   })
 
-  it('renders one badge per promo type', () => {
+  it('renders one badge per promo type with formatted labels', () => {
     render(<GameInfoCard {...BASE} promoTypes={['boosterfun', 'showcase']} />)
-    expect(screen.getByText(/boosterfun/)).toBeTruthy()
-    expect(screen.getByText(/showcase/)).toBeTruthy()
+    expect(screen.getByText(/Booster Fun/)).toBeTruthy()
+    expect(screen.getByText(/Showcase/)).toBeTruthy()
+  })
+
+  it('falls back to capitalized raw value for unknown promo types', () => {
+    render(<GameInfoCard {...BASE} promoTypes={['weirdthing']} />)
+    expect(screen.getByText(/Weirdthing/)).toBeTruthy()
   })
 
   it('renders one ManaSymbol per token in the mana cost', () => {
@@ -95,7 +100,14 @@ describe('GameInfoCard', () => {
 
   it('renders artist in footer when provided', () => {
     render(<GameInfoCard {...BASE} artist="Kev Walker" />)
-    expect(screen.getByText(/Illus. Kev Walker/)).toBeTruthy()
+    expect(screen.getByText('Kev Walker')).toBeTruthy()
+  })
+
+  it('clicking the artist name navigates to /search filtered by artist', () => {
+    navigateSpy.mockClear()
+    render(<GameInfoCard {...BASE} artist="Kev Walker" />)
+    fireEvent.click(screen.getByText('Kev Walker'))
+    expect(navigateSpy).toHaveBeenCalledWith({ to: '/search', search: { artist: 'Kev Walker' } })
   })
 
   it('omits footer when artist missing', () => {

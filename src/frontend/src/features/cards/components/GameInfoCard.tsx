@@ -22,6 +22,52 @@ function parseCostTokens(cost: string): string[] {
   return Array.from(cost.matchAll(/\{([^}]+)\}/g), (m) => m[1])
 }
 
+const PROMO_NAMES: Record<string, string> = {
+  boosterfun: 'Booster Fun',
+  extendedart: 'Extended Art',
+  showcase: 'Showcase',
+  borderless: 'Borderless',
+  buyabox: 'Buy-a-Box',
+  prerelease: 'Prerelease',
+  gameday: 'Game Day',
+  promo: 'Promo',
+  etched: 'Etched',
+  fullart: 'Full Art',
+  intropack: 'Intro Pack',
+  starterdeck: 'Starter Deck',
+  bundle: 'Bundle',
+  giftbox: 'Gift Box',
+  judgegift: 'Judge Gift',
+  jpwalker: 'JP Planeswalker',
+  planeswalkerstamped: 'Planeswalker Stamped',
+  promostamped: 'Promo Stamped',
+  textured: 'Textured',
+  glossy: 'Glossy',
+  thick: 'Thick Stock',
+  gilded: 'Gilded',
+  galaxyfoil: 'Galaxy Foil',
+  surgefoil: 'Surge Foil',
+  raisedfoil: 'Raised Foil',
+  neonink: 'Neon Ink',
+  confettifoil: 'Confetti Foil',
+  halofoil: 'Halofoil',
+  oilslick: 'Oil Slick',
+  doublerainbow: 'Double Rainbow',
+  godzillaseries: 'Godzilla',
+  draculaseries: 'Dracula',
+  ampersand: 'Ampersand',
+  scroll: 'Scroll',
+  ravnicacity: 'Ravnica City',
+  serialized: 'Serialized',
+  stepandcompleat: 'Compleated',
+}
+
+function formatPromoType(p: string): string {
+  const key = p.toLowerCase().replace(/[-_\s]/g, '')
+  if (PROMO_NAMES[key]) return PROMO_NAMES[key]
+  return p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()
+}
+
 function rarityClass(rarity?: string): string {
   switch ((rarity ?? '').toLowerCase()) {
     case 'mythic':   return styles.rarityMythic
@@ -55,6 +101,9 @@ export function GameInfoCard({
     : ''
   const goToSetSearch = () => {
     if (setCode) navigate({ to: '/search', search: { set: setCode } })
+  }
+  const goToArtistSearch = () => {
+    if (artist) navigate({ to: '/search', search: { artist } })
   }
 
   return (
@@ -98,14 +147,16 @@ export function GameInfoCard({
                 <span>#{collectorNumber}</span>
               </>
             )}
-            {promoTypes.length > 0 && (
-              <span className={styles.badges}>
-                {promoTypes.map((pt) => (
-                  <span key={pt} className={styles.badge}>✦ {pt}</span>
-                ))}
-              </span>
-            )}
           </div>
+          {promoTypes.length > 0 && (
+            <div className={styles.promoRow}>
+              {promoTypes.map((pt) => (
+                <span key={pt} className={styles.promoBadge} title={pt}>
+                  ✦ {formatPromoType(pt)}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </header>
 
@@ -138,7 +189,17 @@ export function GameInfoCard({
       )}
 
       {artist && (
-        <footer className={styles.footer}>Illus. {artist}</footer>
+        <footer className={styles.footer}>
+          Illus.{' '}
+          <button
+            type="button"
+            className={styles.artistLink}
+            onClick={goToArtistSearch}
+            title={`Search cards illustrated by ${artist}`}
+          >
+            {artist}
+          </button>
+        </footer>
       )}
     </div>
   )

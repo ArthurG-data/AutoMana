@@ -1,11 +1,17 @@
 // src/frontend/src/features/cards/components/SearchFilters.tsx
 import { useNavigate } from '@tanstack/react-router'
-import type { CardSearchParams } from '../types'
+import type { CardGroupBy, CardSearchParams } from '../types'
 import { SearchBarWithSuggestions } from './SearchBarWithSuggestions'
 import styles from './SearchFilters.module.css'
 
 const FINISHES = ['non-foil', 'foil', 'etched'] as const
 const LAYOUTS = ['normal', 'token', 'transform', 'saga', 'adventure'] as const
+const GROUPINGS: ReadonlyArray<{ value: CardGroupBy | 'none'; label: string }> = [
+  { value: 'none',   label: 'None' },
+  { value: 'set',    label: 'Set' },
+  { value: 'rarity', label: 'Rarity' },
+  { value: 'finish', label: 'Finish' },
+]
 
 const PROMO_TYPE_LABELS: Record<string, string> = {
   arenaleague:        'Arena League',
@@ -87,6 +93,25 @@ export function SearchFilters({ params, promoTypeFacets, rarityFacets }: SearchF
           clear
         </button>
       </div>
+
+      <section className={styles.group}>
+        <div className={styles.groupLabel}>Group by</div>
+        <div className={styles.finishGrid}>
+          {GROUPINGS.map(({ value, label }) => {
+            const active =
+              value === 'none' ? !params.group : params.group === value
+            return (
+              <button
+                key={value}
+                className={[styles.finishBtn, active ? styles.finishActive : ''].join(' ')}
+                onClick={() => update({ group: value === 'none' ? undefined : value })}
+              >
+                {label}
+              </button>
+            )
+          })}
+        </div>
+      </section>
 
       {rarityFacets.length > 0 && (
         <section className={styles.group}>

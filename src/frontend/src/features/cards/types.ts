@@ -44,15 +44,19 @@ export interface CardDetail extends CardSummary {
   legalities?: Record<string, string>
 }
 
+export type CardGroupBy = 'set' | 'rarity' | 'finish'
+
 export interface CardSearchParams {
   q?: string
   set?: string
+  artist?: string
   rarity?: string
   finish?: string
   layout?: string
   minPrice?: number
   maxPrice?: number
   promoTypes?: string[]
+  group?: CardGroupBy
 }
 
 export interface PaginationInfo {

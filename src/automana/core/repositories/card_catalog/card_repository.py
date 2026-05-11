@@ -195,6 +195,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
             released_after: Optional[str] = None,
             released_before: Optional[str] = None,
             oracle_text: Optional[str] = None,
+            artist: Optional[str] = None,
             format: Optional[str] = None,
             layout: Optional[str] = None,
             promo_type: Optional[List[str]] = None,
@@ -323,6 +324,22 @@ class CardReferenceRepository(AbstractRepository[Any]):
             values.append(oracle_text)
             rf_values.append(oracle_text)
             oracle_param_idx = counter
+            counter += 1
+            rf_counter += 1
+
+        if artist:
+            # Match any illustration on the card whose artist_name equals the input.
+            # Most cards have a single illustration; DFCs and split cards have multiple.
+            conditions.append(
+                f"EXISTS (SELECT 1 FROM jsonb_array_elements(v.illustrations) elem "
+                f"WHERE elem->>'artist_name' = ${counter})"
+            )
+            rf_conditions.append(
+                f"EXISTS (SELECT 1 FROM jsonb_array_elements(v.illustrations) elem "
+                f"WHERE elem->>'artist_name' = ${rf_counter})"
+            )
+            values.append(artist)
+            rf_values.append(artist)
             counter += 1
             rf_counter += 1
 
