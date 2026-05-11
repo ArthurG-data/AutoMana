@@ -45,9 +45,16 @@ function SearchPage() {
   // Defaults to 'card' if the URL already has a name query, else 'set'.
   const [mode, setMode] = useState<Mode>(search.q ? 'card' : 'set')
 
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery(
-    cardInfiniteSearchQueryOptions(search)
-  )
+  // The card-search endpoint should only fire when we actually have something
+  // to query: either a set is selected (regardless of mode) or the user is in
+  // 'card' mode with a name query. In 'set' mode with no set chosen, only the
+  // set-browse endpoint should hit the network.
+  const shouldFetchCards = !!search.set || (mode === 'card' && !!search.q)
+
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
+    ...cardInfiniteSearchQueryOptions(search),
+    enabled: shouldFetchCards,
+  })
 
   const cards = data?.pages?.flatMap(p => p.cards) ?? []
   const total = data?.pages?.[0]?.pagination?.total_count ?? 0

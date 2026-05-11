@@ -185,13 +185,13 @@ class SetReferenceRepository(AbstractRepository[Any]):
 
     async def get(self, set_id: UUID) -> dict[str, Any]|None:
         query = """ 
-                SELECT * FROM card_catalog.joined_set_materialized WHERE set_id = $1
+                SELECT * FROM card_catalog.v_joined_set_materialized WHERE set_id = $1
         """
         result =  await self.execute_query(query, set_id)
         return result[0] if result else None
     
     async def list(self, limit: int = 100, offset: int = 0, ids: Optional[Sequence[UUID]] = None):
-        query = "SELECT * FROM card_catalog.joined_set_materialized"
+        query = "SELECT * FROM card_catalog.v_joined_set_materialized"
         counter = 1
         values = []
         if ids:
@@ -213,7 +213,7 @@ class SetReferenceRepository(AbstractRepository[Any]):
                 vsm.card_count,
                 vsm.released_at,
                 iqr.icon_query_uri AS icon_svg_uri
-            FROM card_catalog.joined_set_materialized vsm
+            FROM card_catalog.v_joined_set_materialized vsm
             LEFT JOIN card_catalog.icon_set ics ON ics.set_id = vsm.set_id
             LEFT JOIN card_catalog.icon_query_ref iqr
                    ON iqr.icon_query_id = ics.icon_query_id
