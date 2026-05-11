@@ -9,6 +9,14 @@ vi.mock('../PriceCharts', () => ({
     <div data-testid="price-charts" data-finish={finish ?? ''} />
   ),
 }))
+vi.mock('../SetInfoBox', () => ({
+  SetInfoBox: () => <div data-testid="set-info-box" />,
+}))
+vi.mock('../LegalityGrid', () => ({
+  LegalityGrid: ({ legalities }: { legalities: Record<string, string> }) => (
+    <div data-testid="legality-grid" data-has-entries={Object.keys(legalities).length > 0 ? 'true' : 'false'} />
+  ),
+}))
 vi.mock('../../../../components/design-system/FlippableCardArt', () => ({
   FlippableCardArt: ({
     frontUrl,
@@ -27,9 +35,6 @@ vi.mock('../../../../components/design-system/FlippableCardArt', () => ({
       data-back={backUrl ?? ''}
     />
   ),
-}))
-vi.mock('../../../../components/design-system/AreaChart', () => ({
-  AreaChart: () => <div />,
 }))
 vi.mock('../../../../components/design-system/Pip', () => ({
   Pip: () => <span />,
@@ -50,10 +55,13 @@ const mockCard: CardDetail = {
   spark: [],
   available_finishes: ['nonfoil', 'foil'],
   image_large: 'https://example.com/front.jpg',
+  collector_number: '245',
+  promo_types: [],
+  legalities: { modern: 'legal', standard: 'not_legal' },
 }
 
 describe('CardDetailView', () => {
-  it('renders a chip for each available finish', () => {
+  it('renders a button for each available finish', () => {
     render(<CardDetailView card={mockCard} />)
     expect(screen.getByText('nonfoil')).toBeTruthy()
     expect(screen.getByText('foil')).toBeTruthy()
@@ -64,18 +72,18 @@ describe('CardDetailView', () => {
     expect(screen.getByTestId('price-charts').dataset.finish).toBe('nonfoil')
   })
 
-  it('updates selected finish and passes it to PriceCharts when chip clicked', () => {
+  it('updates selected finish and passes it to PriceCharts when button clicked', () => {
     render(<CardDetailView card={mockCard} />)
     fireEvent.click(screen.getByText('foil'))
     expect(screen.getByTestId('price-charts').dataset.finish).toBe('foil')
   })
 
-  it('falls back to nonfoil chip when available_finishes is empty', () => {
+  it('falls back to nonfoil when available_finishes is empty', () => {
     render(<CardDetailView card={{ ...mockCard, available_finishes: [] }} />)
     expect(screen.getByText('nonfoil')).toBeTruthy()
   })
 
-  it('falls back to nonfoil chip when available_finishes is undefined', () => {
+  it('falls back to nonfoil when available_finishes is undefined', () => {
     const { available_finishes: _, ...cardWithoutFinishes } = mockCard
     render(<CardDetailView card={cardWithoutFinishes as CardDetail} />)
     expect(screen.getByText('nonfoil')).toBeTruthy()
@@ -124,5 +132,28 @@ describe('CardDetailView', () => {
     )
     const art = screen.getByTestId('flippable-card-art')
     expect(art.dataset.back).toBe('')
+  })
+
+  it('renders SetInfoBox', () => {
+    render(<CardDetailView card={mockCard} />)
+    expect(screen.getByTestId('set-info-box')).toBeTruthy()
+  })
+
+  it('renders LegalityGrid when legalities has entries', () => {
+    render(<CardDetailView card={mockCard} />)
+    const grid = screen.getByTestId('legality-grid')
+    expect(grid).toBeTruthy()
+    expect(grid.dataset.hasEntries).toBe('true')
+  })
+
+  it('does not render LegalityGrid when legalities is empty', () => {
+    render(<CardDetailView card={{ ...mockCard, legalities: {} }} />)
+    expect(screen.queryByTestId('legality-grid')).toBeNull()
+  })
+
+  it('does not render LegalityGrid when legalities is undefined', () => {
+    const { legalities: _, ...cardNoLegalities } = mockCard
+    render(<CardDetailView card={cardNoLegalities as CardDetail} />)
+    expect(screen.queryByTestId('legality-grid')).toBeNull()
   })
 })

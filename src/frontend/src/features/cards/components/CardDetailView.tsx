@@ -2,19 +2,17 @@
 import { useState } from 'react'
 import { FlippableCardArt } from '../../../components/design-system/FlippableCardArt'
 import { buildScryfallBackUrl } from '../utils/scryfallBackUrl'
-import { AreaChart } from '../../../components/design-system/AreaChart'
 import { Pip, type ManaColor } from '../../../components/design-system/Pip'
-import { Chip } from '../../../components/ui/Chip'
 import { Button } from '../../../components/ui/Button'
 import { PriceCharts } from './PriceCharts'
+import { SetInfoBox } from './SetInfoBox'
+import { LegalityGrid } from './LegalityGrid'
 import type { CardDetail } from '../types'
 import styles from './CardDetailView.module.css'
 
 interface CardDetailViewProps {
   card: CardDetail
 }
-
-const RANGE_LABELS = ['1W', '1M', '3M', '1Y', 'ALL']
 
 function parseMana(cost: string): ManaColor[] {
   return (cost.match(/[WUBRG]/g) ?? []) as ManaColor[]
@@ -36,101 +34,99 @@ export function CardDetailView({ card }: CardDetailViewProps) {
 
   return (
     <div className={styles.layout}>
-      <div className={styles.artCol}>
+      <div className={styles.imagePanel}>
         <FlippableCardArt
           name={card.card_name}
-          w={420}
-          h={585}
+          w={240}
           frontUrl={card.image_large ?? null}
           backUrl={backUrl}
-          style={{ borderRadius: 16 }}
         />
-        <div className={styles.printChips}>
+        <div className={styles.imageFade} aria-hidden="true" />
+      </div>
+
+      <div className={styles.dataPanel}>
+        <SetInfoBox
+          setCode={card.set_code}
+          setName={card.set_name}
+          rarityName={card.rarity_name}
+          collectorNumber={card.collector_number}
+          promoTypes={card.promo_types}
+        />
+
+        <div className={styles.identity}>
+          <h1 className={styles.name}>{card.card_name}</h1>
+          {card.mana_cost && (
+            <div className={styles.manaRow}>
+              {parseMana(card.mana_cost).map((c, i) => <Pip key={i} color={c} size={18} />)}
+              <span className={styles.manaCost}>{card.mana_cost}</span>
+            </div>
+          )}
+          {card.type_line && <div className={styles.typeLine}>{card.type_line}</div>}
+        </div>
+
+        {card.oracle_text && (
+          <div className={styles.oracleBox}>
+            <p>{card.oracle_text}</p>
+            {card.artist && (
+              <div className={styles.artistLine}>
+                Illus. {card.artist}
+                {card.collector_number && <span> · #{card.collector_number}</span>}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className={styles.finishSelector}>
           {finishes.map((f) => (
             <button
               key={f}
               onClick={() => setSelectedFinish(f)}
               aria-pressed={f === selectedFinish}
-              style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+              className={f === selectedFinish ? styles.finishActive : styles.finishBtn}
             >
-              <Chip
-                color={f === selectedFinish ? 'var(--hd-accent)' : undefined}
-                style={f === selectedFinish ? { border: '1px solid var(--hd-accent)' } : {}}
-              >
-                {f === selectedFinish ? <span aria-hidden="true">● </span> : null}<span>{f}</span>
-              </Chip>
+              {f}
             </button>
           ))}
         </div>
-      </div>
 
-      <div className={styles.rightCol}>
-        <div className={styles.infoCol}>
-          <div className={styles.meta}>
-            {card.set_code.toUpperCase()} · {card.rarity_name?.charAt(0).toUpperCase() + card.rarity_name?.slice(1)} · {card.type_line}
-          </div>
-          <h1 className={styles.name}>{card.card_name}</h1>
-
-          {card.mana_cost && (
-            <div className={styles.manaRow}>
-              {parseMana(card.mana_cost).map((c, i) => <Pip key={i} color={c} size={18} />)}
-              <span className={styles.manaCost}>{card.mana_cost}</span>
-              <span className={styles.artist}>by {card.artist}</span>
+        <div className={styles.priceSection}>
+          <div className={styles.priceLabel}>MARKET PRICE · {selectedFinish}</div>
+          <div className={styles.priceRow}>
+            <div className={styles.price}>
+              {card.price != null ? (
+                <>
+                  ${Math.floor(card.price)}
+                  <span className={styles.priceCents}>
+                    .{(card.price % 1).toFixed(2).slice(2)}
+                  </span>
+                </>
+              ) : 'N/A'}
             </div>
-          )}
-
-          <div className={styles.priceSection}>
-            <div className={styles.priceLabel}>Market price</div>
-            <div className={styles.priceRow}>
-              <div className={styles.price}>
-                {card.price != null ? (
-                  <>
-                    ${Math.floor(card.price)}<span className={styles.priceCents}>.{(card.price % 1).toFixed(2).slice(2)}</span>
-                  </>
-                ) : (
-                  'N/A'
-                )}
-              </div>
-              <div className={styles.deltas}>
-                <span className={delta1d >= 0 ? styles.up : styles.down}>
-                  {delta1d >= 0 ? '▲' : '▼'} {Math.abs(delta1d).toFixed(2)}% 1d
-                </span>
-                <span className={delta7d >= 0 ? styles.up : styles.down}>
-                  {delta7d >= 0 ? '▲' : '▼'} {Math.abs(delta7d).toFixed(2)}% 7d
-                </span>
-                <span className={delta30d >= 0 ? styles.up : styles.down}>
-                  {delta30d >= 0 ? '▲' : '▼'} {Math.abs(delta30d).toFixed(2)}% 30d
-                </span>
-              </div>
+            <div className={styles.deltas}>
+              <span className={delta1d >= 0 ? styles.up : styles.down}>
+                {delta1d >= 0 ? '▲' : '▼'} {Math.abs(delta1d).toFixed(2)}% 1d
+              </span>
+              <span className={delta7d >= 0 ? styles.up : styles.down}>
+                {delta7d >= 0 ? '▲' : '▼'} {Math.abs(delta7d).toFixed(2)}% 7d
+              </span>
+              <span className={delta30d >= 0 ? styles.up : styles.down}>
+                {delta30d >= 0 ? '▲' : '▼'} {Math.abs(delta30d).toFixed(2)}% 30d
+              </span>
             </div>
-          </div>
-
-          {card.price_history && card.price_history.length > 0 ? (
-            <div className={styles.chartSection}>
-              <div className={styles.chartHeader}>
-                <span className={styles.chartLabel}>Price · 1y</span>
-                <div className={styles.rangeButtons}>
-                  {RANGE_LABELS.map((r, i) => (
-                    <button key={r} className={[styles.rangeBtn, i === 3 ? styles.rangeActive : ''].join(' ')}>{r}</button>
-                  ))}
-                </div>
-              </div>
-              <AreaChart
-                points={card.price_history.slice(-365)}
-                color="var(--hd-accent)"
-                height={220}
-                gridColor="rgba(150,200,255,0.05)"
-              />
-            </div>
-          ) : null}
-
-          <div className={styles.actions}>
-            <Button variant="accent" style={{ flex: 1 }}>+ Add to collection</Button>
-            <Button variant="ghost">Watch</Button>
-            <Button variant="ghost">Set alert</Button>
           </div>
         </div>
+
         <PriceCharts card={card} finish={selectedFinish} />
+
+        {card.legalities && Object.keys(card.legalities).length > 0 && (
+          <LegalityGrid legalities={card.legalities} />
+        )}
+
+        <div className={styles.actions}>
+          <Button variant="accent" style={{ flex: 1 }}>+ Add to collection</Button>
+          <Button variant="ghost">Watch</Button>
+          <Button variant="ghost">Alert</Button>
+        </div>
       </div>
     </div>
   )
