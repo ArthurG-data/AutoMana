@@ -204,6 +204,9 @@ class SetReferenceRepository(AbstractRepository[Any]):
         return await self.execute_query(query, tuple(values))
 
     async def browse(self) -> List[Dict]:
+        # Falls back to the parent set's icon when the set has none of its own —
+        # promo/box sub-sets often ship without their own SVG and inherit the
+        # parent's mark visually.
         query = """
             SELECT
                 vsm.set_id,
@@ -212,11 +215,16 @@ class SetReferenceRepository(AbstractRepository[Any]):
                 vsm.set_type,
                 vsm.card_count,
                 vsm.released_at,
-                iqr.icon_query_uri AS icon_svg_uri
+                COALESCE(iqr.icon_query_uri, parent_iqr.icon_query_uri) AS icon_svg_uri
             FROM card_catalog.v_joined_set_materialized vsm
+            JOIN card_catalog.sets s ON s.set_id = vsm.set_id
             LEFT JOIN card_catalog.icon_set ics ON ics.set_id = vsm.set_id
             LEFT JOIN card_catalog.icon_query_ref iqr
                    ON iqr.icon_query_id = ics.icon_query_id
+            LEFT JOIN card_catalog.icon_set parent_ics
+                   ON parent_ics.set_id = s.parent_set
+            LEFT JOIN card_catalog.icon_query_ref parent_iqr
+                   ON parent_iqr.icon_query_id = parent_ics.icon_query_id
             WHERE vsm.digital = FALSE
             ORDER BY vsm.released_at DESC
         """
