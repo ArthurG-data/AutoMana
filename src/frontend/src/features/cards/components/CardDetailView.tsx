@@ -125,7 +125,7 @@ export function CardDetailView({ card }: CardDetailViewProps) {
         <div className={styles.actions}>
           <Button variant="accent" style={{ flex: 1 }}>+ Add to collection</Button>
           <Button variant="ghost">Watch</Button>
-          <Button variant="ghost">Alert</Button>
+          <Button variant="ghost">Set alert</Button>
         </div>
       </div>
     </div>
