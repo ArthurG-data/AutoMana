@@ -6,6 +6,11 @@ import { GameInfoCard } from '../GameInfoCard'
 vi.mock('../../../../components/design-system/Pip', () => ({
   Pip: () => <span data-testid="pip" />,
 }))
+vi.mock('../LegalityGrid', () => ({
+  LegalityGrid: ({ legalities }: { legalities: Record<string, string> }) => (
+    <div data-testid="legality-grid" data-count={Object.keys(legalities).length} />
+  ),
+}))
 
 const BASE = {
   cardName: 'Lightning Helix',
@@ -84,6 +89,25 @@ describe('GameInfoCard', () => {
   it('omits footer when artist missing', () => {
     const { container } = render(<GameInfoCard {...BASE} />)
     expect(container.querySelectorAll('footer').length).toBe(0)
+  })
+
+  it('renders the legality grid when legalities has entries', () => {
+    render(<GameInfoCard {...BASE} legalities={{ modern: 'legal', standard: 'not_legal' }} />)
+    const grid = screen.getByTestId('legality-grid')
+    expect(grid).toBeTruthy()
+    expect(grid.dataset.count).toBe('2')
+    expect(screen.getByText('Legalities')).toBeTruthy()
+  })
+
+  it('does not render the legality grid when legalities is empty', () => {
+    render(<GameInfoCard {...BASE} legalities={{}} />)
+    expect(screen.queryByTestId('legality-grid')).toBeNull()
+    expect(screen.queryByText('Legalities')).toBeNull()
+  })
+
+  it('does not render the legality grid when legalities is undefined', () => {
+    render(<GameInfoCard {...BASE} />)
+    expect(screen.queryByTestId('legality-grid')).toBeNull()
   })
 
   it('applies rarity-specific class on the outer card', () => {

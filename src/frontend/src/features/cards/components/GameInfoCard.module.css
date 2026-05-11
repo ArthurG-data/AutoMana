@@ -149,6 +149,22 @@
   margin: 0;
 }
 
+.legalitySection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--hd-border);
+}
+
+.sectionLabel {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--hd-sub);
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+
 .footer {
   font-family: var(--font-mono);
   font-size: 10.5px;

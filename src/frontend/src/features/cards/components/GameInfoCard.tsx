@@ -1,5 +1,6 @@
 // src/frontend/src/features/cards/components/GameInfoCard.tsx
 import { Pip, type ManaColor } from '../../../components/design-system/Pip'
+import { LegalityGrid } from './LegalityGrid'
 import styles from './GameInfoCard.module.css'
 
 interface GameInfoCardProps {
@@ -13,6 +14,7 @@ interface GameInfoCardProps {
   typeLine?: string
   oracleText?: string
   artist?: string
+  legalities?: Record<string, string>
 }
 
 function parseMana(cost: string): ManaColor[] {
@@ -40,7 +42,9 @@ export function GameInfoCard({
   typeLine,
   oracleText,
   artist,
+  legalities,
 }: GameInfoCardProps) {
+  const hasLegalities = legalities && Object.keys(legalities).length > 0
   const rarity = rarityName.toLowerCase()
 
   return (
@@ -95,6 +99,13 @@ export function GameInfoCard({
           {oracleText.split('\n').map((line, i) => (
             <p key={i}>{line}</p>
           ))}
+        </div>
+      )}
+
+      {hasLegalities && (
+        <div className={styles.legalitySection}>
+          <div className={styles.sectionLabel}>Legalities</div>
+          <LegalityGrid legalities={legalities!} />
         </div>
       )}
 

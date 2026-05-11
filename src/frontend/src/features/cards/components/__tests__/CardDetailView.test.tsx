@@ -31,11 +31,6 @@ vi.mock('../MarketCard', () => ({
     </div>
   ),
 }))
-vi.mock('../LegalityGrid', () => ({
-  LegalityGrid: ({ legalities }: { legalities: Record<string, string> }) => (
-    <div data-testid="legality-grid" data-has-entries={Object.keys(legalities).length > 0 ? 'true' : 'false'} />
-  ),
-}))
 vi.mock('../../../../components/design-system/FlippableCardArt', () => ({
   FlippableCardArt: ({
     frontUrl,
@@ -158,21 +153,4 @@ describe('CardDetailView', () => {
     expect(screen.getByTestId('flippable-card-art').dataset.back).toBe('')
   })
 
-  it('renders LegalityGrid when legalities has entries', () => {
-    render(<CardDetailView card={mockCard} />)
-    const grid = screen.getByTestId('legality-grid')
-    expect(grid).toBeTruthy()
-    expect(grid.dataset.hasEntries).toBe('true')
-  })
-
-  it('does not render LegalityGrid when legalities is empty', () => {
-    render(<CardDetailView card={{ ...mockCard, legalities: {} }} />)
-    expect(screen.queryByTestId('legality-grid')).toBeNull()
-  })
-
-  it('does not render LegalityGrid when legalities is undefined', () => {
-    const { legalities: _, ...rest } = mockCard
-    render(<CardDetailView card={rest as CardDetail} />)
-    expect(screen.queryByTestId('legality-grid')).toBeNull()
-  })
 })

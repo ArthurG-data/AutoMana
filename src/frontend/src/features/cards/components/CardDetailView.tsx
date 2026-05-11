@@ -6,7 +6,6 @@ import { Button } from '../../../components/ui/Button'
 import { PriceCharts } from './PriceCharts'
 import { GameInfoCard } from './GameInfoCard'
 import { MarketCard } from './MarketCard'
-import { LegalityGrid } from './LegalityGrid'
 import type { CardDetail } from '../types'
 import styles from './CardDetailView.module.css'
 
@@ -49,6 +48,7 @@ export function CardDetailView({ card }: CardDetailViewProps) {
             typeLine={card.type_line}
             oracleText={card.oracle_text}
             artist={card.artist}
+            legalities={card.legalities}
           />
           <MarketCard
             price={card.price}
@@ -62,10 +62,6 @@ export function CardDetailView({ card }: CardDetailViewProps) {
         </section>
 
         <PriceCharts card={card} finish={selectedFinish} />
-
-        {card.legalities && Object.keys(card.legalities).length > 0 && (
-          <LegalityGrid legalities={card.legalities} />
-        )}
 
         <div className={styles.actions}>
           <Button variant="accent" style={{ flex: 1 }}>+ Add to collection</Button>
