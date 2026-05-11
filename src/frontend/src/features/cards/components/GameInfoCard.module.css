@@ -1,0 +1,266 @@
+/* src/frontend/src/features/cards/components/GameInfoCard.module.css */
+.card {
+  background: var(--hd-surface);
+  border: 1px solid var(--hd-border);
+  border-radius: 12px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-top-width: 2px;
+}
+
+/* Subtle rarity-colored top accent (MTG frame nod) */
+.rarityMythic   { border-top-color: rgba(249,165,80,0.65); }
+.rarityRare     { border-top-color: rgba(213,193,131,0.65); }
+.rarityUncommon { border-top-color: rgba(184,196,210,0.55); }
+.rarityCommon   { border-top-color: var(--hd-border-hot); }
+
+.setHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--hd-border);
+}
+
+.iconCol {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--hd-surface-alt);
+  border: 1px solid var(--hd-border);
+  border-radius: 8px;
+  font-size: 22px;
+  color: var(--hd-text);
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.iconCol:hover:not(:disabled) {
+  border-color: rgba(var(--hd-accent-rgb), 0.55);
+  background: rgba(var(--hd-accent-rgb), 0.08);
+}
+
+.iconCol:disabled {
+  cursor: default;
+}
+
+.iconCol:focus-visible {
+  outline: 2px solid var(--hd-accent);
+  outline-offset: 2px;
+}
+
+.setText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.setLine {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.setLink {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 13px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  cursor: pointer;
+  transition: color 120ms ease;
+}
+
+.setLink:hover:not(:disabled) .setName,
+.setLink:hover:not(:disabled) .setCode {
+  color: var(--hd-accent);
+}
+
+.setLink:disabled {
+  cursor: default;
+}
+
+.setLink:focus-visible {
+  outline: 2px solid var(--hd-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.setName {
+  font-family: var(--font-sans);
+  color: var(--hd-text);
+  font-weight: 500;
+}
+
+.setCode {
+  font-family: var(--font-mono);
+  color: var(--hd-sub);
+  font-size: 11px;
+}
+
+.metaLine {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--hd-muted);
+}
+
+.rarity {
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.metaSep {
+  opacity: 0.5;
+}
+
+.badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-left: 4px;
+}
+
+.badge {
+  font-size: 9.5px;
+  padding: 1px 7px;
+  border-radius: 20px;
+  background: rgba(var(--hd-accent-rgb), 0.10);
+  border: 1px solid rgba(var(--hd-accent-rgb), 0.28);
+  color: var(--hd-accent);
+}
+
+.promoRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.promoBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 3px 9px;
+  border-radius: 20px;
+  background: rgba(var(--hd-amber-rgb), 0.10);
+  border: 1px solid rgba(var(--hd-amber-rgb), 0.32);
+  color: var(--hd-amber);
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+.titleRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.name {
+  font-family: var(--font-serif);
+  font-size: 24px;
+  font-weight: 400;
+  letter-spacing: -0.3px;
+  margin: 0;
+  color: var(--hd-text);
+}
+
+.manaRow {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.manaCost {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--hd-muted);
+}
+
+.typeLine {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--hd-muted);
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--hd-border);
+}
+
+.oracleText {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--hd-text);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.oracleText p {
+  margin: 0;
+}
+
+.legalitySection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--hd-border);
+}
+
+.sectionLabel {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--hd-sub);
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+
+.footer {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--hd-sub);
+  padding-top: 8px;
+  border-top: 1px solid var(--hd-border);
+}
+
+.artistLink {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: var(--hd-text);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  transition: color 120ms ease;
+}
+
+.artistLink:hover {
+  color: var(--hd-accent);
+}
+
+.artistLink:focus-visible {
+  outline: 2px solid var(--hd-accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}

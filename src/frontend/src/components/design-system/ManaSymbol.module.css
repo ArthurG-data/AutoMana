@@ -1,0 +1,17 @@
+/* src/frontend/src/components/design-system/ManaSymbol.module.css */
+.symbol {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  line-height: 1;
+  /* Glyphs sit slightly above the baseline; nudge down so number tokens center inside ms-cost circles */
+  text-indent: 0;
+}
+
+/* Mana-font glyphs use ::before to inject the character; vertical-align the pseudo to center numbers */
+.symbol::before {
+  display: inline-block;
+  vertical-align: middle;
+  line-height: 1;
+}

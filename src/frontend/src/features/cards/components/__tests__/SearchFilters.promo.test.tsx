@@ -58,7 +58,11 @@ describe('SearchFilters — filter facets', () => {
 
   it('hides rarity section when rarityFacets is empty', () => {
     render(<SearchFilters params={BASE_PARAMS} promoTypeFacets={[]} rarityFacets={[]} />, { wrapper: Wrapper })
-    expect(screen.queryByText(/rarity/i)).toBeNull()
+    // No rarity facet rows should render — checking specific rarity labels rather
+    // than the word "Rarity" (which now also appears as a Group-by option).
+    expect(screen.queryByText('Common')).toBeNull()
+    expect(screen.queryByText('Uncommon')).toBeNull()
+    expect(screen.queryByText('Mythic')).toBeNull()
   })
 
   it('renders only rarities from rarityFacets', () => {

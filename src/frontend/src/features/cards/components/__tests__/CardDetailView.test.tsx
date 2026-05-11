@@ -9,6 +9,28 @@ vi.mock('../PriceCharts', () => ({
     <div data-testid="price-charts" data-finish={finish ?? ''} />
   ),
 }))
+vi.mock('../GameInfoCard', () => ({
+  GameInfoCard: ({ cardName }: { cardName: string }) => (
+    <div data-testid="game-info-card" data-name={cardName} />
+  ),
+}))
+vi.mock('../MarketCard', () => ({
+  MarketCard: ({
+    selectedFinish,
+    finishes,
+    onFinishChange,
+  }: {
+    selectedFinish: string
+    finishes: string[]
+    onFinishChange: (f: string) => void
+  }) => (
+    <div data-testid="market-card" data-selected={selectedFinish}>
+      {finishes.map((f) => (
+        <button key={f} onClick={() => onFinishChange(f)}>{f}</button>
+      ))}
+    </div>
+  ),
+}))
 vi.mock('../../../../components/design-system/FlippableCardArt', () => ({
   FlippableCardArt: ({
     frontUrl,
@@ -28,12 +50,6 @@ vi.mock('../../../../components/design-system/FlippableCardArt', () => ({
     />
   ),
 }))
-vi.mock('../../../../components/design-system/AreaChart', () => ({
-  AreaChart: () => <div />,
-}))
-vi.mock('../../../../components/design-system/Pip', () => ({
-  Pip: () => <span />,
-}))
 
 const mockCard: CardDetail = {
   card_version_id: '11111111-1111-1111-1111-111111111111',
@@ -50,41 +66,54 @@ const mockCard: CardDetail = {
   spark: [],
   available_finishes: ['nonfoil', 'foil'],
   image_large: 'https://example.com/front.jpg',
+  collector_number: '245',
+  promo_types: [],
+  legalities: { modern: 'legal', standard: 'not_legal' },
 }
 
 describe('CardDetailView', () => {
-  it('renders a chip for each available finish', () => {
+  it('renders GameInfoCard with the card name', () => {
     render(<CardDetailView card={mockCard} />)
+    const gameInfo = screen.getByTestId('game-info-card')
+    expect(gameInfo).toBeTruthy()
+    expect(gameInfo.dataset.name).toBe('Sheoldred')
+  })
+
+  it('renders MarketCard with the available finishes', () => {
+    render(<CardDetailView card={mockCard} />)
+    const market = screen.getByTestId('market-card')
+    expect(market).toBeTruthy()
     expect(screen.getByText('nonfoil')).toBeTruthy()
     expect(screen.getByText('foil')).toBeTruthy()
   })
 
-  it('defaults selected finish to first available finish', () => {
+  it('defaults selected finish to the first available finish', () => {
     render(<CardDetailView card={mockCard} />)
+    expect(screen.getByTestId('market-card').dataset.selected).toBe('nonfoil')
     expect(screen.getByTestId('price-charts').dataset.finish).toBe('nonfoil')
   })
 
-  it('updates selected finish and passes it to PriceCharts when chip clicked', () => {
+  it('updates the selected finish when MarketCard reports a change', () => {
     render(<CardDetailView card={mockCard} />)
     fireEvent.click(screen.getByText('foil'))
+    expect(screen.getByTestId('market-card').dataset.selected).toBe('foil')
     expect(screen.getByTestId('price-charts').dataset.finish).toBe('foil')
   })
 
-  it('falls back to nonfoil chip when available_finishes is empty', () => {
+  it('falls back to nonfoil when available_finishes is empty', () => {
     render(<CardDetailView card={{ ...mockCard, available_finishes: [] }} />)
-    expect(screen.getByText('nonfoil')).toBeTruthy()
+    expect(screen.getByTestId('market-card').dataset.selected).toBe('nonfoil')
   })
 
-  it('falls back to nonfoil chip when available_finishes is undefined', () => {
-    const { available_finishes: _, ...cardWithoutFinishes } = mockCard
-    render(<CardDetailView card={cardWithoutFinishes as CardDetail} />)
-    expect(screen.getByText('nonfoil')).toBeTruthy()
+  it('falls back to nonfoil when available_finishes is undefined', () => {
+    const { available_finishes: _, ...rest } = mockCard
+    render(<CardDetailView card={rest as CardDetail} />)
+    expect(screen.getByTestId('market-card').dataset.selected).toBe('nonfoil')
   })
 
   it('passes image_large as frontUrl to FlippableCardArt', () => {
     render(<CardDetailView card={mockCard} />)
-    const art = screen.getByTestId('flippable-card-art')
-    expect(art.dataset.front).toBe('https://example.com/front.jpg')
+    expect(screen.getByTestId('flippable-card-art').dataset.front).toBe('https://example.com/front.jpg')
   })
 
   it('passes back_face_image_uri as backUrl for DFC cards', () => {
@@ -97,11 +126,10 @@ describe('CardDetailView', () => {
         }}
       />
     )
-    const art = screen.getByTestId('flippable-card-art')
-    expect(art.dataset.back).toBe('https://example.com/back.jpg')
+    expect(screen.getByTestId('flippable-card-art').dataset.back).toBe('https://example.com/back.jpg')
   })
 
-  it('constructs Scryfall back URL for regular cards with card_back_id', () => {
+  it('constructs a Scryfall back URL for regular cards with card_back_id', () => {
     render(
       <CardDetailView
         card={{
@@ -111,18 +139,18 @@ describe('CardDetailView', () => {
         }}
       />
     )
-    const art = screen.getByTestId('flippable-card-art')
-    expect(art.dataset.back).toContain('scryfall-card-backs')
-    expect(art.dataset.back).toContain('0aeebaf5-8c7d-4636-9e82-8c27447861f7')
+    const back = screen.getByTestId('flippable-card-art').dataset.back ?? ''
+    expect(back).toContain('scryfall-card-backs')
+    expect(back).toContain('0aeebaf5-8c7d-4636-9e82-8c27447861f7')
   })
 
-  it('passes null backUrl when card has no card_back_id and is not multifaced', () => {
+  it('passes an empty backUrl when card has no card_back_id and is not multifaced', () => {
     render(
       <CardDetailView
         card={{ ...mockCard, is_multifaced: false, card_back_id: null }}
       />
     )
-    const art = screen.getByTestId('flippable-card-art')
-    expect(art.dataset.back).toBe('')
+    expect(screen.getByTestId('flippable-card-art').dataset.back).toBe('')
   })
+
 })

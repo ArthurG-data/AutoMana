@@ -39,17 +39,24 @@ export interface CardDetail extends CardSummary {
   is_multifaced?: boolean
   card_back_id?: string | null
   back_face_image_uri?: string | null
+  collector_number?: string
+  promo_types?: string[]
+  legalities?: Record<string, string>
 }
+
+export type CardGroupBy = 'set' | 'rarity' | 'finish'
 
 export interface CardSearchParams {
   q?: string
   set?: string
+  artist?: string
   rarity?: string
   finish?: string
   layout?: string
   minPrice?: number
   maxPrice?: number
   promoTypes?: string[]
+  group?: CardGroupBy
 }
 
 export interface PaginationInfo {

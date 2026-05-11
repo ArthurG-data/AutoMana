@@ -7,6 +7,8 @@ import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persist
 import { routeTree } from './routeTree.gen'
 import { queryClient } from './lib/queryClient'
 import './styles/global.css'
+import 'keyrune/css/keyrune.min.css'
+import 'mana-font/css/mana.min.css'
 
 const persister = createSyncStoragePersister({
   storage: window.localStorage,

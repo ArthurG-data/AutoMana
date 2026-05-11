@@ -16,12 +16,14 @@ import styles from './Search.module.css'
 const searchSchema = z.object({
   q:          z.string().optional(),
   set:        z.string().optional(),
+  artist:     z.string().optional(),
   rarity:     z.string().optional(),
   finish:     z.string().optional(),
   layout:     z.string().optional().default('normal'),
   minPrice:   z.number().optional(),
   maxPrice:   z.number().optional(),
   promoTypes: z.array(z.string()).optional(),
+  group:      z.enum(['set', 'rarity', 'finish']).optional(),
 })
 
 export const Route = createFileRoute('/search')({
@@ -60,10 +62,10 @@ function SearchPage() {
         ? 'search by card name'
         : 'browse by set'
 
-  // ---- Set selected: banner + filters + results (unchanged) ----
+  // ---- Set selected: banner + filters + results ----
   if (search.set) {
     return (
-      <AppShell active="collection">
+      <AppShell active="search">
         <TopBar title="Search" subtitle={subtitle} />
         <SelectedSetBanner
           setCode={search.set}
@@ -81,6 +83,7 @@ function SearchPage() {
             fetchNextPage={fetchNextPage}
             hasNextPage={hasNextPage}
             isFetchingNextPage={isFetchingNextPage}
+            groupBy={search.group}
           />
         </div>
       </AppShell>
@@ -89,7 +92,7 @@ function SearchPage() {
 
   // ---- Entry-point: mode tabs + chosen mode body ----
   return (
-    <AppShell active="collection">
+    <AppShell active="search">
       <TopBar title="Search" subtitle={subtitle} />
 
       <div className={styles.tabs} role="tablist" aria-label="Search mode">
@@ -117,22 +120,28 @@ function SearchPage() {
         <SetBrowser
           onSelect={(code) => navigate({ search: prev => ({ ...prev, set: code }) })}
         />
+      ) : search.q ? (
+        <div className={styles.layout}>
+          <SearchFilters
+            params={search}
+            promoTypeFacets={promoTypeFacets}
+            rarityFacets={rarityFacets}
+          />
+          <SearchResults
+            cards={cards}
+            total={total}
+            fetchNextPage={fetchNextPage}
+            hasNextPage={hasNextPage}
+            isFetchingNextPage={isFetchingNextPage}
+            groupBy={search.group}
+          />
+        </div>
       ) : (
         <div className={styles.cardMode}>
           <SearchBarWithSuggestions placeholder="Search any card by name…" />
-          {search.q ? (
-            <SearchResults
-              cards={cards}
-              total={total}
-              fetchNextPage={fetchNextPage}
-              hasNextPage={hasNextPage}
-              isFetchingNextPage={isFetchingNextPage}
-            />
-          ) : (
-            <p className={styles.cardModeHint}>
-              Type a card name above — suggestions appear after 2 characters.
-            </p>
-          )}
+          <p className={styles.cardModeHint}>
+            Type a card name above — suggestions appear after 2 characters.
+          </p>
         </div>
       )}
     </AppShell>

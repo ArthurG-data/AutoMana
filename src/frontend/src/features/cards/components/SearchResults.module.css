@@ -2,14 +2,52 @@
 .results { padding: 24px 36px 36px; overflow: hidden; }
 .meta { font-family: var(--font-mono); font-size: 11px; color: var(--hd-sub); margin-bottom: 16px; }
 .empty { padding: 40px; text-align: center; color: var(--hd-muted); font-size: 14px; }
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 14px; }
+
+/* Responsive grid: 2 → 3 → 4 → 5 → 6 columns, capped at 6 on wide screens */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+@media (min-width: 720px)  { .grid { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 960px)  { .grid { grid-template-columns: repeat(4, 1fr); } }
+@media (min-width: 1200px) { .grid { grid-template-columns: repeat(5, 1fr); } }
+@media (min-width: 1440px) { .grid { grid-template-columns: repeat(6, 1fr); } }
+
 .card { background: transparent; border: none; cursor: pointer; text-align: left; padding: 0; }
 .card:hover .cardInfo { border-color: var(--hd-accent); }
 .cardInfo { padding: 8px 4px; }
 .cardName { font-size: 12px; color: var(--hd-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
 .cardMeta { display: flex; justify-content: space-between; margin-bottom: 6px; }
 .set { font-size: 10px; color: var(--hd-sub); font-family: var(--font-mono); }
+.setLink { cursor: pointer; padding: 2px 6px; border-radius: 4px; transition: background 120ms ease, color 120ms ease; }
+.setLink:hover { background: rgba(var(--hd-accent-rgb), 0.12); color: var(--hd-accent); }
+.setLink:focus-visible { outline: 1px solid var(--hd-accent); outline-offset: 1px; }
 .price { font-size: 11px; font-family: var(--font-mono); }
 .up { color: var(--hd-accent); } .down { color: var(--hd-red); }
 .loading { text-align: center; padding: 24px; color: var(--hd-text-secondary); font-size: 12px; }
 .cardSelected { outline: 2px solid var(--hd-accent); outline-offset: -2px; }
+
+/* Grouped sections */
+.group { margin-bottom: 28px; }
+.group:last-child { margin-bottom: 0; }
+.groupHeader {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 0 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--hd-border);
+}
+.groupTitle {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--hd-text);
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+}
+.groupCount {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--hd-sub);
+}

@@ -16,6 +16,7 @@
   --hd-blue-rgb: 122, 166, 255;
   --hd-red: #e35e6c;
   --hd-amber: #e0a96a;
+  --hd-amber-rgb: 224, 169, 106;
   --hd-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
   --hd-glow: rgba(61, 232, 210, 0.07);
 
@@ -40,6 +41,7 @@
   --hd-blue-rgb: 43, 128, 200;
   --hd-red: #c0392b;
   --hd-amber: #b07d2a;
+  --hd-amber-rgb: 176, 125, 42;
   --hd-shadow: 0 16px 40px rgba(20, 50, 80, 0.10);
   --hd-glow: rgba(0, 179, 128, 0.06);
 }
