@@ -17,6 +17,11 @@ vi.mock('../LegalityGrid', () => ({
     <div data-testid="legality-grid" data-has-entries={Object.keys(legalities).length > 0 ? 'true' : 'false'} />
   ),
 }))
+vi.mock('../OracleCard', () => ({
+  OracleCard: ({ cardName }: { cardName: string }) => (
+    <div data-testid="oracle-card" data-name={cardName} />
+  ),
+}))
 vi.mock('../../../../components/design-system/FlippableCardArt', () => ({
   FlippableCardArt: ({
     frontUrl,
@@ -137,6 +142,13 @@ describe('CardDetailView', () => {
   it('renders SetInfoBox', () => {
     render(<CardDetailView card={mockCard} />)
     expect(screen.getByTestId('set-info-box')).toBeTruthy()
+  })
+
+  it('renders OracleCard with the card name', () => {
+    render(<CardDetailView card={mockCard} />)
+    const oracleCard = screen.getByTestId('oracle-card')
+    expect(oracleCard).toBeTruthy()
+    expect(oracleCard.dataset.name).toBe('Sheoldred')
   })
 
   it('renders LegalityGrid when legalities has entries', () => {

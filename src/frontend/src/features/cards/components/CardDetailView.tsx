@@ -2,20 +2,16 @@
 import { useState } from 'react'
 import { FlippableCardArt } from '../../../components/design-system/FlippableCardArt'
 import { buildScryfallBackUrl } from '../utils/scryfallBackUrl'
-import { Pip, type ManaColor } from '../../../components/design-system/Pip'
 import { Button } from '../../../components/ui/Button'
 import { PriceCharts } from './PriceCharts'
 import { SetInfoBox } from './SetInfoBox'
 import { LegalityGrid } from './LegalityGrid'
+import { OracleCard } from './OracleCard'
 import type { CardDetail } from '../types'
 import styles from './CardDetailView.module.css'
 
 interface CardDetailViewProps {
   card: CardDetail
-}
-
-function parseMana(cost: string): ManaColor[] {
-  return (cost.match(/[WUBRG]/g) ?? []) as ManaColor[]
 }
 
 export function CardDetailView({ card }: CardDetailViewProps) {
@@ -37,7 +33,7 @@ export function CardDetailView({ card }: CardDetailViewProps) {
       <div className={styles.imagePanel}>
         <FlippableCardArt
           name={card.card_name}
-          w={240}
+          w={320}
           frontUrl={card.image_large ?? null}
           backUrl={backUrl}
         />
@@ -53,28 +49,15 @@ export function CardDetailView({ card }: CardDetailViewProps) {
           promoTypes={card.promo_types}
         />
 
-        <div className={styles.identity}>
-          <h1 className={styles.name}>{card.card_name}</h1>
-          {card.mana_cost && (
-            <div className={styles.manaRow}>
-              {parseMana(card.mana_cost).map((c, i) => <Pip key={i} color={c} size={18} />)}
-              <span className={styles.manaCost}>{card.mana_cost}</span>
-            </div>
-          )}
-          {card.type_line && <div className={styles.typeLine}>{card.type_line}</div>}
-        </div>
-
-        {card.oracle_text && (
-          <div className={styles.oracleBox}>
-            <p>{card.oracle_text}</p>
-            {card.artist && (
-              <div className={styles.artistLine}>
-                Illus. {card.artist}
-                {card.collector_number && <span> · #{card.collector_number}</span>}
-              </div>
-            )}
-          </div>
-        )}
+        <OracleCard
+          cardName={card.card_name}
+          manaCost={card.mana_cost}
+          typeLine={card.type_line}
+          oracleText={card.oracle_text}
+          artist={card.artist}
+          collectorNumber={card.collector_number}
+          rarityName={card.rarity_name}
+        />
 
         <div className={styles.finishSelector}>
           {finishes.map((f) => (
