@@ -1,4 +1,5 @@
 // src/frontend/src/features/cards/components/GameInfoCard.tsx
+import { useNavigate } from '@tanstack/react-router'
 import { ManaSymbol, renderSymbolsInText } from '../../../components/design-system/ManaSymbol'
 import { LegalityGrid } from './LegalityGrid'
 import styles from './GameInfoCard.module.css'
@@ -44,6 +45,7 @@ export function GameInfoCard({
   artist,
   legalities,
 }: GameInfoCardProps) {
+  const navigate = useNavigate()
   const hasLegalities = legalities && Object.keys(legalities).length > 0
   const setCodeLower = (setCode ?? '').toLowerCase()
   const setCodeUpper = (setCode ?? '').toUpperCase()
@@ -51,21 +53,41 @@ export function GameInfoCard({
   const rarityCapitalized = rarityName
     ? rarityName.charAt(0).toUpperCase() + rarityName.slice(1)
     : ''
+  const goToSetSearch = () => {
+    if (setCode) navigate({ to: '/search', search: { set: setCode } })
+  }
 
   return (
     <div className={`${styles.card} ${rarityClass(rarityName)}`}>
       <header className={styles.setHeader}>
-        <div className={styles.iconCol}>
+        <button
+          type="button"
+          className={styles.iconCol}
+          onClick={goToSetSearch}
+          disabled={!setCode}
+          aria-label={setCode ? `Search ${setCodeUpper}` : 'Set icon'}
+          title={setCode ? `Search ${setCodeUpper}` : undefined}
+        >
           <i
             className={`ss ss-${setCodeLower} ss-${rarityLower}`}
             aria-hidden="true"
           />
-        </div>
+        </button>
         <div className={styles.setText}>
-          <div className={styles.setLine}>
-            {setName && <span className={styles.setName}>{setName}</span>}
-            {setCode && <span className={styles.setCode}>({setCodeUpper})</span>}
-          </div>
+          {(setName || setCode) ? (
+            <button
+              type="button"
+              className={styles.setLink}
+              onClick={goToSetSearch}
+              disabled={!setCode}
+              title={setCode ? `Search ${setCodeUpper}` : undefined}
+            >
+              {setName && <span className={styles.setName}>{setName}</span>}
+              {setCode && <span className={styles.setCode}>({setCodeUpper})</span>}
+            </button>
+          ) : (
+            <div className={styles.setLine} />
+          )}
           <div className={styles.metaLine}>
             {rarityCapitalized && (
               <span className={styles.rarity}>{rarityCapitalized}</span>

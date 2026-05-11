@@ -9,6 +9,9 @@
 .cardName { font-size: 12px; color: var(--hd-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
 .cardMeta { display: flex; justify-content: space-between; margin-bottom: 6px; }
 .set { font-size: 10px; color: var(--hd-sub); font-family: var(--font-mono); }
+.setLink { cursor: pointer; padding: 2px 6px; border-radius: 4px; transition: background 120ms ease, color 120ms ease; }
+.setLink:hover { background: rgba(var(--hd-accent-rgb), 0.12); color: var(--hd-accent); }
+.setLink:focus-visible { outline: 1px solid var(--hd-accent); outline-offset: 1px; }
 .price { font-size: 11px; font-family: var(--font-mono); }
 .up { color: var(--hd-accent); } .down { color: var(--hd-red); }
 .loading { text-align: center; padding: 24px; color: var(--hd-text-secondary); font-size: 12px; }

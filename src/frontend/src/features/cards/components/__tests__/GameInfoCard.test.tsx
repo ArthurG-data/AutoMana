@@ -1,8 +1,12 @@
 // src/frontend/src/features/cards/components/__tests__/GameInfoCard.test.tsx
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { GameInfoCard } from '../GameInfoCard'
 
+const navigateSpy = vi.fn()
+vi.mock('@tanstack/react-router', () => ({
+  useNavigate: () => navigateSpy,
+}))
 vi.mock('../../../../components/design-system/ManaSymbol', () => ({
   ManaSymbol: ({ symbol }: { symbol: string }) => (
     <span data-testid="mana-symbol" data-symbol={symbol} />
@@ -127,5 +131,28 @@ describe('GameInfoCard', () => {
 
     rerender(<GameInfoCard {...BASE} rarityName="common" />)
     expect(container.firstChild?.className).toMatch(/rarityCommon/)
+  })
+
+  it('clicking the set name navigates to /search filtered by that set', () => {
+    navigateSpy.mockClear()
+    render(<GameInfoCard {...BASE} />)
+    fireEvent.click(screen.getByText('Ravnica Remastered'))
+    expect(navigateSpy).toHaveBeenCalledWith({ to: '/search', search: { set: 'rvr' } })
+  })
+
+  it('clicking the set icon button navigates to /search filtered by that set', () => {
+    navigateSpy.mockClear()
+    const { container } = render(<GameInfoCard {...BASE} />)
+    const iconBtn = container.querySelector('button[aria-label*="Search"]') as HTMLButtonElement
+    fireEvent.click(iconBtn)
+    expect(navigateSpy).toHaveBeenCalledWith({ to: '/search', search: { set: 'rvr' } })
+  })
+
+  it('does not navigate when setCode is undefined', () => {
+    navigateSpy.mockClear()
+    render(<GameInfoCard cardName="Mystery" />)
+    const allButtons = document.querySelectorAll('button')
+    allButtons.forEach((b) => fireEvent.click(b))
+    expect(navigateSpy).not.toHaveBeenCalled()
   })
 })

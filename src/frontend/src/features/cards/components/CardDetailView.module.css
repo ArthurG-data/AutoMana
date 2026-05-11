@@ -22,8 +22,7 @@
   top: 0;
   right: 0;
   width: 35%;
-  height: 480px;
-  max-height: 60%;
+  height: 540px;
   background: linear-gradient(to right, transparent 0%, var(--hd-bg) 100%);
   pointer-events: none;
 }

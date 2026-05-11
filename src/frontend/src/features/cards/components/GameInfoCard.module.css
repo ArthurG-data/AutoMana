@@ -35,6 +35,23 @@
   border: 1px solid var(--hd-border);
   border-radius: 8px;
   font-size: 22px;
+  color: var(--hd-text);
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.iconCol:hover:not(:disabled) {
+  border-color: rgba(var(--hd-accent-rgb), 0.55);
+  background: rgba(var(--hd-accent-rgb), 0.08);
+}
+
+.iconCol:disabled {
+  cursor: default;
+}
+
+.iconCol:focus-visible {
+  outline: 2px solid var(--hd-accent);
+  outline-offset: 2px;
 }
 
 .setText {
@@ -50,6 +67,35 @@
   align-items: baseline;
   gap: 6px;
   font-size: 13px;
+}
+
+.setLink {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 13px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  cursor: pointer;
+  transition: color 120ms ease;
+}
+
+.setLink:hover:not(:disabled) .setName,
+.setLink:hover:not(:disabled) .setCode {
+  color: var(--hd-accent);
+}
+
+.setLink:disabled {
+  cursor: default;
+}
+
+.setLink:focus-visible {
+  outline: 2px solid var(--hd-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 .setName {
