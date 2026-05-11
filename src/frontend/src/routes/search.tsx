@@ -63,7 +63,7 @@ function SearchPage() {
   // ---- Set selected: banner + filters + results (unchanged) ----
   if (search.set) {
     return (
-      <AppShell active="collection">
+      <AppShell active="search">
         <TopBar title="Search" subtitle={subtitle} />
         <SelectedSetBanner
           setCode={search.set}
@@ -89,7 +89,7 @@ function SearchPage() {
 
   // ---- Entry-point: mode tabs + chosen mode body ----
   return (
-    <AppShell active="collection">
+    <AppShell active="search">
       <TopBar title="Search" subtitle={subtitle} />
 
       <div className={styles.tabs} role="tablist" aria-label="Search mode">
