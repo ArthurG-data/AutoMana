@@ -23,7 +23,7 @@ export function AttentionChip({ count, label }: AttentionChipProps) {
 interface TopBarProps {
   title: string
   subtitle?: string
-  breadcrumb?: string
+  breadcrumb?: React.ReactNode
   actions?: React.ReactNode
 }
 

@@ -1,0 +1,34 @@
+/* src/frontend/src/routes/cards.$id.module.css */
+.crumb {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 1.2px;
+}
+
+.crumbLink {
+  color: var(--hd-sub);
+  text-decoration: none;
+  transition: color 120ms ease;
+  border-radius: 3px;
+}
+
+.crumbLink:hover {
+  color: var(--hd-accent);
+}
+
+.crumbLink:focus-visible {
+  outline: 2px solid var(--hd-accent);
+  outline-offset: 2px;
+}
+
+.crumbCurrent {
+  color: var(--hd-text);
+}
+
+.crumbSep {
+  color: var(--hd-sub);
+  opacity: 0.55;
+}
