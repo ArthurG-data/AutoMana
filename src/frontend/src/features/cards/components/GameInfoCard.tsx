@@ -1,13 +1,13 @@
 // src/frontend/src/features/cards/components/GameInfoCard.tsx
-import { Pip, type ManaColor } from '../../../components/design-system/Pip'
+import { ManaSymbol, renderSymbolsInText } from '../../../components/design-system/ManaSymbol'
 import { LegalityGrid } from './LegalityGrid'
 import styles from './GameInfoCard.module.css'
 
 interface GameInfoCardProps {
   cardName: string
-  setCode: string
-  setName: string
-  rarityName: string
+  setCode?: string
+  setName?: string
+  rarityName?: string
   collectorNumber?: string
   promoTypes?: string[]
   manaCost?: string
@@ -17,12 +17,12 @@ interface GameInfoCardProps {
   legalities?: Record<string, string>
 }
 
-function parseMana(cost: string): ManaColor[] {
-  return (cost.match(/[WUBRG]/g) ?? []) as ManaColor[]
+function parseCostTokens(cost: string): string[] {
+  return Array.from(cost.matchAll(/\{([^}]+)\}/g), (m) => m[1])
 }
 
-function rarityClass(rarity: string): string {
-  switch (rarity.toLowerCase()) {
+function rarityClass(rarity?: string): string {
+  switch ((rarity ?? '').toLowerCase()) {
     case 'mythic':   return styles.rarityMythic
     case 'rare':     return styles.rarityRare
     case 'uncommon': return styles.rarityUncommon
@@ -45,26 +45,31 @@ export function GameInfoCard({
   legalities,
 }: GameInfoCardProps) {
   const hasLegalities = legalities && Object.keys(legalities).length > 0
-  const rarity = rarityName.toLowerCase()
+  const setCodeLower = (setCode ?? '').toLowerCase()
+  const setCodeUpper = (setCode ?? '').toUpperCase()
+  const rarityLower = (rarityName ?? '').toLowerCase()
+  const rarityCapitalized = rarityName
+    ? rarityName.charAt(0).toUpperCase() + rarityName.slice(1)
+    : ''
 
   return (
     <div className={`${styles.card} ${rarityClass(rarityName)}`}>
       <header className={styles.setHeader}>
         <div className={styles.iconCol}>
           <i
-            className={`ss ss-${setCode.toLowerCase()} ss-${rarity}`}
+            className={`ss ss-${setCodeLower} ss-${rarityLower}`}
             aria-hidden="true"
           />
         </div>
         <div className={styles.setText}>
           <div className={styles.setLine}>
-            <span className={styles.setName}>{setName}</span>
-            <span className={styles.setCode}>({setCode.toUpperCase()})</span>
+            {setName && <span className={styles.setName}>{setName}</span>}
+            {setCode && <span className={styles.setCode}>({setCodeUpper})</span>}
           </div>
           <div className={styles.metaLine}>
-            <span className={styles.rarity}>
-              {rarityName.charAt(0).toUpperCase() + rarityName.slice(1)}
-            </span>
+            {rarityCapitalized && (
+              <span className={styles.rarity}>{rarityCapitalized}</span>
+            )}
             {collectorNumber && (
               <>
                 <span className={styles.metaSep}>·</span>
@@ -86,8 +91,9 @@ export function GameInfoCard({
         <h1 className={styles.name}>{cardName}</h1>
         {manaCost && (
           <div className={styles.manaRow}>
-            {parseMana(manaCost).map((c, i) => <Pip key={i} color={c} size={18} />)}
-            <span className={styles.manaCost}>{manaCost}</span>
+            {parseCostTokens(manaCost).map((tok, i) => (
+              <ManaSymbol key={i} symbol={tok} size={14} cost />
+            ))}
           </div>
         )}
       </div>
@@ -97,7 +103,7 @@ export function GameInfoCard({
       {oracleText && (
         <div className={styles.oracleText}>
           {oracleText.split('\n').map((line, i) => (
-            <p key={i}>{line}</p>
+            <p key={i}>{renderSymbolsInText(line, { size: 11 })}</p>
           ))}
         </div>
       )}

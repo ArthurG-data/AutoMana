@@ -101,8 +101,8 @@
 
 .titleRow {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  align-items: baseline;
+  justify-content: flex-start;
   gap: 10px;
   flex-wrap: wrap;
 }

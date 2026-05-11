@@ -3,8 +3,13 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { GameInfoCard } from '../GameInfoCard'
 
-vi.mock('../../../../components/design-system/Pip', () => ({
-  Pip: () => <span data-testid="pip" />,
+vi.mock('../../../../components/design-system/ManaSymbol', () => ({
+  ManaSymbol: ({ symbol }: { symbol: string }) => (
+    <span data-testid="mana-symbol" data-symbol={symbol} />
+  ),
+  renderSymbolsInText: (text: string) => [
+    <span key="rendered" data-testid="oracle-line">{text}</span>,
+  ],
 }))
 vi.mock('../LegalityGrid', () => ({
   LegalityGrid: ({ legalities }: { legalities: Record<string, string> }) => (
@@ -59,14 +64,17 @@ describe('GameInfoCard', () => {
     expect(screen.getByText(/showcase/)).toBeTruthy()
   })
 
-  it('renders mana cost text when provided', () => {
-    render(<GameInfoCard {...BASE} manaCost="{R}{W}" />)
-    expect(screen.getByText('{R}{W}')).toBeTruthy()
+  it('renders one ManaSymbol per token in the mana cost', () => {
+    render(<GameInfoCard {...BASE} manaCost="{2}{R}{W}" />)
+    const symbols = screen.getAllByTestId('mana-symbol')
+    expect(symbols.length).toBe(3)
+    expect(symbols.map((s) => s.dataset.symbol)).toEqual(['2', 'R', 'W'])
   })
 
-  it('renders one pip per colored symbol in mana cost', () => {
-    render(<GameInfoCard {...BASE} manaCost="{R}{W}" />)
-    expect(screen.getAllByTestId('pip').length).toBe(2)
+  it('renders hybrid mana tokens correctly (W/U)', () => {
+    render(<GameInfoCard {...BASE} manaCost="{W/U}{B/G}" />)
+    const symbols = screen.getAllByTestId('mana-symbol')
+    expect(symbols.map((s) => s.dataset.symbol)).toEqual(['W/U', 'B/G'])
   })
 
   it('renders type line when provided', () => {
