@@ -26,6 +26,10 @@
 
 .crumbCurrent {
   color: var(--hd-text);
+  font-family: var(--font-serif);
+  font-size: 14px;
+  letter-spacing: 0;
+  margin-left: 2px;
 }
 
 .crumbSep {

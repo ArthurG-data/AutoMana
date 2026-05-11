@@ -41,12 +41,18 @@ function CardDetailPage() {
           </Link>
         </>
       )}
+      {cardName && (
+        <>
+          <span className={styles.crumbSep} aria-hidden="true"> › </span>
+          <span className={styles.crumbCurrent}>{cardName}</span>
+        </>
+      )}
     </span>
   )
 
   return (
     <AppShell active="collection">
-      <TopBar title={card.card_name} breadcrumb={breadcrumb} />
+      <TopBar breadcrumb={breadcrumb} />
       <CardDetailView card={card} />
     </AppShell>
   )

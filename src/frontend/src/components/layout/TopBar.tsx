@@ -21,7 +21,7 @@ export function AttentionChip({ count, label }: AttentionChipProps) {
 }
 
 interface TopBarProps {
-  title: string
+  title?: string
   subtitle?: string
   breadcrumb?: React.ReactNode
   actions?: React.ReactNode
@@ -35,7 +35,7 @@ export function TopBar({ title, subtitle, breadcrumb, actions }: TopBarProps) {
       <div className={styles.left}>
         {breadcrumb && <div className={styles.breadcrumb}>{breadcrumb}</div>}
         {subtitle && <div className={styles.subtitle}>{subtitle}</div>}
-        <h1 className={styles.title}>{title}</h1>
+        {title && <h1 className={styles.title}>{title}</h1>}
       </div>
       <div className={styles.right}>
         {actions}
