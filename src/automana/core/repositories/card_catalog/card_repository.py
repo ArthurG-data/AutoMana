@@ -1,4 +1,5 @@
 ﻿import io
+import json
 from datetime import date
 from typing import Optional, Any, Dict, List
 from uuid import UUID
@@ -133,7 +134,12 @@ class CardReferenceRepository(AbstractRepository[Any]):
             WHERE v.card_version_id = $1;
         """
         result = await self.execute_query(query, (card_id,))
-        return result[0] if result else None
+        if not result:
+            return None
+        row = dict(result[0])
+        if isinstance(row.get("legalities"), str):
+            row["legalities"] = json.loads(row["legalities"])
+        return row
 
     async def suggest(self, query: str, limit: int = 10) -> list[dict]:
         sql = """
