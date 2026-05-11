@@ -44,7 +44,13 @@ function CardDetailPage() {
       {cardName && (
         <>
           <span className={styles.crumbSep} aria-hidden="true"> › </span>
-          <span className={styles.crumbCurrent}>{cardName}</span>
+          <Link
+            to="/search"
+            search={{ q: cardName }}
+            className={`${styles.crumbLink} ${styles.crumbCurrent}`}
+          >
+            {cardName}
+          </Link>
         </>
       )}
     </span>
