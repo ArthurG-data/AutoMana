@@ -178,6 +178,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
             color: Optional[str] = None,
             rarity: Optional[str] = None,
             set_name: Optional[str] = None,
+            set_code: Optional[str] = None,
             mana_cost: Optional[int] = None,
             digital: Optional[bool] = None,
             card_type: Optional[str] = None,
@@ -253,6 +254,14 @@ class CardReferenceRepository(AbstractRepository[Any]):
             rf_conditions.append(f"v.set_name ILIKE ${rf_counter}")
             values.append(f"%{set_name}%")
             rf_values.append(f"%{set_name}%")
+            counter += 1
+            rf_counter += 1
+
+        if set_code:
+            conditions.append(f"v.set_code = ${counter}")
+            rf_conditions.append(f"v.set_code = ${rf_counter}")
+            values.append(set_code)
+            rf_values.append(set_code)
             counter += 1
             rf_counter += 1
 
