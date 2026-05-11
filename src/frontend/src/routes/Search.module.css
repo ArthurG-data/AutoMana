@@ -7,3 +7,54 @@
   margin: 0 -36px;
   border-top: 1px solid var(--hd-border);
 }
+
+/* Mode tabs (entry-point page only) */
+.tabs {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  padding: 12px 36px 0;
+}
+.tab {
+  background: transparent;
+  border: 1px solid var(--hd-border);
+  border-radius: 999px;
+  padding: 7px 18px;
+  font-size: 12px;
+  color: var(--hd-muted);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.tab:hover {
+  border-color: rgba(var(--hd-accent-rgb), 0.3);
+  color: var(--hd-text);
+}
+.tabActive {
+  background: rgba(var(--hd-accent-rgb), 0.08);
+  border-color: rgba(var(--hd-accent-rgb), 0.4);
+  color: var(--hd-accent);
+  font-weight: 700;
+}
+.tabActive:hover {
+  border-color: rgba(var(--hd-accent-rgb), 0.55);
+  color: var(--hd-accent);
+}
+.tabDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* Card-name mode wrapper */
+.cardMode { padding: 24px 36px; max-width: 760px; margin: 0 auto; }
+.cardModeHint {
+  font-size: 12px;
+  color: var(--hd-muted);
+  text-align: center;
+  padding: 20px 0;
+}
