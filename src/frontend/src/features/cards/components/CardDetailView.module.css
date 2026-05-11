@@ -3,11 +3,13 @@
   display: grid;
   grid-template-columns: 360px 1fr;
   min-height: 100vh;
+  background: var(--hd-bg);
+  color: var(--hd-text);
 }
 
 .imagePanel {
   position: relative;
-  background: linear-gradient(160deg, #1e2e5a, #0d1526 55%, #1a2444);
+  background: linear-gradient(160deg, var(--hd-surface-alt), var(--hd-surface) 60%, var(--hd-surface-alt));
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -20,13 +22,13 @@
   right: 0;
   width: 40%;
   height: 100%;
-  background: linear-gradient(to right, transparent 0%, #0b1425 100%);
+  background: linear-gradient(to right, transparent 0%, var(--hd-bg) 100%);
   pointer-events: none;
 }
 
 .dataPanel {
-  background: #0b1425;
-  border-left: 1px solid rgba(150,200,255,0.08);
+  background: var(--hd-bg);
+  border-left: 1px solid var(--hd-border);
   overflow-y: auto;
   padding: 24px 22px;
   display: flex;
@@ -34,38 +36,20 @@
   gap: 20px;
 }
 
-.finishSelector { display: flex; gap: 8px; flex-wrap: wrap; }
-.finishBtn {
-  padding: 5px 14px;
-  border-radius: 20px;
-  border: 1px solid rgba(150,200,255,0.15);
-  background: transparent;
-  color: var(--hd-sub);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  cursor: pointer;
+.topRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 16px;
+  align-items: start;
 }
-.finishActive {
-  padding: 5px 14px;
-  border-radius: 20px;
-  border: 1px solid rgba(61,232,210,0.38);
-  background: rgba(61,232,210,0.11);
-  color: var(--hd-accent);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  cursor: pointer;
-}
-
-.priceSection { display: flex; flex-direction: column; gap: 6px; }
-.priceLabel { font-family: var(--font-mono); font-size: 9px; color: var(--hd-sub); letter-spacing: 1.4px; text-transform: uppercase; }
-.priceRow { display: flex; align-items: baseline; gap: 16px; }
-.price { font-family: var(--font-serif); font-size: 38px; font-weight: 400; letter-spacing: -1px; line-height: 1; color: var(--hd-accent); }
-.priceCents { color: var(--hd-muted); font-size: 19px; }
-.deltas { display: flex; flex-direction: column; gap: 3px; font-family: var(--font-mono); font-size: 10px; }
-.up { color: var(--hd-accent); }
-.down { color: var(--hd-red); }
 
 .actions { display: flex; gap: 10px; padding-top: 4px; }
+
+@media (max-width: 1100px) {
+  .topRow {
+    grid-template-columns: 1fr;
+  }
+}
 
 @media (max-width: 768px) {
   .layout { grid-template-columns: 1fr; }
