@@ -8,7 +8,7 @@ from typing import Any, AsyncGenerator, Callable, Dict, List,  Optional
 from automana.core.repositories.card_catalog.set_repository import SetReferenceRepository
 from automana.core.repositories.ops.ops_repository import OpsRepository
 from automana.core.services.ops.pipeline_services import track_step
-from automana.core.models.card_catalog.set import  SetInDB, NewSet, UpdatedSet, NewSets
+from automana.core.models.card_catalog.set import  SetInDB, NewSet, UpdatedSet, NewSets, SetBrowseItem
 from automana.core.exceptions.service_layer_exceptions.card_catalogue import set_exception
 from automana.core.utils.utils import decode_json_input
 from automana.core.service_registry import ServiceRegistry
@@ -50,6 +50,14 @@ async def get_all(set_repository: SetReferenceRepository
         raise
     except Exception as e:
         raise set_exception.SetRetrievalError(f"Failed to retrieve sets: {str(e)}")
+
+@ServiceRegistry.register(
+    "card_catalog.set.browse",
+    db_repositories=["set"]
+)
+async def browse_sets(set_repository: SetReferenceRepository) -> list[SetBrowseItem]:
+    rows = await set_repository.browse()
+    return [SetBrowseItem.model_validate(row) for row in rows]
 
 @ServiceRegistry.register(
     "card_catalog.set.add",

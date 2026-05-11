@@ -144,6 +144,7 @@ async def search_cards(card_repository: CardReferenceRepository
                    , released_after: Optional[datetime] = None
                    , released_before: Optional[datetime] = None
                    , set_name: Optional[str] = None
+                   , set_code: Optional[str] = None
                    , mana_cost: Optional[int] = None
                    , digital: Optional[bool] = None
                    , card_type: Optional[str] = None
@@ -167,6 +168,7 @@ async def search_cards(card_repository: CardReferenceRepository
             "released_after": str(released_after) if released_after else None,
             "released_before": str(released_before) if released_before else None,
             "set_name": set_name,
+            "set_code": set_code,
             "mana_cost": mana_cost,
             "digital": digital,
             "card_type": card_type,
@@ -204,6 +206,7 @@ async def search_cards(card_repository: CardReferenceRepository
                                                color=color,
                                                rarity=rarity,
                                                set_name=set_name,
+                                               set_code=set_code,
                                                mana_cost=mana_cost,
                                                digital=digital,
                                                released_after=released_after,

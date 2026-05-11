@@ -87,6 +87,7 @@ async def card_search_params(
     q: Optional[str] = Query(None, description="Search query for card name or oracle text"),
     name: Optional[str] = Query(None, description="Filter by card name"),
     set_name: Optional[str] = Query(None, description="Filter by set name"),
+    set_code: Optional[str] = Query(None, alias="set", description="Filter by exact set code (e.g. 'mkm')"),
     card_type: Optional[str] = Query(None, description="Filter by card type"),
     rarity: Optional[str] = Query(None, description="Filter by rarity"),
     color: Optional[str] = Query(None, description="Filter by card color"),
@@ -111,6 +112,7 @@ async def card_search_params(
     return {
         "name": search_name,
         "set_name": set_name,
+        "set_code": set_code,
         "rarity": rarity,
         "mana_cost": mana_cost,
         "color": color,

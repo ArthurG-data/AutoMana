@@ -2,7 +2,7 @@
 import { queryOptions, infiniteQueryOptions } from '@tanstack/react-query'
 import { apiClient } from '../../lib/apiClient'
 import { useAuthStore } from '../../store/auth'
-import type { CardDetail, CardSearchParams, CardSearchResponse, CardSuggestParams, CardSuggestResponse, CatalogStats } from './types'
+import type { CardDetail, CardSearchParams, CardSearchResponse, CardSuggestParams, CardSuggestResponse, CatalogStats, SetBrowseItem } from './types'
 
 export function cardInfiniteSearchQueryOptions(params: Omit<CardSearchParams, 'page'>) {
   return infiniteQueryOptions({
@@ -72,6 +72,15 @@ export function cardCatalogStatsQueryOptions() {
     queryFn: () => apiClient<CatalogStats>('/catalog/mtg/card-reference/stats'),
     staleTime: 1000 * 60 * 60 * 24, // 24 hours
     gcTime: 1000 * 60 * 60 * 24 * 2, // 48 hours
+  })
+}
+
+export function setBrowseQueryOptions() {
+  return queryOptions({
+    queryKey: ['sets', 'browse'],
+    queryFn: () => apiClient<SetBrowseItem[]>('/catalog/mtg/set-reference/browse'),
+    staleTime: 1000 * 60 * 60,
+    gcTime: 1000 * 60 * 60 * 24,
   })
 }
 

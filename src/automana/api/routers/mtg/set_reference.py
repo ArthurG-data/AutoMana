@@ -30,6 +30,32 @@ router = APIRouter(
 
 
 @router.get(
+    '/browse',
+    summary="List all non-digital sets for browsing",
+    description=(
+        "Returns all non-digital MTG sets sorted by release date (newest first). "
+        "Includes set icon SVG URI, card count, and set type. "
+        "Intended for the set-browser UI component."
+    ),
+    response_model=ApiResponse,
+    operation_id="sets_browse",
+    responses=_SET_ERRORS,
+)
+async def browse_sets(service_manager: ServiceManagerDep):
+    try:
+        result = await service_manager.execute_service("card_catalog.set.browse")
+        return ApiResponse(
+            success=True,
+            data=result,
+            message="Sets retrieved successfully",
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get(
     '/{set_id}',
     summary="Get a set by its UUID",
     description=(
