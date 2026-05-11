@@ -86,6 +86,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
         query = """
             SELECT
                 v.card_version_id,
+                v.unique_card_id,
                 v.card_name,
                 v.rarity_name,
                 v.set_name,
@@ -196,6 +197,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
             released_before: Optional[str] = None,
             oracle_text: Optional[str] = None,
             artist: Optional[str] = None,
+            unique_card_id: Optional[UUID] = None,
             format: Optional[str] = None,
             layout: Optional[str] = None,
             promo_type: Optional[List[str]] = None,
@@ -273,6 +275,15 @@ class CardReferenceRepository(AbstractRepository[Any]):
             rf_conditions.append(f"v.set_code = ${rf_counter}")
             values.append(set_code)
             rf_values.append(set_code)
+            counter += 1
+            rf_counter += 1
+
+        if unique_card_id:
+            # Identity filter: all printings of the same logical card share unique_card_id.
+            conditions.append(f"v.unique_card_id = ${counter}")
+            rf_conditions.append(f"v.unique_card_id = ${rf_counter}")
+            values.append(unique_card_id)
+            rf_values.append(unique_card_id)
             counter += 1
             rf_counter += 1
 

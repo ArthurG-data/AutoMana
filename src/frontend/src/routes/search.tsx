@@ -14,16 +14,17 @@ import { cardInfiniteSearchQueryOptions, setBrowseQueryOptions } from '../featur
 import styles from './Search.module.css'
 
 const searchSchema = z.object({
-  q:          z.string().optional(),
-  set:        z.string().optional(),
-  artist:     z.string().optional(),
-  rarity:     z.string().optional(),
-  finish:     z.string().optional(),
-  layout:     z.string().optional().default('normal'),
-  minPrice:   z.number().optional(),
-  maxPrice:   z.number().optional(),
-  promoTypes: z.array(z.string()).optional(),
-  group:      z.enum(['set', 'rarity', 'finish']).optional(),
+  q:              z.string().optional(),
+  set:            z.string().optional(),
+  artist:         z.string().optional(),
+  unique_card_id: z.string().uuid().optional(),
+  rarity:         z.string().optional(),
+  finish:         z.string().optional(),
+  layout:         z.string().optional().default('normal'),
+  minPrice:       z.number().optional(),
+  maxPrice:       z.number().optional(),
+  promoTypes:     z.array(z.string()).optional(),
+  group:          z.enum(['set', 'rarity', 'finish']).optional(),
 })
 
 export const Route = createFileRoute('/search')({
@@ -41,15 +42,19 @@ function SearchPage() {
   // even when the user lands directly at /search?set=mkm
   useQuery(setBrowseQueryOptions())
 
-  // Entry-point tab mode (only used when no set is selected).
-  // Defaults to 'card' if the URL already has a name query, else 'set'.
-  const [mode, setMode] = useState<Mode>(search.q ? 'card' : 'set')
+  // Entry-point tab mode (only used when no set is selected and no unique
+  // card identity is being requested). Defaults to 'card' if the URL has a
+  // name query or unique_card_id, else 'set'.
+  const [mode, setMode] = useState<Mode>(
+    search.q || search.unique_card_id ? 'card' : 'set'
+  )
 
   // The card-search endpoint should only fire when we actually have something
-  // to query: either a set is selected (regardless of mode) or the user is in
-  // 'card' mode with a name query. In 'set' mode with no set chosen, only the
-  // set-browse endpoint should hit the network.
-  const shouldFetchCards = !!search.set || (mode === 'card' && !!search.q)
+  // to query: a set is selected, a unique-card identity is being resolved, or
+  // the user is in 'card' mode with a name query. In 'set' mode with no set
+  // chosen, only the set-browse endpoint should hit the network.
+  const shouldFetchCards =
+    !!search.set || !!search.unique_card_id || (mode === 'card' && !!search.q)
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
     ...cardInfiniteSearchQueryOptions(search),
@@ -63,11 +68,15 @@ function SearchPage() {
 
   const subtitle = search.set
     ? search.set.toUpperCase()
-    : search.q
-      ? `results for "${search.q}"`
-      : mode === 'card'
-        ? 'search by card name'
-        : 'browse by set'
+    : search.unique_card_id
+      ? cards[0]?.card_name
+        ? `all versions of "${cards[0].card_name}"`
+        : 'all versions'
+      : search.q
+        ? `results for "${search.q}"`
+        : mode === 'card'
+          ? 'search by card name'
+          : 'browse by set'
 
   // ---- Set selected: banner + filters + results ----
   if (search.set) {
@@ -127,7 +136,7 @@ function SearchPage() {
         <SetBrowser
           onSelect={(code) => navigate({ search: prev => ({ ...prev, set: code }) })}
         />
-      ) : search.q ? (
+      ) : search.q || search.unique_card_id ? (
         <div className={styles.layout}>
           <SearchFilters
             params={search}

@@ -141,6 +141,8 @@ async def search_cards(card_repository: CardReferenceRepository
                    , color: Optional[str] = None
                    , rarity: Optional[str] = None
                    , card_id: Optional[UUID] = None
+                   , unique_card_id: Optional[UUID] = None
+                   , artist: Optional[str] = None
                    , released_after: Optional[datetime] = None
                    , released_before: Optional[datetime] = None
                    , set_name: Optional[str] = None
@@ -165,6 +167,8 @@ async def search_cards(card_repository: CardReferenceRepository
             "color": color,
             "rarity": rarity,
             "card_id": str(card_id) if card_id else None,
+            "unique_card_id": str(unique_card_id) if unique_card_id else None,
+            "artist": artist,
             "released_after": str(released_after) if released_after else None,
             "released_before": str(released_before) if released_before else None,
             "set_name": set_name,
@@ -212,6 +216,8 @@ async def search_cards(card_repository: CardReferenceRepository
                                                released_after=released_after,
                                                released_before=released_before,
                                                oracle_text=oracle_text,
+                                               artist=artist,
+                                               unique_card_id=unique_card_id,
                                                format=format,
                                                layout=layout,
                                                limit=limit,

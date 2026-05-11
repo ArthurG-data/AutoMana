@@ -26,6 +26,7 @@ export interface CardPrint {
 }
 
 export interface CardDetail extends CardSummary {
+  unique_card_id?: string
   mana_cost?: string
   type_line?: string
   oracle_text?: string
@@ -50,6 +51,7 @@ export interface CardSearchParams {
   q?: string
   set?: string
   artist?: string
+  unique_card_id?: string
   rarity?: string
   finish?: string
   layout?: string
