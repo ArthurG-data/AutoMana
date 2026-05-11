@@ -59,7 +59,7 @@
 
 .topGrid {
   display: grid;
-  grid-template-columns: minmax(0, 400px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 400px) minmax(220px, 1fr) minmax(220px, 1fr);
   grid-template-rows: auto auto;
   gap: 16px 20px;
   align-items: start;
@@ -76,10 +76,24 @@
   grid-row: 1;
 }
 
+.aiSlot {
+  grid-column: 3;
+  grid-row: 1;
+}
+
 .chartSlot {
-  grid-column: 2;
+  grid-column: 2 / span 2;
   grid-row: 2;
   min-width: 0;
+}
+
+@media (max-width: 1300px) {
+  .topGrid {
+    grid-template-columns: minmax(0, 400px) minmax(0, 1fr);
+  }
+  .marketSlot { grid-column: 2; grid-row: 1; }
+  .aiSlot     { grid-column: 2; grid-row: 2; }
+  .chartSlot  { grid-column: 2; grid-row: 3; }
 }
 
 @media (max-width: 1100px) {
@@ -87,7 +101,7 @@
     grid-template-columns: 1fr;
     grid-template-rows: auto;
   }
-  .gameInfoSlot, .marketSlot, .chartSlot {
+  .gameInfoSlot, .marketSlot, .aiSlot, .chartSlot {
     grid-column: 1;
     grid-row: auto;
   }

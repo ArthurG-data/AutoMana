@@ -6,6 +6,7 @@ import { Button } from '../../../components/ui/Button'
 import { PriceCharts } from './PriceCharts'
 import { GameInfoCard } from './GameInfoCard'
 import { MarketCard } from './MarketCard'
+import { AIAnalyticsCard } from './AIAnalyticsCard'
 import type { CardDetail } from '../types'
 import styles from './CardDetailView.module.css'
 
@@ -69,6 +70,9 @@ export function CardDetailView({ card }: CardDetailViewProps) {
               delta7d={card.price_change_7d}
               delta30d={card.price_change_30d}
             />
+          </div>
+          <div className={styles.aiSlot}>
+            <AIAnalyticsCard />
           </div>
           <div className={styles.chartSlot}>
             <PriceCharts card={card} finish={selectedFinish} />
