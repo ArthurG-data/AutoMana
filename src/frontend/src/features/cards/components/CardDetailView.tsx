@@ -32,6 +32,13 @@ export function CardDetailView({ card }: CardDetailViewProps) {
           frontUrl={card.image_large ?? null}
           backUrl={backUrl}
         />
+        <div className={styles.actions}>
+          <Button variant="accent" style={{ width: '100%', justifyContent: 'center' }}>+ Add to collection</Button>
+          <div className={styles.secondaryActions}>
+            <Button variant="ghost" style={{ justifyContent: 'center' }}>Watch</Button>
+            <Button variant="ghost" style={{ justifyContent: 'center' }}>Set alert</Button>
+          </div>
+        </div>
         <div className={styles.imageFade} aria-hidden="true" />
       </div>
 
@@ -67,12 +74,6 @@ export function CardDetailView({ card }: CardDetailViewProps) {
             <PriceCharts card={card} finish={selectedFinish} />
           </div>
         </section>
-
-        <div className={styles.actions}>
-          <Button variant="accent" style={{ flex: 1 }}>+ Add to collection</Button>
-          <Button variant="ghost">Watch</Button>
-          <Button variant="ghost">Set alert</Button>
-        </div>
       </div>
     </div>
   )
