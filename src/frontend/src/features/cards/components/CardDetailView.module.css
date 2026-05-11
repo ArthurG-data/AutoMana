@@ -38,9 +38,10 @@
 
 .topRow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-columns: minmax(0, 400px) 320px;
   gap: 16px;
   align-items: start;
+  justify-content: start;
 }
 
 .actions { display: flex; gap: 10px; padding-top: 4px; }
