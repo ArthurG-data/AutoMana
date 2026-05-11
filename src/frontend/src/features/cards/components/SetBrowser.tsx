@@ -46,13 +46,24 @@ function yearOf(released?: string | null): string {
   return released ? released.slice(0, 4) : 'Unknown'
 }
 
+/**
+ * Fallback icon URL constructed from set_code when the DB-backed
+ * icon_svg_uri is null (current state: icon_set / icon_query_ref
+ * tables are not populated by the Scryfall ETL).
+ * Scryfall hosts every set symbol at this stable URL pattern.
+ */
+function iconUrl(set: SetBrowseItem): string {
+  return set.icon_svg_uri || `https://svgs.scryfall.io/sets/${set.set_code.toLowerCase()}.svg`
+}
+
 function SetRow({ set, onSelect }: { set: SetBrowseItem; onSelect: (code: string) => void }) {
+  const [iconBroken, setIconBroken] = useState(false)
   return (
     <button className={styles.row} onClick={() => onSelect(set.set_code)}>
       <span className={styles.icon}>
-        {set.icon_svg_uri
-          ? <img src={set.icon_svg_uri} alt="" aria-hidden />
-          : FALLBACK_ICON}
+        {iconBroken
+          ? FALLBACK_ICON
+          : <img src={iconUrl(set)} alt="" aria-hidden onError={() => setIconBroken(true)} />}
       </span>
       <span className={styles.name}>{set.set_name}</span>
       <span className={styles.meta}>
@@ -70,6 +81,7 @@ interface SetBrowserProps {
 
 export function SetBrowser({ onSelect }: SetBrowserProps) {
   const { data: sets = [], isLoading, isError } = useQuery(setBrowseQueryOptions())
+  const [search, setSearch] = useState('')
   const [selectedTypes, setSelectedTypes] = useState<Set<string>>(new Set())
   const [groupBy, setGroupBy] = useState<GroupBy>('none')
 
@@ -82,9 +94,13 @@ export function SetBrowser({ onSelect }: SetBrowserProps) {
   }, [sets])
 
   const visible = useMemo(() => {
-    if (selectedTypes.size === 0) return sets
-    return sets.filter((s) => selectedTypes.has(s.set_type))
-  }, [sets, selectedTypes])
+    const q = search.trim().toLowerCase()
+    return sets.filter((s) => {
+      if (selectedTypes.size > 0 && !selectedTypes.has(s.set_type)) return false
+      if (q && !s.set_name.toLowerCase().includes(q) && !s.set_code.toLowerCase().includes(q)) return false
+      return true
+    })
+  }, [sets, selectedTypes, search])
 
   const groups = useMemo(() => {
     if (groupBy === 'none') return [{ key: '__all__', label: '', sets: visible }]
@@ -141,6 +157,30 @@ export function SetBrowser({ onSelect }: SetBrowserProps) {
       </header>
 
       <div className={styles.controls}>
+        <div className={styles.searchRow}>
+          <svg className={styles.searchIcon} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+            <circle cx="11" cy="11" r="7"/>
+            <path d="M21 21l-4.35-4.35"/>
+          </svg>
+          <input
+            className={styles.searchInput}
+            placeholder="Search sets by name or code…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            aria-label="Search sets"
+          />
+          {search && (
+            <button
+              type="button"
+              className={styles.searchClear}
+              onClick={() => setSearch('')}
+              aria-label="Clear search"
+            >
+              ×
+            </button>
+          )}
+        </div>
+
         <div className={styles.controlBlock}>
           <span className={styles.controlLabel}>Type</span>
           <div className={styles.chipRow}>
