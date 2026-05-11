@@ -1,0 +1,40 @@
+/* src/frontend/src/features/cards/components/LegalityGrid.module.css */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+
+.cell {
+  padding: 6px 8px;
+  border-radius: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--hd-sub);
+}
+
+.status {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: capitalize;
+}
+
+.legal { background: rgba(61,232,210,0.08); }
+.legal .status { color: var(--hd-accent); }
+
+.notLegal { background: rgba(150,200,255,0.04); }
+.notLegal .status { color: var(--hd-sub); }
+
+.banned { background: rgba(227,94,108,0.08); }
+.banned .status { color: var(--hd-red); }
+
+.restricted { background: rgba(255,200,80,0.08); }
+.restricted .status { color: #ffc850; }
