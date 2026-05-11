@@ -53,6 +53,10 @@ class CardDetail(BaseCard):
     collector_number: Optional[str] = Field(default=None)
     promo_types: List[str] = Field(default_factory=list)
     legalities: Dict[str, str] = Field(default_factory=dict)
+    unique_card_id: Optional[UUID] = Field(
+        default=None,
+        title="Stable identity shared by all printings of this logical card",
+    )
 
 class CardFace(BaseModel):
     name: str

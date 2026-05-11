@@ -19,12 +19,22 @@ function CardDetailPage() {
 
   const setCode = card.set_code ?? ''
   const cardName = card.card_name ?? ''
+  const uniqueCardId = card.unique_card_id
+
+  // Card-name segment navigates to the search page filtered by the stable
+  // unique_card_id of this print — so it shows every printing of the same
+  // logical card across sets, not a fuzzy name search.
+  const nameSearch = uniqueCardId
+    ? { unique_card_id: uniqueCardId }
+    : cardName
+      ? { q: cardName }
+      : undefined
 
   const breadcrumb = (
     <span className={styles.crumb}>
       <Link
         to="/search"
-        search={cardName ? { q: cardName } : undefined}
+        search={nameSearch}
         className={styles.crumbLink}
       >
         SEARCH
@@ -46,7 +56,7 @@ function CardDetailPage() {
           <span className={styles.crumbSep} aria-hidden="true"> › </span>
           <Link
             to="/search"
-            search={{ q: cardName }}
+            search={nameSearch}
             className={`${styles.crumbLink} ${styles.crumbCurrent}`}
           >
             {cardName}

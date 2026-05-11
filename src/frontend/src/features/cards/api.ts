@@ -11,10 +11,11 @@ export function cardInfiniteSearchQueryOptions(params: Omit<CardSearchParams, 'p
     queryFn: async ({ pageParam = 0 }) => {
       const token = useAuthStore.getState().token
       const qs = new URLSearchParams()
-      if (params.q)        qs.set('q', params.q)
-      if (params.set)      qs.set('set', params.set)
-      if (params.artist)   qs.set('artist', params.artist)
-      if (params.rarity)   qs.set('rarity', params.rarity)
+      if (params.q)              qs.set('q', params.q)
+      if (params.set)            qs.set('set', params.set)
+      if (params.artist)         qs.set('artist', params.artist)
+      if (params.unique_card_id) qs.set('unique_card_id', params.unique_card_id)
+      if (params.rarity)         qs.set('rarity', params.rarity)
       if (params.finish)   qs.set('finish', params.finish)
       if (params.layout)   qs.set('layout', params.layout)
       if (params.minPrice != null) qs.set('min_price', String(params.minPrice))
