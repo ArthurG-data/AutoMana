@@ -1,0 +1,89 @@
+/* SetBrowser.module.css */
+.wrap { display: flex; flex-direction: column; padding: 24px 36px; }
+
+.filterInput {
+  background: var(--hd-surface-alt);
+  border: 1px solid var(--hd-border);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  color: var(--hd-text);
+  outline: none;
+  margin-bottom: 16px;
+  width: 100%;
+  max-width: 420px;
+}
+.filterInput::placeholder { color: var(--hd-muted); }
+.filterInput:focus { border-color: rgba(var(--hd-accent-rgb), 0.5); }
+
+.list { display: flex; flex-direction: column; gap: 5px; }
+
+.row {
+  background: var(--hd-surface);
+  border: 1px solid var(--hd-border);
+  border-radius: 8px;
+  padding: 9px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: border-color 0.15s, background 0.15s;
+}
+.row:hover {
+  border-color: rgba(var(--hd-accent-rgb), 0.4);
+  background: rgba(var(--hd-accent-rgb), 0.03);
+}
+
+.icon {
+  width: 28px; height: 28px; flex-shrink: 0;
+  background: rgba(var(--hd-blue-rgb), 0.12);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+.icon img { width: 18px; height: 18px; object-fit: contain; }
+.iconFallback { width: 16px; height: 16px; opacity: 0.5; }
+
+.name {
+  flex: 1;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--hd-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.meta { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
+.code {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  font-weight: 700;
+  background: rgba(var(--hd-blue-rgb), 0.15);
+  color: var(--hd-blue);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.type {
+  font-size: 9px;
+  font-weight: 600;
+  background: rgba(var(--hd-accent-rgb), 0.1);
+  color: var(--hd-accent);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.count {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--hd-muted);
+  min-width: 28px;
+  text-align: right;
+}
+
+.empty { font-size: 13px; color: var(--hd-muted); padding: 16px 0; }
