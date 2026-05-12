@@ -78,7 +78,7 @@ describe('SetBrowser', () => {
     render(<SetBrowser onSelect={vi.fn()} />, { wrapper: Wrapper })
     await waitFor(() => expect(screen.getByText('WOE')).toBeTruthy())
 
-    fireEvent.change(screen.getByPlaceholderText('Search sets by name or code…'), {
+    fireEvent.change(screen.getByPlaceholderText('Search sets…'), {
       target: { value: 'Wilds' },
     })
 

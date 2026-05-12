@@ -59,6 +59,12 @@ interface SetBrowserProps {
   onSelect: (setCode: string) => void
 }
 
+const GROUP_BY_OPTIONS: { value: GroupBy; label: string }[] = [
+  { value: 'year', label: 'Year' },
+  { value: 'type', label: 'Type' },
+  { value: 'none', label: 'None' },
+]
+
 export function SetBrowser({ onSelect }: SetBrowserProps) {
   const { data: sets = [], isLoading, isError } = useQuery(setBrowseQueryOptions())
   const [search, setSearch] = useState('')
@@ -109,120 +115,122 @@ export function SetBrowser({ onSelect }: SetBrowserProps) {
     })
   }
 
+  function clearFilters() {
+    setSearch('')
+    setSelectedTypes(new Set())
+  }
+
   if (isError) {
     return (
-      <div className={styles.wrap}>
+      <div className={styles.layout}>
         <p className={styles.empty}>Failed to load sets. Please refresh.</p>
       </div>
     )
   }
 
   return (
-    <div className={styles.wrap}>
-      <header className={styles.hero}>
-        <h1 className={styles.heroTitle}>Browse Magic Sets</h1>
-        <span className={styles.heroAccent} aria-hidden />
-        <p className={styles.heroSub}>
-          {isLoading
-            ? 'Loading…'
-            : (
-              <>
-                <strong>{visible.length.toLocaleString()}</strong>
-                {selectedTypes.size > 0 && ` of ${sets.length.toLocaleString()}`}
-                {' '}sets
-              </>
-            )}
-        </p>
-      </header>
-
-      <div className={styles.controls}>
+    <div className={styles.layout}>
+      {/* Sidebar — same structure as SearchFilters */}
+      <aside className={styles.sidebar}>
         <div className={styles.searchRow}>
-          <svg className={styles.searchIcon} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-            <circle cx="11" cy="11" r="7"/>
-            <path d="M21 21l-4.35-4.35"/>
+          <svg className={styles.searchIcon} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+            <circle cx="11" cy="11" r="7" /><path d="M21 21l-4.35-4.35" />
           </svg>
           <input
             className={styles.searchInput}
-            placeholder="Search sets by name or code…"
+            placeholder="Search sets…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             aria-label="Search sets"
           />
           {search && (
-            <button type="button" className={styles.searchClear} onClick={() => setSearch('')} aria-label="Clear search">
-              ×
-            </button>
+            <button type="button" className={styles.searchClear} onClick={() => setSearch('')} aria-label="Clear">×</button>
           )}
         </div>
 
-        <div className={styles.controlBlock}>
-          <span className={styles.controlLabel}>Type</span>
-          <div className={styles.chipRow}>
+        <div className={styles.header}>
+          <span className={styles.title}>Filters</span>
+          <button className={styles.clearBtn} onClick={clearFilters}>clear</button>
+        </div>
+
+        <section className={styles.filterGroup}>
+          <div className={styles.filterLabel}>Group by</div>
+          <div className={styles.btnGrid}>
+            {GROUP_BY_OPTIONS.map(({ value, label }) => (
+              <button
+                key={value}
+                type="button"
+                className={`${styles.btn} ${groupBy === value ? styles.btnActive : ''}`}
+                onClick={() => setGroupBy(value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className={styles.filterGroup}>
+          <div className={styles.filterLabel}>Type</div>
+          <div className={styles.btnGrid}>
             <button
-              className={`${styles.chip} ${selectedTypes.size === 0 ? styles.chipActive : ''}`}
-              onClick={() => setSelectedTypes(new Set())}
               type="button"
+              className={`${styles.btn} ${selectedTypes.size === 0 ? styles.btnActive : ''}`}
+              onClick={() => setSelectedTypes(new Set())}
             >
-              All<span className={styles.chipCount}>{sets.length}</span>
+              All
             </button>
             {availableTypes.map(({ type, count }) => (
               <button
                 key={type}
-                className={`${styles.chip} ${selectedTypes.has(type) ? styles.chipActive : ''}`}
+                type="button"
+                title={`${prettyType(type)} (${count})`}
+                className={`${styles.btn} ${selectedTypes.has(type) ? styles.btnActive : ''}`}
                 onClick={() => toggleType(type)}
-                type="button"
               >
-                {prettyType(type)}<span className={styles.chipCount}>{count}</span>
+                {prettyType(type)}
               </button>
             ))}
           </div>
+        </section>
+      </aside>
+
+      {/* Content — same structure as SearchResults */}
+      <div className={styles.content}>
+        <div className={styles.meta}>
+          {isLoading
+            ? 'Loading…'
+            : `${visible.length.toLocaleString()}${selectedTypes.size > 0 ? ` of ${sets.length.toLocaleString()}` : ''} sets`}
         </div>
 
-        <div className={styles.controlBlock}>
-          <span className={styles.controlLabel}>Group by</span>
-          <div className={styles.chipRow}>
-            {(['year', 'type', 'none'] as GroupBy[]).map((g) => (
-              <button
-                key={g}
-                className={`${styles.chip} ${groupBy === g ? styles.chipActive : ''}`}
-                onClick={() => setGroupBy(g)}
-                type="button"
-              >
-                {g === 'none' ? 'None' : g === 'type' ? 'Type' : 'Year'}
-              </button>
-            ))}
-          </div>
-        </div>
+        {visible.length === 0 ? (
+          <p className={styles.empty}>No sets match the current filters.</p>
+        ) : (
+          groups.map((g) => (
+            <section key={g.key} className={styles.group}>
+              {g.key !== '__all__' && (
+                <header className={styles.groupHeader}>
+                  <span className={styles.groupTitle}>{g.label}</span>
+                  <span className={styles.groupCount}>{g.sets.length}</span>
+                </header>
+              )}
+              <div className={styles.grid}>
+                {groupByParentChild(g.sets).map((group) => (
+                  <div key={group.parent.set_code} className={styles.parentGroup}>
+                    <SetCard set={group.parent} onSelect={onSelect} />
+                    {group.children.length > 0 && (
+                      <div className={styles.childrenRow}>
+                        {group.children.map((child) => (
+                          <SetCard key={child.set_code} set={child} isChild onSelect={onSelect} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </section>
+          ))
+        )}
       </div>
-
-      {visible.length === 0 ? (
-        <p className={styles.empty}>No sets match the current filters.</p>
-      ) : (
-        groups.map((g) => (
-          <section key={g.key} className={styles.group}>
-            {g.key !== '__all__' && (
-              <header className={styles.groupHeader}>
-                <span className={styles.groupTitle}>{g.label}</span>
-                <span className={styles.groupCount}>{g.sets.length}</span>
-              </header>
-            )}
-            <div className={styles.grid}>
-              {groupByParentChild(g.sets).map((group) => (
-                <div key={group.parent.set_code} className={styles.parentGroup}>
-                  <SetCard set={group.parent} onSelect={onSelect} />
-                  {group.children.length > 0 && (
-                    <div className={styles.childrenRow}>
-                      {group.children.map((child) => (
-                        <SetCard key={child.set_code} set={child} isChild onSelect={onSelect} />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </section>
-        ))
-      )}
     </div>
   )
 }
