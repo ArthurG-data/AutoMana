@@ -412,11 +412,14 @@ class CardReferenceRepository(AbstractRepository[Any]):
                 f"websearch_to_tsquery('english', ${oracle_param_idx})) DESC"
             )
         else:
-            safe_sort_by = sort_by if sort_by in {
-                "card_name", "cmc", "rarity_name", "set_name", "set_code"
-            } else "card_name"
+            _set_cols = {"released_at"}
+            _view_cols = {"card_name", "cmc", "rarity_name", "set_name", "set_code"}
             safe_sort_order = "DESC" if (sort_order or "").upper() == "DESC" else "ASC"
-            order_clause = f"ORDER BY v.{safe_sort_by} {safe_sort_order}"
+            if sort_by in _set_cols:
+                order_clause = f"ORDER BY s.{sort_by} {safe_sort_order}"
+            else:
+                safe_sort_by = sort_by if sort_by in _view_cols else "card_name"
+                order_clause = f"ORDER BY v.{safe_sort_by} {safe_sort_order}"
 
         # JOIN sets for released_at (not projected by the view) and to filter on date range.
         from_clause = (

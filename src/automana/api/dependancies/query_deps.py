@@ -33,7 +33,7 @@ async def pagination_params(
     return PaginationParams(limit=limit, offset=offset)
 
 async def sort_params(
-    sort_by: str = Query("created_at", description="Field to sort by"),
+    sort_by: str = Query("released_at", description="Field to sort by"),
     sort_order: str = Query("desc", regex="^(asc|desc)$", description="Sort order")
 ) -> SortParams:
     """Standard sorting parameters"""
