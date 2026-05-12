@@ -204,9 +204,8 @@ class SetReferenceRepository(AbstractRepository[Any]):
         return await self.execute_query(query, tuple(values))
 
     async def browse(self) -> List[Dict]:
-        # Falls back to the parent set's icon when the set has none of its own —
-        # promo/box sub-sets often ship without their own SVG and inherit the
-        # parent's mark visually.
+        # Falls back to the parent set's icon when the set has none of its own.
+        # key_art picks the art-crop of the highest-priced booster card per set.
         query = """
             SELECT
                 vsm.set_id,
@@ -216,7 +215,8 @@ class SetReferenceRepository(AbstractRepository[Any]):
                 vsm.card_count,
                 vsm.released_at,
                 COALESCE(iqr.icon_query_uri, parent_iqr.icon_query_uri) AS icon_svg_uri,
-                parent_s.set_code AS parent_set_code
+                parent_s.set_code AS parent_set_code,
+                key_art.key_art_uri
             FROM card_catalog.v_joined_set_materialized vsm
             JOIN card_catalog.sets s ON s.set_id = vsm.set_id
             LEFT JOIN card_catalog.sets parent_s ON parent_s.set_id = s.parent_set
@@ -227,6 +227,21 @@ class SetReferenceRepository(AbstractRepository[Any]):
                    ON parent_ics.set_id = s.parent_set
             LEFT JOIN card_catalog.icon_query_ref parent_iqr
                    ON parent_iqr.icon_query_id = parent_ics.icon_query_id
+            LEFT JOIN LATERAL (
+                SELECT cvi.image_uris->>'art_crop' AS key_art_uri
+                FROM card_catalog.card_version cv
+                JOIN card_catalog.card_version_illustration cvi
+                     ON cvi.card_version_id = cv.card_version_id
+                JOIN pricing.print_price_latest ppl
+                     ON ppl.card_version_id = cv.card_version_id
+                WHERE cv.set_id = s.set_id
+                  AND cv.lang = 'en'
+                  AND cv.is_digital = FALSE
+                  AND cv.booster = TRUE
+                  AND cvi.image_uris->>'art_crop' IS NOT NULL
+                ORDER BY ppl.list_avg_cents DESC NULLS LAST
+                LIMIT 1
+            ) key_art ON true
             WHERE vsm.digital = FALSE
             ORDER BY vsm.released_at DESC
         """
