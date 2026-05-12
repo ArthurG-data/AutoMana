@@ -44,7 +44,7 @@ export function SetCard({ set, isChild = false, onSelect }: SetCardProps) {
           {set.key_art_uri && (
             <div
               className={styles.bgArt}
-              style={{ backgroundImage: `url(${set.key_art_uri})` }}
+              style={{ backgroundImage: `url("${set.key_art_uri}")` }}
             />
           )}
           {iconBroken ? (
