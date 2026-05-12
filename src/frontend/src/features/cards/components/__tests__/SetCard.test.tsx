@@ -12,6 +12,7 @@ const mockSet: SetBrowseItem = {
   released_at: '2024-02-09',
   icon_svg_uri: 'http://example.com/mkm.svg',
   parent_set_code: null,
+  key_art_uri: null,
 }
 
 describe('SetCard', () => {
@@ -54,5 +55,23 @@ describe('SetCard', () => {
     const { container } = render(<SetCard set={mockSet} isChild onSelect={vi.fn()} />)
     const btn = container.querySelector('button')!
     expect(btn.className).toMatch(/childCard/)
+  })
+
+  it('does not render bgArt div when key_art_uri is null', () => {
+    const { container } = render(<SetCard set={mockSet} onSelect={vi.fn()} />)
+    expect(container.querySelector('[class*="bgArt"]')).toBeNull()
+  })
+
+  it('renders bgArt div with backgroundImage when key_art_uri is provided', () => {
+    const setWithArt: SetBrowseItem = {
+      ...mockSet,
+      key_art_uri: 'https://cards.scryfall.io/art_crop/front/a/b/ab12.jpg',
+    }
+    const { container } = render(<SetCard set={setWithArt} onSelect={vi.fn()} />)
+    const bgArt = container.querySelector('[class*="bgArt"]') as HTMLElement
+    expect(bgArt).not.toBeNull()
+    expect(bgArt.style.backgroundImage).toMatch(
+      /url\(["']?https:\/\/cards\.scryfall\.io\/art_crop\/front\/a\/b\/ab12\.jpg["']?\)/
+    )
   })
 })

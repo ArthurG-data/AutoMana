@@ -45,6 +45,12 @@ export function SetCard({ set, isChild = false, onSelect }: SetCardProps) {
       {/* Art area — same aspect ratio as MTG card art in SearchResults */}
       <div className={styles.art}>
         <div className={styles.artInner}>
+          {set.key_art_uri && (
+            <div
+              className={styles.bgArt}
+              style={{ backgroundImage: `url("${set.key_art_uri}")` }}
+            />
+          )}
           {iconBroken ? (
             <svg className={styles.iconFallback} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
               <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>

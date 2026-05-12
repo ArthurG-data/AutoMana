@@ -16,6 +16,16 @@ async def test_browse_returns_200_with_expected_shape(client):
         assert "card_count" in item
         assert "released_at" in item
         assert "icon_svg_uri" in item
+        assert "key_art_uri" in item
+
+
+@pytest.mark.asyncio
+async def test_browse_key_art_uri_is_string_or_null(client):
+    response = await client.get("/api/catalog/mtg/set-reference/browse")
+    assert response.status_code == 200
+    sets = response.json()["data"]
+    for item in sets:
+        assert item["key_art_uri"] is None or isinstance(item["key_art_uri"], str)
 
 
 @pytest.mark.asyncio

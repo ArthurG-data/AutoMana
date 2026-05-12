@@ -24,6 +24,7 @@
 .artInner {
   width: 100%;
   height: 100%;
+  position: relative;
   background: linear-gradient(160deg, var(--hd-surface) 0%, rgba(var(--hd-blue-rgb), 0.12) 100%);
   display: flex;
   flex-direction: column;
@@ -33,11 +34,37 @@
   padding: 12px;
 }
 
+.bgArt {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center 30%;
+  filter: blur(3px) brightness(0.35) saturate(1.2);
+  transform: scale(1.05);
+  z-index: 0;
+  transition: filter 0.2s;
+}
+
+.card:hover .bgArt {
+  filter: blur(3px) brightness(0.45) saturate(1.2);
+}
+
+.artInner::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 40%, rgba(5, 13, 26, 0.85) 100%);
+  pointer-events: none;
+  z-index: 1;
+}
+
 .iconImg {
   width: 48px;
   height: 48px;
   object-fit: contain;
   flex-shrink: 0;
+  position: relative;
+  z-index: 2;
 }
 
 .iconFallback {
@@ -46,6 +73,8 @@
   opacity: 0.25;
   color: var(--hd-muted);
   flex-shrink: 0;
+  position: relative;
+  z-index: 2;
 }
 
 .setName {
@@ -57,6 +86,8 @@
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
+  position: relative;
+  z-index: 2;
 }
 
 /* Info bar — mirrors .cardInfo in SearchResults.module.css */
