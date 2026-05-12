@@ -82,6 +82,8 @@ export function SetBrowser({ onSelect }: SetBrowserProps) {
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase()
     return sets.filter((s) => {
+      // When no explicit type filter, hide token sheets by default
+      if (selectedTypes.size === 0 && s.set_type === 'token') return false
       if (selectedTypes.size > 0 && !selectedTypes.has(s.set_type)) return false
       if (q && !s.set_name.toLowerCase().includes(q) && !s.set_code.toLowerCase().includes(q)) return false
       return true
