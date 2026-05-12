@@ -1,0 +1,127 @@
+/* SetCard — portrait proportions matching SearchResults card layout */
+.card {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+  display: block;
+  width: 100%;
+}
+
+.card:hover .info {
+  border-color: var(--hd-accent);
+}
+
+/* Art area: same 63/88 aspect ratio as MTG cards in SearchResults */
+.art {
+  width: 100%;
+  aspect-ratio: 63 / 88;
+  overflow: hidden;
+  border-radius: 6px 6px 0 0;
+}
+
+.artInner {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(160deg, var(--hd-surface) 0%, rgba(var(--hd-blue-rgb), 0.12) 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px;
+}
+
+.iconImg {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.iconFallback {
+  width: 40px;
+  height: 40px;
+  opacity: 0.25;
+  color: var(--hd-muted);
+  flex-shrink: 0;
+}
+
+.setName {
+  font-size: 10px;
+  color: var(--hd-sub);
+  text-align: center;
+  line-height: 1.3;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+/* Info bar — mirrors .cardInfo in SearchResults.module.css */
+.info {
+  padding: 7px 4px 0;
+  border-top: 1px solid transparent;
+  transition: border-color 0.15s;
+}
+
+.code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--hd-text);
+  margin-bottom: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 4px;
+}
+
+.type {
+  font-size: 9px;
+  color: var(--hd-accent);
+  background: rgba(var(--hd-accent-rgb), 0.1);
+  padding: 1px 5px;
+  border-radius: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 70%;
+}
+
+.count {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--hd-sub);
+  flex-shrink: 0;
+}
+
+/* Child variant — same proportions, just slightly dimmed */
+.childCard {
+  opacity: 0.75;
+}
+
+.childCard:hover {
+  opacity: 1;
+}
+
+.childCard .artInner {
+  background: linear-gradient(160deg, var(--hd-surface) 0%, rgba(var(--hd-blue-rgb), 0.06) 100%);
+}
+
+.childCard .iconImg {
+  width: 32px;
+  height: 32px;
+}
+
+.childCard .iconFallback {
+  width: 28px;
+  height: 28px;
+}

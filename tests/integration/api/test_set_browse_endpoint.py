@@ -19,6 +19,19 @@ async def test_browse_returns_200_with_expected_shape(client):
 
 
 @pytest.mark.asyncio
+async def test_browse_includes_parent_set_code(client):
+    response = await client.get("/api/catalog/mtg/set-reference/browse")
+    assert response.status_code == 200
+    sets = response.json()["data"]
+    assert len(sets) > 0
+    for item in sets:
+        assert "parent_set_code" in item
+        assert item["parent_set_code"] is None or isinstance(item["parent_set_code"], str)
+    child_sets = [s for s in sets if s["parent_set_code"] is not None]
+    assert len(child_sets) > 0, "Expected at least one child set with a non-null parent_set_code"
+
+
+@pytest.mark.asyncio
 async def test_browse_excludes_digital_sets(client):
     response = await client.get("/api/catalog/mtg/set-reference/browse")
     assert response.status_code == 200

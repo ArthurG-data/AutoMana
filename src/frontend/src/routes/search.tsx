@@ -7,7 +7,6 @@ import { AppShell } from '../components/layout/AppShell'
 import { TopBar } from '../components/layout/TopBar'
 import { SearchFilters } from '../features/cards/components/SearchFilters'
 import { SearchResults } from '../features/cards/components/SearchResults'
-import { SearchBarWithSuggestions } from '../features/cards/components/SearchBarWithSuggestions'
 import { SetBrowser } from '../features/cards/components/SetBrowser'
 import { SelectedSetBanner } from '../features/cards/components/SelectedSetBanner'
 import { cardInfiniteSearchQueryOptions, setBrowseQueryOptions } from '../features/cards/api'
@@ -42,19 +41,13 @@ function SearchPage() {
   // even when the user lands directly at /search?set=mkm
   useQuery(setBrowseQueryOptions())
 
-  // Entry-point tab mode (only used when no set is selected and no unique
-  // card identity is being requested). Defaults to 'card' if the URL has a
-  // name query or unique_card_id, else 'set'.
-  const [mode, setMode] = useState<Mode>(
-    search.q || search.unique_card_id ? 'card' : 'set'
-  )
+  // Default to card mode — the landing experience shows cards immediately.
+  const [mode, setMode] = useState<Mode>('card')
 
-  // The card-search endpoint should only fire when we actually have something
-  // to query: a set is selected, a unique-card identity is being resolved, or
-  // the user is in 'card' mode with a name query. In 'set' mode with no set
-  // chosen, only the set-browse endpoint should hit the network.
+  // Fetch cards whenever in card mode (even without a query — shows recent
+  // releases), when a set is selected, or when resolving a unique card id.
   const shouldFetchCards =
-    !!search.set || !!search.unique_card_id || (mode === 'card' && !!search.q)
+    !!search.set || !!search.unique_card_id || mode === 'card'
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
     ...cardInfiniteSearchQueryOptions(search),
@@ -136,7 +129,7 @@ function SearchPage() {
         <SetBrowser
           onSelect={(code) => navigate({ search: prev => ({ ...prev, set: code }) })}
         />
-      ) : search.q || search.unique_card_id ? (
+      ) : (
         <div className={styles.layout}>
           <SearchFilters
             params={search}
@@ -151,13 +144,6 @@ function SearchPage() {
             isFetchingNextPage={isFetchingNextPage}
             groupBy={search.group}
           />
-        </div>
-      ) : (
-        <div className={styles.cardMode}>
-          <SearchBarWithSuggestions placeholder="Search any card by name…" />
-          <p className={styles.cardModeHint}>
-            Type a card name above — suggestions appear after 2 characters.
-          </p>
         </div>
       )}
     </AppShell>

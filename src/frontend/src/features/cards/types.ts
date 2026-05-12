@@ -110,4 +110,5 @@ export interface SetBrowseItem {
   card_count: number
   released_at: string
   icon_svg_uri: string | null
+  parent_set_code: string | null
 }
