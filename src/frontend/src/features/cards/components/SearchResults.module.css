@@ -3,16 +3,15 @@
 .meta { font-family: var(--font-mono); font-size: 11px; color: var(--hd-sub); margin-bottom: 16px; }
 .empty { padding: 40px; text-align: center; color: var(--hd-muted); font-size: 14px; }
 
-/* Responsive grid: 2 → 3 → 4 → 5 → 6 columns, capped at 6 on wide screens */
+/* Responsive grid — same breakpoints as SetBrowser so card and set tiles are identical size */
 .grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 14px;
 }
-@media (min-width: 720px)  { .grid { grid-template-columns: repeat(3, 1fr); } }
-@media (min-width: 960px)  { .grid { grid-template-columns: repeat(4, 1fr); } }
-@media (min-width: 1200px) { .grid { grid-template-columns: repeat(5, 1fr); } }
-@media (min-width: 1440px) { .grid { grid-template-columns: repeat(6, 1fr); } }
+@media (min-width: 980px)  { .grid { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 1460px) { .grid { grid-template-columns: repeat(4, 1fr); } }
+@media (min-width: 1700px) { .grid { grid-template-columns: repeat(5, 1fr); } }
 
 .card { background: transparent; border: none; cursor: pointer; text-align: left; padding: 0; }
 .card:hover .cardInfo { border-color: var(--hd-accent); }
