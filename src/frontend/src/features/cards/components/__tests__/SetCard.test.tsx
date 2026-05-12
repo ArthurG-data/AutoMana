@@ -56,4 +56,22 @@ describe('SetCard', () => {
     const btn = container.querySelector('button')!
     expect(btn.className).toMatch(/childCard/)
   })
+
+  it('does not render bgArt div when key_art_uri is null', () => {
+    const { container } = render(<SetCard set={mockSet} onSelect={vi.fn()} />)
+    expect(container.querySelector('[class*="bgArt"]')).toBeNull()
+  })
+
+  it('renders bgArt div with backgroundImage when key_art_uri is provided', () => {
+    const setWithArt: SetBrowseItem = {
+      ...mockSet,
+      key_art_uri: 'https://cards.scryfall.io/art_crop/front/a/b/ab12.jpg',
+    }
+    const { container } = render(<SetCard set={setWithArt} onSelect={vi.fn()} />)
+    const bgArt = container.querySelector('[class*="bgArt"]') as HTMLElement
+    expect(bgArt).not.toBeNull()
+    expect(bgArt.style.backgroundImage).toMatch(
+      /url\(["']?https:\/\/cards\.scryfall\.io\/art_crop\/front\/a\/b\/ab12\.jpg["']?\)/
+    )
+  })
 })
