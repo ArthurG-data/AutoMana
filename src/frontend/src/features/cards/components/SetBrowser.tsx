@@ -3,39 +3,22 @@ import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { setBrowseQueryOptions } from '../api'
 import type { SetBrowseItem } from '../types'
+import { SetCard } from './SetCard'
 import styles from './SetBrowser.module.css'
-
-const FALLBACK_ICON = (
-  <svg className={styles.iconFallback} viewBox="0 0 24 24" fill="currentColor">
-    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" strokeWidth="2" fill="none"/>
-  </svg>
-)
 
 type GroupBy = 'none' | 'type' | 'year'
 
 const SET_TYPE_LABELS: Record<string, string> = {
-  expansion: 'Expansion',
-  core: 'Core',
-  masters: 'Masters',
-  commander: 'Commander',
-  draft_innovation: 'Draft Innovation',
-  alchemy: 'Alchemy',
-  funny: 'Funny',
-  promo: 'Promo',
-  starter: 'Starter',
-  duel_deck: 'Duel Deck',
-  from_the_vault: 'From the Vault',
-  premium_deck: 'Premium Deck',
-  spellbook: 'Spellbook',
-  archenemy: 'Archenemy',
-  planechase: 'Planechase',
-  vanguard: 'Vanguard',
-  treasure_chest: 'Treasure Chest',
-  box: 'Box Set',
-  token: 'Token',
-  memorabilia: 'Memorabilia',
-  jumpstart: 'Jumpstart',
-  minigame: 'Minigame',
+  expansion: 'Expansion', core: 'Core', masters: 'Masters',
+  commander: 'Commander', draft_innovation: 'Draft Innovation',
+  alchemy: 'Alchemy', funny: 'Funny', promo: 'Promo',
+  starter: 'Starter', duel_deck: 'Duel Deck',
+  from_the_vault: 'From the Vault', premium_deck: 'Premium Deck',
+  spellbook: 'Spellbook', archenemy: 'Archenemy',
+  planechase: 'Planechase', vanguard: 'Vanguard',
+  treasure_chest: 'Treasure Chest', box: 'Box Set',
+  token: 'Token', memorabilia: 'Memorabilia',
+  jumpstart: 'Jumpstart', minigame: 'Minigame',
 }
 
 function prettyType(t: string): string {
@@ -46,33 +29,30 @@ function yearOf(released?: string | null): string {
   return released ? released.slice(0, 4) : 'Unknown'
 }
 
-/**
- * Fallback icon URL constructed from set_code when the DB-backed
- * icon_svg_uri is null (current state: icon_set / icon_query_ref
- * tables are not populated by the Scryfall ETL).
- * Scryfall hosts every set symbol at this stable URL pattern.
- */
-function iconUrl(set: SetBrowseItem): string {
-  return set.icon_svg_uri || `https://svgs.scryfall.io/sets/${set.set_code.toLowerCase()}.svg`
+interface SetGroup {
+  parent: SetBrowseItem
+  children: SetBrowseItem[]
 }
 
-function SetRow({ set, onSelect }: { set: SetBrowseItem; onSelect: (code: string) => void }) {
-  const [iconBroken, setIconBroken] = useState(false)
-  return (
-    <button className={styles.row} onClick={() => onSelect(set.set_code)}>
-      <span className={styles.icon}>
-        {iconBroken
-          ? FALLBACK_ICON
-          : <img src={iconUrl(set)} alt="" aria-hidden onError={() => setIconBroken(true)} />}
-      </span>
-      <span className={styles.name}>{set.set_name}</span>
-      <span className={styles.meta}>
-        <span className={styles.code}>{set.set_code}</span>
-        <span className={styles.type}>{prettyType(set.set_type)}</span>
-      </span>
-      <span className={styles.count}>{set.card_count}</span>
-    </button>
-  )
+function groupByParentChild(sets: SetBrowseItem[]): SetGroup[] {
+  const byCode = new Map(sets.map((s) => [s.set_code, s]))
+  const childrenOf = new Map<string, SetBrowseItem[]>()
+  const processedAsChild = new Set<string>()
+
+  for (const s of sets) {
+    if (s.parent_set_code && byCode.has(s.parent_set_code)) {
+      if (!childrenOf.has(s.parent_set_code)) childrenOf.set(s.parent_set_code, [])
+      childrenOf.get(s.parent_set_code)!.push(s)
+      processedAsChild.add(s.set_code)
+    }
+  }
+
+  const groups: SetGroup[] = []
+  for (const s of sets) {
+    if (processedAsChild.has(s.set_code)) continue
+    groups.push({ parent: s, children: childrenOf.get(s.set_code) ?? [] })
+  }
+  return groups
 }
 
 interface SetBrowserProps {
@@ -83,7 +63,7 @@ export function SetBrowser({ onSelect }: SetBrowserProps) {
   const { data: sets = [], isLoading, isError } = useQuery(setBrowseQueryOptions())
   const [search, setSearch] = useState('')
   const [selectedTypes, setSelectedTypes] = useState<Set<string>>(new Set())
-  const [groupBy, setGroupBy] = useState<GroupBy>('none')
+  const [groupBy, setGroupBy] = useState<GroupBy>('year')
 
   const availableTypes = useMemo(() => {
     const counts = new Map<string, number>()
@@ -110,10 +90,9 @@ export function SetBrowser({ onSelect }: SetBrowserProps) {
       if (!buckets.has(key)) buckets.set(key, [])
       buckets.get(key)!.push(s)
     }
-    const sortedKeys = Array.from(buckets.keys()).sort((a, b) => {
-      if (groupBy === 'year') return b.localeCompare(a) // newer years first
-      return a.localeCompare(b)                          // alpha for type
-    })
+    const sortedKeys = Array.from(buckets.keys()).sort((a, b) =>
+      groupBy === 'year' ? b.localeCompare(a) : a.localeCompare(b)
+    )
     return sortedKeys.map((key) => ({
       key,
       label: groupBy === 'type' ? prettyType(key) : key,
@@ -170,12 +149,7 @@ export function SetBrowser({ onSelect }: SetBrowserProps) {
             aria-label="Search sets"
           />
           {search && (
-            <button
-              type="button"
-              className={styles.searchClear}
-              onClick={() => setSearch('')}
-              aria-label="Clear search"
-            >
+            <button type="button" className={styles.searchClear} onClick={() => setSearch('')} aria-label="Clear search">
               ×
             </button>
           )}
@@ -189,8 +163,7 @@ export function SetBrowser({ onSelect }: SetBrowserProps) {
               onClick={() => setSelectedTypes(new Set())}
               type="button"
             >
-              All
-              <span className={styles.chipCount}>{sets.length}</span>
+              All<span className={styles.chipCount}>{sets.length}</span>
             </button>
             {availableTypes.map(({ type, count }) => (
               <button
@@ -199,8 +172,7 @@ export function SetBrowser({ onSelect }: SetBrowserProps) {
                 onClick={() => toggleType(type)}
                 type="button"
               >
-                {prettyType(type)}
-                <span className={styles.chipCount}>{count}</span>
+                {prettyType(type)}<span className={styles.chipCount}>{count}</span>
               </button>
             ))}
           </div>
@@ -209,7 +181,7 @@ export function SetBrowser({ onSelect }: SetBrowserProps) {
         <div className={styles.controlBlock}>
           <span className={styles.controlLabel}>Group by</span>
           <div className={styles.chipRow}>
-            {(['none', 'type', 'year'] as GroupBy[]).map((g) => (
+            {(['year', 'type', 'none'] as GroupBy[]).map((g) => (
               <button
                 key={g}
                 className={`${styles.chip} ${groupBy === g ? styles.chipActive : ''}`}
@@ -225,22 +197,27 @@ export function SetBrowser({ onSelect }: SetBrowserProps) {
 
       {visible.length === 0 ? (
         <p className={styles.empty}>No sets match the current filters.</p>
-      ) : groupBy === 'none' ? (
-        <div className={styles.list}>
-          {visible.map((set) => (
-            <SetRow key={set.set_code} set={set} onSelect={onSelect} />
-          ))}
-        </div>
       ) : (
         groups.map((g) => (
           <section key={g.key} className={styles.group}>
-            <header className={styles.groupHeader}>
-              <span className={styles.groupTitle}>{g.label}</span>
-              <span className={styles.groupCount}>{g.sets.length}</span>
-            </header>
-            <div className={styles.list}>
-              {g.sets.map((set) => (
-                <SetRow key={set.set_code} set={set} onSelect={onSelect} />
+            {g.key !== '__all__' && (
+              <header className={styles.groupHeader}>
+                <span className={styles.groupTitle}>{g.label}</span>
+                <span className={styles.groupCount}>{g.sets.length}</span>
+              </header>
+            )}
+            <div className={styles.grid}>
+              {groupByParentChild(g.sets).map((group) => (
+                <div key={group.parent.set_code} className={styles.parentGroup}>
+                  <SetCard set={group.parent} onSelect={onSelect} />
+                  {group.children.length > 0 && (
+                    <div className={styles.childrenRow}>
+                      {group.children.map((child) => (
+                        <SetCard key={child.set_code} set={child} isChild onSelect={onSelect} />
+                      ))}
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
           </section>

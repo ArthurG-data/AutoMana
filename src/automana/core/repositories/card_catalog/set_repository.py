@@ -215,9 +215,11 @@ class SetReferenceRepository(AbstractRepository[Any]):
                 vsm.set_type,
                 vsm.card_count,
                 vsm.released_at,
-                COALESCE(iqr.icon_query_uri, parent_iqr.icon_query_uri) AS icon_svg_uri
+                COALESCE(iqr.icon_query_uri, parent_iqr.icon_query_uri) AS icon_svg_uri,
+                parent_s.set_code AS parent_set_code
             FROM card_catalog.v_joined_set_materialized vsm
             JOIN card_catalog.sets s ON s.set_id = vsm.set_id
+            LEFT JOIN card_catalog.sets parent_s ON parent_s.set_id = s.parent_set
             LEFT JOIN card_catalog.icon_set ics ON ics.set_id = vsm.set_id
             LEFT JOIN card_catalog.icon_query_ref iqr
                    ON iqr.icon_query_id = ics.icon_query_id
