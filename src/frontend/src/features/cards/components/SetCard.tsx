@@ -6,6 +6,10 @@ function iconUrl(set: SetBrowseItem): string {
   return set.icon_svg_uri || `https://svgs.scryfall.io/sets/${set.set_code.toLowerCase()}.svg`
 }
 
+function formatDate(d: string): string {
+  return new Date(d).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+}
+
 function prettyType(t: string): string {
   const labels: Record<string, string> = {
     expansion: 'Expansion', core: 'Core', masters: 'Masters',
@@ -60,7 +64,10 @@ export function SetCard({ set, isChild = false, onSelect }: SetCardProps) {
 
       {/* Info bar — mirrors .cardInfo in SearchResults */}
       <div className={styles.info}>
-        <div className={styles.code}>{set.set_code.toUpperCase()}</div>
+        <div className={styles.codeRow}>
+          <span className={styles.code}>{set.set_code.toUpperCase()}</span>
+          <span className={styles.date}>{formatDate(set.released_at)}</span>
+        </div>
         <div className={styles.meta}>
           <span className={styles.type}>{prettyType(set.set_type)}</span>
           <span className={styles.count}>{set.card_count}</span>
