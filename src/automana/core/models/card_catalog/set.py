@@ -97,6 +97,7 @@ class SetBrowseItem(BaseModel):
     released_at: datetime.date = Field(title="Official release date")
     icon_svg_uri: Optional[str] = Field(default=None, title="Scryfall SVG icon URL")
     parent_set_code: Optional[str] = Field(default=None, title="Parent set code if this is a sub-set")
+    key_art_uri: Optional[str] = Field(default=None, title="Art-crop image URL of highest-value card in set")
 
     class Config:
         from_attributes = True
