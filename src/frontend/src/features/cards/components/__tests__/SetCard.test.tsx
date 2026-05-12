@@ -12,6 +12,7 @@ const mockSet: SetBrowseItem = {
   released_at: '2024-02-09',
   icon_svg_uri: 'http://example.com/mkm.svg',
   parent_set_code: null,
+  key_art_uri: null,
 }
 
 describe('SetCard', () => {

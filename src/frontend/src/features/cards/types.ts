@@ -111,4 +111,5 @@ export interface SetBrowseItem {
   released_at: string
   icon_svg_uri: string | null
   parent_set_code: string | null
+  key_art_uri: string | null
 }
