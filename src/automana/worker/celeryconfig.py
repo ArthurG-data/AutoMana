@@ -107,6 +107,23 @@ beat_schedule = {
         "task": "archive_to_weekly_prices",
         "schedule": crontab(day_of_month=1, hour=3, minute=0),  # 1st at 03:00 AEST
     },
+    # eBay sold-price persistence — own sales (Fulfillment API, 90-day window).
+    "ebay-sync-own-sales-nightly": {
+        "task": "automana.worker.tasks.ebay.ebay_sync_own_sales_task",
+        "schedule": crontab(hour=7, minute=0),   # 07:00 AEST
+    },
+    # eBay sold-price persistence — external scrape (Finding API, per listed card).
+    "ebay-scrape-external-sold-nightly": {
+        "task": "automana.worker.tasks.ebay.ebay_scrape_external_sold_task",
+        "schedule": crontab(hour=7, minute=15),  # 07:15 AEST
+    },
+    # eBay sold-price promotion — aggregate both staging tables → price_observation.
+    # Runs after sync (07:00) and scrape (07:15) have completed.
+    "ebay-promote-sold-obs-nightly": {
+        "task": "run_service",
+        "schedule": crontab(hour=8, minute=0),   # 08:00 AEST
+        "kwargs": {"path": "integrations.ebay.promote_sold_obs"},
+    },
 }
 
 
