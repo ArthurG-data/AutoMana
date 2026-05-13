@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 @ServiceRegistry.register(
     "ops.integrity.card_catalog_report",
     db_repositories=["card", "ops"],
+    runs_in_transaction=False,
 )
 async def card_catalog_report(
     card_repository: CardReferenceRepository,
