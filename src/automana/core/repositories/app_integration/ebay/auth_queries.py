@@ -140,3 +140,11 @@ list_user_apps_query = """
      WHERE au.user_id = $1
      ORDER BY ai.created_at DESC;
 """
+
+GET_ACTIVE_APP_CODE_USERS = """
+SELECT rt.user_id, ai.app_code
+FROM app_integration.ebay_refresh_tokens rt
+JOIN app_integration.app_info ai ON ai.app_id = rt.app_id
+WHERE rt.expires_at > now()
+ORDER BY ai.app_code, rt.user_id;
+"""
