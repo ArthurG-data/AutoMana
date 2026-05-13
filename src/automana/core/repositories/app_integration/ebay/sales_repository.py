@@ -125,3 +125,30 @@ class EbaySalesRepository(AbstractRepository):
             sales_queries.MARK_OWN_SALES_PROMOTED,
             (ebay_osp_ids,),
         )
+
+    async def upsert_price_observation(
+        self,
+        ts_date,
+        source_product_id: int,
+        price_type_id: int,
+        finish_id: int,
+        condition_id: int,
+        language_id: int,
+        data_provider_id: int,
+        sold_avg_cents: int,
+        sold_count: int,
+    ) -> None:
+        await self.execute_command(
+            sales_queries.UPSERT_PRICE_OBSERVATION,
+            (
+                ts_date,
+                source_product_id,
+                price_type_id,
+                finish_id,
+                condition_id,
+                language_id,
+                data_provider_id,
+                sold_avg_cents,
+                sold_count,
+            ),
+        )

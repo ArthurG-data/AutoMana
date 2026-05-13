@@ -61,3 +61,15 @@ UPDATE app_integration.ebay_order_source_product
 SET promoted_to_obs = true
 WHERE ebay_osp_id = ANY($1::bigint[]);
 """
+
+UPSERT_PRICE_OBSERVATION = """
+INSERT INTO pricing.price_observation
+    (ts_date, source_product_id, price_type_id, finish_id, condition_id,
+     language_id, data_provider_id, sold_avg_cents, sold_count)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+ON CONFLICT (ts_date, source_product_id, price_type_id, finish_id, condition_id, language_id, data_provider_id)
+DO UPDATE SET
+    sold_avg_cents = EXCLUDED.sold_avg_cents,
+    sold_count     = EXCLUDED.sold_count,
+    updated_at     = now();
+"""
