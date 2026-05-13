@@ -200,6 +200,16 @@ ServiceRegistry.register_db_repository(
     "app", "automana.core.repositories.app_integration.ebay.app_repository", "EbayAppRepository"
 )
 ServiceRegistry.register_db_repository(
+    "ebay_sales",
+    "automana.core.repositories.app_integration.ebay.sales_repository",
+    "EbaySalesRepository",
+)
+ServiceRegistry.register_db_repository(
+    "ebay_scrape",
+    "automana.core.repositories.app_integration.ebay.ebay_scrape_repository",
+    "EbayScrapeSoldRepository",
+)
+ServiceRegistry.register_db_repository(
     "price", "automana.core.repositories.app_integration.mtg_stock.price_repository", "PriceRepository"
 )
 
