@@ -10,6 +10,7 @@ src/routeTree.gen.ts
 
 # Vite
 *.local
+vite.local.config.ts
 .vite/
 
 # TypeScript
