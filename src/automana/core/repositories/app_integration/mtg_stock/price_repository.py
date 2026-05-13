@@ -327,13 +327,8 @@ class PriceRepository(AbstractRepository):
           priced AS (
             SELECT COUNT(DISTINCT mcp.card_version_id)::int AS n
             FROM pricing.mtg_card_products mcp
-            WHERE EXISTS (
-              SELECT 1
-              FROM pricing.source_product sp
-              JOIN pricing.price_observation po
-                ON po.source_product_id = sp.source_product_id
-              WHERE sp.product_id = mcp.product_id
-            )
+            JOIN pricing.source_product sp ON sp.product_id = mcp.product_id
+            JOIN pricing.price_observation po ON po.source_product_id = sp.source_product_id
           ),
           nonfoil AS (
             SELECT COUNT(DISTINCT mcp.card_version_id)::int AS n

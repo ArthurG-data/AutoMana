@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 @ServiceRegistry.register(
     "ops.integrity.pricing_report",
     db_repositories=["price", "ops"],
+    runs_in_transaction=False,
 )
 async def pricing_report(
     price_repository: PriceRepository,
