@@ -294,7 +294,7 @@ services:
     container_name: automana-ollama-dev
     restart: unless-stopped
     volumes:
-      - ollama_data:/root/.ollama
+      - /data/ollama:/root/.ollama
     networks:
       - backend-network
     entrypoint: >
@@ -340,4 +340,3 @@ volumes:
   redis-config-dev:
   flower-data-dev:
   frontend-node-modules:
-  ollama_data:

@@ -195,7 +195,7 @@ services:
     container_name: automana-ollama-prod
     restart: unless-stopped
     volumes:
-      - ollama_data:/root/.ollama
+      - /data/ollama:/root/.ollama
     networks:
       - backend-network
     entrypoint: >
@@ -224,4 +224,3 @@ volumes:
   redis-data:
   redis-config:
   flower-data-prod:
-  ollama_data:
