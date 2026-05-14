@@ -268,6 +268,12 @@ ServiceRegistry.register_api_repository(
     "mtgjson", "automana.core.repositories.app_integration.mtgjson.Apimtgjson_repository", "ApimtgjsonRepository"
 )
 
+ServiceRegistry.register_api_repository(
+    "ollama",
+    "automana.core.repositories.ai.ollama_repository",
+    "OllamaAPIRepository",
+)
+
 # Storage backends (type → class)
 ServiceRegistry.register_storage_backend(
     "local", "automana.core.storage", "LocalStorageBackend"
