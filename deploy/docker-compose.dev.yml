@@ -297,6 +297,13 @@ services:
       - /data/ollama:/root/.ollama
     networks:
       - backend-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     entrypoint: >
       sh -c "ollama serve & sleep 5 && ollama pull qwen3:30b-a3b && wait"
     healthcheck:
