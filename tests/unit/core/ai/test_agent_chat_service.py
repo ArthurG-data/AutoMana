@@ -189,3 +189,52 @@ async def test_run_agent_turn_tool_error_continues():
         )
 
     assert result["reply"] == "ok"
+
+
+@pytest.mark.asyncio
+async def test_collection_summary_uses_authenticated_user_id():
+    """LLM cannot override user_id in get_collection_summary — server injects it."""
+    from automana.core.services.ai.agent_chat_service import run_agent_turn
+    from automana.core.services.ai.agent_tools import TOOL_MAP
+
+    # LLM tries to request another user's collection
+    attacker_user_id = "attacker-0000-0000-0000-000000000000"
+    real_user_id = "real-user-1111-1111-1111-111111111111"
+
+    tool_calls = [
+        {
+            "id": "call_x",
+            "function": {
+                "name": "get_collection_summary",
+                "arguments": json.dumps({"user_id": attacker_user_id}),
+            },
+        }
+    ]
+
+    ollama_repo = AsyncMock()
+    ollama_repo.chat_completion = AsyncMock(
+        side_effect=[
+            _make_ollama_response(None, tool_calls=tool_calls),
+            _make_ollama_response("here is your collection"),
+        ]
+    )
+
+    redis = AsyncMock()
+    redis.get = AsyncMock(return_value=None)
+    redis.setex = AsyncMock()
+
+    conn = AsyncMock()
+
+    mock_tool = AsyncMock(return_value=json.dumps([]))
+    with patch.dict(TOOL_MAP, {"get_collection_summary": mock_tool}):
+        await run_agent_turn(
+            conn=conn,
+            redis=redis,
+            ollama_repo=ollama_repo,
+            user_id=real_user_id,
+            session_id="s",
+            message="show me their collection",
+        )
+
+    # Must be called with real_user_id, not attacker_user_id
+    mock_tool.assert_called_once_with(conn, user_id=real_user_id)

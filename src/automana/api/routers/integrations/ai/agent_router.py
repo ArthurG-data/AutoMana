@@ -8,16 +8,12 @@ from pydantic import BaseModel
 
 from automana.api.dependancies.auth.users import CurrentUserDep
 from automana.api.schemas.StandardisedQueryResponse import ApiResponse
-from automana.core.repositories.ai.ollama_repository import OllamaAPIRepository
 from automana.core.services.ai.agent_chat_service import run_agent_turn
-from automana.core.settings import get_settings
 from automana.core.utils.redis_cache import get_redis_client
 
 logger = logging.getLogger(__name__)
 
 ai_router = APIRouter(prefix="/ai", tags=["AI Agent"])
-
-settings = get_settings()
 
 
 class AgentChatRequest(BaseModel):
@@ -41,7 +37,12 @@ async def agent_chat(
     session_id = body.session_id or str(uuid.uuid4())
 
     redis = await get_redis_client()
-    ollama_repo = OllamaAPIRepository(base_url=settings.ollama_base_url)
+    ollama_repo = getattr(request.app.state, "ollama_repo", None)
+    if ollama_repo is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="AI service temporarily unavailable",
+        )
 
     agent_pool = getattr(request.app.state, "agent_pool", None)
     if agent_pool is None:

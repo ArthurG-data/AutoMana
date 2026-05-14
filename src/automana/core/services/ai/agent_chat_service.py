@@ -78,6 +78,12 @@ async def run_agent_turn(
             except json.JSONDecodeError:
                 args = {}
 
+            # Always inject server-controlled values — never trust LLM-supplied identity args
+            if fn_name == "get_collection_summary":
+                args["user_id"] = user_id
+            if fn_name in ("get_active_listings", "get_sold_orders") and app_code is not None:
+                args["app_code"] = app_code
+
             callable_fn = TOOL_MAP.get(fn_name)
             if callable_fn is None:
                 logger.warning("agent_unknown_tool", extra={"tool": fn_name})
