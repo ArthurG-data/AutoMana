@@ -43,6 +43,12 @@ async def lifespan(app: FastAPI):
         from automana.core.service_manager import ServiceManager
         app.state.error_handler = AsyncpgExceptionHandler()
         app.state.async_db_pool = await init_async_pool(settings)
+        try:
+            from automana.core.database import init_agent_pool
+            app.state.agent_pool = await init_agent_pool(settings)
+        except Exception as e:
+            logger.warning("agent_pool_unavailable", extra={"error": str(e)})
+            app.state.agent_pool = None
         app.state.sync_db_pool = await init_sync_pool_with_retry(settings)
         app.state.query_executor = AsyncQueryExecutor(app.state.error_handler)
         app.state.service_manager = await ServiceManager.initialize(
@@ -60,7 +66,10 @@ async def lifespan(app: FastAPI):
             
         if hasattr(app.state, 'async_db_pool') and app.state.async_db_pool:
             await close_async_pool(app.state.async_db_pool)
-        
+
+        if hasattr(app.state, 'agent_pool') and app.state.agent_pool:
+            await close_async_pool(app.state.agent_pool)
+
         if hasattr(app.state, 'sync_db_pool') and app.state.sync_db_pool:
             close_sync_pool(app.state.sync_db_pool)
             

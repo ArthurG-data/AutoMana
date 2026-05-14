@@ -142,6 +142,9 @@ class Settings(BaseSettings):
     ollama_model: str = Field(default="qwen3:30b-a3b", alias="OLLAMA_MODEL")
     agent_chat_window: int = Field(default=10, alias="AGENT_CHAT_WINDOW")
     agent_chat_ttl: int = Field(default=7200, alias="AGENT_CHAT_TTL")
+    agent_db_user: str = Field(default="app_agent", alias="APP_AGENT_DB_USER")
+    agent_db_password_file: str | None = Field(default=None, alias="AGENT_DB_PASSWORD_FILE")
+    agent_db_password: str | None = Field(default=None, alias="AGENT_DB_PASSWORD")
 
     # Storage
     data_dir: str = Field(default="/data/automana_data", alias="DATA_DIR")
