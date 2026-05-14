@@ -1,11 +1,15 @@
 -- migration_32_listing_pending_actions.sql
 -- Creates the staged listing action queue.
 
+BEGIN;
+
 CREATE TABLE IF NOT EXISTS app_integration.listing_pending_actions (
     id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
     item_id         TEXT        NOT NULL,
-    user_id         UUID        NOT NULL,
-    app_code        TEXT        NOT NULL,
+    user_id         UUID        NOT NULL
+        REFERENCES user_management.users(unique_id) ON DELETE CASCADE,
+    app_code        VARCHAR(50) NOT NULL
+        REFERENCES app_integration.app_info(app_code) ON DELETE CASCADE,
     action_type     TEXT        NOT NULL CHECK (action_type IN ('raise','lower','hold','draft')),
     strategy_kind   TEXT        NOT NULL,
     suggested_price NUMERIC(10,2),
@@ -25,3 +29,5 @@ CREATE INDEX IF NOT EXISTS idx_listing_actions_item
 
 GRANT SELECT, INSERT, UPDATE ON app_integration.listing_pending_actions TO app_celery;
 GRANT SELECT, INSERT, UPDATE ON app_integration.listing_pending_actions TO app_backend;
+
+COMMIT;
