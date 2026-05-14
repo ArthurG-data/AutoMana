@@ -299,13 +299,6 @@ services:
       - backend-network
     entrypoint: >
       sh -c "ollama serve & sleep 5 && ollama pull qwen3:30b-a3b && wait"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
       interval: 30s
