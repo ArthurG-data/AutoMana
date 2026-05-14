@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import type { SetBrowseItem } from '../types'
 import styles from './SetCard.module.css'
 
@@ -33,8 +32,6 @@ interface SetCardProps {
 }
 
 export function SetCard({ set, isChild = false, onSelect }: SetCardProps) {
-  const [iconBroken, setIconBroken] = useState(false)
-
   return (
     <button
       className={`${styles.card} ${isChild ? styles.childCard : ''}`}
@@ -51,19 +48,11 @@ export function SetCard({ set, isChild = false, onSelect }: SetCardProps) {
               style={{ backgroundImage: `url("${set.key_art_uri}")` }}
             />
           )}
-          {iconBroken ? (
-            <svg className={styles.iconFallback} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
-              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-            </svg>
-          ) : (
-            <img
-              className={styles.iconImg}
-              src={iconUrl(set)}
-              alt=""
-              aria-hidden
-              onError={() => setIconBroken(true)}
-            />
-          )}
+          <div
+            className={styles.iconMask}
+            style={{ maskImage: `url("${iconUrl(set)}")`, WebkitMaskImage: `url("${iconUrl(set)}")` }}
+            aria-hidden
+          />
           <div className={styles.setName}>{set.set_name}</div>
         </div>
       </div>
