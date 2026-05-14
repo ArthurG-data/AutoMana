@@ -2,7 +2,7 @@ import asyncio, logging ,os, asyncpg
 from psycopg2.extras import RealDictCursor, register_uuid, register_uuid
 from psycopg2 import pool
 
-from automana.core.settings import Settings
+from automana.core.settings import Settings, read_db_password
 
 logger = logging.getLogger(__name__)
 register_uuid()
@@ -93,6 +93,26 @@ async def init_async_pool(settings:Settings) -> asyncpg.Pool:
             await asyncio.sleep(delay)
 
     raise RuntimeError("Failed to create async DB pool after retries") from last_exc
+
+async def init_agent_pool(settings: Settings) -> asyncpg.Pool:
+    """Create a read-only asyncpg pool for the app_agent DB role."""
+    from urllib.parse import quote_plus
+    password = read_db_password(
+        password_file=settings.agent_db_password_file,
+        env_password=settings.agent_db_password,
+    )
+    dsn = (
+        f"postgresql://{settings.agent_db_user}:{quote_plus(password)}"
+        f"@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
+    )
+    return await asyncpg.create_pool(
+        dsn=dsn,
+        min_size=1,
+        max_size=4,
+        command_timeout=30,
+        server_settings={"search_path": _SEARCH_PATH, "client_encoding": "UTF8"},
+    )
+
 
 def init_sync_pool(settings: Settings) -> pool.SimpleConnectionPool:
     dsn = settings.DATABASE_URL_ASYNC.replace("postgresql+asyncpg://", "postgresql://")

@@ -288,6 +288,31 @@ services:
      
     networks:
       - backend-network
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: automana-ollama-dev
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - backend-network
+    entrypoint: >
+      sh -c "ollama serve & sleep 5 && ollama pull qwen3:30b-a3b && wait"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 300s
+
 secrets:
   backend_db_password:
     file: ../config/secrets/backend_db_password.txt
@@ -299,16 +324,12 @@ secrets:
     file: ../config/secrets/readonly_db_password.txt
   admin_db_password:
     file: ../config/secrets/admin_db_password.txt
-  openai_api_key:
-    file: ../config/secrets/openai_api_key.txt
   jwt_secret_key:
     file: ../config/secrets/jwt_secret_key.txt
   encryption_key:
     file: ../config/secrets/encryption_key.txt
   pgp_secret_key:
     file: ../config/secrets/pgp_secret_key.txt
-  tavily_api_key:
-    file: ../config/secrets/tavily_api_key.txt
 
 networks:
   backend-network:
@@ -319,3 +340,4 @@ volumes:
   redis-config-dev:
   flower-data-dev:
   frontend-node-modules:
+  ollama_data:
