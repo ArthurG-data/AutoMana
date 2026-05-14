@@ -70,8 +70,8 @@ def _behavioral_recommendation(days_listed: int, watch_count: int) -> ListingRec
 
 
 def _market_recommendation(days_listed: int, price: float, market_data: dict) -> ListingRecommendation:
-    stats = market_data['stats']
-    percentiles = market_data['percentiles']
+    stats = market_data.get('stats', {})
+    percentiles = market_data.get('percentiles', {})
     p25 = percentiles.get('p25', price)
     p75 = percentiles.get('p75', price)
 
@@ -123,6 +123,7 @@ async def get_listing_recommendation(
     watch_count: int,
     price: float,
     currency: str = "AUD",
+    market_data: dict | None = None,
 ) -> dict:
     signals = {
         'days_listed': days_listed,
@@ -130,7 +131,7 @@ async def get_listing_recommendation(
         'price': price,
         'currency': currency,
     }
-    rec = compute_recommendation(signals, market_data=None)
+    rec = compute_recommendation(signals, market_data=market_data)
     logger.info("Recommendation computed", extra={
         "item_id": item_id, "action": rec.suggested_action, "signals_used": rec.signals_used,
     })
