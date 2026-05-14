@@ -21,7 +21,7 @@ export interface RegisterEbayAppRequest {
   environment: 'SANDBOX' | 'PRODUCTION'
   ebay_app_id: string
   client_secret: string
-  redirect_uri: string
+  ru_name: string
   allowed_scopes: string[]
 }
 
@@ -39,7 +39,7 @@ export async function registerEbayApp(data: RegisterEbayAppRequest): Promise<Reg
       environment: data.environment,
       ebay_app_id: data.ebay_app_id,
       client_secret: data.client_secret,
-      redirect_uri: data.redirect_uri,
+      ru_name: data.ru_name,
       allowed_scopes: data.allowed_scopes,
       // Fixed per backend contract: app_code auto-generated, OAuth2 auth-code flow, premium tier only
       app_code: '',

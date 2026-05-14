@@ -107,6 +107,7 @@ function StepCredentials({
   errors,
 }: StepCredentialsProps) {
   const [certRevealed, setCertRevealed] = useState(false)
+  const envPrefix = environment === 'SANDBOX' ? 'SBX' : 'PRD'
 
   return (
     <div className={styles.stepContent}>
@@ -213,7 +214,7 @@ function StepCredentials({
               id="ebay-cert-id"
               className={[styles.input, errors.certId ? styles.inputError : ''].filter(Boolean).join(' ')}
               type={certRevealed ? 'text' : 'password'}
-              placeholder="SBX-1234abcd-efgh-5678"
+              placeholder={`${envPrefix}-1234abcd-efgh-5678`}
               value={certId}
               onChange={(e) => onCertIdChange(e.target.value)}
               autoComplete="new-password"
@@ -242,7 +243,7 @@ function StepCredentials({
               id="ebay-runame"
               className={[styles.input, errors.ruName ? styles.inputError : ''].filter(Boolean).join(' ')}
               type="text"
-              placeholder="YourApp-YourApp-PRD-ab1234567-89abcdef"
+              placeholder={`YourApp-YourApp-${envPrefix}-ab1234567-89abcdef`}
               value={ruName}
               onChange={(e) => onRuNameChange(e.target.value)}
               autoComplete="off"
@@ -473,7 +474,7 @@ function EbaySetupPage() {
   // Step 2 form state
   const [appName, setAppName] = useState('')
   const [description, setDescription] = useState('')
-  const [environment, setEnvironment] = useState<Environment>('SANDBOX')
+  const [environment, setEnvironment] = useState<Environment>('PRODUCTION')
   const [appId, setAppId] = useState('')
   const [certId, setCertId] = useState('')
   const [ruName, setRuName] = useState('')
@@ -545,7 +546,7 @@ function EbaySetupPage() {
           environment,
           ebay_app_id: appId,
           client_secret: certId,
-          redirect_uri: ruName,
+          ru_name: ruName,
           allowed_scopes: enabledScopeUrls,
         })
         setRegistrationResult({ success: true, appCode: result.app_code })

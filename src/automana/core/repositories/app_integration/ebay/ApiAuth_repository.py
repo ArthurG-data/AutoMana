@@ -54,7 +54,7 @@ class EbayAuthAPIRepository(EbayApiClient):
         # Encode only the spaces; leave the scope URL characters (:/.) intact.
         scope_str = urllib.parse.quote(" ".join(settings["scope"]), safe="/:@.!$&'()*+,;=-_~")
         auth_url = f"{self.base_url['auth_url']}?{base_params}&scope={scope_str}"
-        logger.info("ebay_auth_redirect_url_built", extra={"environment": self.environment})
+        logger.info("ebay_auth_redirect_url_built", extra={"environment": self.environment, "client_id": settings["app_id"], "redirect_uri": settings["ru_name"]})
         return auth_url
 
     async def exchange_code_token(self, client_id: str, client_secret: str, code: str, redirect_uri: str) -> TokenResponse:

@@ -23,6 +23,7 @@ ON CONFLICT (app_id) DO UPDATE SET
     redirect_uri            = EXCLUDED.redirect_uri,
     ru_name                 = EXCLUDED.ru_name,
     client_secret_encrypted = EXCLUDED.client_secret_encrypted,
+    environment             = EXCLUDED.environment,
     description             = EXCLUDED.description,
     updated_at              = now()
 RETURNING app_code; """
