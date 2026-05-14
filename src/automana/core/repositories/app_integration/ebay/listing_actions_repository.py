@@ -37,8 +37,8 @@ WHERE id = $1;
 
 _MARK_FAILED = """
 UPDATE app_integration.listing_pending_actions
-SET status = 'failed', error = $2
-WHERE id = $1;
+SET status = 'failed', error = $1
+WHERE id = $2;
 """
 
 _GET_PENDING_FOR_ITEM = """
@@ -86,7 +86,7 @@ class EbayListingActionsRepository(AbstractRepository):
             _INSERT,
             (item_id, user_id, app_code, action_type, strategy_kind, suggested_price),
         )
-        return rows[0]['id']
+        return str(rows[0]['id'])
 
     async def get_pending(self, limit: int = 50) -> list[dict]:
         rows = await self.execute_query(_GET_PENDING, (limit,))
@@ -99,7 +99,7 @@ class EbayListingActionsRepository(AbstractRepository):
         await self.execute_command(_MARK_DONE, (action_id,))
 
     async def mark_failed(self, action_id: UUID, error: str) -> None:
-        await self.execute_command(_MARK_FAILED, (action_id, error))
+        await self.execute_command(_MARK_FAILED, (error, action_id))
 
     async def get_pending_for_item(self, item_id: str) -> Optional[dict]:
         rows = await self.execute_query(_GET_PENDING_FOR_ITEM, (item_id,))

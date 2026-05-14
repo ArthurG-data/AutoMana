@@ -75,8 +75,7 @@ async def test_mark_failed_stores_error():
 
     repo.execute_command.assert_awaited_once()
     args = repo.execute_command.call_args[0]
-    assert ACTION_ID in args[1]
-    assert "eBay timeout" in args[1]
+    assert args[1] == ("eBay timeout", ACTION_ID)
 
 
 @pytest.mark.asyncio
