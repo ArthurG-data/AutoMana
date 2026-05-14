@@ -137,6 +137,12 @@ class Settings(BaseSettings):
         description="Redis URL for cache operations (separate from Celery broker)"
     )
 
+    # Ollama / Agent chat
+    ollama_base_url: str = Field(default="http://ollama:11434", alias="OLLAMA_BASE_URL")
+    ollama_model: str = Field(default="qwen3:30b-a3b", alias="OLLAMA_MODEL")
+    agent_chat_window: int = Field(default=10, alias="AGENT_CHAT_WINDOW")
+    agent_chat_ttl: int = Field(default=7200, alias="AGENT_CHAT_TTL")
+
     # Storage
     data_dir: str = Field(default="/data/automana_data", alias="DATA_DIR")
 
