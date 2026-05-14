@@ -324,16 +324,12 @@ secrets:
     file: ../config/secrets/readonly_db_password.txt
   admin_db_password:
     file: ../config/secrets/admin_db_password.txt
-  openai_api_key:
-    file: ../config/secrets/openai_api_key.txt
   jwt_secret_key:
     file: ../config/secrets/jwt_secret_key.txt
   encryption_key:
     file: ../config/secrets/encryption_key.txt
   pgp_secret_key:
     file: ../config/secrets/pgp_secret_key.txt
-  tavily_api_key:
-    file: ../config/secrets/tavily_api_key.txt
 
 networks:
   backend-network:
