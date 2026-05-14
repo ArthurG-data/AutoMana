@@ -1,0 +1,110 @@
+@keyframes foilShimmer {
+  0%   { background-position: 0% 0%; }
+  100% { background-position: 200% 200%; }
+}
+
+@keyframes etchedShimmer {
+  0%   { background-position: -100% -100%; }
+  100% { background-position: 200% 200%; }
+}
+
+@keyframes surgeShimmer {
+  0%   { background-position: -100% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+@keyframes rippleShimmer {
+  0%   { background-position: 0% 0%; }
+  50%  { background-position: 100% 100%; }
+  100% { background-position: 0% 0%; }
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.foil {
+  background: linear-gradient(
+    135deg,
+    hsl(0   80% 60% / 0.25) 0%,
+    hsl(40  80% 60% / 0.25) 14%,
+    hsl(80  80% 60% / 0.25) 28%,
+    hsl(140 80% 60% / 0.25) 42%,
+    hsl(200 80% 60% / 0.25) 56%,
+    hsl(260 80% 60% / 0.25) 70%,
+    hsl(300 80% 60% / 0.25) 85%,
+    hsl(0   80% 60% / 0.25) 100%
+  );
+  background-size: 200% 200%;
+  mix-blend-mode: color-dodge;
+  animation: foilShimmer 3s linear infinite;
+}
+
+.etched {
+  background: linear-gradient(
+    120deg,
+    transparent 20%,
+    rgba(220, 220, 230, 0.18) 35%,
+    rgba(255, 255, 255, 0.30) 50%,
+    rgba(220, 220, 230, 0.18) 65%,
+    transparent 80%
+  );
+  background-size: 300% 300%;
+  mix-blend-mode: soft-light;
+  animation: etchedShimmer 4s ease-in-out infinite;
+}
+
+.surgeFoil {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    hsl(220 70% 80% / 0.15) 20%,
+    hsl(180 80% 90% / 0.40) 50%,
+    hsl(220 70% 80% / 0.15) 80%,
+    transparent 100%
+  );
+  background-size: 300% 100%;
+  mix-blend-mode: screen;
+  animation: surgeShimmer 2.5s linear infinite;
+}
+
+.rippleFoil {
+  background: radial-gradient(
+    ellipse at var(--mx, 50%) var(--my, 50%),
+    hsl(180 70% 70% / 0.30) 0%,
+    hsl(240 70% 70% / 0.20) 25%,
+    hsl(300 70% 70% / 0.15) 50%,
+    hsl(60  70% 70% / 0.10) 75%,
+    transparent 100%
+  ),
+  linear-gradient(
+    60deg,
+    hsl(200 60% 70% / 0.15) 0%,
+    hsl(280 60% 70% / 0.15) 50%,
+    hsl(340 60% 70% / 0.15) 100%
+  );
+  background-size: 200% 200%;
+  mix-blend-mode: overlay;
+  animation: rippleShimmer 5s ease-in-out infinite;
+}
+
+.rainbowFoil {
+  background: linear-gradient(
+    135deg,
+    hsl(0   90% 65% / 0.45) 0%,
+    hsl(40  90% 65% / 0.45) 14%,
+    hsl(80  90% 65% / 0.45) 28%,
+    hsl(140 90% 65% / 0.45) 42%,
+    hsl(200 90% 65% / 0.45) 56%,
+    hsl(260 90% 65% / 0.45) 70%,
+    hsl(300 90% 65% / 0.45) 85%,
+    hsl(0   90% 65% / 0.45) 100%
+  );
+  background-size: 200% 200%;
+  mix-blend-mode: color-dodge;
+  animation: foilShimmer 2s linear infinite;
+}

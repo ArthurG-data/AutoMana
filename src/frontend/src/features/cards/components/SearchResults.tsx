@@ -118,6 +118,7 @@ export function SearchResults({
           hue={(i * 47) % 360}
           label={false}
           imageUrl={card.image_normal}
+          finish={card.finish}
         />
         <div className={styles.cardInfo}>
           <div className={styles.cardName}>{card.card_name}</div>
