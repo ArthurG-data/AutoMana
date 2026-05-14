@@ -1,6 +1,6 @@
 ﻿import secrets
 from typing import Optional, List, Dict
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from datetime import datetime, timedelta
 from uuid import UUID
 from enum import Enum, auto
@@ -125,21 +125,25 @@ class CreateAppRequest(BaseModel):
     environment: EnvironmentSettings = EnvironmentSettings.SANDBOX
     ebay_app_id: str
     client_secret: str
-    redirect_uri: str
+    ru_name: str
     response_type: str = "code"
     allowed_scopes: List[str]
     user_requirements: List[str] = ["premium"]
-    app_code: str
+    app_code: str = ""
 
-    @staticmethod
-    def generate_random_code() -> str:
-        adjective = secrets.choice(_ADJECTIVES)
-        noun = secrets.choice(_NOUNS)
-        number = f"{secrets.randbelow(1000):03d}"  # 000-999
-        return f"{adjective}_{noun}_{number}"
+    @field_validator("environment", mode="before")
+    @classmethod
+    def normalize_environment(cls, v):
+        if isinstance(v, str):
+            return v.upper()
+        return v
 
     @model_validator(mode="after")
-    def _ensure_app_code(self):
+    def ensure_app_code(self) -> "CreateAppRequest":
         if not self.app_code:
-            self.app_code = self.generate_random_code()
+            adjective = secrets.choice(_ADJECTIVES)
+            noun = secrets.choice(_NOUNS)
+            number = f"{secrets.randbelow(1000):03d}"
+            self.app_code = f"{adjective}_{noun}_{number}"
         return self
+
