@@ -85,6 +85,16 @@ async def run_metric_report(
             result = await _invoke_metric(config, candidate_kwargs)
         except Exception as exc:  # noqa: BLE001 — one bad metric must not take the report down
             logger.exception("metric_invocation_failed", extra={"metric": config.path})
+            # A timed-out or errored query can leave the PostgreSQL session in an
+            # aborted-transaction state (InFailedSQLTransactionError).  All repos
+            # share a single connection, so one ROLLBACK clears it for the rest.
+            for val in candidate_kwargs.values():
+                if hasattr(val, "connection"):
+                    try:
+                        await val.connection.execute("ROLLBACK")
+                    except Exception:  # noqa: BLE001
+                        pass
+                    break
             rows.append({
                 "check_name": config.path,
                 "severity": Severity.ERROR.value,
