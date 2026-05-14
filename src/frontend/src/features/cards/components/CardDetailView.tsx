@@ -32,6 +32,7 @@ export function CardDetailView({ card }: CardDetailViewProps) {
           w={320}
           frontUrl={card.image_large ?? null}
           backUrl={backUrl}
+          finish={selectedFinish}
         />
         <div className={styles.actions}>
           <Button variant="accent" style={{ width: '100%', justifyContent: 'center' }}>+ Add to collection</Button>

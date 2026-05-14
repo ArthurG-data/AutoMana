@@ -1,5 +1,6 @@
 // src/frontend/src/components/design-system/CardArt.tsx
-import React from 'react'
+import React, { useCallback } from 'react'
+import styles from './CardArt.module.css'
 
 interface CardArtProps {
   name: string
@@ -8,7 +9,19 @@ interface CardArtProps {
   hue?: number
   label?: boolean
   imageUrl?: string | null
+  finish?: string
   style?: React.CSSProperties
+}
+
+function finishOverlayClass(finish: string | undefined): string | null {
+  switch (finish) {
+    case 'foil': return styles.foil
+    case 'etched': return styles.etched
+    case 'surge_foil': return styles.surgeFoil
+    case 'ripple_foil': return styles.rippleFoil
+    case 'rainbow_foil': return styles.rainbowFoil
+    default: return null
+  }
 }
 
 export function CardArt({
@@ -18,8 +31,20 @@ export function CardArt({
   hue = 30,
   label = true,
   imageUrl = null,
+  finish,
   style = {},
 }: CardArtProps) {
+  const overlayClass = finishOverlayClass(finish)
+
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!overlayClass) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const mx = ((e.clientX - rect.left) / rect.width) * 100
+    const my = ((e.clientY - rect.top) / rect.height) * 100
+    e.currentTarget.style.setProperty('--mx', `${mx}%`)
+    e.currentTarget.style.setProperty('--my', `${my}%`)
+  }, [overlayClass])
+
   const seed = (name || 'card').split('').reduce((a, c) => a + c.charCodeAt(0), 0)
   const stripeShift = (seed % 12) - 6
   const h2 = (hue + stripeShift + 360) % 360
@@ -35,6 +60,7 @@ export function CardArt({
   if (imageUrl) {
     return (
       <div
+        onMouseMove={handleMouseMove}
         style={{
           width: w,
           borderRadius: 6,
@@ -54,6 +80,9 @@ export function CardArt({
             objectFit: 'cover',
           }}
         />
+        {overlayClass && (
+          <div className={`${styles.overlay} ${overlayClass}`} />
+        )}
       </div>
     )
   }
