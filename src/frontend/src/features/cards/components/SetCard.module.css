@@ -58,23 +58,19 @@
   z-index: 1;
 }
 
-.iconImg {
+.iconMask {
   width: 48px;
   height: 48px;
-  object-fit: contain;
   flex-shrink: 0;
   position: relative;
   z-index: 2;
-}
-
-.iconFallback {
-  width: 40px;
-  height: 40px;
-  opacity: 0.25;
-  color: var(--hd-muted);
-  flex-shrink: 0;
-  position: relative;
-  z-index: 2;
+  background-color: var(--hd-sub);
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
 }
 
 .setName {
@@ -162,12 +158,7 @@
   background: linear-gradient(160deg, var(--hd-surface) 0%, rgba(var(--hd-blue-rgb), 0.06) 100%);
 }
 
-.childCard .iconImg {
+.childCard .iconMask {
   width: 32px;
   height: 32px;
-}
-
-.childCard .iconFallback {
-  width: 28px;
-  height: 28px;
 }
