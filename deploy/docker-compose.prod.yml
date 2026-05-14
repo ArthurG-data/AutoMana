@@ -189,6 +189,31 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: automana-ollama-prod
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - backend-network
+    entrypoint: >
+      sh -c "ollama serve & sleep 5 && ollama pull qwen3:30b-a3b && wait"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 300s
+
 networks:
   frontend-network:  # nginx <-> backend
     driver: bridge
@@ -199,3 +224,4 @@ volumes:
   redis-data:
   redis-config:
   flower-data-prod:
+  ollama_data:
