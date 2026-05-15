@@ -3,6 +3,7 @@ import { createRootRouteWithContext, Outlet, redirect, useNavigate } from '@tans
 import { useEffect, useRef } from 'react'
 import type { QueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../store/auth'
+import { ChatBubble } from '../features/ai/components/ChatBubble'
 
 interface RouterContext {
   queryClient: QueryClient
@@ -26,7 +27,12 @@ function RootComponent() {
     prevTokenRef.current = token
   }, [token, navigate])
 
-  return <Outlet />
+  return (
+    <>
+      <Outlet />
+      <ChatBubble />
+    </>
+  )
 }
 
 export const Route = createRootRouteWithContext<RouterContext>()({
