@@ -40,11 +40,23 @@ class OpenTCGAPIRepository(BaseApiClient):
         return data if isinstance(data, list) else data.get("sets", [])
 
     async def get_set_skus(self, set_id: int) -> list[dict]:
-        """GET /1/sets/{set_id}/skus — SKU-level condition/finish/language prices."""
+        """GET /1/sets/{set_id}/skus — SKU-level condition/finish/language prices.
+
+        Response shape: {"products": {"<product_id>": {"<sku_id>": {cnd, var, lng, mkt, low, hi}}}}
+        Flattened to: [{"product_id": str, "cnd": ..., "var": ..., ...}, ...]
+        """
         response = await self.send("GET", f"/{_MTG_CATEGORY}/sets/{set_id}/skus")
         response.raise_for_status()
         data = response.json()
-        return data if isinstance(data, list) else data.get("skus", [])
+        products = data.get("products", {}) if isinstance(data, dict) else {}
+        rows: list[dict] = []
+        for product_id, skus in products.items():
+            if not isinstance(skus, dict):
+                continue
+            for sku in skus.values():
+                if isinstance(sku, dict):
+                    rows.append({"product_id": product_id, **sku})
+        return rows
 
     async def get_set_pricing(self, set_id: int) -> dict[str, Any]:
         """GET /1/sets/{set_id}/pricing — Manapool pricing for the set."""
