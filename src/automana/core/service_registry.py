@@ -274,6 +274,10 @@ ServiceRegistry.register_api_repository(
 )
 
 ServiceRegistry.register_api_repository(
+    "open_tcg", "automana.core.repositories.app_integration.open_tcg.ApiOpenTCG_repository", "OpenTCGAPIRepository"
+)
+
+ServiceRegistry.register_api_repository(
     "ollama",
     "automana.core.repositories.ai.ollama_repository",
     "OllamaAPIRepository",

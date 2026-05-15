@@ -25,6 +25,7 @@ def daily_scryfall_data_pipeline(self):
         run_service.s("card_catalog.set.process_large_sets_json"), 
         run_service.s("staging.scryfall.download_cards_bulk"),
         run_service.s("card_catalog.card.process_large_json"),
+        run_service.s("staging.scryfall.load_prices_from_bulk"),
         run_service.s("card_catalog.card_search.refresh"),
         run_service.s("card_catalog.card_search.invalidate"),
         # Migrations must land AFTER the card import: `new_scryfall_id` values
@@ -133,6 +134,25 @@ def daily_mtgjson_data_pipeline(self):
         # the tracked run so cleanup failures surface as a failed step
         # (rather than silently accumulating stale files).
         run_service.s("staging.mtgjson.cleanup_raw_files"),
+        run_service.s("ops.pipeline_services.finish_run", status="success"),
+    )
+    return wf.apply_async().id
+
+
+@shared_task(name="open_tcg_pricing_pipeline", bind=True)
+def open_tcg_pricing_pipeline(self):
+    set_task_id(self.request.id)
+    run_key = f"opentcg_pricing:{datetime.utcnow().date().isoformat()}"
+    logger.info("Starting Open TCG pricing pipeline", extra={"run_key": run_key})
+    wf = chain(
+        run_service.s(
+            "ops.pipeline_services.start_run",
+            pipeline_name="opentcg_pricing",
+            source_name="tcgtracking",
+            run_key=run_key,
+            celery_task_id=self.request.id,
+        ),
+        run_service.s("pricing.opentcg.load_prices"),
         run_service.s("ops.pipeline_services.finish_run", status="success"),
     )
     return wf.apply_async().id

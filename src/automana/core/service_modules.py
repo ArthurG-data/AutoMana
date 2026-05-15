@@ -24,6 +24,8 @@ SERVICE_MODULES : dict[str, list[str]]= {
             "automana.core.services.ops.pipeline_services",
             "automana.core.services.ops.metrics_service",
             "automana.core.services.app_integration.scryfall.data_loader",
+            "automana.core.services.app_integration.scryfall.price_loader",
+            "automana.core.services.app_integration.open_tcg.data_loader",
             "automana.core.services.app_integration.mtg_stock.data_loader",
             "automana.core.services.app_integration.mtg_stock.data_staging",
             "automana.core.services.app_integration.mtgjson.data_loader",
@@ -35,6 +37,7 @@ SERVICE_MODULES : dict[str, list[str]]= {
             "automana.core.services.ops.tier_health_service",
             "automana.core.services.ops.scryfall_identifier_audit",
             "automana.core.services.pricing.pricing_aggregation",
+            "automana.core.services.pricing.card_prices_service",
         ],
 
     "celery": [
@@ -43,6 +46,8 @@ SERVICE_MODULES : dict[str, list[str]]= {
             "automana.core.services.ops.pipeline_services",
             "automana.core.services.ops.metrics_service",
             "automana.core.services.app_integration.scryfall.data_loader",
+            "automana.core.services.app_integration.scryfall.price_loader",
+            "automana.core.services.app_integration.open_tcg.data_loader",
             "automana.core.services.app_integration.mtg_stock.data_loader",
             "automana.core.services.app_integration.mtg_stock.data_staging",
             "automana.core.services.analytics.reporting_services",
@@ -59,6 +64,7 @@ SERVICE_MODULES : dict[str, list[str]]= {
             "automana.core.services.ops.tier_health_service",
             "automana.core.services.ops.scryfall_identifier_audit",
             "automana.core.services.pricing.pricing_aggregation",
+            "automana.core.services.pricing.card_prices_service",
         ],
     "all" : [
             "automana.api.services.auth.auth_service",
@@ -85,6 +91,8 @@ SERVICE_MODULES : dict[str, list[str]]= {
             "automana.core.services.ops.pipeline_services",
             "automana.core.services.ops.metrics_service",
             "automana.core.services.app_integration.scryfall.data_loader",
+            "automana.core.services.app_integration.scryfall.price_loader",
+            "automana.core.services.app_integration.open_tcg.data_loader",
             "automana.core.services.app_integration.mtg_stock.data_loader",
             "automana.core.services.app_integration.mtg_stock.data_staging",
             "automana.core.services.analytics.reporting_services",
@@ -97,5 +105,6 @@ SERVICE_MODULES : dict[str, list[str]]= {
             "automana.core.services.ops.tier_health_service",
             "automana.core.services.ops.scryfall_identifier_audit",
             "automana.core.services.pricing.pricing_aggregation",
+            "automana.core.services.pricing.card_prices_service",
     ]
 }
