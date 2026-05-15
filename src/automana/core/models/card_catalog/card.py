@@ -19,6 +19,12 @@ class BaseCard(BaseModel):
     oracle_text: Optional[str] = Field(default="", title="The text on the card")
     digital: bool = Field(title="Is the card released only on digital platform")
     image_normal: Optional[str] = Field(default=None, title="URL to normal-sized card image from Scryfall")
+    price: Optional[float] = Field(default=None, title="Current list average price in USD (NONFOIL NM, avg across sources)")
+    price_change_1d: float = Field(default=0.0, title="1-day price change percentage")
+    price_change_7d: float = Field(default=0.0, title="7-day price change percentage")
+    price_change_30d: float = Field(default=0.0, title="30-day price change percentage")
+    spark: List[float] = Field(default_factory=list, title="Recent price points for sparkline (ascending)")
+    finish: str = Field(default="non-foil", title="Card finish (non-foil, foil, etched)")
 
     @staticmethod
     def to_json_safe(data):
