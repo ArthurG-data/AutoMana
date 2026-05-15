@@ -208,11 +208,11 @@ services:
               count: all
               capabilities: [gpu]
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:11434/api/tags > /dev/null || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 300s
+      start_period: 60s
 
 networks:
   frontend-network:  # nginx <-> backend
