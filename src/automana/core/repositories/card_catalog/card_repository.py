@@ -884,6 +884,37 @@ class CardReferenceRepository(AbstractRepository[Any]):
         rows = await self.execute_query(query, ())
         return dict(rows[0]) if rows else {"total_card_versions": 0, "total_unique_cards": 0}
 
+    async def update_purchase_uris_batch(
+        self, rows: list[dict]  # [{scryfall_id, purchase_uris}]
+    ) -> int:
+        """Bulk-update purchase_uris on card_version rows identified by scryfall_id.
+
+        Returns the number of rows updated.
+        """
+        if not rows:
+            return 0
+
+        scryfall_ids = [r["scryfall_id"] for r in rows]
+        uri_jsons = [json.dumps(r["purchase_uris"]) for r in rows]
+
+        sql = """
+UPDATE card_catalog.card_version cv
+SET
+    purchase_uris = v.uris::jsonb,
+    updated_at = now()
+FROM unnest($1::text[], $2::text[]) AS v(scryfall_id, uris)
+JOIN card_catalog.card_external_identifier ei ON ei.value = v.scryfall_id
+JOIN card_catalog.card_identifier_ref ir ON ir.card_identifier_ref_id = ei.card_identifier_ref_id
+    AND ir.identifier_name = 'scryfall_id'
+WHERE cv.card_version_id = ei.card_version_id
+"""
+        status = await self.connection.execute(sql, scryfall_ids, uri_jsons)
+        # status is like "UPDATE N"
+        try:
+            return int(status.split()[-1])
+        except (IndexError, ValueError):
+            return len(rows)
+
     async def fetch_orphan_unique_cards_count(self) -> int:
         """COUNT of unique_cards_ref rows with zero card_version children.
 

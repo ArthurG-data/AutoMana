@@ -7,6 +7,81 @@ from automana.core.repositories.abstract_repositories.AbstractDBRepository impor
 logger = logging.getLogger(__name__)
 
 
+_RESOLVE_SCRYFALL_IDS_SQL = """
+SELECT
+    ei.value AS scryfall_id,
+    ei.card_version_id,
+    mcp.product_id
+FROM card_catalog.card_external_identifier ei
+JOIN card_catalog.card_identifier_ref ir USING (card_identifier_ref_id)
+LEFT JOIN pricing.mtg_card_products mcp USING (card_version_id)
+WHERE ir.identifier_name = 'scryfall_id'
+AND ei.value = ANY($1::text[])
+"""
+
+_INSERT_PRODUCT_SQL = """
+WITH new_prod AS (
+    INSERT INTO pricing.product_ref (game_id)
+    VALUES ((SELECT game_id FROM card_catalog.card_games_ref WHERE code = 'mtg'))
+    RETURNING product_id
+)
+INSERT INTO pricing.mtg_card_products (product_id, card_version_id)
+SELECT product_id, $1 FROM new_prod
+ON CONFLICT (card_version_id) DO NOTHING
+RETURNING product_id
+"""
+
+_GET_EXISTING_PRODUCT_SQL = """
+SELECT product_id FROM pricing.mtg_card_products WHERE card_version_id = $1
+"""
+
+_ENSURE_SOURCE_PRODUCT_SQL = """
+INSERT INTO pricing.source_product (product_id, source_id)
+SELECT
+    v.product_id::uuid,
+    ps.source_id
+FROM unnest($1::uuid[], $2::text[]) AS v(product_id, source_code)
+JOIN pricing.price_source ps ON ps.code = v.source_code
+ON CONFLICT (product_id, source_id) DO NOTHING
+"""
+
+_FETCH_SOURCE_PRODUCT_IDS_SQL = """
+SELECT sp.source_product_id, sp.product_id, ps.code AS source_code
+FROM pricing.source_product sp
+JOIN pricing.price_source ps USING (source_id)
+WHERE sp.product_id = ANY($1::uuid[])
+AND ps.code = ANY($2::text[])
+"""
+
+_UPSERT_PRICE_OBSERVATION_SQL = """
+INSERT INTO pricing.price_observation (
+    ts_date, source_product_id, price_type_id, finish_id,
+    condition_id, language_id, data_provider_id, list_avg_cents, scraped_at
+)
+SELECT
+    $1::date,
+    v.source_product_id,
+    tt.transaction_type_id,
+    cf.finish_id,
+    cc.condition_id,
+    lr.language_id,
+    dp.data_provider_id,
+    v.price_cents,
+    now()
+FROM unnest($2::bigint[], $3::text[], $4::int[]) AS v(source_product_id, finish_code, price_cents)
+JOIN pricing.transaction_type tt ON tt.code = 'sell'
+JOIN card_catalog.card_finished cf ON cf.code = v.finish_code
+JOIN pricing.card_condition cc ON cc.code = 'NM'
+JOIN card_catalog.language_ref lr ON lr.language_code = 'en'
+JOIN pricing.data_provider dp ON dp.code = 'scryfall'
+ON CONFLICT (ts_date, source_product_id, price_type_id, finish_id, condition_id, language_id, data_provider_id)
+DO UPDATE SET
+    list_avg_cents = EXCLUDED.list_avg_cents,
+    scraped_at = EXCLUDED.scraped_at,
+    updated_at = now()
+"""
+
+
 class PricingTierRepository(AbstractRepository):
     """Repository for pricing tier aggregation procedures."""
 
@@ -82,6 +157,115 @@ class PricingTierRepository(AbstractRepository):
                 extra={"older_than_interval": older_than_interval, "error": str(e)},
             )
             raise
+
+    async def upsert_scryfall_price_batch(
+        self,
+        rows: list[dict],  # [{scryfall_id, source_code, finish_code, price_cents}]
+        ts_date: date,
+    ) -> int:
+        """Upsert a batch of Scryfall prices into pricing.price_observation.
+
+        Steps:
+          1. Resolve scryfall_ids → card_version_id + existing product_id.
+          2. For cards with no product_id: create product_ref + mtg_card_products.
+          3. Ensure source_product rows exist for all (product_id, source_code) pairs.
+          4. Fetch source_product_ids.
+          5. UPSERT into price_observation.
+
+        Returns the number of rows upserted.
+        """
+        if not rows:
+            return 0
+
+        scryfall_ids = list({r["scryfall_id"] for r in rows})
+
+        # Step 1 — Resolve scryfall_ids → card_version_id + product_id
+        resolved = await self.connection.fetch(_RESOLVE_SCRYFALL_IDS_SQL, scryfall_ids)
+
+        # Build lookup: scryfall_id → {card_version_id, product_id}
+        scryfall_to_meta: dict[str, dict] = {}
+        for rec in resolved:
+            scryfall_to_meta[rec["scryfall_id"]] = {
+                "card_version_id": rec["card_version_id"],
+                "product_id": rec["product_id"],
+            }
+
+        # Step 2 — For cards with no product_id: create product_ref + mtg_card_products
+        for sid, meta in scryfall_to_meta.items():
+            if meta["product_id"] is not None:
+                continue
+            cv_id = meta["card_version_id"]
+            returning = await self.connection.fetch(_INSERT_PRODUCT_SQL, cv_id)
+            if returning:
+                meta["product_id"] = returning[0]["product_id"]
+            else:
+                # ON CONFLICT DO NOTHING — fetch existing
+                row = await self.connection.fetchrow(_GET_EXISTING_PRODUCT_SQL, cv_id)
+                if row:
+                    meta["product_id"] = row["product_id"]
+
+        # Step 3 — Ensure source_product rows exist
+        # Build parallel arrays of (product_id, source_code) for all batch rows
+        # where we have a resolved product_id.
+        sp_product_ids: list = []
+        sp_source_codes: list = []
+        for r in rows:
+            meta = scryfall_to_meta.get(r["scryfall_id"])
+            if meta and meta["product_id"] is not None:
+                sp_product_ids.append(str(meta["product_id"]))
+                sp_source_codes.append(r["source_code"])
+
+        if not sp_product_ids:
+            return 0
+
+        await self.connection.execute(
+            _ENSURE_SOURCE_PRODUCT_SQL, sp_product_ids, sp_source_codes
+        )
+
+        # Step 4 — Fetch source_product_ids
+        unique_product_ids = list({str(pid) for pid in sp_product_ids})
+        unique_source_codes = list({sc for sc in sp_source_codes})
+        sp_rows = await self.connection.fetch(
+            _FETCH_SOURCE_PRODUCT_IDS_SQL, unique_product_ids, unique_source_codes
+        )
+
+        # Build lookup: (product_id_str, source_code) → source_product_id
+        sp_lookup: dict[tuple, int] = {}
+        for sp in sp_rows:
+            sp_lookup[(str(sp["product_id"]), sp["source_code"])] = sp["source_product_id"]
+
+        # Step 5 — UPSERT into price_observation
+        obs_source_product_ids: list[int] = []
+        obs_finish_codes: list[str] = []
+        obs_price_cents: list[int] = []
+
+        for r in rows:
+            meta = scryfall_to_meta.get(r["scryfall_id"])
+            if not meta or meta["product_id"] is None:
+                continue
+            key = (str(meta["product_id"]), r["source_code"])
+            sp_id = sp_lookup.get(key)
+            if sp_id is None:
+                continue
+            obs_source_product_ids.append(sp_id)
+            obs_finish_codes.append(r["finish_code"])
+            obs_price_cents.append(r["price_cents"])
+
+        if not obs_source_product_ids:
+            return 0
+
+        status = await self.connection.execute(
+            _UPSERT_PRICE_OBSERVATION_SQL,
+            ts_date,
+            obs_source_product_ids,
+            obs_finish_codes,
+            obs_price_cents,
+        )
+        # status is like "INSERT 0 N"
+        try:
+            return int(status.split()[-1])
+        except (IndexError, ValueError):
+            return len(obs_source_product_ids)
 
     async def execute_procedure(self, proc_name: str, args: tuple) -> None:
         """
