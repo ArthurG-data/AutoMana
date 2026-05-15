@@ -43,3 +43,42 @@ async def get_pending_action(
     item_id: str,
 ) -> Optional[dict]:
     return await listing_actions_repository.get_pending_for_item(item_id)
+
+
+@ServiceRegistry.register(
+    path="integrations.ebay.actions.drain",
+    db_repositories=["listing_actions"],
+    runs_in_transaction=False,  # each action commits independently
+)
+async def drain_pending_actions(
+    listing_actions_repository,
+    limit: int = 50,
+) -> dict:
+    rows = await listing_actions_repository.get_pending(limit=limit)
+    processed = 0
+    failed = 0
+    for row in rows:
+        action_id = row["id"]
+        try:
+            await listing_actions_repository.mark_processing(action_id)
+            # NOTE: actual eBay API call would go here in a future task
+            # For now, log the intended action and mark done
+            logger.info(
+                "action_processed",
+                extra={
+                    "action_id": str(action_id),
+                    "item_id": row["item_id"],
+                    "action_type": row["action_type"],
+                    "suggested_price": row.get("suggested_price"),
+                },
+            )
+            await listing_actions_repository.mark_done(action_id)
+            processed += 1
+        except Exception as exc:
+            await listing_actions_repository.mark_failed(action_id, str(exc))
+            logger.warning(
+                "action_failed",
+                extra={"action_id": str(action_id), "error": str(exc)},
+            )
+            failed += 1
+    return {"processed": processed, "failed": failed}
