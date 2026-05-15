@@ -111,66 +111,70 @@ async def bulk_load(price_repository: PriceRepository,
             except Exception as exc:
                 return folder, None, None, exc
 
-    pbar = tqdm(total=len(folders), desc="Processing MTG Stock folders")
+    with tqdm(total=len(folders), desc="Processing MTG Stock folders") as pbar:
+        async with track_step(ops_repository, ingestion_run_id, step_name):
+            chunk_start_idx = 0
+            for chunk in itertools.batched(folders, batch_size):
+                price_rows: list = []
+                folder_errors = 0
+                ids_master_dict: dict = {}
 
-    async with track_step(ops_repository, ingestion_run_id, step_name):
-        chunk_start_idx = 0
-        for chunk in itertools.batched(folders, batch_size):
-            price_rows: list = []
-            folder_errors = 0
-            ids_master_dict: dict = {}
+                tasks = [_process_folder(f) for f in chunk]
+                for coro in asyncio.as_completed(tasks):
+                    folder_name, price_df, id_dict, error = await coro
+                    if error is not None:
+                        folder_errors += 1
+                        logger.warning(
+                            "Error processing folder",
+                            extra={
+                                "folder": folder_name,
+                                "error": str(error),
+                                "error_type": type(error).__name__,
+                            },
+                        )
+                    else:
+                        price_rows.append(price_df)
+                        ids_master_dict[id_dict["mtgstock"]] = {
+                            k: v for k, v in id_dict.items() if k != "mtgstock"
+                        }
+                    pbar.update(1)
 
-            tasks = [_process_folder(f) for f in chunk]
-            for coro in asyncio.as_completed(tasks):
-                folder_name, price_df, id_dict, error = await coro
-                if error is not None:
-                    folder_errors += 1
-                    logger.warning("Error processing folder", extra={"folder": folder_name, "error": str(error)})
-                else:
-                    price_rows.append(price_df)
-                    ids_master_dict[id_dict["mtgstock"]] = {
-                        k: v for k, v in id_dict.items() if k != "mtgstock"
-                    }
-                pbar.update(1)
+                chunk_end_idx = chunk_start_idx + len(chunk)
 
-            chunk_end_idx = chunk_start_idx + len(chunk)
-
-            if price_rows:
-                big_price_df = pd.concat(price_rows, ignore_index=True)
-                start = time.perf_counter()
-                if ingestion_run_id is not None:
-                    await ops_repository.update_run(
-                        ingestion_run_id=ingestion_run_id, current_step=step_name, status="running"
+                if price_rows:
+                    big_price_df = pd.concat(price_rows, ignore_index=True)
+                    start = time.perf_counter()
+                    if ingestion_run_id is not None:
+                        await ops_repository.update_run(
+                            ingestion_run_id=ingestion_run_id, current_step=step_name, status="running"
+                        )
+                    await price_repository.copy_prices_mtgstock(big_price_df)
+                    if ingestion_run_id is not None:
+                        await ops_repository.update_ids_master_dict(
+                            ingestion_run_id=ingestion_run_id, ids_master_dict=ids_master_dict
+                        )
+                    elapsed = time.perf_counter() - start
+                    batch_result = MTGStockBatchStep(
+                        ingestion_run_id=ingestion_run_id,
+                        step_name=step_name,
+                        batch_seq=batch_number,
+                        range_start=chunk_start_idx,
+                        range_end=chunk_end_idx,
+                        total_in_batch=len(big_price_df),
+                        items_ok=len(price_rows),   # folder count; items_failed also counts folders
+                        items_failed=folder_errors,
+                        status="success" if folder_errors == 0 else "partial",
+                        bytes_processed=int(big_price_df.memory_usage(deep=True).sum()),
+                        duration_ms=int(elapsed * 1000),
                     )
-                await price_repository.copy_prices_mtgstock(big_price_df)
-                if ingestion_run_id is not None:
-                    await ops_repository.update_ids_master_dict(
-                        ingestion_run_id=ingestion_run_id, ids_master_dict=ids_master_dict
+                    await ops_repository.insert_batch_step(batch_result)
+                    batch_number += 1
+                    logger.info(
+                        "copy_prices batch complete",
+                        extra={"elapsed_s": round(elapsed, 3), "rows": len(big_price_df)},
                     )
-                elapsed = time.perf_counter() - start
-                batch_result = MTGStockBatchStep(
-                    ingestion_run_id=ingestion_run_id,
-                    step_name=step_name,
-                    batch_seq=batch_number,
-                    range_start=chunk_start_idx,
-                    range_end=chunk_end_idx,
-                    total_in_batch=len(big_price_df),
-                    items_ok=len(big_price_df),
-                    items_failed=folder_errors,
-                    status="success" if folder_errors == 0 else "partial",
-                    bytes_processed=int(big_price_df.memory_usage(deep=True).sum()),
-                    duration_ms=int(elapsed * 1000),
-                )
-                await ops_repository.insert_batch_step(batch_result)
-                batch_number += 1
-                logger.info(
-                    "copy_prices batch complete",
-                    extra={"elapsed_s": round(elapsed, 3), "rows": len(big_price_df)},
-                )
 
-            chunk_start_idx = chunk_end_idx
-
-    pbar.close()
+                chunk_start_idx = chunk_end_idx
 
 @ServiceRegistry.register(
     path="mtg_stock.data_staging.from_raw_to_staging",
