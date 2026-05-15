@@ -1,8 +1,20 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ListingDetailPanel } from '../ListingDetailPanel'
 import type { EbayLiveListing } from '../../mockListings'
+
+// Mock the api module so fetchRecommendation and stageAction are controllable
+vi.mock('../../api', () => ({
+  fetchRecommendation: vi.fn(),
+  stageAction: vi.fn(),
+}))
+
+// Import after mock so we get the mocked versions
+import * as api from '../../api'
+
+const mockFetchRecommendation = vi.mocked(api.fetchRecommendation)
+const mockStageAction = vi.mocked(api.stageAction)
 
 function makeListing(overrides: Partial<EbayLiveListing> = {}): EbayLiveListing {
   return {
@@ -25,6 +37,29 @@ function makeListing(overrides: Partial<EbayLiveListing> = {}): EbayLiveListing 
     ...overrides,
   }
 }
+
+const makeRecommendation = () => ({
+  item_id: 'l1',
+  suggested_action: 'raise' as const,
+  strategy_kind: 'balanced',
+  suggested_price: 59.99,
+  confidence: 0.82,
+  signals_used: 'market' as const,
+  all_strategies: {
+    quick: { price: 49.5, description: 'Quick sale', confidence: 0.7 },
+    balanced: { price: 55.0, description: 'Balanced', confidence: 0.82 },
+    max: { price: 62.0, description: 'Max return', confidence: 0.6 },
+  },
+})
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  // Default: never resolves — keeps existing tests free of act() warnings from async
+  // state updates that fire after the test assertion has already completed.
+  // Individual tests that need a resolved recommendation override this per-test.
+  mockFetchRecommendation.mockReturnValue(new Promise(() => {}))
+  mockStageAction.mockResolvedValue({ action_id: 'act-1', created: true })
+})
 
 describe('ListingDetailPanel', () => {
   it('renders card name, price, condition, and watchers', () => {
@@ -106,5 +141,72 @@ describe('ListingDetailPanel', () => {
       />
     )
     expect(screen.getByRole('link', { name: /view/i })).toHaveAttribute('href', 'https://www.ebay.com.au/itm/l1')
+  })
+
+  // ── Strategy Advisor tests ────────────────────────────────────────────────
+
+  it('shows "Loading recommendation..." while fetch is in flight', () => {
+    // Default mock never resolves — simulates a fetch in flight
+    render(
+      <ListingDetailPanel
+        listing={makeListing()}
+        onEdit={vi.fn()}
+        onClose={vi.fn()}
+        onCompare={vi.fn()}
+      />
+    )
+
+    expect(screen.getByText('Loading recommendation...')).toBeInTheDocument()
+  })
+
+  it('renders SignalBadge with correct action once recommendation loads', async () => {
+    mockFetchRecommendation.mockResolvedValue(makeRecommendation())
+
+    render(
+      <ListingDetailPanel
+        listing={makeListing()}
+        onEdit={vi.fn()}
+        onClose={vi.fn()}
+        onCompare={vi.fn()}
+      />
+    )
+
+    // Wait for recommendation to appear — SignalBadge renders span with title="raise"
+    await waitFor(() => {
+      expect(screen.getByTitle('raise')).toBeInTheDocument()
+    })
+  })
+
+  it('clicking Stage Action calls stageAction and shows "Action queued"', async () => {
+    mockFetchRecommendation.mockResolvedValue(makeRecommendation())
+
+    render(
+      <ListingDetailPanel
+        listing={makeListing()}
+        onEdit={vi.fn()}
+        onClose={vi.fn()}
+        onCompare={vi.fn()}
+      />
+    )
+
+    // Wait for recommendation to load and Stage Action button to appear
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /stage action/i })).toBeInTheDocument()
+    })
+
+    const stageBtn = screen.getByRole('button', { name: /stage action/i })
+    expect(stageBtn).not.toBeDisabled()
+
+    await userEvent.click(stageBtn)
+
+    expect(mockStageAction).toHaveBeenCalledWith('app1', 'l1', {
+      action_type: 'raise',
+      strategy_kind: 'balanced',
+      suggested_price: 59.99,
+    })
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/action queued/i).length).toBeGreaterThan(0)
+    })
   })
 })
