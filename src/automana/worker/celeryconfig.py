@@ -131,6 +131,13 @@ beat_schedule = {
         "task": "automana.worker.tasks.ebay_actions.drain_listing_actions_task",
         "schedule": crontab(minute="*/5"),
     },
+    # Open TCG API pricing (tcgtracking.com): SKU-level TCGPlayer market+low prices.
+    # API refreshes at 08:00 EST (23:00 AEST). Run at 01:00 AEST — after the
+    # daily cache refresh but before the Scryfall pipeline at 02:00 AEST.
+    "open-tcg-pricing-daily": {
+        "task": "automana.worker.tasks.pipelines.open_tcg_pricing_pipeline",
+        "schedule": crontab(hour=1, minute=0),  # 01:00 AEST
+    },
 }
 
 

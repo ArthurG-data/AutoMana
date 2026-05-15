@@ -19,22 +19,6 @@ WHERE ir.identifier_name = 'scryfall_id'
 AND ei.value = ANY($1::text[])
 """
 
-_INSERT_PRODUCT_SQL = """
-WITH new_prod AS (
-    INSERT INTO pricing.product_ref (game_id)
-    VALUES ((SELECT game_id FROM card_catalog.card_games_ref WHERE code = 'mtg'))
-    RETURNING product_id
-)
-INSERT INTO pricing.mtg_card_products (product_id, card_version_id)
-SELECT product_id, $1 FROM new_prod
-ON CONFLICT (card_version_id) DO NOTHING
-RETURNING product_id
-"""
-
-_GET_EXISTING_PRODUCT_SQL = """
-SELECT product_id FROM pricing.mtg_card_products WHERE card_version_id = $1
-"""
-
 _INSERT_PRODUCTS_BATCH_SQL = """
 WITH unlinked AS (
     SELECT cv_id
@@ -118,6 +102,74 @@ DO UPDATE SET
 """
 
 
+_GET_CARD_CURRENT_PRICES_SQL = """
+SELECT
+    ps.code          AS source,
+    cf.code          AS finish,
+    cc.code          AS condition,
+    lr.language_code AS language,
+    ppl.price_date,
+    ppl.list_avg_cents AS market_cents,
+    ppl.list_low_cents AS low_cents
+FROM pricing.print_price_latest ppl
+JOIN pricing.price_source         ps  USING (source_id)
+JOIN card_catalog.card_finished   cf  USING (finish_id)
+JOIN pricing.card_condition       cc  USING (condition_id)
+JOIN card_catalog.language_ref    lr  USING (language_id)
+WHERE ppl.card_version_id = $1
+ORDER BY ps.code, cf.code, cc.code, lr.language_code
+"""
+
+_RESOLVE_TCGPLAYER_IDS_SQL = """
+SELECT
+    ei.value AS tcgplayer_id,
+    ei.card_version_id,
+    mcp.product_id
+FROM card_catalog.card_external_identifier ei
+JOIN card_catalog.card_identifier_ref ir USING (card_identifier_ref_id)
+LEFT JOIN pricing.mtg_card_products mcp USING (card_version_id)
+WHERE ir.identifier_name = 'tcgplayer_id'
+AND ei.value = ANY($1::text[])
+"""
+
+_UPSERT_OPENTCG_PRICE_OBSERVATION_SQL = """
+INSERT INTO pricing.price_observation (
+    ts_date, source_product_id, price_type_id, finish_id,
+    condition_id, language_id, data_provider_id,
+    list_avg_cents, list_low_cents, list_count, scraped_at
+)
+SELECT
+    $1::date,
+    v.source_product_id,
+    tt.transaction_type_id,
+    cf.finish_id,
+    cc.condition_id,
+    lr.language_id,
+    dp.data_provider_id,
+    v.list_avg_cents,
+    v.list_low_cents,
+    v.list_count,
+    now()
+FROM unnest(
+    $2::bigint[], $3::text[], $4::text[], $5::text[],
+    $6::int[], $7::int[], $8::int[]
+) AS v(source_product_id, finish_code, condition_code, language_code,
+       list_avg_cents, list_low_cents, list_count)
+JOIN pricing.transaction_type tt ON tt.transaction_type_code = 'sell'
+JOIN card_catalog.card_finished cf ON cf.code = v.finish_code
+JOIN pricing.card_condition cc ON cc.code = v.condition_code
+JOIN card_catalog.language_ref lr ON lr.language_code = v.language_code
+JOIN pricing.data_provider dp ON dp.code = 'tcgtracking'
+ON CONFLICT (ts_date, source_product_id, price_type_id, finish_id, condition_id, language_id, data_provider_id)
+DO UPDATE SET
+    list_avg_cents = EXCLUDED.list_avg_cents,
+    list_low_cents = EXCLUDED.list_low_cents,
+    list_count = EXCLUDED.list_count,
+    scraped_at = EXCLUDED.scraped_at,
+    updated_at = now()
+"""
+
+
 class PricingTierRepository(AbstractRepository):
     """Repository for pricing tier aggregation procedures."""
 
@@ -127,6 +179,11 @@ class PricingTierRepository(AbstractRepository):
     @property
     def name(self) -> str:
         return "PriceRepository"
+
+    async def get_card_current_prices(self, card_version_id) -> list[dict]:
+        """Return current price entries from print_price_latest for a card."""
+        rows = await self.connection.fetch(_GET_CARD_CURRENT_PRICES_SQL, card_version_id)
+        return [dict(r) for r in rows]
 
     async def refresh_daily_prices(
         self,
@@ -228,7 +285,7 @@ class PricingTierRepository(AbstractRepository):
 
         # Step 2 — Batch-create product_ref + mtg_card_products for unlinked cards
         # Build a reverse map for efficient cv_id → scryfall_id lookup
-        cv_id_to_sid: dict = {
+        cv_id_to_sid: dict[str, str] = {
             str(meta["card_version_id"]): sid
             for sid, meta in scryfall_to_meta.items()
         }
@@ -282,8 +339,8 @@ class PricingTierRepository(AbstractRepository):
         )
 
         # Step 4 — Fetch source_product_ids
-        unique_product_ids = list({str(pid) for pid in sp_product_ids})
-        unique_source_codes = list({sc for sc in sp_source_codes})
+        unique_product_ids = list(set(sp_product_ids))
+        unique_source_codes = list(set(sp_source_codes))
         sp_rows = await self.connection.fetch(
             _FETCH_SOURCE_PRODUCT_IDS_SQL, unique_product_ids, unique_source_codes
         )
@@ -325,6 +382,131 @@ class PricingTierRepository(AbstractRepository):
             return int(status.split()[-1])
         except (IndexError, ValueError):
             return len(obs_source_product_ids)
+
+    async def upsert_opentcg_price_batch(
+        self,
+        rows: list[dict],  # [{tcgplayer_id, finish_code, condition_code, language_code, list_avg_cents, list_low_cents, list_count}]
+        ts_date: date,
+    ) -> int:
+        """Upsert a batch of Open TCG prices into pricing.price_observation.
+
+        Same 5-step approach as upsert_scryfall_price_batch, but links via
+        tcgplayer_id and supports variable condition/language/low price columns.
+        """
+        if not rows:
+            return 0
+
+        tcgplayer_ids = list({str(r["tcgplayer_id"]) for r in rows})
+
+        # Step 1 — Resolve tcgplayer_ids → card_version_id + product_id
+        resolved = await self.connection.fetch(_RESOLVE_TCGPLAYER_IDS_SQL, tcgplayer_ids)
+
+        tid_to_meta: dict[str, dict] = {}
+        for rec in resolved:
+            tid_to_meta[rec["tcgplayer_id"]] = {
+                "card_version_id": rec["card_version_id"],
+                "product_id": rec["product_id"],
+            }
+
+        # Step 2 — Batch-create product_ref + mtg_card_products for unlinked cards
+        cv_id_to_tid: dict = {
+            str(meta["card_version_id"]): tid
+            for tid, meta in tid_to_meta.items()
+        }
+
+        unlinked_cv_ids = [
+            meta["card_version_id"]
+            for meta in tid_to_meta.values()
+            if meta["product_id"] is None
+        ]
+        if unlinked_cv_ids:
+            new_rows = await self.connection.fetch(_INSERT_PRODUCTS_BATCH_SQL, unlinked_cv_ids)
+            for row in new_rows:
+                tid = cv_id_to_tid.get(str(row["card_version_id"]))
+                if tid is not None:
+                    tid_to_meta[tid]["product_id"] = row["product_id"]
+
+            still_missing = [
+                meta["card_version_id"]
+                for meta in tid_to_meta.values()
+                if meta["product_id"] is None
+            ]
+            if still_missing:
+                existing = await self.connection.fetch(_GET_PRODUCT_IDS_FOR_CARDS_SQL, still_missing)
+                cv_to_product = {str(r["card_version_id"]): r["product_id"] for r in existing}
+                for meta in tid_to_meta.values():
+                    cv_str = str(meta["card_version_id"])
+                    if meta["product_id"] is None and cv_str in cv_to_product:
+                        meta["product_id"] = cv_to_product[cv_str]
+
+        # Step 3 — Ensure source_product rows exist (tcg source only)
+        sp_product_ids: list = []
+        sp_source_codes: list = []
+        for r in rows:
+            meta = tid_to_meta.get(str(r["tcgplayer_id"]))
+            if meta and meta["product_id"] is not None:
+                sp_product_ids.append(str(meta["product_id"]))
+                sp_source_codes.append(r["source_code"])
+
+        if not sp_product_ids:
+            return 0
+
+        await self.connection.execute(_ENSURE_SOURCE_PRODUCT_SQL, sp_product_ids, sp_source_codes)
+
+        # Step 4 — Fetch source_product_ids
+        unique_product_ids = list({pid for pid in sp_product_ids})
+        unique_source_codes = list({sc for sc in sp_source_codes})
+        sp_rows = await self.connection.fetch(
+            _FETCH_SOURCE_PRODUCT_IDS_SQL, unique_product_ids, unique_source_codes
+        )
+
+        sp_lookup: dict[tuple, int] = {}
+        for sp in sp_rows:
+            sp_lookup[(str(sp["product_id"]), sp["source_code"])] = sp["source_product_id"]
+
+        # Step 5 — UPSERT into price_observation
+        obs_sp_ids: list[int] = []
+        obs_finish_codes: list[str] = []
+        obs_condition_codes: list[str] = []
+        obs_language_codes: list[str] = []
+        obs_list_avg: list[int] = []
+        obs_list_low: list[int] = []
+        obs_list_count: list[int] = []
+
+        for r in rows:
+            meta = tid_to_meta.get(str(r["tcgplayer_id"]))
+            if not meta or meta["product_id"] is None:
+                continue
+            key = (str(meta["product_id"]), r["source_code"])
+            sp_id = sp_lookup.get(key)
+            if sp_id is None:
+                continue
+            obs_sp_ids.append(sp_id)
+            obs_finish_codes.append(r["finish_code"])
+            obs_condition_codes.append(r["condition_code"])
+            obs_language_codes.append(r["language_code"])
+            obs_list_avg.append(r["list_avg_cents"])
+            obs_list_low.append(r["list_low_cents"])
+            obs_list_count.append(r.get("list_count", 0))
+
+        if not obs_sp_ids:
+            return 0
+
+        status = await self.connection.execute(
+            _UPSERT_OPENTCG_PRICE_OBSERVATION_SQL,
+            ts_date,
+            obs_sp_ids,
+            obs_finish_codes,
+            obs_condition_codes,
+            obs_language_codes,
+            obs_list_avg,
+            obs_list_low,
+            obs_list_count,
+        )
+        try:
+            return int(status.split()[-1])
+        except (IndexError, ValueError):
+            return len(obs_sp_ids)
 
     async def execute_procedure(self, proc_name: str, args: tuple) -> None:
         """

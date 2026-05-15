@@ -16,14 +16,16 @@ def _rows_to_json(rows: list[asyncpg.Record]) -> str:
 async def _search_cards(conn: asyncpg.Connection, *, query: str, limit: int = 10) -> str:
     rows = await conn.fetch(
         """
-        SELECT c.card_name, c.set_code, c.oracle_id, c.mana_cost, c.type_line
-        FROM card_catalog.cards c
-        WHERE to_tsvector('english', c.card_name || ' ' || coalesce(c.oracle_text, ''))
-              @@ plainto_tsquery('english', $1)
-        ORDER BY ts_rank(
-            to_tsvector('english', c.card_name || ' ' || coalesce(c.oracle_text, '')),
-            plainto_tsquery('english', $1)
-        ) DESC
+        SELECT DISTINCT ON (v.card_name)
+            v.card_name, v.set_code, v.mana_cost, v.type_line, v.rarity_name
+        FROM card_catalog.v_card_versions_complete v
+        WHERE v.lang = 'en'
+          AND (
+            v.search_vector @@ websearch_to_tsquery('english', $1)
+            OR v.card_name ILIKE '%' || $1 || '%'
+          )
+        ORDER BY v.card_name,
+            ts_rank_cd(v.search_vector, websearch_to_tsquery('english', $1)) DESC
         LIMIT $2
         """,
         query,
@@ -38,44 +40,33 @@ async def _get_card_prices(
     card_name: str,
     set_code: str | None = None,
 ) -> str:
+    base = """
+        SELECT ucr.card_name, s.set_code, cf.code AS finish,
+               po.list_avg_cents, po.list_low_cents, dp.code AS provider, po.ts_date
+        FROM pricing.price_observation po
+        JOIN pricing.source_product sp USING (source_product_id)
+        JOIN pricing.mtg_card_products mcp USING (product_id)
+        JOIN card_catalog.card_version cv USING (card_version_id)
+        JOIN card_catalog.unique_cards_ref ucr USING (unique_card_id)
+        JOIN card_catalog.sets s ON s.set_id = cv.set_id
+        JOIN card_catalog.card_finished cf USING (finish_id)
+        JOIN pricing.data_provider dp USING (data_provider_id)
+        WHERE ucr.card_name ILIKE $1
+    """
     if set_code:
-        rows = await conn.fetch(
-            """
-            SELECT po.card_name, po.set_code, po.price_usd, po.price_usd_foil,
-                   po.source, po.observed_at
-            FROM pricing.price_observations po
-            WHERE po.card_name ILIKE $1 AND po.set_code = $2
-            ORDER BY po.observed_at DESC
-            LIMIT 20
-            """,
-            card_name,
-            set_code,
-        )
+        rows = await conn.fetch(base + " AND s.set_code = $2 ORDER BY po.ts_date DESC LIMIT 20", card_name, set_code)
     else:
-        rows = await conn.fetch(
-            """
-            SELECT po.card_name, po.set_code, po.price_usd, po.price_usd_foil,
-                   po.source, po.observed_at
-            FROM pricing.price_observations po
-            WHERE po.card_name ILIKE $1
-            ORDER BY po.observed_at DESC
-            LIMIT 20
-            """,
-            card_name,
-        )
+        rows = await conn.fetch(base + " ORDER BY po.ts_date DESC LIMIT 20", card_name)
     return _rows_to_json(rows)
 
 
 async def _get_collection_summary(conn: asyncpg.Connection, *, user_id: str) -> str:
     rows = await conn.fetch(
         """
-        SELECT uc.set_code, COUNT(*) AS card_count,
-               SUM(uc.quantity) AS total_quantity
-        FROM user_collection.user_cards uc
-        WHERE uc.user_id = $1::uuid
-        GROUP BY uc.set_code
-        ORDER BY total_quantity DESC
-        LIMIT 50
+        SELECT COUNT(*) AS total_cards, COUNT(DISTINCT ci.unique_card_id) AS unique_cards
+        FROM user_collection.collections c
+        JOIN user_collection.collection_items ci USING (collection_id)
+        WHERE c.user_id = $1::uuid AND c.is_active = true
         """,
         user_id,
     )
@@ -131,34 +122,25 @@ async def _get_market_comps(
     card_name: str,
     condition: str | None = None,
 ) -> str:
-    if condition:
-        rows = await conn.fetch(
-            """
-            SELECT po.card_name, po.set_code, po.price_usd, po.source,
-                   po.condition, po.observed_at
-            FROM pricing.price_observations po
-            WHERE po.card_name ILIKE $1
-              AND po.source IN ('ebay_sold', 'tcgplayer_market')
-              AND po.condition = $2
-            ORDER BY po.observed_at DESC
-            LIMIT 30
-            """,
-            card_name,
-            condition,
-        )
-    else:
-        rows = await conn.fetch(
-            """
-            SELECT po.card_name, po.set_code, po.price_usd, po.source,
-                   po.condition, po.observed_at
-            FROM pricing.price_observations po
-            WHERE po.card_name ILIKE $1
-              AND po.source IN ('ebay_sold', 'tcgplayer_market')
-            ORDER BY po.observed_at DESC
-            LIMIT 30
-            """,
-            card_name,
-        )
+    rows = await conn.fetch(
+        """
+        SELECT ucr.card_name, s.set_code, cf.code AS finish,
+               po.list_avg_cents, po.list_low_cents, po.sold_avg_cents,
+               dp.code AS provider, po.ts_date
+        FROM pricing.price_observation po
+        JOIN pricing.source_product sp USING (source_product_id)
+        JOIN pricing.mtg_card_products mcp USING (product_id)
+        JOIN card_catalog.card_version cv USING (card_version_id)
+        JOIN card_catalog.unique_cards_ref ucr USING (unique_card_id)
+        JOIN card_catalog.sets s ON s.set_id = cv.set_id
+        JOIN card_catalog.card_finished cf USING (finish_id)
+        JOIN pricing.data_provider dp USING (data_provider_id)
+        WHERE ucr.card_name ILIKE $1
+        ORDER BY po.ts_date DESC
+        LIMIT 30
+        """,
+        card_name,
+    )
     return _rows_to_json(rows)
 
 

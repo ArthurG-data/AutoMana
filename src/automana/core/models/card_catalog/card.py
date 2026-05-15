@@ -149,6 +149,7 @@ class CreateCard(BaseCard):
     tcgplayer_etched_id: Optional[int]=None
     cardmarket_id: Optional[int]=None
     card_back_id: Optional[UUID] = None
+    purchase_uris: Optional[Dict[str, str]] = None
 
     @field_validator("artist", mode="after")
     @classmethod
@@ -269,6 +270,7 @@ class CreateCard(BaseCard):
             "tcgplayer_etched_id": data["tcgplayer_etched_id"],
             "cardmarket_id": data["cardmarket_id"],
             "card_back_id": data.get("card_back_id"),
+            "purchase_uris": data.get("purchase_uris"),
         }
    
     @model_validator(mode='before')

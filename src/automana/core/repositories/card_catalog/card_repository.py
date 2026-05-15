@@ -162,6 +162,13 @@ class CardReferenceRepository(AbstractRepository[Any]):
         rows = await self.execute_query(sql, (query, limit))
         return [dict(r) for r in rows]
 
+    async def get_purchase_uris(self, card_version_id) -> dict | None:
+        sql = "SELECT purchase_uris FROM card_catalog.card_version WHERE card_version_id = $1"
+        rows = await self.execute_query(sql, (card_version_id,))
+        if not rows:
+            return None
+        return rows[0]["purchase_uris"]
+
     async def get_version_by_scryfall_id(self, scryfall_id: str) -> Optional[dict]:
         sql = """
             SELECT cv.card_version_id, uc.card_name, s.set_code, cv.collector_number
@@ -885,7 +892,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
         return dict(rows[0]) if rows else {"total_card_versions": 0, "total_unique_cards": 0}
 
     async def update_purchase_uris_batch(
-        self, rows: list[dict]  # [{scryfall_id, purchase_uris}]
+        self, rows: List[dict]  # [{scryfall_id, purchase_uris}]
     ) -> int:
         """Bulk-update purchase_uris on card_version rows identified by scryfall_id.
 

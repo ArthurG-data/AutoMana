@@ -8,7 +8,7 @@ export interface PostChatMessageParams {
 }
 
 export async function postChatMessage({ message, sessionId }: PostChatMessageParams): Promise<ChatApiResponse> {
-  return apiClient<ChatApiResponse>('/ai/chat', {
+  return apiClient<ChatApiResponse>('/integrations/ai/chat', {
     method: 'POST',
     body: JSON.stringify({
       message,

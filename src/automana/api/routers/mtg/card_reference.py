@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from uuid import UUID
 from automana.api.schemas.StandardisedQueryResponse import ApiResponse, PaginatedResponse, PaginationInfo, ErrorResponse
 from automana.core.models.card_catalog.card import BaseCard, CardDetail, CardSuggestionResponse, CreateCard, CreateCards, CatalogStats
-from automana.core.models.card_catalog.price_history import PriceHistoryResponse
+from automana.core.models.card_catalog.price_history import CardPricesResponse, PriceHistoryResponse
 from automana.api.dependancies.service_deps import ServiceManagerDep
 from automana.api.dependancies.query_deps import (
     sort_params,
@@ -174,6 +174,38 @@ async def get_card_price_history(
         raise
     except Exception as e:
         logger.error("Error fetching price history", extra={"card_id": str(card_id), "error": str(e)})
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
+
+@card_reference_router.get(
+    '/{card_id}/prices',
+    summary="Get current prices and buy links for a card",
+    description=(
+        "Returns live market prices from all integrated sources (TCGPlayer via Scryfall bulk, "
+        "Open TCG API) plus marketplace buy links (purchase_uris). "
+        "Prices are sourced from `pricing.print_price_latest` — populated after each daily pipeline run."
+    ),
+    response_model=ApiResponse[CardPricesResponse],
+    operation_id="cards_get_prices",
+    responses={
+        404: {"description": "Card not found"},
+        **_CARD_ERRORS,
+    },
+)
+async def get_card_prices(
+    card_id: UUID,
+    service_manager: ServiceManagerDep,
+) -> ApiResponse[CardPricesResponse]:
+    try:
+        result = await service_manager.execute_service(
+            "pricing.card.get_prices",
+            card_version_id=card_id,
+        )
+        return ApiResponse(data=result, message="Prices retrieved successfully")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error fetching card prices", extra={"card_id": str(card_id), "error": str(e)})
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
