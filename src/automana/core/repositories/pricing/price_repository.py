@@ -35,6 +35,42 @@ _GET_EXISTING_PRODUCT_SQL = """
 SELECT product_id FROM pricing.mtg_card_products WHERE card_version_id = $1
 """
 
+_INSERT_PRODUCTS_BATCH_SQL = """
+WITH unlinked AS (
+    SELECT cv_id
+    FROM unnest($1::uuid[]) AS cv_id
+    WHERE NOT EXISTS (
+        SELECT 1 FROM pricing.mtg_card_products mcp WHERE mcp.card_version_id = cv_id
+    )
+),
+ins_product AS (
+    INSERT INTO pricing.product_ref (game_id)
+    SELECT (SELECT game_id FROM card_catalog.card_games_ref WHERE code = 'mtg')
+    FROM unlinked
+    RETURNING product_id
+),
+numbered_products AS (
+    SELECT product_id, row_number() OVER () AS rn FROM ins_product
+),
+numbered_cards AS (
+    SELECT cv_id, row_number() OVER () AS rn FROM unlinked
+),
+zipped AS (
+    SELECT np.product_id, nc.cv_id AS card_version_id
+    FROM numbered_products np JOIN numbered_cards nc USING (rn)
+)
+INSERT INTO pricing.mtg_card_products (product_id, card_version_id)
+SELECT product_id, card_version_id FROM zipped
+ON CONFLICT (card_version_id) DO NOTHING
+RETURNING product_id, card_version_id
+"""
+
+_GET_PRODUCT_IDS_FOR_CARDS_SQL = """
+SELECT mcp.card_version_id, mcp.product_id
+FROM pricing.mtg_card_products mcp
+WHERE mcp.card_version_id = ANY($1::uuid[])
+"""
+
 _ENSURE_SOURCE_PRODUCT_SQL = """
 INSERT INTO pricing.source_product (product_id, source_id)
 SELECT
@@ -69,7 +105,7 @@ SELECT
     v.price_cents,
     now()
 FROM unnest($2::bigint[], $3::text[], $4::int[]) AS v(source_product_id, finish_code, price_cents)
-JOIN pricing.transaction_type tt ON tt.code = 'sell'
+JOIN pricing.transaction_type tt ON tt.transaction_type_code = 'sell'
 JOIN card_catalog.card_finished cf ON cf.code = v.finish_code
 JOIN pricing.card_condition cc ON cc.code = 'NM'
 JOIN card_catalog.language_ref lr ON lr.language_code = 'en'
@@ -190,19 +226,42 @@ class PricingTierRepository(AbstractRepository):
                 "product_id": rec["product_id"],
             }
 
-        # Step 2 — For cards with no product_id: create product_ref + mtg_card_products
-        for sid, meta in scryfall_to_meta.items():
-            if meta["product_id"] is not None:
-                continue
-            cv_id = meta["card_version_id"]
-            returning = await self.connection.fetch(_INSERT_PRODUCT_SQL, cv_id)
-            if returning:
-                meta["product_id"] = returning[0]["product_id"]
-            else:
-                # ON CONFLICT DO NOTHING — fetch existing
-                row = await self.connection.fetchrow(_GET_EXISTING_PRODUCT_SQL, cv_id)
-                if row:
-                    meta["product_id"] = row["product_id"]
+        # Step 2 — Batch-create product_ref + mtg_card_products for unlinked cards
+        # Build a reverse map for efficient cv_id → scryfall_id lookup
+        cv_id_to_sid: dict = {
+            str(meta["card_version_id"]): sid
+            for sid, meta in scryfall_to_meta.items()
+        }
+
+        unlinked_cv_ids = [
+            meta["card_version_id"]
+            for meta in scryfall_to_meta.values()
+            if meta["product_id"] is None
+        ]
+        if unlinked_cv_ids:
+            new_rows = await self.connection.fetch(_INSERT_PRODUCTS_BATCH_SQL, unlinked_cv_ids)
+            for row in new_rows:
+                sid = cv_id_to_sid.get(str(row["card_version_id"]))
+                if sid is not None:
+                    scryfall_to_meta[sid]["product_id"] = row["product_id"]
+
+            # Some cards may have had conflicts (product already existed) — fetch their IDs
+            still_missing_cv_ids = [
+                meta["card_version_id"]
+                for meta in scryfall_to_meta.values()
+                if meta["product_id"] is None
+            ]
+            if still_missing_cv_ids:
+                existing = await self.connection.fetch(
+                    _GET_PRODUCT_IDS_FOR_CARDS_SQL, still_missing_cv_ids
+                )
+                cv_to_product = {
+                    str(row["card_version_id"]): row["product_id"] for row in existing
+                }
+                for meta in scryfall_to_meta.values():
+                    cv_str = str(meta["card_version_id"])
+                    if meta["product_id"] is None and cv_str in cv_to_product:
+                        meta["product_id"] = cv_to_product[cv_str]
 
         # Step 3 — Ensure source_product rows exist
         # Build parallel arrays of (product_id, source_code) for all batch rows
