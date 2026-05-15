@@ -330,3 +330,111 @@ class TestBulkLoadRangeFilter:
 
         calls = [c.args[0] for c in mock_info.await_args_list]
         assert not any("existing_ids.json" in c for c in calls)
+
+
+# ---------------------------------------------------------------------------
+# bulk_load — parallel processing with as_completed + semaphore
+# ---------------------------------------------------------------------------
+
+class TestBulkLoadParallel:
+
+    async def test_copy_called_once_per_batch_chunk(self):
+        """With 6 folders and batch_size=2, copy_prices_mtgstock must be
+        called exactly 3 times — one flush per chunk."""
+        price_repo = AsyncMock()
+        price_repo.clear_raw_prices.return_value = 0
+        ops_repo = AsyncMock()
+        fake_info, fake_prices = _fake_folder_fns()
+
+        with patch("os.listdir", return_value=["10", "20", "30", "40", "50", "60"]), \
+             patch(_PATCH_INFO, side_effect=fake_info), \
+             patch(_PATCH_PRICES, side_effect=fake_prices):
+            await staging.bulk_load(
+                price_repository=price_repo,
+                ops_repository=ops_repo,
+                root_folder="/fake/root",
+                batch_size=2,
+                concurrency=4,
+            )
+
+        assert price_repo.copy_prices_mtgstock.await_count == 3
+
+    async def test_insert_batch_step_called_per_chunk(self):
+        """ops_repository.insert_batch_step must be called once per chunk
+        that produces at least one successful row."""
+        price_repo = AsyncMock()
+        price_repo.clear_raw_prices.return_value = 0
+        ops_repo = AsyncMock()
+        fake_info, fake_prices = _fake_folder_fns()
+
+        with patch("os.listdir", return_value=["10", "20", "30", "40"]), \
+             patch(_PATCH_INFO, side_effect=fake_info), \
+             patch(_PATCH_PRICES, side_effect=fake_prices):
+            await staging.bulk_load(
+                price_repository=price_repo,
+                ops_repository=ops_repo,
+                root_folder="/fake/root",
+                batch_size=2,
+                concurrency=2,
+            )
+
+        assert ops_repo.insert_batch_step.await_count == 2
+
+    async def test_error_in_one_folder_does_not_cancel_others(self):
+        """If one folder's read raises, remaining folders in the same chunk
+        still produce rows and are COPYed. The error is counted but does not
+        propagate."""
+        price_repo = AsyncMock()
+        price_repo.clear_raw_prices.return_value = 0
+        ops_repo = AsyncMock()
+        _, fake_prices = _fake_folder_fns()
+
+        async def failing_info(path: str) -> dict:
+            folder = path.split("/")[-2]
+            if folder == "20":
+                raise OSError("parquet missing")
+            return {
+                "mtgstock": int(folder), "card_name": None, "set_abbr": None,
+                "collector_number": None, "cardtrader": None, "scryfallId": None,
+                "multiverse_ids": None, "tcg_id": None, "cardtrader_id": None,
+            }
+
+        with patch("os.listdir", return_value=["10", "20", "30"]), \
+             patch(_PATCH_INFO, side_effect=failing_info), \
+             patch(_PATCH_PRICES, side_effect=fake_prices):
+            await staging.bulk_load(
+                price_repository=price_repo,
+                ops_repository=ops_repo,
+                root_folder="/fake/root",
+                batch_size=10,
+                concurrency=3,
+            )
+
+        # COPY must fire — 2 successful folders produce rows.
+        price_repo.copy_prices_mtgstock.assert_awaited_once()
+        df_arg = price_repo.copy_prices_mtgstock.await_args.args[0]
+        assert len(df_arg) == 2   # one row per successful folder
+
+    async def test_concurrency_one_matches_sequential_output(self):
+        """concurrency=1 (only one folder at a time) produces the same
+        observable result as the old sequential loop: one COPY with all rows."""
+        price_repo = AsyncMock()
+        price_repo.clear_raw_prices.return_value = 0
+        ops_repo = AsyncMock()
+        fake_info, fake_prices = _fake_folder_fns()
+
+        with patch("os.listdir", return_value=["1", "2", "3"]), \
+             patch(_PATCH_INFO, side_effect=fake_info), \
+             patch(_PATCH_PRICES, side_effect=fake_prices):
+            await staging.bulk_load(
+                price_repository=price_repo,
+                ops_repository=ops_repo,
+                root_folder="/fake/root",
+                batch_size=10,
+                concurrency=1,
+            )
+
+        # All 3 folders fit in one chunk → one COPY call with 3 rows.
+        price_repo.copy_prices_mtgstock.assert_awaited_once()
+        df_arg = price_repo.copy_prices_mtgstock.await_args.args[0]
+        assert len(df_arg) == 3
