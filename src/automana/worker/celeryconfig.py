@@ -40,6 +40,8 @@ imports = {
     "automana.worker.tasks.pipelines",
     "automana.worker.tasks.analytics",
     "automana.worker.tasks.pricing",
+    "automana.worker.tasks.ebay",
+    "automana.worker.tasks.ebay_actions",
 }
 
 
@@ -123,6 +125,11 @@ beat_schedule = {
         "task": "run_service",
         "schedule": crontab(hour=8, minute=0),   # 08:00 AEST
         "kwargs": {"path": "integrations.ebay.promote_sold_obs"},
+    },
+    # Drain staging pricing actions → apply to eBay listings every 5 minutes.
+    "drain-listing-actions": {
+        "task": "automana.worker.tasks.ebay_actions.drain_listing_actions_task",
+        "schedule": crontab(minute="*/5"),
     },
 }
 

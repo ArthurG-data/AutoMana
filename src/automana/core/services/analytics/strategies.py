@@ -148,8 +148,9 @@ class PricingStrategyManager:
         suitable = self.get_suitable_strategies(market_conditions, stats, percentiles)
         
         if not suitable:
-            # Fallback to competitive
-            return 'competitive', self.strategies['competitive'].calculate_price(stats, percentiles, market_conditions)
+            # Fallback to first registered strategy
+            fallback_key = next(iter(self.strategies))
+            return fallback_key, self.strategies[fallback_key].calculate_price(stats, percentiles, market_conditions)
         
         # Choose highest confidence strategy
         best_strategy = max(suitable.items(), key=lambda x: x[1].confidence)

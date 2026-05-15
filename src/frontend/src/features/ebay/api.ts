@@ -425,6 +425,81 @@ export async function updateOrderLocalStatus(
   )
 }
 
+// ── Strategy recommendations ───────────────────────────────────────────────
+
+export interface ListingRecommendation {
+  item_id: string
+  suggested_action: 'raise' | 'lower' | 'hold' | 'draft'
+  strategy_kind: string
+  suggested_price: number | null
+  confidence: number
+  signals_used: 'behavioral' | 'market'
+  all_strategies: Record<string, { price: number; description: string; confidence: number }>
+}
+
+export interface StageActionResponse {
+  action_id: string
+  created: boolean
+}
+
+export interface PendingAction {
+  id: string
+  item_id: string
+  action_type: 'raise' | 'lower' | 'hold' | 'draft'
+  strategy_kind: string
+  suggested_price: number | null
+  status: 'pending' | 'processing'
+}
+
+export async function fetchRecommendation(
+  appCode: string,
+  item: EbayLiveListing,
+): Promise<ListingRecommendation> {
+  const result = await apiClient<{ data: ListingRecommendation }>(
+    `/integrations/ebay/recommendations/${encodeURIComponent(item.itemId)}?app_code=${encodeURIComponent(appCode)}`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        days_listed: item.daysListed,
+        watch_count: item.watchCount,
+        price: item.price,
+        currency: item.currency,
+      }),
+    }
+  )
+  return result.data
+}
+
+export async function stageAction(
+  appCode: string,
+  itemId: string,
+  payload: {
+    action_type: 'raise' | 'lower' | 'hold' | 'draft'
+    strategy_kind: string
+    suggested_price?: number | null
+  },
+): Promise<StageActionResponse> {
+  const result = await apiClient<{ data: StageActionResponse }>(
+    `/integrations/ebay/recommendations/${encodeURIComponent(itemId)}/stage?app_code=${encodeURIComponent(appCode)}`,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }
+  )
+  return result.data
+}
+
+export async function fetchPendingAction(
+  itemId: string,
+): Promise<PendingAction | null> {
+  const result = await apiClient<{ data: PendingAction | { pending: null } }>(
+    `/integrations/ebay/recommendations/${encodeURIComponent(itemId)}/pending`,
+  )
+  const data = result.data
+  if (!data || 'pending' in data) return null
+  return data as PendingAction
+}
+
 // ── Market price research ──────────────────────────────────────────────────
 
 export interface PricePoint {
