@@ -294,11 +294,9 @@ services:
     container_name: automana-ollama-dev
     restart: unless-stopped
     volumes:
-      - ollama_data:/root/.ollama
+      - /data/ollama:/root/.ollama
     networks:
       - backend-network
-    entrypoint: >
-      sh -c "ollama serve & sleep 5 && ollama pull qwen3:30b-a3b && wait"
     deploy:
       resources:
         reservations:
@@ -306,12 +304,14 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
+    entrypoint: >
+      sh -c "ollama serve & sleep 5 && ollama pull qwen3:30b-a3b && wait"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      test: ["CMD", "ollama", "list"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 300s
+      start_period: 60s
 
 secrets:
   backend_db_password:
@@ -340,4 +340,3 @@ volumes:
   redis-config-dev:
   flower-data-dev:
   frontend-node-modules:
-  ollama_data:

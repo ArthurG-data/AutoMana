@@ -316,43 +316,57 @@ class PriceRepository(AbstractRepository):
         """Card-version-level price coverage across the full catalog.
 
         Returns counts for: total card versions, those with any price
-        observation, those without, and the foil/nonfoil split.  Single
-        round-trip via CTE to keep latency predictable on large hypertables.
+        observation (in the last 14 days), those without, and the foil/nonfoil split.
+
+        Uses EXISTS with CURRENT_DATE - 14 so TimescaleDB prunes to ~1 recent chunk
+        (718 of 719 excluded at plan time). The 14-day window makes this a metric for
+        active coverage — appropriate for a health check on a weekly pricing pipeline.
+        A CTE-based date expression would defer the value to runtime (InitPlan) and
+        prevent chunk pruning, so the literal form is required here.
         """
         query = """
         WITH
+          nonfoil_finish_id AS (
+            SELECT finish_id FROM card_catalog.card_finished WHERE upper(code) = 'NONFOIL'
+          ),
           total AS (
             SELECT COUNT(*)::int AS n FROM card_catalog.card_version
           ),
           priced AS (
-            SELECT COUNT(DISTINCT mcp.card_version_id)::int AS n
-            FROM pricing.mtg_card_products mcp
-            JOIN pricing.source_product sp ON sp.product_id = mcp.product_id
-            JOIN pricing.price_observation po ON po.source_product_id = sp.source_product_id
-          ),
-          nonfoil AS (
-            SELECT COUNT(DISTINCT mcp.card_version_id)::int AS n
-            FROM pricing.mtg_card_products mcp
-            JOIN pricing.source_product sp ON sp.product_id = mcp.product_id
-            JOIN pricing.price_observation po ON po.source_product_id = sp.source_product_id
-            JOIN card_catalog.card_finished cf ON cf.finish_id = po.finish_id
-            WHERE upper(cf.code) = 'NONFOIL'
-          ),
-          foil AS (
-            SELECT COUNT(DISTINCT mcp.card_version_id)::int AS n
-            FROM pricing.mtg_card_products mcp
-            JOIN pricing.source_product sp ON sp.product_id = mcp.product_id
-            JOIN pricing.price_observation po ON po.source_product_id = sp.source_product_id
-            JOIN card_catalog.card_finished cf ON cf.finish_id = po.finish_id
-            WHERE upper(cf.code) <> 'NONFOIL'
+            SELECT
+              COUNT(*) FILTER (WHERE has_nonfoil OR has_foil)::int AS with_price,
+              COUNT(*) FILTER (WHERE has_nonfoil)::int             AS with_nonfoil_price,
+              COUNT(*) FILTER (WHERE has_foil)::int                AS with_foil_price
+            FROM (
+              SELECT
+                EXISTS (
+                  SELECT 1
+                  FROM pricing.source_product sp
+                  JOIN pricing.price_observation po
+                    ON po.source_product_id = sp.source_product_id
+                  WHERE sp.product_id = mcp.product_id
+                    AND po.ts_date >= CURRENT_DATE - 14
+                    AND po.finish_id = (SELECT finish_id FROM nonfoil_finish_id)
+                ) AS has_nonfoil,
+                EXISTS (
+                  SELECT 1
+                  FROM pricing.source_product sp
+                  JOIN pricing.price_observation po
+                    ON po.source_product_id = sp.source_product_id
+                  WHERE sp.product_id = mcp.product_id
+                    AND po.ts_date >= CURRENT_DATE - 14
+                    AND po.finish_id != (SELECT finish_id FROM nonfoil_finish_id)
+                ) AS has_foil
+              FROM pricing.mtg_card_products mcp
+            ) cv
           )
         SELECT
-          t.n   AS total_card_versions,
-          p.n   AS with_price,
-          t.n - p.n AS without_price,
-          nf.n  AS with_nonfoil_price,
-          f.n   AS with_foil_price
-        FROM total t, priced p, nonfoil nf, foil f
+          t.n                    AS total_card_versions,
+          p.with_price           AS with_price,
+          t.n - p.with_price     AS without_price,
+          p.with_nonfoil_price   AS with_nonfoil_price,
+          p.with_foil_price      AS with_foil_price
+        FROM total t, priced p
         """
         rows = await self.execute_query(query, ())
         if not rows:
