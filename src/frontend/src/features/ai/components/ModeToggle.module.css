@@ -1,0 +1,27 @@
+/* src/frontend/src/features/ai/components/ModeToggle.module.css */
+.toggle {
+  display: flex;
+  gap: 4px;
+  background: var(--hd-bg);
+  border-radius: 8px;
+  padding: 2px;
+}
+
+.btn {
+  flex: 1;
+  padding: 4px 10px;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  background: transparent;
+  color: var(--hd-muted);
+  transition: background 0.15s, color 0.15s;
+}
+
+.btn.active {
+  background: var(--hd-surface);
+  color: var(--hd-text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
