@@ -7,14 +7,18 @@ import { PriceCharts } from './PriceCharts'
 import { GameInfoCard } from './GameInfoCard'
 import { MarketCard } from './MarketCard'
 import { AIAnalyticsCard } from './AIAnalyticsCard'
-import type { CardDetail } from '../types'
+import { VersionsTable } from './VersionsTable'
+import { OtherSetsTable } from './OtherSetsTable'
+import type { CardDetail, CardVersionRow, OtherSetRow } from '../types'
 import styles from './CardDetailView.module.css'
 
 interface CardDetailViewProps {
   card: CardDetail
+  versionsInSet?: CardVersionRow[]
+  otherSets?: OtherSetRow[]
 }
 
-export function CardDetailView({ card }: CardDetailViewProps) {
+export function CardDetailView({ card, versionsInSet, otherSets }: CardDetailViewProps) {
   const finishes = card.available_finishes?.length ? card.available_finishes : ['nonfoil']
   const [selectedFinish, setSelectedFinish] = useState(finishes[0])
 
@@ -79,6 +83,21 @@ export function CardDetailView({ card }: CardDetailViewProps) {
             <PriceCharts card={card} finish={selectedFinish} />
           </div>
         </section>
+
+        {versionsInSet && versionsInSet.length > 0 && (
+          <VersionsTable
+            versions={versionsInSet}
+            currentVersionId={card.card_version_id.toString()}
+            setCode={card.set_code}
+          />
+        )}
+
+        {otherSets && otherSets.length > 0 && (
+          <OtherSetsTable
+            sets={otherSets}
+            currentVersionId={card.card_version_id.toString()}
+          />
+        )}
       </div>
     </div>
   )

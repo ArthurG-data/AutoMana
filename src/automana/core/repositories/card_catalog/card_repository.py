@@ -284,6 +284,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
             format: Optional[str] = None,
             layout: Optional[str] = None,
             promo_type: Optional[List[str]] = None,
+            collapse: bool = False,
             limit: int = 100,
             offset: int = 0,
             sort_by: Optional[str] = "card_name",
@@ -480,6 +481,8 @@ class CardReferenceRepository(AbstractRepository[Any]):
         rarity_facet_where = "WHERE " + " AND ".join(rf_conditions) if rf_conditions else ""
 
         # Dynamic ORDER BY: prefer relevance when text search params are present.
+        # collapse_order_clause mirrors order_clause but uses bare column names (no v./s.
+        # prefix) so it can be applied to the outer SELECT of the DISTINCT ON subquery.
         if name_param_idx and oracle_param_idx:
             order_clause = (
                 f"ORDER BY ("
@@ -487,11 +490,22 @@ class CardReferenceRepository(AbstractRepository[Any]):
                 f"ts_rank_cd(v.search_vector, websearch_to_tsquery('english', ${oracle_param_idx}))"
                 f") DESC"
             )
+            collapse_order_clause = (
+                f"ORDER BY ("
+                f"word_similarity(LOWER(${name_param_idx}), LOWER(card_name)) + "
+                f"ts_rank_cd(search_vector, websearch_to_tsquery('english', ${oracle_param_idx}))"
+                f") DESC"
+            )
         elif name_param_idx:
             order_clause = f"ORDER BY word_similarity(LOWER(${name_param_idx}), LOWER(v.card_name)) DESC"
+            collapse_order_clause = f"ORDER BY word_similarity(LOWER(${name_param_idx}), LOWER(card_name)) DESC"
         elif oracle_param_idx:
             order_clause = (
                 f"ORDER BY ts_rank_cd(v.search_vector, "
+                f"websearch_to_tsquery('english', ${oracle_param_idx})) DESC"
+            )
+            collapse_order_clause = (
+                f"ORDER BY ts_rank_cd(search_vector, "
                 f"websearch_to_tsquery('english', ${oracle_param_idx})) DESC"
             )
         else:
@@ -500,9 +514,11 @@ class CardReferenceRepository(AbstractRepository[Any]):
             safe_sort_order = "DESC" if (sort_order or "").upper() == "DESC" else "ASC"
             if sort_by in _set_cols:
                 order_clause = f"ORDER BY s.{sort_by} {safe_sort_order}"
+                collapse_order_clause = f"ORDER BY {sort_by} {safe_sort_order}"
             else:
                 safe_sort_by = sort_by if sort_by in _view_cols else "card_name"
                 order_clause = f"ORDER BY v.{safe_sort_by} {safe_sort_order}"
+                collapse_order_clause = f"ORDER BY {safe_sort_by} {safe_sort_order}"
 
         # JOIN sets for released_at (not projected by the view) and to filter on date range.
         from_clause = (
@@ -511,9 +527,9 @@ class CardReferenceRepository(AbstractRepository[Any]):
             " LEFT JOIN card_catalog.card_version_illustration cvi ON cvi.card_version_id = v.card_version_id"
         )
 
-        query = f"""
-            SELECT
+        base_select = f"""
                 v.card_version_id,
+                v.unique_card_id,
                 v.card_name,
                 v.rarity_name,
                 v.set_name,
@@ -521,13 +537,37 @@ class CardReferenceRepository(AbstractRepository[Any]):
                 v.cmc,
                 v.oracle_text,
                 v.is_digital AS digital,
+                v.collector_number,
+                v.promo_types,
                 s.released_at,
-                cvi.image_uris->>'normal' AS image_normal
-            {from_clause}
-            {where_clause}
-            {order_clause}
-            LIMIT ${counter} OFFSET ${counter + 1}
-        """
+                cvi.image_uris->>'normal' AS image_normal{
+                    f", v.search_vector" if oracle_param_idx else ""
+                }"""
+
+        if collapse:
+            query = f"""
+                SELECT * FROM (
+                    SELECT DISTINCT ON (v.unique_card_id, v.set_code)
+                        {base_select},
+                        COUNT(*) OVER (PARTITION BY v.unique_card_id, v.set_code) AS version_count
+                    {from_clause}
+                    {where_clause}
+                    ORDER BY v.unique_card_id, v.set_code,
+                             cardinality(v.promo_types) ASC NULLS LAST,
+                             v.collector_number ASC NULLS LAST
+                ) _collapsed
+                {collapse_order_clause}
+                LIMIT ${counter} OFFSET ${counter + 1}
+            """
+        else:
+            query = f"""
+                SELECT
+                    {base_select}
+                {from_clause}
+                {where_clause}
+                {order_clause}
+                LIMIT ${counter} OFFSET ${counter + 1}
+            """
         values.extend([limit, offset])
         cards = await self.execute_query(query, tuple(values))
 
@@ -538,11 +578,20 @@ class CardReferenceRepository(AbstractRepository[Any]):
             for row in cards
         ]
 
-        count_query = f"""
-            SELECT COUNT(*) AS total_count
-            {from_clause}
-            {where_clause}
-        """
+        if collapse:
+            count_query = f"""
+                SELECT COUNT(*) AS total_count FROM (
+                    SELECT DISTINCT v.unique_card_id, v.set_code
+                    {from_clause}
+                    {where_clause}
+                ) _c
+            """
+        else:
+            count_query = f"""
+                SELECT COUNT(*) AS total_count
+                {from_clause}
+                {where_clause}
+            """
         count_values = values[:-2]
         count_result = await self.execute_query(count_query, tuple(count_values))
         total_count = count_result[0]["total_count"] if count_result else 0
@@ -582,6 +631,64 @@ class CardReferenceRepository(AbstractRepository[Any]):
         }
     async def list(self) -> dict[str, Any]:
         raise NotImplementedError("Method not implemented")
+
+    async def get_versions_in_set(self, unique_card_id: UUID, set_code: str) -> list[dict]:
+        """All card_versions for a single (unique_card_id, set_code) pair."""
+        sql = """
+            SELECT
+                v.card_version_id,
+                v.unique_card_id,
+                v.card_name,
+                v.set_code,
+                v.set_name,
+                v.rarity_name,
+                v.collector_number,
+                v.promo_types,
+                cvi.image_uris->>'normal' AS image_normal,
+                ARRAY(
+                    SELECT LOWER(cf.code)
+                    FROM card_catalog.card_version_finish cvf
+                    JOIN card_catalog.card_finished cf ON cf.finish_id = cvf.finish_id
+                    WHERE cvf.card_version_id = v.card_version_id
+                ) AS available_finishes
+            FROM card_catalog.v_card_versions_complete v
+            LEFT JOIN card_catalog.card_version_illustration cvi
+                ON cvi.card_version_id = v.card_version_id
+            WHERE v.unique_card_id = $1
+              AND v.set_code = $2
+            ORDER BY cardinality(v.promo_types) ASC NULLS LAST, v.collector_number ASC NULLS LAST
+        """
+        rows = await self.execute_query(sql, (unique_card_id, set_code))
+        card_ids = [row["card_version_id"] for row in rows]
+        price_data = await self._fetch_prices_for_cards(card_ids)
+        return [
+            {**dict(row), **price_data.get(str(row["card_version_id"]), self._PRICE_DEFAULTS)}
+            for row in rows
+        ]
+
+    async def get_other_sets(self, unique_card_id: UUID) -> list[dict]:
+        """One representative card_version per set for a given unique_card_id."""
+        sql = """
+            SELECT DISTINCT ON (v.set_code)
+                v.card_version_id,
+                v.set_code,
+                v.set_name,
+                s.released_at::text AS released_at,
+                COUNT(*) OVER (PARTITION BY v.set_code) AS version_count
+            FROM card_catalog.v_card_versions_complete v
+            JOIN card_catalog.sets s ON s.set_id = v.set_id
+            WHERE v.unique_card_id = $1
+            ORDER BY v.set_code, cardinality(v.promo_types) ASC NULLS LAST, v.collector_number ASC NULLS LAST
+        """
+        rows = await self.execute_query(sql, (unique_card_id,))
+        card_ids = [row["card_version_id"] for row in rows]
+        price_data = await self._fetch_prices_for_cards(card_ids)
+        result = [
+            {**dict(row), **price_data.get(str(row["card_version_id"]), self._PRICE_DEFAULTS)}
+            for row in rows
+        ]
+        result.sort(key=lambda r: r.get("released_at") or "", reverse=True)
+        return result
 
 
     def bulk_update_mtg_stock_ids(self, ids: dict[str, str]):

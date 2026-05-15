@@ -154,6 +154,7 @@ async def search_cards(card_repository: CardReferenceRepository
                    , format: Optional[str] = None
                    , layout: Optional[str] = None
                    , promo_type: Optional[List[str]] = None
+                   , collapse: bool = False
                    # Pagination
                    , limit: int = 100
                    , offset: int = 0
@@ -180,6 +181,7 @@ async def search_cards(card_repository: CardReferenceRepository
             "format": format,
             "layout": layout,
             "promo_type": promo_type,
+            "collapse": collapse,
             "limit": limit,
             "offset": offset,
             "sort_by": sort_by,
@@ -220,6 +222,7 @@ async def search_cards(card_repository: CardReferenceRepository
                                                unique_card_id=unique_card_id,
                                                format=format,
                                                layout=layout,
+                                               collapse=collapse,
                                                limit=limit,
                                                offset=offset,
                                                sort_by=sort_by,
@@ -273,6 +276,29 @@ async def suggest_cards(
     suggestions = [CardSuggestion(**r) for r in rows]
     await set_to_cache(cache_key, [s.model_dump(mode="json") for s in suggestions], expiry_seconds=600)
     return CardSuggestionResponse(suggestions=suggestions)
+
+
+@ServiceRegistry.register(
+    "card_catalog.card.get_versions_in_set",
+    db_repositories=["card"]
+)
+async def get_versions_in_set(
+    card_repository: CardReferenceRepository,
+    unique_card_id: UUID,
+    set_code: str,
+) -> list[dict]:
+    return await card_repository.get_versions_in_set(unique_card_id=unique_card_id, set_code=set_code)
+
+
+@ServiceRegistry.register(
+    "card_catalog.card.get_other_sets",
+    db_repositories=["card"]
+)
+async def get_other_sets(
+    card_repository: CardReferenceRepository,
+    unique_card_id: UUID,
+) -> list[dict]:
+    return await card_repository.get_other_sets(unique_card_id=unique_card_id)
 
 
 @ServiceRegistry.register(

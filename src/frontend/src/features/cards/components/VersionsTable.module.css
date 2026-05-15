@@ -1,0 +1,192 @@
+.section {
+  margin-top: 20px;
+}
+
+.label {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hd-muted);
+  font-weight: 600;
+  margin-bottom: 9px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid rgba(150, 200, 255, 0.16);
+  border-radius: 8px;
+  overflow: hidden;
+  font-size: 12px;
+}
+
+.table thead th {
+  background: rgba(150, 200, 255, 0.04);
+  border-bottom: 1px solid rgba(150, 200, 255, 0.16);
+  text-align: left;
+  padding: 7px 10px;
+  font-size: 10px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--hd-muted);
+  font-weight: 600;
+}
+
+.row td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(150, 200, 255, 0.07);
+  vertical-align: middle;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.row:hover td {
+  background: rgba(150, 200, 255, 0.03);
+}
+.row:last-child td {
+  border-bottom: none;
+}
+
+.activeRow td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(150, 200, 255, 0.07);
+  vertical-align: middle;
+  background: rgba(61, 232, 210, 0.08);
+  cursor: default;
+}
+.activeRow:last-child td {
+  border-bottom: none;
+}
+
+/* Thumbnail cell */
+.thumbCell {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.thumb {
+  width: 27px;
+  height: 37px;
+  border-radius: 3px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.thumbPlaceholder {
+  width: 27px;
+  height: 37px;
+  border-radius: 3px;
+  background: linear-gradient(160deg, #1e2e5a, #0d1526);
+  flex-shrink: 0;
+}
+
+.rowLabel {
+  font-size: 12px;
+  color: var(--hd-text);
+}
+
+.labelActive {
+  font-size: 12px;
+  color: var(--hd-accent);
+  font-weight: 600;
+}
+
+.cn {
+  font-size: 10px;
+  color: var(--hd-sub);
+  font-family: var(--font-mono);
+  margin-top: 1px;
+}
+
+/* Set circle (Other Sets table) */
+.setCircle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(224, 169, 106, 0.12);
+  border: 1px solid rgba(224, 169, 106, 0.28);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  font-weight: 700;
+  color: var(--hd-amber, #e0a96a);
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+  letter-spacing: 0.02em;
+}
+
+.setCircleActive {
+  background: rgba(61, 232, 210, 0.12);
+  border-color: rgba(61, 232, 210, 0.35);
+  color: var(--hd-accent);
+}
+
+/* Finish pills */
+.finishPills {
+  display: flex;
+  gap: 3px;
+  flex-wrap: wrap;
+}
+
+.pill {
+  background: rgba(150, 200, 255, 0.06);
+  border: 1px solid rgba(150, 200, 255, 0.16);
+  border-radius: 20px;
+  padding: 1px 6px;
+  font-size: 10px;
+  color: var(--hd-muted);
+  text-transform: uppercase;
+  font-weight: 600;
+  font-family: var(--font-mono);
+}
+
+.pillFoil {
+  border-color: rgba(224, 169, 106, 0.3);
+  color: var(--hd-amber, #e0a96a);
+  background: rgba(224, 169, 106, 0.10);
+}
+
+.pillEtched {
+  border-color: rgba(61, 232, 210, 0.28);
+  color: var(--hd-accent);
+  background: rgba(61, 232, 210, 0.08);
+}
+
+/* Price cell */
+.priceCell {
+  font-size: 12px;
+  color: var(--hd-text);
+  white-space: nowrap;
+}
+
+.up {
+  font-size: 10px;
+  color: var(--hd-accent);
+  display: block;
+  margin-top: 1px;
+}
+
+.down {
+  font-size: 10px;
+  color: var(--hd-red);
+  display: block;
+  margin-top: 1px;
+}
+
+/* Action column */
+.viewLink {
+  font-size: 10px;
+  color: var(--hd-accent);
+  border: 1px solid rgba(61, 232, 210, 0.35);
+  border-radius: 4px;
+  padding: 2px 7px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.viewingLabel {
+  font-size: 10px;
+  color: var(--hd-sub);
+  white-space: nowrap;
+}
