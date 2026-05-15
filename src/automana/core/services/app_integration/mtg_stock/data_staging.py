@@ -1,5 +1,5 @@
 ﻿import asyncio
-import itertools
+import itertools  # used in Task 2: chunked parallel loop via itertools.batched
 import os, json, logging
 import pandas as pd
 from automana.core.repositories.app_integration.mtg_stock.price_repository import PriceRepository
@@ -67,7 +67,7 @@ async def bulk_load(price_repository: PriceRepository,
                     market: str = "tcg",
                     start_id: int | None = None,
                     end_id: int | None = None,
-                    concurrency: int = 20):
+                    concurrency: int = 20):  # wired in Task 2: asyncio.Semaphore slot count
     """TODO: include scryfall_id, card_name, set_abbr, collector_number in the
     staging table to simplify dim/fact loads and avoid re-calling Scryfall API
     in the dimension load step."""
@@ -81,6 +81,11 @@ async def bulk_load(price_repository: PriceRepository,
     # Cache listdir once — the directory can hold ~500k entries on a full load.
     folders = os.listdir(root_folder)
     if start_id is not None or end_id is not None:
+        if start_id is not None and end_id is not None and start_id > end_id:
+            logger.warning(
+                "bulk_load: start_id > end_id, no folders will be processed",
+                extra={"start_id": start_id, "end_id": end_id},
+            )
         folders = [
             f for f in folders
             if f.isdigit()
