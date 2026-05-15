@@ -4,6 +4,11 @@
 
 BEGIN;
 
+-- Ensure TIX currency exists before inserting price_source (FK requirement)
+INSERT INTO pricing.currency_ref (currency_code, currency_name)
+VALUES ('TIX', 'Magic Online Tickets')
+ON CONFLICT (currency_code) DO NOTHING;
+
 -- Add cardhoarder source (for tix/MTGO prices from Scryfall bulk data)
 INSERT INTO pricing.price_source (code, name, currency_code)
 VALUES ('cardhoarder', 'Cardhoarder', 'TIX')
@@ -12,8 +17,5 @@ ON CONFLICT (code) DO NOTHING;
 -- Add purchase_uris to card_version (marketplace buy links for frontend)
 ALTER TABLE card_catalog.card_version
 ADD COLUMN IF NOT EXISTS purchase_uris JSONB;
-
-GRANT UPDATE ON card_catalog.card_version TO app_celery;
-GRANT UPDATE ON card_catalog.card_version TO app_backend;
 
 COMMIT;
