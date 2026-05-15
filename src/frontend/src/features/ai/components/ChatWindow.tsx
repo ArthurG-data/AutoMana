@@ -1,5 +1,5 @@
 // src/frontend/src/features/ai/components/ChatWindow.tsx
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, Fragment } from 'react'
 import { postChatMessage } from '../api'
 import type { ChatMessage as ChatMessageType, ChatMode } from '../types'
 import { ModeToggle } from './ModeToggle'
@@ -30,7 +30,7 @@ export function ChatWindow({ onClose }: ChatWindowProps) {
     }
   }, [messages, isLoading])
 
-  const send = useCallback(async () => {
+  async function send() {
     const text = input.trim()
     if (!text || isLoading) return
 
@@ -72,7 +72,7 @@ export function ChatWindow({ onClose }: ChatWindowProps) {
     } finally {
       setIsLoading(false)
     }
-  }, [input, isLoading])
+  }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -90,12 +90,12 @@ export function ChatWindow({ onClose }: ChatWindowProps) {
 
       <div className={styles.thread} ref={threadRef}>
         {messages.map((msg) => (
-          <div key={msg.id}>
+          <Fragment key={msg.id}>
             <ChatMessage message={msg} />
             {msg.role === 'assistant' && msg.toolsCalled.length > 0 && (
               <ResultStrip toolsCalled={msg.toolsCalled} />
             )}
-          </div>
+          </Fragment>
         ))}
         {isLoading && (
           <div className={styles.typing}>

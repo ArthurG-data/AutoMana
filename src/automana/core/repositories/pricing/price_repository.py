@@ -19,22 +19,6 @@ WHERE ir.identifier_name = 'scryfall_id'
 AND ei.value = ANY($1::text[])
 """
 
-_INSERT_PRODUCT_SQL = """
-WITH new_prod AS (
-    INSERT INTO pricing.product_ref (game_id)
-    VALUES ((SELECT game_id FROM card_catalog.card_games_ref WHERE code = 'mtg'))
-    RETURNING product_id
-)
-INSERT INTO pricing.mtg_card_products (product_id, card_version_id)
-SELECT product_id, $1 FROM new_prod
-ON CONFLICT (card_version_id) DO NOTHING
-RETURNING product_id
-"""
-
-_GET_EXISTING_PRODUCT_SQL = """
-SELECT product_id FROM pricing.mtg_card_products WHERE card_version_id = $1
-"""
-
 _INSERT_PRODUCTS_BATCH_SQL = """
 WITH unlinked AS (
     SELECT cv_id
@@ -228,7 +212,7 @@ class PricingTierRepository(AbstractRepository):
 
         # Step 2 — Batch-create product_ref + mtg_card_products for unlinked cards
         # Build a reverse map for efficient cv_id → scryfall_id lookup
-        cv_id_to_sid: dict = {
+        cv_id_to_sid: dict[str, str] = {
             str(meta["card_version_id"]): sid
             for sid, meta in scryfall_to_meta.items()
         }
@@ -282,8 +266,8 @@ class PricingTierRepository(AbstractRepository):
         )
 
         # Step 4 — Fetch source_product_ids
-        unique_product_ids = list({str(pid) for pid in sp_product_ids})
-        unique_source_codes = list({sc for sc in sp_source_codes})
+        unique_product_ids = list(set(sp_product_ids))
+        unique_source_codes = list(set(sp_source_codes))
         sp_rows = await self.connection.fetch(
             _FETCH_SOURCE_PRODUCT_IDS_SQL, unique_product_ids, unique_source_codes
         )
