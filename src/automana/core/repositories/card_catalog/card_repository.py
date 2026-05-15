@@ -1,6 +1,6 @@
 ﻿import io
 import json
-from datetime import date
+from datetime import date, timedelta
 from typing import Optional, Any, Dict, List
 from uuid import UUID
 from dataclasses import dataclass, field
@@ -140,6 +140,8 @@ class CardReferenceRepository(AbstractRepository[Any]):
         row = dict(result[0])
         if isinstance(row.get("legalities"), str):
             row["legalities"] = json.loads(row["legalities"])
+        price_data = await self._fetch_prices_for_cards([card_id])
+        row.update(price_data.get(str(card_id), self._PRICE_DEFAULTS))
         return row
 
     async def suggest(self, query: str, limit: int = 10) -> list[dict]:
@@ -182,6 +184,80 @@ class CardReferenceRepository(AbstractRepository[Any]):
         """
         rows = await self.execute_query(sql, (set_code, collector_number))
         return dict(rows[0]) if rows else None
+
+    async def _fetch_prices_for_cards(self, card_ids: list) -> dict:
+        """
+        Fetch price analytics from tier 2 (print_price_daily) for a batch of cards.
+
+        Uses the last 365 days of daily prices (all sources, NONFOIL NM EN sell),
+        averaged across sources per date. Returns current price, 1d/7d/30d deltas,
+        and a 7-point sparkline for each card that has data.
+
+        Tier 3 (print_price_latest / print_price_weekly) covers the ALL-time chart
+        via the existing get_price_history() — not touched here.
+        """
+        if not card_ids:
+            return {}
+
+        sql = """
+            SELECT
+                ppd.card_version_id,
+                ppd.price_date,
+                AVG(ppd.list_avg_cents)::float / 100 AS avg_price
+            FROM pricing.print_price_daily ppd
+            WHERE ppd.card_version_id = ANY($1::uuid[])
+              AND ppd.transaction_type_id = 1
+              AND ppd.condition_id = 1
+              AND ppd.language_id = 1
+              AND ppd.finish_id = 1
+              AND ppd.price_date > CURRENT_DATE - 365
+            GROUP BY ppd.card_version_id, ppd.price_date
+            ORDER BY ppd.card_version_id, ppd.price_date DESC
+        """
+        rows = await self.execute_query(sql, (card_ids,))
+
+        # Group rows by card_version_id — each group is sorted DESC by price_date
+        by_card: dict[str, list[tuple[date, float]]] = {}
+        for row in rows:
+            cid = str(row["card_version_id"])
+            if cid not in by_card:
+                by_card[cid] = []
+            by_card[cid].append((row["price_date"], row["avg_price"]))
+
+        result: dict[str, dict] = {}
+        for cid, series in by_card.items():
+            # series[0] = most recent; series[-1] = oldest in window
+            current_date, current_price = series[0]
+            by_date = {d: p for d, p in series}
+
+            def _pct(days: int) -> float:
+                ref = by_date.get(current_date - timedelta(days=days))
+                if ref is None or ref == 0:
+                    return 0.0
+                return round((current_price - ref) / ref * 100, 2)
+
+            # Spark: up to 7 most-recent prices in ascending (chart) order
+            spark = [p for _, p in reversed(series[:7])]
+
+            result[cid] = {
+                "price": current_price,
+                "price_change_1d": _pct(1),
+                "price_change_7d": _pct(7),
+                "price_change_30d": _pct(30),
+                "spark": spark,
+                "finish": "non-foil",
+            }
+
+        return result
+
+    _PRICE_DEFAULTS = {
+        "price": None,
+        "price_change_1d": 0.0,
+        "price_change_7d": 0.0,
+        "price_change_30d": 0.0,
+        "spark": [],
+        "finish": "non-foil",
+    }
 
     async def search(
             self,
@@ -447,6 +523,13 @@ class CardReferenceRepository(AbstractRepository[Any]):
         """
         values.extend([limit, offset])
         cards = await self.execute_query(query, tuple(values))
+
+        card_ids = [row["card_version_id"] for row in cards]
+        price_data = await self._fetch_prices_for_cards(card_ids)
+        cards = [
+            {**dict(row), **price_data.get(str(row["card_version_id"]), self._PRICE_DEFAULTS)}
+            for row in cards
+        ]
 
         count_query = f"""
             SELECT COUNT(*) AS total_count

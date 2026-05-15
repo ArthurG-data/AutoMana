@@ -10,6 +10,20 @@ import {
 import { MOCK_CONNECTED_STATUS } from '../features/ebay/mockEbayApp'
 
 export const handlers = [
+  // ── AI chat ─────────────────────────────────────────────────────────────
+  http.post('/api/ai/chat', async ({ request }) => {
+    const body = await request.json() as { message: string; session_id?: string }
+    const sessionId = body.session_id && body.session_id !== '' ? body.session_id : 'mock-session-123'
+    return HttpResponse.json({
+      success: true,
+      data: {
+        reply: `Mock reply for: ${body.message}`,
+        session_id: sessionId,
+        tools_called: [],
+      },
+    })
+  }),
+
   // ── eBay credentials ────────────────────────────────────────────────────
   http.post('/api/ebay/credentials', async ({ request }) => {
     const body = await request.json()
