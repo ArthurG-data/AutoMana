@@ -1,4 +1,5 @@
 ﻿import asyncio
+import itertools
 import os, json, logging
 import pandas as pd
 from automana.core.repositories.app_integration.mtg_stock.price_repository import PriceRepository
@@ -58,12 +59,15 @@ async def process_prices_file(path, id_dict):
     runs_in_transaction=False,
     command_timeout=3600,
 )
-async def bulk_load(price_repository: PriceRepository
-                    , ops_repository: OpsRepository
-                    , root_folder
-                    , batch_size=2000
-                    , ingestion_run_id: int = None
-                    , market: str = "tcg"):
+async def bulk_load(price_repository: PriceRepository,
+                    ops_repository: OpsRepository,
+                    root_folder,
+                    batch_size: int = 2000,
+                    ingestion_run_id: int = None,
+                    market: str = "tcg",
+                    start_id: int | None = None,
+                    end_id: int | None = None,
+                    concurrency: int = 20):
     """TODO: include scryfall_id, card_name, set_abbr, collector_number in the
     staging table to simplify dim/fact loads and avoid re-calling Scryfall API
     in the dimension load step."""
@@ -76,6 +80,13 @@ async def bulk_load(price_repository: PriceRepository
     ids_master_dict = {}
     # Cache listdir once — the directory can hold ~500k entries on a full load.
     folders = os.listdir(root_folder)
+    if start_id is not None or end_id is not None:
+        folders = [
+            f for f in folders
+            if f.isdigit()
+            and (start_id is None or int(f) >= start_id)
+            and (end_id is None or int(f) <= end_id)
+        ]
     deleted = await price_repository.clear_raw_prices()
     logger.info("bulk_load: cleared stale rows from raw_mtg_stock_price", extra={"deleted": deleted})
     async with track_step(ops_repository, ingestion_run_id, step_name):
