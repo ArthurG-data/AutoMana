@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { Link } from '@tanstack/react-router'
 import { AIBadge } from '../../../components/design-system/AIBadge'
 import { Icon } from '../../../components/design-system/Icon'
+import { SignalBadge } from './SignalBadge'
 import type { EbayLiveListing } from '../mockListings'
 import styles from './ListingsTable.module.css'
 
@@ -16,7 +17,7 @@ type SortKey = 'cardName' | 'setCode' | 'appName' | 'conditionLabel' | 'finish' 
 type SortDir = 'asc' | 'desc'
 
 const APP_PALETTE = ['#a78bfa', '#60a5fa', '#34d399', '#f59e0b']
-const COL_COUNT = 10
+const COL_COUNT = 11
 
 function SortIndicator({ active, dir }: { active: boolean; dir: SortDir }) {
   return (
@@ -107,6 +108,7 @@ export function ListingsTable({ listings, isLoading = false, selectedId, onRowCl
             <col className={styles.colDays} />
             <col className={styles.colWatchers} />
             <col className={styles.colStatus} />
+            <col />
           </colgroup>
           <thead className={styles.thead}>
             <tr>
@@ -138,6 +140,7 @@ export function ListingsTable({ listings, isLoading = false, selectedId, onRowCl
                 WATCH <SortIndicator active={sortKey === 'watchCount'} dir={sortDir} />
               </th>
               <th scope="col" className={styles.center}>STATUS</th>
+              <th scope="col" className={styles.center}>SIGNAL</th>
             </tr>
           </thead>
           <tbody>
@@ -155,6 +158,7 @@ export function ListingsTable({ listings, isLoading = false, selectedId, onRowCl
                     <td><div className={styles.skeletonText} style={{ width: '50%', margin: '0 auto' }} /></td>
                     <td><div className={styles.skeletonText} style={{ width: '40%', margin: '0 auto' }} /></td>
                     <td><div className={styles.skeletonText} style={{ width: '50%', margin: '0 auto' }} /></td>
+                    <td><div className={styles.skeletonText} style={{ width: '60%', margin: '0 auto' }} /></td>
                   </tr>
                 ))}
               </>
@@ -286,6 +290,14 @@ export function ListingsTable({ listings, isLoading = false, selectedId, onRowCl
                   {/* Status */}
                   <td className={styles.center}>
                     <AIBadge status="ok" showLabel size="sm" />
+                  </td>
+
+                  {/* Signal */}
+                  <td className={styles.center}>
+                    <SignalBadge
+                      action={listing.recommendation?.suggested_action}
+                      confidence={listing.recommendation?.confidence}
+                    />
                   </td>
                 </tr>
               )

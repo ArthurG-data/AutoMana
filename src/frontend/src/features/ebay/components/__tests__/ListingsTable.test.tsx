@@ -45,6 +45,7 @@ describe('ListingsTable', () => {
     expect(screen.getByText('PRICE')).toBeTruthy()
     expect(screen.getByText('WATCH')).toBeTruthy()
     expect(screen.getByText('STATUS')).toBeTruthy()
+    expect(screen.getByText('SIGNAL')).toBeTruthy()
   })
 
   it('shows empty state when no listings and not loading', () => {
@@ -210,5 +211,31 @@ describe('ListingsTable — row selection', () => {
     screen.getByTitle('View on eBay').focus()
     await userEvent.keyboard('{Enter}')
     expect(onRowClick).not.toHaveBeenCalled()
+  })
+})
+
+describe('ListingsTable — signal column', () => {
+  it('renders a signal badge when recommendation has suggested_action "raise"', () => {
+    const listing = makeListing({
+      recommendation: {
+        suggested_action: 'raise',
+        strategy_kind: 'quick_sale',
+        suggested_price: 70,
+        confidence: 0.85,
+        signals_used: 'behavioral',
+        all_strategies: {},
+      },
+    })
+    render(<ListingsTable listings={[listing]} />)
+    expect(screen.getByText('↑ Raise')).toBeTruthy()
+  })
+
+  it('renders no signal badge when recommendation is undefined', () => {
+    const listing = makeListing({ recommendation: undefined })
+    render(<ListingsTable listings={[listing]} />)
+    expect(screen.queryByTitle('raise')).toBeNull()
+    expect(screen.queryByTitle('lower')).toBeNull()
+    expect(screen.queryByTitle('hold')).toBeNull()
+    expect(screen.queryByTitle('draft')).toBeNull()
   })
 })
