@@ -42,10 +42,11 @@ services:
       dockerfile: deploy/docker/backend/Backend.Dockerfile
     secrets:
         - backend_db_password
+        - agent_db_password
         - readonly_db_password
         - encryption_key
         - jwt_secret_key
-        - pgp_secret_key 
+        - pgp_secret_key
     container_name: automana-backend-dev
     ports:
       - "8000:8000"
@@ -62,6 +63,7 @@ services:
       MODULES_NAMESPACE: backend
       REDIS_CACHE_URL: redis://redis:6379/1
       FRONTEND_BASE_URL: https://automana.duckdns.org
+      AGENT_DB_PASSWORD_FILE: /run/secrets/agent_db_password
     networks:
       - backend-network
     healthcheck:
