@@ -1,6 +1,7 @@
 // Versions in this set — all card_version rows for the same (unique_card_id, set_code)
 import { useNavigate } from '@tanstack/react-router'
 import type { CardVersionRow } from '../types'
+import { PriceDelta } from './PriceDelta'
 import styles from './VersionsTable.module.css'
 
 interface VersionsTableProps {
@@ -83,14 +84,7 @@ export function VersionsTable({ versions, currentVersionId, setCode }: VersionsT
                   </div>
                 </td>
                 <td>
-                  <div className={styles.priceCell}>
-                    {v.price != null ? `$${v.price.toFixed(2)}` : 'N/A'}
-                    {v.price != null && v.price_change_1d !== 0 && (
-                      <span className={v.price_change_1d >= 0 ? styles.up : styles.down}>
-                        {v.price_change_1d >= 0 ? '▲' : '▼'} {Math.abs(v.price_change_1d).toFixed(1)}%
-                      </span>
-                    )}
-                  </div>
+                  <PriceDelta price={v.price} priceChange1d={v.price_change_1d} />
                 </td>
                 <td>
                   {isCurrent ? (

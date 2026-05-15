@@ -32,27 +32,27 @@
   font-weight: 600;
 }
 
-.row td {
+.row td,
+.activeRow td {
   padding: 8px 10px;
   border-bottom: 1px solid rgba(150, 200, 255, 0.07);
   vertical-align: middle;
+}
+
+.row td {
   cursor: pointer;
   transition: background 0.12s;
 }
 .row:hover td {
   background: rgba(150, 200, 255, 0.03);
 }
-.row:last-child td {
-  border-bottom: none;
-}
 
 .activeRow td {
-  padding: 8px 10px;
-  border-bottom: 1px solid rgba(150, 200, 255, 0.07);
-  vertical-align: middle;
   background: rgba(61, 232, 210, 0.08);
   cursor: default;
 }
+
+.row:last-child td,
 .activeRow:last-child td {
   border-bottom: none;
 }

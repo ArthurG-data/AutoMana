@@ -1,17 +1,13 @@
 // Other Sets — one representative row per set for the same unique_card_id
 import { useNavigate } from '@tanstack/react-router'
 import type { OtherSetRow } from '../types'
+import { formatMonth } from '../utils/formatMonth'
+import { PriceDelta } from './PriceDelta'
 import styles from './VersionsTable.module.css'
 
 interface OtherSetsTableProps {
   sets: OtherSetRow[]
   currentVersionId: string
-}
-
-function formatMonth(dateStr?: string): string {
-  if (!dateStr) return '—'
-  const d = new Date(dateStr)
-  return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
 }
 
 export function OtherSetsTable({ sets, currentVersionId }: OtherSetsTableProps) {
@@ -58,14 +54,7 @@ export function OtherSetsTable({ sets, currentVersionId }: OtherSetsTableProps) 
                   </span>
                 </td>
                 <td>
-                  <div className={styles.priceCell}>
-                    {s.price != null ? `$${s.price.toFixed(2)}` : 'N/A'}
-                    {s.price != null && s.price_change_1d !== 0 && (
-                      <span className={s.price_change_1d >= 0 ? styles.up : styles.down}>
-                        {s.price_change_1d >= 0 ? '▲' : '▼'} {Math.abs(s.price_change_1d).toFixed(1)}%
-                      </span>
-                    )}
-                  </div>
+                  <PriceDelta price={s.price} priceChange1d={s.price_change_1d} />
                 </td>
                 <td>
                   {isCurrent ? (

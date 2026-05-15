@@ -546,7 +546,12 @@ class CardReferenceRepository(AbstractRepository[Any]):
 
         if collapse:
             query = f"""
-                SELECT * FROM (
+                SELECT
+                    card_version_id, unique_card_id, card_name, rarity_name,
+                    set_name, set_code, cmc, oracle_text, digital,
+                    collector_number, promo_types, released_at, image_normal,
+                    version_count
+                FROM (
                     SELECT DISTINCT ON (v.unique_card_id, v.set_code)
                         {base_select},
                         COUNT(*) OVER (PARTITION BY v.unique_card_id, v.set_code) AS version_count
