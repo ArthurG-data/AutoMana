@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import uuid
 from typing import Any
 
@@ -16,6 +17,7 @@ from automana.core.settings import get_settings
 logger = logging.getLogger(__name__)
 
 _HISTORY_KEY = "ai:chat:{user_id}:{session_id}"
+_THINK_RE = re.compile(r"<think>.*?</think>", re.DOTALL)
 
 
 def _history_key(user_id: str, session_id: str) -> str:
@@ -113,9 +115,9 @@ async def run_agent_turn(
             tools=None,
         )
         second_choice = second_response["choices"][0]
-        final_content = (second_choice["message"].get("content") or "").strip()
+        final_content = _THINK_RE.sub("", second_choice["message"].get("content") or "").strip()
     else:
-        final_content = (assistant_msg.get("content") or "").strip()
+        final_content = _THINK_RE.sub("", assistant_msg.get("content") or "").strip()
 
     if not final_content:
         final_content = "I couldn't generate a response. Please try again."
