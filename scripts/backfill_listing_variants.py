@@ -73,6 +73,7 @@ async def fetch_pending(conn, app_code: str | None = None) -> list[dict]:
             eal.marketplace_id,
             eal.card_version_id,
             eal.title,
+            eal.match_score,
             ucr.card_name,
             s.set_name,
             s.set_code,
@@ -85,7 +86,7 @@ async def fetch_pending(conn, app_code: str | None = None) -> list[dict]:
         JOIN card_catalog.sets s
             ON s.set_id = cv.set_id
         {where}
-        ORDER BY eal.listed_at
+        ORDER BY eal.match_score ASC NULLS FIRST, eal.listed_at
     """, *params)
     return [dict(r) for r in rows]
 
@@ -123,6 +124,61 @@ async def search_card_names(conn, query: str) -> list[str]:
         LIMIT 12
     """, f"%{query}%")
     return [r["card_name"] for r in rows]
+
+
+async def _seed_manual_link(conn, item_id: str, app_code: str, title: str) -> bool:
+    """
+    Interactively resolve an unresolvable listing. Returns True if linked, False if skipped.
+    The linked card_version_id is a placeholder; the backfill loop picks the exact version.
+    """
+    print(f"\n  \033[33m⚠  UNRESOLVABLE\033[0m")
+    print(f"  \033[90mItem:\033[0m   {item_id}")
+    print(f"  \033[90mTitle:\033[0m  {title}")
+
+    while True:
+        query = input("  \033[90mCard name search (Enter to skip):\033[0m ").strip()
+        if not query:
+            print("  \033[90mSkipped.\033[0m")
+            return False
+        if len(query) < 2:
+            print("  Enter at least 2 characters.")
+            continue
+
+        names = await search_card_names(conn, query)
+        if not names:
+            print("  No matches — try again.")
+            continue
+        for i, name in enumerate(names, 1):
+            print(f"  \033[34m[{i}]\033[0m {name}")
+        pick = input("  \033[90mPick name # (Enter to search again):\033[0m ").strip()
+        if not pick.isdigit() or not (1 <= int(pick) <= len(names)):
+            continue
+        card_name = names[int(pick) - 1]
+
+        # Use any English version as placeholder; exact version picked during backfill
+        row = await conn.fetchrow("""
+            SELECT cv.card_version_id
+            FROM card_catalog.card_version cv
+            JOIN card_catalog.unique_cards_ref ucr ON ucr.unique_card_id = cv.unique_card_id
+            WHERE ucr.card_name ILIKE $1
+            ORDER BY cv.lang = 'en' DESC
+            LIMIT 1
+        """, card_name)
+        if not row:
+            print(f"  No versions found for '{card_name}'.")
+            continue
+
+        await conn.execute("""
+            INSERT INTO app_integration.ebay_active_listings
+                (item_id, app_code, card_version_id, marketplace_id, title, match_score)
+            VALUES ($1, $2, $3, '15', $4, 0.0)
+            ON CONFLICT (item_id) DO UPDATE SET
+                card_version_id = EXCLUDED.card_version_id,
+                title           = EXCLUDED.title,
+                match_score     = 0.0
+        """, item_id, app_code, str(row["card_version_id"]), title)
+        print(f"  \033[32m→ Linked to '{card_name}'\033[0m — exact version to be picked during backfill")
+        return True
 
 
 async def save_variant(
@@ -236,11 +292,21 @@ async def _review_listing(conn, row: dict, idx: int, total: int) -> str:
     market = row.get("marketplace_id") or "15"
     title  = row.get("title") or ""
 
+    score = row.get("match_score")
+    if score is None or score < 0.5:
+        confidence_tag = "  \033[31m⚠ MANUALLY LINKED — verify card name\033[0m"
+    elif score < 0.65:
+        confidence_tag = f"  \033[33m⚠ LOW CONFIDENCE ({score:.0%}) — verify card name\033[0m"
+    else:
+        confidence_tag = None
+
     print(f"\n\033[90m── Listing {idx} / {total} {'─' * 44}\033[0m")
     print(f"  \033[90mItem ID\033[0m  {row['item_id']}")
     if title:
         print(f"  \033[90meBay\033[0m     \033[37m{title}\033[0m")
     print(f"  \033[90mListed\033[0m   {listed}  (marketplace {market})")
+    if confidence_tag:
+        print(confidence_tag)
 
     # ── Phase 1: pick exact card version ──────────────────────────────────────
     try:
@@ -348,22 +414,30 @@ async def seed_from_ebay(conn, app_code_filter: str | None = None, dry_run: bool
                         best_cv = UUID(str(c["card_version_id"]))
 
                 if best_cv is None:
-                    print(f"  \033[33m⚠ Unresolvable:\033[0m {title[:70]}")
-                    unresolvable += 1
+                    if dry_run:
+                        print(f"  [dry-run] UNRESOLVABLE: {title[:70]}")
+                        unresolvable += 1
+                        continue
+                    linked = await _seed_manual_link(conn, item_id, app_code, title)
+                    if linked:
+                        seeded += 1
+                    else:
+                        unresolvable += 1
                     continue
 
                 if dry_run:
-                    print(f"  [dry-run] {item_id}: {title[:60]}")
+                    print(f"  [dry-run] score={best_score:.2f} {item_id}: {title[:55]}")
                     seeded += 1
                     continue
 
                 status = await conn.execute("""
                     INSERT INTO app_integration.ebay_active_listings
-                        (item_id, app_code, card_version_id, marketplace_id, title)
-                    VALUES ($1, $2, $3, '15', $4)
-                    ON CONFLICT (item_id) DO UPDATE SET title = EXCLUDED.title
-                """, item_id, app_code, str(best_cv), title)
-                # UPDATE means it was already there; INSERT means new
+                        (item_id, app_code, card_version_id, marketplace_id, title, match_score)
+                    VALUES ($1, $2, $3, '15', $4, $5)
+                    ON CONFLICT (item_id) DO UPDATE SET
+                        title       = EXCLUDED.title,
+                        match_score = EXCLUDED.match_score
+                """, item_id, app_code, str(best_cv), title, best_score)
                 if "UPDATE" in status:
                     skipped += 1
                 else:
