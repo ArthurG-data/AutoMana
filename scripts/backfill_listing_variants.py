@@ -231,20 +231,51 @@ def _prompt(label: str, hint: str, default: str) -> str:
     return input(f"\033[32m{label}\033[0m \033[90m{hint} (default: {default}):\033[0m ").strip()
 
 
-async def _pick_version(conn, initial_card_name: str) -> tuple[str | None, str | None]:
+async def _pick_version(
+    conn, initial_card_name: str, search_first: bool = False
+) -> tuple[str | None, str | None]:
     """
     Show all printings of a card and let the user pick one.
     Returns (card_version_id_str, display_label) or (None, None) if skipped/quit.
     Raises SystemExit on 'q'.
+
+    search_first=True skips showing the initial (potentially wrong) card printings
+    and goes straight to name search — used for low-confidence auto-matches.
     """
     card_name = initial_card_name
+    do_search = search_first  # first iteration goes to name search when True
 
     while True:
+        # ── Name-search phase ────────────────────────────────────────────────
+        if do_search:
+            do_search = False
+            query = input(f"  \033[90mCard name search (Enter = keep '{card_name}'):\033[0m ").strip()
+            if query:
+                if len(query) < 2:
+                    print("  Enter at least 2 characters.")
+                    do_search = True
+                    continue
+                names = await search_card_names(conn, query)
+                if not names:
+                    print("  No card names found — try again.")
+                    do_search = True
+                    continue
+                for i, name in enumerate(names, 1):
+                    print(f"  \033[34m[{i}]\033[0m {name}")
+                np = input("  \033[90mPick name # (Enter to search again):\033[0m ").strip()
+                if np.isdigit() and 1 <= int(np) <= len(names):
+                    card_name = names[int(np) - 1]
+                else:
+                    do_search = True
+                    continue
+            # fall through to show printings of the (possibly updated) card_name
+
+        # ── Version-list phase ───────────────────────────────────────────────
         versions = await get_card_versions(conn, card_name)
 
         print(f"\n  \033[33m{card_name}\033[0m — {len(versions)} printing(s):")
         if not versions:
-            print("  \033[90m(no printings found)\033[0m")
+            print("  \033[90m(no printings found — try a different name)\033[0m")
         else:
             for i, v in enumerate(versions, 1):
                 rd = v["released_at"].strftime("%Y") if v.get("released_at") else "    "
@@ -255,27 +286,15 @@ async def _pick_version(conn, initial_card_name: str) -> tuple[str | None, str |
                     f"{v['set_name']:<40} ({v['set_code']:<5}) · #{v['collector_number']}{lang_tag}"
                 )
 
-        print("  \033[90m[s] Search different card name   [skip] Skip   [q] Quit\033[0m")
+        print("  \033[90m[s] Different card name   [skip] Skip   [q] Quit\033[0m")
         pick = input("\033[32mPick version #:\033[0m ").strip().lower()
 
         if pick == "q":
             raise SystemExit(0)
-        if pick in ("skip", "sk", ""):
+        if pick in ("skip", "sk"):
             return None, None
-        if pick == "s":
-            query = input("\033[90m  Card name search:\033[0m ").strip()
-            if len(query) < 2:
-                print("  Enter at least 2 characters.")
-                continue
-            names = await search_card_names(conn, query)
-            if not names:
-                print("  No card names found — try again.")
-                continue
-            for i, name in enumerate(names, 1):
-                print(f"  \033[34m[{i}]\033[0m {name}")
-            np = input("\033[90m  Pick name #:\033[0m ").strip()
-            if np.isdigit() and 1 <= int(np) <= len(names):
-                card_name = names[int(np) - 1]
+        if pick == "s" or pick == "":
+            do_search = True
             continue
 
         if pick.isdigit() and versions and 1 <= int(pick) <= len(versions):
@@ -309,8 +328,11 @@ async def _review_listing(conn, row: dict, idx: int, total: int) -> str:
         print(confidence_tag)
 
     # ── Phase 1: pick exact card version ──────────────────────────────────────
+    low_confidence = (score is None or score < 0.65)
     try:
-        card_version_id, card_label = await _pick_version(conn, row["card_name"])
+        card_version_id, card_label = await _pick_version(
+            conn, row["card_name"], search_first=low_confidence
+        )
     except SystemExit:
         return "quit"
 
