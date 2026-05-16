@@ -61,16 +61,17 @@
 
 /* ── Column widths (via <colgroup>) ──────────────── */
 
-.colName     { width: 180px; }
+.colName     { width: 160px; }
 .colSet      { width: 48px; }
-.colApp      { width: 80px; }
+.colApp      { width: 70px; }
 .colCond     { width: 68px; }
-.colFinish   { width: 82px; }
-.colStyle    { width: 80px; }
+.colFinish   { width: 70px; }
+.colStyle    { width: 70px; }
 .colPrice    { width: 66px; }
-.colDays     { width: 48px; }
-.colWatchers { width: 54px; }
+.colDays     { width: 44px; }
+.colWatchers { width: 48px; }
 .colStatus   { width: 64px; }
+.colSignal   { width: 64px; }
 
 /* ── Header ──────────────────────────────────────── */
 
