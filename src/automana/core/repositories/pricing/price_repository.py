@@ -1,5 +1,5 @@
 from datetime import date
-from typing import Optional
+from typing import Any, Optional
 import logging
 
 from automana.core.repositories.abstract_repositories.AbstractDBRepository import AbstractRepository
@@ -249,6 +249,15 @@ class PricingTierRepository(AbstractRepository):
                 "archive_to_weekly failed",
                 extra={"older_than_interval": older_than_interval, "error": str(e)},
             )
+            raise
+
+    async def refresh_card_price_spark(self) -> dict:
+        try:
+            await self.connection.execute("CALL pricing.refresh_card_price_spark()")
+            logger.info("refresh_card_price_spark completed")
+            return {"status": "success"}
+        except Exception as e:
+            logger.error("refresh_card_price_spark failed", extra={"error": str(e)})
             raise
 
     async def upsert_scryfall_price_batch(
@@ -520,5 +529,20 @@ class PricingTierRepository(AbstractRepository):
         placeholders = ", ".join(f"${i+1}" for i in range(len(args)))
         call_stmt = f"CALL {proc_name}({placeholders})"
 
-        # Execute via the connection
-        await self.connection.execute(call_stmt, *args)
+        # Execute via the connection — long timeout for large date ranges
+        await self.connection.execute(call_stmt, *args, timeout=7200)
+
+    async def add(self, item: Any) -> None:
+        raise NotImplementedError
+
+    async def get(self, id: Any) -> None:
+        raise NotImplementedError
+
+    async def update(self, item: Any) -> None:
+        raise NotImplementedError
+
+    async def delete(self, id: Any) -> None:
+        raise NotImplementedError
+
+    async def list(self, *_: Any, **__: Any) -> list:
+        raise NotImplementedError
