@@ -108,7 +108,7 @@ export function ListingsTable({ listings, isLoading = false, selectedId, onRowCl
             <col className={styles.colDays} />
             <col className={styles.colWatchers} />
             <col className={styles.colStatus} />
-            <col />
+            <col className={styles.colSignal} />
           </colgroup>
           <thead className={styles.thead}>
             <tr>
