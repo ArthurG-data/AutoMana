@@ -746,65 +746,6 @@ class CardReferenceRepository(AbstractRepository[Any]):
             for row in rows
         ]
 
-    async def get_versions_in_set(self, unique_card_id: UUID, set_code: str) -> list[dict]:
-        """All card_versions for a single (unique_card_id, set_code) pair."""
-        sql = """
-            SELECT
-                v.card_version_id,
-                v.unique_card_id,
-                v.card_name,
-                v.set_code,
-                v.set_name,
-                v.rarity_name,
-                v.collector_number,
-                v.promo_types,
-                cvi.image_uris->>'normal' AS image_normal,
-                ARRAY(
-                    SELECT LOWER(cf.code)
-                    FROM card_catalog.card_version_finish cvf
-                    JOIN card_catalog.card_finished cf ON cf.finish_id = cvf.finish_id
-                    WHERE cvf.card_version_id = v.card_version_id
-                ) AS available_finishes
-            FROM card_catalog.v_card_versions_complete v
-            LEFT JOIN card_catalog.card_version_illustration cvi
-                ON cvi.card_version_id = v.card_version_id
-            WHERE v.unique_card_id = $1
-              AND v.set_code = $2
-            ORDER BY cardinality(v.promo_types) ASC NULLS LAST, v.collector_number ASC NULLS LAST
-        """
-        rows = await self.execute_query(sql, (unique_card_id, set_code))
-        card_ids = [row["card_version_id"] for row in rows]
-        price_data = await self._fetch_prices_for_cards(card_ids)
-        return [
-            {**dict(row), **price_data.get(str(row["card_version_id"]), self._PRICE_DEFAULTS)}
-            for row in rows
-        ]
-
-    async def get_other_sets(self, unique_card_id: UUID) -> list[dict]:
-        """One representative card_version per set for a given unique_card_id."""
-        sql = """
-            SELECT DISTINCT ON (v.set_code)
-                v.card_version_id,
-                v.set_code,
-                v.set_name,
-                s.released_at::text AS released_at,
-                COUNT(*) OVER (PARTITION BY v.set_code) AS version_count
-            FROM card_catalog.v_card_versions_complete v
-            JOIN card_catalog.sets s ON s.set_id = v.set_id
-            WHERE v.unique_card_id = $1
-            ORDER BY v.set_code, cardinality(v.promo_types) ASC NULLS LAST, v.collector_number ASC NULLS LAST
-        """
-        rows = await self.execute_query(sql, (unique_card_id,))
-        card_ids = [row["card_version_id"] for row in rows]
-        price_data = await self._fetch_prices_for_cards(card_ids)
-        result = [
-            {**dict(row), **price_data.get(str(row["card_version_id"]), self._PRICE_DEFAULTS)}
-            for row in rows
-        ]
-        result.sort(key=lambda r: r.get("released_at") or "", reverse=True)
-        return result
-
-
     def bulk_update_mtg_stock_ids(self, ids: dict[str, str]):
         #not async anymore
         if not ids:

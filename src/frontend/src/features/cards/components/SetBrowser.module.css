@@ -202,25 +202,20 @@
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
-  /* Collapsed: accent stripe + a visible sliver of tinted background */
+  /* Collapsed: accent stripe + tinted sliver */
   max-width: 20px;
   box-shadow: 2px 0 10px rgba(var(--hd-accent-rgb), 0.25);
-  /* Collapse: wait 0.35 s before retracting — lets the cursor reach the flag */
   transition:
-    max-width 0.22s 0.35s cubic-bezier(0.4, 0, 0.2, 1),
-    background 0.15s 0.35s,
-    border-color 0.15s 0.35s;
+    max-width 0.26s cubic-bezier(0.4, 0, 0.2, 1),
+    background 0.15s,
+    border-color 0.15s;
 }
 
-/* Expand when hovering anywhere on the card group — no delay on open */
-.parentGroup:hover .flag {
+/* JS-driven expansion — .expanded added by React state */
+.expanded .flag {
   max-width: 240px;
   background: rgba(var(--hd-accent-rgb), 0.20);
   border-color: var(--hd-accent);
-  transition:
-    max-width 0.26s 0s cubic-bezier(0.4, 0, 0.2, 1),
-    background 0.15s 0s,
-    border-color 0.15s 0s;
 }
 
 .flagName {

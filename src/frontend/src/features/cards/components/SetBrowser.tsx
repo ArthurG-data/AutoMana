@@ -70,6 +70,25 @@ export function SetBrowser({ onSelect }: SetBrowserProps) {
   const [search, setSearch] = useState('')
   const [selectedTypes, setSelectedTypes] = useState<Set<string>>(new Set(['expansion']))
   const [groupBy, setGroupBy] = useState<GroupBy>('year')
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(null)
+  const collapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function clearCollapseTimer() {
+    if (collapseTimer.current !== null) {
+      clearTimeout(collapseTimer.current)
+      collapseTimer.current = null
+    }
+  }
+
+  function scheduleCollapse() {
+    clearCollapseTimer()
+    collapseTimer.current = setTimeout(() => setExpandedGroup(null), 350)
+  }
+
+  function expandGroup(code: string) {
+    clearCollapseTimer()
+    setExpandedGroup(code)
+  }
 
   const availableTypes = useMemo(() => {
     const counts = new Map<string, number>()
@@ -217,12 +236,23 @@ export function SetBrowser({ onSelect }: SetBrowserProps) {
               )}
               <div className={styles.grid}>
                 {groupByParentChild(g.sets).map((group) => (
-                  <div key={group.parent.set_code} className={styles.parentGroup}>
-                    <div className={styles.cardWrapper}>
+                  <div
+                    key={group.parent.set_code}
+                    className={`${styles.parentGroup} ${expandedGroup === group.parent.set_code ? styles.expanded : ''}`}
+                  >
+                    <div
+                      className={styles.cardWrapper}
+                      onMouseEnter={() => group.children.length > 0 && expandGroup(group.parent.set_code)}
+                      onMouseLeave={() => group.children.length > 0 && scheduleCollapse()}
+                    >
                       <SetCard set={group.parent} onSelect={onSelect} />
                     </div>
                     {group.children.length > 0 && (
-                      <div className={styles.flags}>
+                      <div
+                        className={styles.flags}
+                        onMouseEnter={clearCollapseTimer}
+                        onMouseLeave={scheduleCollapse}
+                      >
                         {group.children.map((child) => (
                           <button
                             key={child.set_code}
