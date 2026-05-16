@@ -93,14 +93,14 @@ for chunk in itertools.batched(folders, batch_size):
         folder_errors = 0
 ```
 
-The semaphore is recreated per chunk; this makes no practical difference since the semaphore only limits concurrency, not total task count.
+The semaphore is created once before the outer loop and shared across all chunks.
 
 ### Ops tracking
 
 | Field | Behaviour |
 |-------|-----------|
 | `batch_number` | Increments once per chunk flush — unchanged. |
-| `range_start` / `range_end` | Folder counts (chunk start / chunk end index) — same semantics as today. |
+| `range_start` / `range_end` | Global folder-list index of the first / last folder in the chunk (not print_id values). Same semantics as today. |
 | `folder_errors` | Counts errors within the chunk, reset after each flush. |
 | `ids_master_dict` | Accumulated per folder within chunk, flushed + cleared after COPY. |
 
