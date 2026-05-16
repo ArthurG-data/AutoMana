@@ -113,6 +113,10 @@ async def build_and_create_listing(
                     app_code=app_code,
                     item_id=ebay_item_id,
                     card_version_id=body.card_version_id,
+                    condition=body.condition,
+                    foil=body.foil,
+                    lang=body.lang,
+                    marketplace_id=body.marketplace_id,
                 )
             except Exception as track_exc:
                 logger.warning(

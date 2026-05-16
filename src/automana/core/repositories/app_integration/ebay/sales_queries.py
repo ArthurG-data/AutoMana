@@ -1,5 +1,45 @@
 """SQL queries for EbaySalesRepository."""
 
+ENSURE_PRODUCT = """
+WITH new_product AS (
+    INSERT INTO pricing.product_ref (game_id)
+    SELECT 1
+    WHERE NOT EXISTS (
+        SELECT 1 FROM pricing.mtg_card_products WHERE card_version_id = $1
+    )
+    RETURNING product_id
+),
+link AS (
+    INSERT INTO pricing.mtg_card_products (product_id, card_version_id)
+    SELECT product_id, $1 FROM new_product
+    ON CONFLICT (card_version_id) DO NOTHING
+)
+SELECT product_id FROM pricing.mtg_card_products WHERE card_version_id = $1;
+"""
+
+UPSERT_LISTING_TEMPLATE = """
+INSERT INTO app_integration.listing_template
+    (app_code, product_id, condition_id, finish_id, language_id, marketplace_id,
+     price_cents, quantity)
+VALUES ($1, $2,
+    (SELECT condition_id FROM pricing.card_condition     WHERE UPPER(code) = UPPER($3)),
+    (SELECT finish_id    FROM card_catalog.card_finished WHERE UPPER(code) = UPPER($4)),
+    (SELECT language_id  FROM card_catalog.language_ref  WHERE code = $5),
+    $6, $7, $8)
+ON CONFLICT (app_code, product_id, condition_id, finish_id, language_id, marketplace_id)
+DO UPDATE SET
+    price_cents = EXCLUDED.price_cents,
+    quantity    = EXCLUDED.quantity,
+    updated_at  = now()
+RETURNING template_id;
+"""
+
+GET_LISTING_VARIANT = """
+SELECT condition_id, finish_id, language_id, marketplace_id
+FROM app_integration.ebay_active_listings
+WHERE item_id = $1;
+"""
+
 ENSURE_SOURCE_PRODUCT = """
 WITH ins AS (
     INSERT INTO pricing.source_product (product_id, source_id)
@@ -20,8 +60,16 @@ LIMIT 1;
 
 UPSERT_ACTIVE_LISTING = """
 INSERT INTO app_integration.ebay_active_listings
-    (item_id, app_code, card_version_id, listed_at)
-VALUES ($1, $2, $3, $4)
+    (item_id, app_code, card_version_id, product_id,
+     condition_id, finish_id, language_id, marketplace_id, listed_at)
+VALUES (
+    $1, $2, $3,
+    (SELECT product_id   FROM pricing.mtg_card_products      WHERE card_version_id = $3),
+    (SELECT condition_id FROM pricing.card_condition          WHERE UPPER(code) = UPPER($4)),
+    (SELECT finish_id    FROM card_catalog.card_finished      WHERE UPPER(code) = UPPER($5)),
+    (SELECT language_id  FROM card_catalog.language_ref       WHERE code = $6),
+    $7, $8
+)
 ON CONFLICT (item_id) DO UPDATE SET ended_at = NULL;
 """
 
@@ -41,8 +89,8 @@ UPSERT_ORDER_SOURCE_PRODUCT = """
 INSERT INTO app_integration.ebay_order_source_product
     (order_id, app_code, item_id, title, source_product_id,
      quantity, sold_price_cents, currency, finish_id, condition_id,
-     language_id, sold_at, buyer_username)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+     language_id, sold_at, buyer_username, marketplace_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 ON CONFLICT (order_id, app_code, item_id) DO UPDATE SET
     source_product_id = EXCLUDED.source_product_id,
     sold_price_cents   = EXCLUDED.sold_price_cents,

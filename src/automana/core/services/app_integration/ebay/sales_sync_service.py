@@ -91,18 +91,27 @@ async def track_active_listing(
     item_id: str,
     app_code: str,
     card_version_id: UUID,
+    condition: str = "NM",
+    foil: bool = False,
+    lang: str = "en",
+    marketplace_id: str = "15",
     **kwargs: Any,
 ) -> None:
-    """Persist item_id → card_version_id after a listing is created."""
+    """Persist item_id → card_version_id + variant after a listing is created."""
+    finish_code = "FOIL" if foil else "NONFOIL"
     await ebay_sales_repository.upsert_active_listing(
         item_id=item_id,
         app_code=app_code,
         card_version_id=card_version_id,
         listed_at=datetime.now(timezone.utc),
+        condition_code=condition,
+        finish_code=finish_code,
+        language_code=lang,
+        marketplace_id=marketplace_id,
     )
     logger.info(
         "ebay_active_listing_tracked",
-        extra={"item_id": item_id, "app_code": app_code},
+        extra={"item_id": item_id, "app_code": app_code, "marketplace_id": marketplace_id},
     )
 
 
@@ -229,6 +238,17 @@ async def _process_line_item(
         card_repository=card_repository,
     )
 
+    # Resolve condition/finish/language from the active listing record if available.
+    # Falls back to safe defaults for listings predating migration_37.
+    variant = None
+    if item_id:
+        variant = await ebay_sales_repository.get_listing_variant(item_id)
+
+    finish_id    = variant["finish_id"]      if variant and variant.get("finish_id")    else 1
+    condition_id = variant["condition_id"]   if variant and variant.get("condition_id") else None
+    language_id  = variant["language_id"]    if variant and variant.get("language_id")  else 1
+    sale_marketplace_id = variant["marketplace_id"] if variant else None
+
     source_product_id: Optional[int] = None
     if card_version_id:
         try:
@@ -252,11 +272,12 @@ async def _process_line_item(
             quantity=line.quantity or 1,
             sold_price_cents=price_cents,
             currency=currency,
-            finish_id=1,
-            condition_id=None,
-            language_id=1,
+            finish_id=finish_id,
+            condition_id=condition_id,
+            language_id=language_id,
             sold_at=sold_at,
             buyer_username=buyer,
+            marketplace_id=sale_marketplace_id,
         )
     except Exception:
         logger.exception(
