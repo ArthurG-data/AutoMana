@@ -39,7 +39,7 @@ class NewSet(BaseModel):
     digital : bool=Field(alias='digital', default=False)
     nonfoil_only : bool=Field(alias='nonfoil_only', default=False)
     foil_only : bool=Field(alias='foil_only', default=False)
-    parent_set : Optional[str]=Field(alias='parent_set', default=None)
+    parent_set : Optional[str]=Field(alias='parent_set_code', default=None)
     icon_svg_uri : Optional[str]=Field(alias='icon_svg_uri', default=None)
 
     class Config:
@@ -65,7 +65,7 @@ class NewSet(BaseModel):
             'digital': data['digital'],
             'nonfoil_only': data['nonfoil_only'],
             'foil_only': data['foil_only'],
-            'parent_set_code': data['parent_set'],
+            'parent_set_code': data['parent_set_code'],
             'icon_svg_uri': data['icon_svg_uri'],
         }
 
