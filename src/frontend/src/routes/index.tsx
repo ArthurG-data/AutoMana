@@ -19,7 +19,7 @@ const TILES: { kind: IconKind; title: string; sub: string; to: string }[] = [
   { kind: 'bag',    title: 'List on eBay',           sub: 'Smart pricing & one-click listing.',       to: '/listings'   },
 ]
 
-const QUICK_SEARCHES: string[] = []
+const QUICK_SEARCHES = ['Sheoldred, the Apocalypse', 'Force of Will', 'Leyline Binding', 'The One Ring']
 
 function LandingPage() {
   const navigate = useNavigate()
@@ -47,37 +47,39 @@ function LandingPage() {
       </nav>
 
       <div className={styles.hero}>
-        <div className={styles.eyebrow}>● mtg market intelligence</div>
+        <div className={styles.eyebrow}>● real-time mtg pricing</div>
         <h1 className={styles.headline}>
-          Track every card.<br />
-          <span className={styles.headlineAccent}>Price the market.</span>
+          The data behind<br />
+          <span className={styles.headlineAccent}>every deal.</span>
         </h1>
         <p className={styles.subtext}>
-          Search {stats?.total_card_versions?.toLocaleString() ?? '—'} cards across every set. Real-time prices, full history, and your
-          collection — all in one place.
+          Search {stats?.total_card_versions?.toLocaleString() ?? '—'} cards across every printing and finish. Find arbitrage before the market moves.
         </p>
 
         <div className={styles.searchBarWrapper}>
           <SearchBarWithSuggestions />
         </div>
 
-        <div className={styles.pills}>
-          {QUICK_SEARCHES.map((s) => (
-            <button
-              key={s}
-              className={styles.pill}
-              onClick={() => navigate({ to: '/search', search: { q: s } as any })}
-            >
-              {s}
-            </button>
-          ))}
-        </div>
+        {QUICK_SEARCHES.length > 0 && (
+          <div className={styles.pills}>
+            <span className={styles.pillLabel}>Trending</span>
+            {QUICK_SEARCHES.map((s) => (
+              <button
+                key={s}
+                className={styles.pill}
+                onClick={() => navigate({ to: '/search', search: { q: s } as any })}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className={styles.stats}>
-          <span>● {stats?.total_card_versions?.toLocaleString() ?? '—'} cards</span>
-          <span>● 16 yrs of history</span>
-          <span>● {stats?.data_source ?? '—'}</span>
-          <span>● updated daily</span>
+          <span><span className={styles.statValue}>{stats?.total_card_versions?.toLocaleString() ?? '—'}</span><span className={styles.statLabel}>cards</span></span>
+          <span><span className={styles.statValue}>16 yrs</span><span className={styles.statLabel}>history</span></span>
+          <span><span className={styles.statValue}>Scryfall · MTGStocks · MTGJson</span><span className={styles.statLabel}>sources</span></span>
+          <span><span className={styles.statValue}>Daily</span><span className={styles.statLabel}>updates</span></span>
         </div>
       </div>
 
