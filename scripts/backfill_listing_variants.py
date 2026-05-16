@@ -4,6 +4,14 @@ backfill_listing_variants.py
 Interactive backfill for ebay_active_listings rows that are missing
 condition_id / finish_id / product_id (created before migration_37).
 
+Flow per listing:
+  1. Show eBay title + auto-matched card name
+  2. Show ALL printings of that card — user picks the exact version
+  3. Type 's' to search a different card name (if the auto-match is wrong)
+  4. Enter condition (NM / LP / MP / HP / DMG)
+  5. Enter finish (nonfoil / foil / etched / …)
+  6. Saved to DB
+
 Usage:
     cd /home/arthur/projects/AutoMana
     ./.venv/bin/python scripts/backfill_listing_variants.py [--seed] [--dry-run] [--app-code CODE]
@@ -64,6 +72,7 @@ async def fetch_pending(conn, app_code: str | None = None) -> list[dict]:
             eal.listed_at,
             eal.marketplace_id,
             eal.card_version_id,
+            eal.title,
             ucr.card_name,
             s.set_name,
             s.set_code,
@@ -81,25 +90,39 @@ async def fetch_pending(conn, app_code: str | None = None) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-async def search_cards(conn, query: str) -> list[dict]:
-    """Search card versions by partial name. Returns up to 8 matches."""
+async def get_card_versions(conn, card_name: str) -> list[dict]:
+    """Return all printings of a card by exact (case-insensitive) name."""
     rows = await conn.fetch("""
         SELECT
             cv.card_version_id,
             ucr.card_name,
             s.set_name,
             s.set_code,
-            cv.collector_number
+            s.released_at,
+            cv.collector_number,
+            cv.lang
         FROM card_catalog.card_version cv
         JOIN card_catalog.unique_cards_ref ucr
             ON ucr.unique_card_id = cv.unique_card_id
         JOIN card_catalog.sets s
             ON s.set_id = cv.set_id
         WHERE ucr.card_name ILIKE $1
-        ORDER BY ucr.card_name, s.set_code, cv.collector_number
-        LIMIT 8
-    """, f"%{query}%")
+        ORDER BY s.released_at DESC NULLS LAST, cv.collector_number, cv.lang
+        LIMIT 60
+    """, card_name)
     return [dict(r) for r in rows]
+
+
+async def search_card_names(conn, query: str) -> list[str]:
+    """Return distinct card names matching a partial search string."""
+    rows = await conn.fetch("""
+        SELECT DISTINCT ucr.card_name
+        FROM card_catalog.unique_cards_ref ucr
+        WHERE ucr.card_name ILIKE $1
+        ORDER BY ucr.card_name
+        LIMIT 12
+    """, f"%{query}%")
+    return [r["card_name"] for r in rows]
 
 
 async def save_variant(
@@ -148,6 +171,116 @@ async def save_variant(
     """, item_id, card_version_id, product_id, condition_code, finish_code)
 
 
+def _prompt(label: str, hint: str, default: str) -> str:
+    return input(f"\033[32m{label}\033[0m \033[90m{hint} (default: {default}):\033[0m ").strip()
+
+
+async def _pick_version(conn, initial_card_name: str) -> tuple[str | None, str | None]:
+    """
+    Show all printings of a card and let the user pick one.
+    Returns (card_version_id_str, display_label) or (None, None) if skipped/quit.
+    Raises SystemExit on 'q'.
+    """
+    card_name = initial_card_name
+
+    while True:
+        versions = await get_card_versions(conn, card_name)
+
+        print(f"\n  \033[33m{card_name}\033[0m — {len(versions)} printing(s):")
+        if not versions:
+            print("  \033[90m(no printings found)\033[0m")
+        else:
+            for i, v in enumerate(versions, 1):
+                rd = v["released_at"].strftime("%Y") if v.get("released_at") else "    "
+                lang = v.get("lang") or "en"
+                lang_tag = f" \033[90m[{lang}]\033[0m" if lang != "en" else ""
+                print(
+                    f"  \033[34m[{i:>3}]\033[0m  {rd}  "
+                    f"{v['set_name']:<40} ({v['set_code']:<5}) · #{v['collector_number']}{lang_tag}"
+                )
+
+        print("  \033[90m[s] Search different card name   [skip] Skip   [q] Quit\033[0m")
+        pick = input("\033[32mPick version #:\033[0m ").strip().lower()
+
+        if pick == "q":
+            raise SystemExit(0)
+        if pick in ("skip", "sk", ""):
+            return None, None
+        if pick == "s":
+            query = input("\033[90m  Card name search:\033[0m ").strip()
+            if len(query) < 2:
+                print("  Enter at least 2 characters.")
+                continue
+            names = await search_card_names(conn, query)
+            if not names:
+                print("  No card names found — try again.")
+                continue
+            for i, name in enumerate(names, 1):
+                print(f"  \033[34m[{i}]\033[0m {name}")
+            np = input("\033[90m  Pick name #:\033[0m ").strip()
+            if np.isdigit() and 1 <= int(np) <= len(names):
+                card_name = names[int(np) - 1]
+            continue
+
+        if pick.isdigit() and versions and 1 <= int(pick) <= len(versions):
+            v = versions[int(pick) - 1]
+            label = f"{v['card_name']} — {v['set_name']} ({v['set_code']}) · #{v['collector_number']}"
+            return str(v["card_version_id"]), label
+
+        print(f"  Enter a number 1–{len(versions)}, 's' to search, or 'skip'.")
+
+
+async def _review_listing(conn, row: dict, idx: int, total: int) -> str:
+    """Interactively review one listing. Returns 'saved', 'skipped', or 'quit'."""
+    listed = row["listed_at"].strftime("%Y-%m-%d") if row["listed_at"] else "?"
+    market = row.get("marketplace_id") or "15"
+    title  = row.get("title") or ""
+
+    print(f"\n\033[90m── Listing {idx} / {total} {'─' * 44}\033[0m")
+    print(f"  \033[90mItem ID\033[0m  {row['item_id']}")
+    if title:
+        print(f"  \033[90meBay\033[0m     \033[37m{title}\033[0m")
+    print(f"  \033[90mListed\033[0m   {listed}  (marketplace {market})")
+
+    # ── Phase 1: pick exact card version ──────────────────────────────────────
+    try:
+        card_version_id, card_label = await _pick_version(conn, row["card_name"])
+    except SystemExit:
+        return "quit"
+
+    if card_version_id is None:
+        return "skipped"
+
+    # ── Phase 2: condition ────────────────────────────────────────────────────
+    while True:
+        raw = _prompt("Condition", "[NM / LP / MP / HP / DMG]", "NM")
+        if raw.lower() == "q":
+            return "quit"
+        if raw.lower() in ("s", "skip"):
+            return "skipped"
+        cond = _parse_condition(raw, "NM")
+        if cond:
+            break
+        print(f"  Unrecognised '{raw}' — try NM, LP, MP, HP, or DMG.")
+
+    # ── Phase 3: finish ───────────────────────────────────────────────────────
+    while True:
+        raw = _prompt("Finish   ", "[nonfoil / foil / etched / …]", "nonfoil")
+        if raw.lower() == "q":
+            return "quit"
+        if raw.lower() in ("s", "skip"):
+            return "skipped"
+        finish = _parse_finish(raw, "NONFOIL")
+        if finish:
+            break
+        print(f"  Unrecognised '{raw}' — try nonfoil, foil, or etched.")
+
+    await save_variant(conn, row["item_id"], card_version_id, cond, finish, dry_run=DRY_RUN)
+    tag = "[dry-run] Would save" if DRY_RUN else "Saved"
+    print(f"  \033[32m{tag}\033[0m \033[90m{cond} · {finish} · {card_label}\033[0m")
+    return "saved"
+
+
 async def seed_from_ebay(conn, app_code_filter: str | None = None, dry_run: bool = False) -> None:
     """Pull all active eBay listings and insert new ones into ebay_active_listings."""
     from uuid import UUID
@@ -158,9 +291,9 @@ async def seed_from_ebay(conn, app_code_filter: str | None = None, dry_run: bool
     from automana.core.services.app_integration.ebay.market_price_scorer import score_title
     from automana.core.QueryExecutor import AsyncQueryExecutor
 
-    executor = AsyncQueryExecutor()
-    auth_repo = EbayAuthRepository(conn, executor)
-    card_repo = CardReferenceRepository(conn, executor)
+    executor   = AsyncQueryExecutor()
+    auth_repo  = EbayAuthRepository(conn, executor)
+    card_repo  = CardReferenceRepository(conn, executor)
 
     active_users = await auth_repo.get_active_app_code_users()
     if not active_users:
@@ -168,7 +301,8 @@ async def seed_from_ebay(conn, app_code_filter: str | None = None, dry_run: bool
         return
 
     for row in active_users:
-        user_id  = UUID(str(row["user_id"]))
+        from uuid import UUID as _UUID
+        user_id  = _UUID(str(row["user_id"]))
         app_code = str(row["app_code"])
         if app_code_filter and app_code != app_code_filter:
             continue
@@ -198,10 +332,9 @@ async def seed_from_ebay(conn, app_code_filter: str | None = None, dry_run: bool
                 if not item_id:
                     continue
 
-                # Resolve card_version_id from listing title using trigram + score_title
                 candidates = await card_repo.suggest(query=title, limit=10)
                 best_cv: UUID | None = None
-                best_score = 0.4  # lower threshold for seeding; user can re-link during backfill
+                best_score = 0.4
                 for c in candidates:
                     sc = score_title(
                         title,
@@ -226,18 +359,18 @@ async def seed_from_ebay(conn, app_code_filter: str | None = None, dry_run: bool
 
                 status = await conn.execute("""
                     INSERT INTO app_integration.ebay_active_listings
-                        (item_id, app_code, card_version_id, marketplace_id)
-                    VALUES ($1, $2, $3, '15')
-                    ON CONFLICT (item_id) DO NOTHING
-                """, item_id, app_code, str(best_cv))
-                if status == "INSERT 0 1":
-                    seeded += 1
-                else:
+                        (item_id, app_code, card_version_id, marketplace_id, title)
+                    VALUES ($1, $2, $3, '15', $4)
+                    ON CONFLICT (item_id) DO UPDATE SET title = EXCLUDED.title
+                """, item_id, app_code, str(best_cv), title)
+                # UPDATE means it was already there; INSERT means new
+                if "UPDATE" in status:
                     skipped += 1
+                else:
+                    seeded += 1
 
-            # Pagination
-            pagination   = active_list.get("PaginationResult") or {}
-            total_pages  = int(pagination.get("TotalNumberOfPages") or 1)
+            pagination  = active_list.get("PaginationResult") or {}
+            total_pages = int(pagination.get("TotalNumberOfPages") or 1)
             if page >= total_pages:
                 break
             page += 1
@@ -249,104 +382,11 @@ async def seed_from_ebay(conn, app_code_filter: str | None = None, dry_run: bool
         )
 
 
-def _prompt(label: str, hint: str, default: str) -> str:
-    """Print a coloured prompt and return stripped user input."""
-    return input(f"\033[32m{label}\033[0m \033[90m{hint} (default: {default}):\033[0m ").strip()
-
-
-async def _relink_flow_async(conn, card_label: str) -> tuple[str | None, str | None, str | None]:
-    """Interactive card search. Returns (card_version_id str, card_name, set_label) or Nones."""
-    while True:
-        query = input("\033[90m  Search card name:\033[0m ").strip()
-        if len(query) < 2:
-            print("  Enter at least 2 characters.")
-            continue
-        results = await search_cards(conn, query)
-        if not results:
-            print("  No matches — try a different name.")
-            continue
-        for i, r in enumerate(results, 1):
-            print(f"  \033[34m[{i}]\033[0m {r['card_name']} — {r['set_name']} ({r['set_code']}) · #{r['collector_number']}")
-        print("  \033[90m[0] Cancel re-link\033[0m")
-        pick = input("\033[90m  Pick:\033[0m ").strip()
-        if pick == "0":
-            return None, None, None
-        if pick.isdigit() and 1 <= int(pick) <= len(results):
-            r = results[int(pick) - 1]
-            label = f"{r['card_name']} ({r['set_code']} #{r['collector_number']})"
-            print(f"  \033[32m→ Relinked to {label}\033[0m")
-            return str(r["card_version_id"]), r["card_name"], label
-        print(f"  Invalid choice — enter a number between 0 and {len(results)}.")
-
-
-async def _review_listing(conn, row: dict, idx: int, total: int) -> str:
-    """Interactively review one listing. Returns 'saved', 'skipped', or 'quit'."""
-    listed = row["listed_at"].strftime("%Y-%m-%d") if row["listed_at"] else "?"
-    market = row.get("marketplace_id") or "AU"
-    set_label = f"{row['set_name']} ({row['set_code']}) · #{row['collector_number']}"
-
-    print(f"\n\033[90m── Listing {idx} / {total} {'─' * 40}\033[0m")
-    print(f"\033[90m{'Item ID':<12}\033[0m {row['item_id']}")
-    print(f"\033[90m{'Card':<12}\033[0m \033[33m{row['card_name']}\033[0m")
-    print(f"\033[90m{'Set':<12}\033[0m {set_label}")
-    print(f"\033[90m{'Listed':<12}\033[0m {listed}  (eBay {market})")
-
-    card_version_id = str(row["card_version_id"])
-    card_label = f"{row['card_name']} ({row['set_code']} #{row['collector_number']})"
-
-    # --- condition ---
-    while True:
-        raw = _prompt("Condition", "[NM / LP / MP / HP / DMG]", "NM")
-        if raw.lower() == "s":
-            return "skipped"
-        if raw.lower() == "q":
-            return "quit"
-        cond = _parse_condition(raw, "NM")
-        if cond:
-            break
-        print(f"  Unrecognised condition '{raw}' — try NM, LP, MP, HP, or DMG.")
-
-    # --- finish ---
-    while True:
-        raw = _prompt("Finish   ", "[nonfoil / foil / etched / ...]", "nonfoil")
-        if raw.lower() == "s":
-            return "skipped"
-        if raw.lower() == "q":
-            return "quit"
-        finish = _parse_finish(raw, "NONFOIL")
-        if finish:
-            break
-        print(f"  Unrecognised finish '{raw}' — try nonfoil, foil, or etched.")
-
-    # --- card OK? ---
-    while True:
-        raw = _prompt("Card OK? ", "[y / r=re-link]", "y").lower()
-        if raw == "s":
-            return "skipped"
-        if raw == "q":
-            return "quit"
-        if raw in ("", "y"):
-            break
-        if raw == "r":
-            new_cv, new_name, new_label = await _relink_flow_async(conn, card_label)
-            if new_cv:
-                card_version_id = new_cv
-                card_label = new_label
-            break
-        print("  Enter y to confirm or r to re-link.")
-
-    await save_variant(conn, row["item_id"], card_version_id, cond, finish, dry_run=DRY_RUN)
-    tag = "[dry-run] Would save" if DRY_RUN else "Saved"
-    print(f"\033[32m{tag}\033[0m \033[90m— {cond} · {finish} · {card_label}\033[0m")
-    return "saved"
-
-
 async def main() -> None:
     import os
     from pathlib import Path
     from automana.tools.tui.shared import bootstrap, teardown
 
-    # Load PGP secret from the local secrets directory when running outside Docker.
     pgp_file = Path(__file__).resolve().parents[1] / "config" / "secrets" / "pgp_secret_key.txt"
     if pgp_file.exists() and not os.environ.get("PGP_SECRET_KEY"):
         os.environ["PGP_SECRET_KEY"] = pgp_file.read_text().strip()
@@ -366,8 +406,8 @@ async def main() -> None:
                 return
 
             flag = " [DRY RUN]" if DRY_RUN else ""
-            print(f"\033[34mFound {total} listing(s) with missing condition/finish. Starting backfill...{flag}\033[0m")
-            print("\033[90mCommands: Enter=accept default · s=skip · q=quit · r=re-link card\033[0m")
+            print(f"\n\033[34mFound {total} listing(s) to backfill.{flag}\033[0m")
+            print("\033[90mCommands: Enter=accept default · skip=skip · q=quit · s=search card name\033[0m")
 
             updated = skipped = 0
             for idx, row in enumerate(rows, 1):
