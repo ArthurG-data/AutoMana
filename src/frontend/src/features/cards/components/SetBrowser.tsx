@@ -1,5 +1,5 @@
 // src/frontend/src/features/cards/components/SetBrowser.tsx
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { setBrowseQueryOptions } from '../api'
 import type { SetBrowseItem } from '../types'
@@ -68,8 +68,27 @@ const GROUP_BY_OPTIONS: { value: GroupBy; label: string }[] = [
 export function SetBrowser({ onSelect }: SetBrowserProps) {
   const { data: sets = [], isLoading, isError } = useQuery(setBrowseQueryOptions())
   const [search, setSearch] = useState('')
-  const [selectedTypes, setSelectedTypes] = useState<Set<string>>(new Set())
+  const [selectedTypes, setSelectedTypes] = useState<Set<string>>(new Set(['expansion']))
   const [groupBy, setGroupBy] = useState<GroupBy>('year')
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(null)
+  const collapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function clearCollapseTimer() {
+    if (collapseTimer.current !== null) {
+      clearTimeout(collapseTimer.current)
+      collapseTimer.current = null
+    }
+  }
+
+  function scheduleCollapse() {
+    clearCollapseTimer()
+    collapseTimer.current = setTimeout(() => setExpandedGroup(null), 350)
+  }
+
+  function expandGroup(code: string) {
+    clearCollapseTimer()
+    setExpandedGroup(code)
+  }
 
   const availableTypes = useMemo(() => {
     const counts = new Map<string, number>()
@@ -217,12 +236,32 @@ export function SetBrowser({ onSelect }: SetBrowserProps) {
               )}
               <div className={styles.grid}>
                 {groupByParentChild(g.sets).map((group) => (
-                  <div key={group.parent.set_code} className={styles.parentGroup}>
-                    <SetCard set={group.parent} onSelect={onSelect} />
+                  <div
+                    key={group.parent.set_code}
+                    className={`${styles.parentGroup} ${expandedGroup === group.parent.set_code ? styles.expanded : ''}`}
+                  >
+                    <div
+                      className={styles.cardWrapper}
+                      onMouseEnter={() => group.children.length > 0 && expandGroup(group.parent.set_code)}
+                      onMouseLeave={() => group.children.length > 0 && scheduleCollapse()}
+                    >
+                      <SetCard set={group.parent} onSelect={onSelect} />
+                    </div>
                     {group.children.length > 0 && (
-                      <div className={styles.childrenRow}>
+                      <div
+                        className={styles.flags}
+                        onMouseEnter={clearCollapseTimer}
+                        onMouseLeave={scheduleCollapse}
+                      >
                         {group.children.map((child) => (
-                          <SetCard key={child.set_code} set={child} isChild onSelect={onSelect} />
+                          <button
+                            key={child.set_code}
+                            className={styles.flag}
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); onSelect(child.set_code); }}
+                          >
+                            <span className={styles.flagName}>{child.set_name}</span>
+                          </button>
                         ))}
                       </div>
                     )}

@@ -127,7 +127,7 @@ export function SearchResults({
         </div>
         <div className={styles.cardInfo}>
           <div className={styles.cardName}>{card.card_name}</div>
-          <div className={styles.cardMeta}>
+          <div className={styles.cardSubtitle}>
             <span
               className={`${styles.set} ${styles.setLink}`}
               role="button"
@@ -145,8 +145,11 @@ export function SearchResults({
                 }
               }}
             >
-              {card.set_code.toUpperCase()}
+              {card.set_name}
             </span>
+            <span className={styles.rarity}>{card.rarity_name}</span>
+          </div>
+          <div className={styles.cardMeta}>
             <span className={[styles.price, delta >= 0 ? styles.up : styles.down].join(' ')}>
               {card.price != null ? `$${card.price.toFixed(2)}` : 'N/A'}
             </span>

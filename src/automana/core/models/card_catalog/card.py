@@ -64,6 +64,7 @@ class CardDetail(BaseCard):
 
 
 class CardVersionRow(BaseModel):
+    """One row in the 'Versions in this set' table on the card detail page."""
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
     card_version_id: UUID

@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@fontsource/fraunces": "^5.1.0",
+    "@fontsource/inter": "^5.2.8",
     "@fontsource/jetbrains-mono": "^5.1.0",
     "@fontsource/space-grotesk": "^5.1.0",
     "@tanstack/query-sync-storage-persister": "^5.56.2",

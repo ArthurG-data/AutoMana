@@ -1,12 +1,20 @@
-﻿import io
+import io
 import json
-from datetime import date, timedelta
+import logging
+from datetime import date
 from typing import Optional, Any, Dict, List
 from uuid import UUID
 from dataclasses import dataclass, field
 
+import orjson
+
 from automana.core.repositories.abstract_repositories.AbstractDBRepository import AbstractRepository
 from automana.core.repositories.card_catalog import card_queries as queries
+from automana.core.utils.redis_cache import get_redis_client
+
+logger = logging.getLogger(__name__)
+
+_PRICE_SPARK_TTL = 86400  # 24 h — prices update once per day
 
 class CardReferenceRepository(AbstractRepository[Any]):
     def __init__(self, connection, executor = None):
@@ -196,9 +204,9 @@ class CardReferenceRepository(AbstractRepository[Any]):
         """
         Fetch price analytics from tier 2 (print_price_daily) for a batch of cards.
 
-        Uses the last 365 days of daily prices (all sources, NONFOIL NM EN sell),
-        averaged across sources per date. Returns current price, 1d/7d/30d deltas,
-        and a 7-point sparkline for each card that has data.
+        Results are cached in Redis per card for 24 h (prices update once per day).
+        A single mget fetches all cached entries in one roundtrip; only cache-miss
+        IDs hit the database. Fresh results are written back via a Redis pipeline.
 
         Tier 3 (print_price_latest / print_price_weekly) covers the ALL-time chart
         via the existing get_price_history() — not touched here.
@@ -206,55 +214,66 @@ class CardReferenceRepository(AbstractRepository[Any]):
         if not card_ids:
             return {}
 
-        sql = """
-            SELECT
-                ppd.card_version_id,
-                ppd.price_date,
-                AVG(ppd.list_avg_cents)::float / 100 AS avg_price
-            FROM pricing.print_price_daily ppd
-            WHERE ppd.card_version_id = ANY($1::uuid[])
-              AND ppd.transaction_type_id = 1
-              AND ppd.condition_id = 1
-              AND ppd.language_id = 1
-              AND ppd.finish_id = 1
-              AND ppd.price_date > CURRENT_DATE - 365
-            GROUP BY ppd.card_version_id, ppd.price_date
-            ORDER BY ppd.card_version_id, ppd.price_date DESC
-        """
-        rows = await self.execute_query(sql, (card_ids,))
-
-        # Group rows by card_version_id — each group is sorted DESC by price_date
-        by_card: dict[str, list[tuple[date, float]]] = {}
-        for row in rows:
-            cid = str(row["card_version_id"])
-            if cid not in by_card:
-                by_card[cid] = []
-            by_card[cid].append((row["price_date"], row["avg_price"]))
+        str_ids = [str(cid) for cid in card_ids]
+        cache_keys = [f"card_price_spark:{cid}" for cid in str_ids]
 
         result: dict[str, dict] = {}
-        for cid, series in by_card.items():
-            # series[0] = most recent; series[-1] = oldest in window
-            current_date, current_price = series[0]
-            by_date = {d: p for d, p in series}
+        miss_ids: list[str] = []
 
-            def _pct(days: int) -> float:
-                ref = by_date.get(current_date - timedelta(days=days))
-                if ref is None or ref == 0:
-                    return 0.0
-                return round((current_price - ref) / ref * 100, 2)
+        # --- Redis: single mget roundtrip ---
+        try:
+            redis = await get_redis_client()
+            cached_values = await redis.mget(*cache_keys)
+            for cid, raw in zip(str_ids, cached_values):
+                if raw is not None:
+                    result[cid] = orjson.loads(raw)
+                else:
+                    miss_ids.append(cid)
+        except Exception as exc:
+            logger.warning("price_cache_read_error", extra={"error": str(exc)})
+            miss_ids = str_ids  # Redis unavailable — fall through to DB
 
-            # Spark: up to 7 most-recent prices in ascending (chart) order
-            spark = [p for _, p in reversed(series[:7])]
+        if not miss_ids:
+            return result
 
-            result[cid] = {
-                "price": current_price,
-                "price_change_1d": _pct(1),
-                "price_change_7d": _pct(7),
-                "price_change_30d": _pct(30),
-                "spark": spark,
+        # --- DB query for cache misses only ---
+        sql = """
+            SELECT
+                card_version_id,
+                price,
+                price_change_1d,
+                price_change_7d,
+                price_change_30d,
+                spark
+            FROM pricing.mv_card_price_spark
+            WHERE card_version_id = ANY($1::uuid[])
+        """
+        rows = await self.execute_query(sql, (miss_ids,))
+
+        fresh: dict[str, dict] = {}
+        for row in rows:
+            cid = str(row["card_version_id"])
+            fresh[cid] = {
+                "price": row["price"],
+                "price_change_1d": row["price_change_1d"],
+                "price_change_7d": row["price_change_7d"],
+                "price_change_30d": row["price_change_30d"],
+                "spark": list(row["spark"]) if row["spark"] else [],
                 "finish": "non-foil",
             }
 
+        # --- Redis: write-back via pipeline (1 roundtrip) ---
+        if fresh:
+            try:
+                redis = await get_redis_client()
+                pipe = redis.pipeline()
+                for cid, data in fresh.items():
+                    pipe.setex(f"card_price_spark:{cid}", _PRICE_SPARK_TTL, orjson.dumps(data))
+                await pipe.execute()
+            except Exception as exc:
+                logger.warning("price_cache_write_error", extra={"error": str(exc)})
+
+        result.update(fresh)
         return result
 
     _PRICE_DEFAULTS = {
@@ -527,6 +546,35 @@ class CardReferenceRepository(AbstractRepository[Any]):
             " LEFT JOIN card_catalog.card_version_illustration cvi ON cvi.card_version_id = v.card_version_id"
         )
 
+        # Outer ORDER BY for collapse mode — references subquery columns (no table prefix).
+        if collapse:
+            if name_param_idx and oracle_param_idx:
+                outer_order = (
+                    f"ORDER BY ("
+                    f"word_similarity(LOWER(${name_param_idx}), LOWER(card_name)) + "
+                    f"ts_rank_cd(search_vector, websearch_to_tsquery('english', ${oracle_param_idx}))"
+                    f") DESC"
+                )
+            elif name_param_idx:
+                outer_order = f"ORDER BY word_similarity(LOWER(${name_param_idx}), LOWER(card_name)) DESC"
+            elif oracle_param_idx:
+                outer_order = (
+                    f"ORDER BY ts_rank_cd(search_vector, "
+                    f"websearch_to_tsquery('english', ${oracle_param_idx})) DESC"
+                )
+            else:
+                _set_cols = {"released_at"}
+                _view_cols = {"card_name", "cmc", "rarity_name", "set_name", "set_code"}
+                safe_sort_order = "DESC" if (sort_order or "").upper() == "DESC" else "ASC"
+                if sort_by in _set_cols:
+                    outer_order = f"ORDER BY released_at {safe_sort_order}"
+                else:
+                    safe_sort_by = sort_by if sort_by in _view_cols else "card_name"
+                    outer_order = f"ORDER BY {safe_sort_by} {safe_sort_order}"
+
+        # search_vector is only needed in collapsed outer ORDER BY when oracle_text is used.
+        sv_col = ", v.search_vector" if (collapse and oracle_param_idx) else ""
+
         base_select = f"""
                 v.card_version_id,
                 v.unique_card_id,
@@ -536,22 +584,18 @@ class CardReferenceRepository(AbstractRepository[Any]):
                 v.set_code,
                 v.cmc,
                 v.oracle_text,
+                v.promo_types,
+                v.collector_number,
                 v.is_digital AS digital,
                 v.collector_number,
                 v.promo_types,
                 s.released_at,
-                cvi.image_uris->>'normal' AS image_normal{
-                    f", v.search_vector" if oracle_param_idx else ""
-                }"""
+                cvi.image_uris->>'normal' AS image_normal
+                {sv_col}"""
 
         if collapse:
             query = f"""
-                SELECT
-                    card_version_id, unique_card_id, card_name, rarity_name,
-                    set_name, set_code, cmc, oracle_text, digital,
-                    collector_number, promo_types, released_at, image_normal,
-                    version_count
-                FROM (
+                SELECT * FROM (
                     SELECT DISTINCT ON (v.unique_card_id, v.set_code)
                         {base_select},
                         COUNT(*) OVER (PARTITION BY v.unique_card_id, v.set_code) AS version_count
@@ -561,7 +605,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
                              cardinality(v.promo_types) ASC NULLS LAST,
                              v.collector_number ASC NULLS LAST
                 ) _collapsed
-                {collapse_order_clause}
+                {outer_order}
                 LIMIT ${counter} OFFSET ${counter + 1}
             """
         else:
@@ -634,11 +678,8 @@ class CardReferenceRepository(AbstractRepository[Any]):
             "promo_type_facets": promo_type_facets,
             "rarity_facets": rarity_facets,
         }
-    async def list(self) -> dict[str, Any]:
-        raise NotImplementedError("Method not implemented")
-
     async def get_versions_in_set(self, unique_card_id: UUID, set_code: str) -> list[dict]:
-        """All card_versions for a single (unique_card_id, set_code) pair."""
+        """All card_version rows for one (unique_card_id, set_code) pair — for the versions table."""
         sql = """
             SELECT
                 v.card_version_id,
@@ -646,9 +687,9 @@ class CardReferenceRepository(AbstractRepository[Any]):
                 v.card_name,
                 v.set_code,
                 v.set_name,
-                v.rarity_name,
                 v.collector_number,
                 v.promo_types,
+                v.rarity_name,
                 cvi.image_uris->>'normal' AS image_normal,
                 ARRAY(
                     SELECT LOWER(cf.code)
@@ -657,6 +698,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
                     WHERE cvf.card_version_id = v.card_version_id
                 ) AS available_finishes
             FROM card_catalog.v_card_versions_complete v
+            JOIN card_catalog.sets s ON s.set_id = v.set_id
             LEFT JOIN card_catalog.card_version_illustration cvi
                 ON cvi.card_version_id = v.card_version_id
             WHERE v.unique_card_id = $1
@@ -672,29 +714,37 @@ class CardReferenceRepository(AbstractRepository[Any]):
         ]
 
     async def get_other_sets(self, unique_card_id: UUID) -> list[dict]:
-        """One representative card_version per set for a given unique_card_id."""
+        """One representative row per set for a given unique_card_id — for the Other Sets table."""
         sql = """
-            SELECT DISTINCT ON (v.set_code)
-                v.card_version_id,
-                v.set_code,
-                v.set_name,
-                s.released_at::text AS released_at,
-                COUNT(*) OVER (PARTITION BY v.set_code) AS version_count
-            FROM card_catalog.v_card_versions_complete v
-            JOIN card_catalog.sets s ON s.set_id = v.set_id
-            WHERE v.unique_card_id = $1
-            ORDER BY v.set_code, cardinality(v.promo_types) ASC NULLS LAST, v.collector_number ASC NULLS LAST
+            SELECT * FROM (
+                SELECT DISTINCT ON (v.set_code)
+                    v.card_version_id,
+                    v.unique_card_id,
+                    v.card_name,
+                    v.set_code,
+                    v.set_name,
+                    s.released_at,
+                    cvi.image_uris->>'normal' AS image_normal,
+                    COUNT(*) OVER (PARTITION BY v.set_code) AS version_count
+                FROM card_catalog.v_card_versions_complete v
+                JOIN card_catalog.sets s ON s.set_id = v.set_id
+                LEFT JOIN card_catalog.card_version_illustration cvi
+                    ON cvi.card_version_id = v.card_version_id
+                WHERE v.unique_card_id = $1
+                  AND v.layout_name NOT IN ('token', 'double_faced_token')
+                ORDER BY v.set_code,
+                         cardinality(v.promo_types) ASC NULLS LAST,
+                         v.collector_number ASC NULLS LAST
+            ) _sets
+            ORDER BY released_at DESC NULLS LAST
         """
         rows = await self.execute_query(sql, (unique_card_id,))
         card_ids = [row["card_version_id"] for row in rows]
         price_data = await self._fetch_prices_for_cards(card_ids)
-        result = [
+        return [
             {**dict(row), **price_data.get(str(row["card_version_id"]), self._PRICE_DEFAULTS)}
             for row in rows
         ]
-        result.sort(key=lambda r: r.get("released_at") or "", reverse=True)
-        return result
-
 
     def bulk_update_mtg_stock_ids(self, ids: dict[str, str]):
         #not async anymore
@@ -1125,7 +1175,7 @@ WHERE cv.card_version_id = ei.card_version_id
             tier2_prices AS (
                 SELECT
                     date_trunc('week', ppd.price_date)::date AS week_start,
-                    AVG(ppd.list_avg_cents)::float / 100 AS list_avg_price,
+                    COALESCE(AVG(ppd.list_avg_cents), AVG(ppd.sold_avg_cents))::float / 100 AS list_avg_price,
                     AVG(ppd.sold_avg_cents)::float / 100 AS sold_avg_price
                 FROM pricing.print_price_daily ppd
                 JOIN card_catalog.card_finished f ON f.finish_id = ppd.finish_id
@@ -1138,7 +1188,7 @@ WHERE cv.card_version_id = ei.card_version_id
             tier3_prices AS (
                 SELECT
                     ppw.price_week AS week_start,
-                    AVG(ppw.list_avg_cents)::float / 100 AS list_avg_price,
+                    COALESCE(AVG(ppw.list_avg_cents), AVG(ppw.sold_avg_cents))::float / 100 AS list_avg_price,
                     AVG(ppw.sold_avg_cents)::float / 100 AS sold_avg_price
                 FROM pricing.print_price_weekly ppw
                 JOIN card_catalog.card_finished f ON f.finish_id = ppw.finish_id
@@ -1171,7 +1221,7 @@ WHERE cv.card_version_id = ei.card_version_id
             daily_prices AS (
                 SELECT
                     ppd.price_date,
-                    AVG(ppd.list_avg_cents)::float / 100 AS list_avg_price,
+                    COALESCE(AVG(ppd.list_avg_cents), AVG(ppd.sold_avg_cents))::float / 100 AS list_avg_price,
                     AVG(ppd.sold_avg_cents)::float / 100 AS sold_avg_price
                 FROM pricing.print_price_daily ppd
                 JOIN card_catalog.card_finished f ON f.finish_id = ppd.finish_id
@@ -1208,3 +1258,6 @@ WHERE cv.card_version_id = ei.card_version_id
             "sold_avg": sold_avg,
             "dates": dates
         }
+
+    async def list(self, *_: Any, **__: Any):
+        raise NotImplementedError

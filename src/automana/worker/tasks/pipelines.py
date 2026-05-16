@@ -128,6 +128,10 @@ def daily_mtgjson_data_pipeline(self):
         # resolved rows from staging. No parameters — operates over the
         # whole staging table.
         run_service.s("staging.mtgjson.promote_to_price_observation"),
+        # Aggregate T1 price_observation → T2 print_price_daily for today.
+        # No date args: the proc reads tier_watermark.last_processed_date to
+        # pick up exactly where the previous run left off (up to yesterday).
+        run_service.s("pricing.refresh_daily_prices"),
         run_service.s("card_catalog.card_search.refresh"),
         run_service.s("card_catalog.card_search.invalidate"),
         # Sliding-window retention on the on-disk .xz archive. Runs inside

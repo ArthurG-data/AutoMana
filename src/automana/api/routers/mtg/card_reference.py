@@ -92,8 +92,12 @@ async def get_catalog_stats(
 
 @card_reference_router.get(
     '/versions-in-set',
-    summary="List all versions of a card in a given set",
-    description="Returns all card_version rows for a single (unique_card_id, set_code) pair — different treatments and finishes.",
+    summary="All versions of a card in a set",
+    description=(
+        "Returns every card_version row sharing the given unique_card_id and set_code, "
+        "with their promo_types, available_finishes, and current price. "
+        "Used to populate the 'Versions in this set' table on the card detail page."
+    ),
     response_model=ApiResponse[List[CardVersionRow]],
     operation_id="cards_versions_in_set",
     responses={**_CARD_ERRORS},
@@ -101,7 +105,7 @@ async def get_catalog_stats(
 async def get_versions_in_set(
     service_manager: ServiceManagerDep,
     unique_card_id: UUID = Query(..., description="Stable unique card identity"),
-    set_code: str = Query(..., description="Set code (e.g. 'mkm')"),
+    set_code: str = Query(..., description="Set code (e.g. 'dmu')"),
 ) -> ApiResponse[List[CardVersionRow]]:
     try:
         rows = await service_manager.execute_service(
@@ -114,14 +118,18 @@ async def get_versions_in_set(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Error fetching versions in set", extra={"error": str(e)})
+        logger.error("Error fetching versions in set", extra={"unique_card_id": str(unique_card_id), "set_code": set_code, "error": str(e)})
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
 @card_reference_router.get(
     '/other-sets',
-    summary="List all sets where a unique card appears",
-    description="Returns one representative card_version per set for a given unique_card_id, sorted by release date descending.",
+    summary="All sets containing a unique card",
+    description=(
+        "Returns one representative card_version per set for the given unique_card_id, "
+        "sorted by release date descending. Used to populate the 'Other Sets' table "
+        "on the card detail page."
+    ),
     response_model=ApiResponse[List[OtherSetRow]],
     operation_id="cards_other_sets",
     responses={**_CARD_ERRORS},
@@ -140,7 +148,7 @@ async def get_other_sets(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Error fetching other sets", extra={"error": str(e)})
+        logger.error("Error fetching other sets", extra={"unique_card_id": str(unique_card_id), "error": str(e)})
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
