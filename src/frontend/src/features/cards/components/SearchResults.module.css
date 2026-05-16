@@ -16,13 +16,15 @@
 .card { background: transparent; border: none; cursor: pointer; text-align: left; padding: 0; }
 .card:hover .cardInfo { border-color: var(--hd-accent); }
 .cardInfo { padding: 8px 4px; }
-.cardName { font-size: 12px; color: var(--hd-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
-.cardMeta { display: flex; justify-content: space-between; margin-bottom: 6px; }
-.set { font-size: 10px; color: var(--hd-sub); font-family: var(--font-mono); }
+.cardName { font-size: 13px; font-weight: 500; color: var(--hd-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
+.cardSubtitle { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; gap: 4px; overflow: hidden; }
+.rarity { font-size: 11px; color: var(--hd-sub); font-family: var(--font-mono); text-transform: capitalize; flex-shrink: 0; }
+.cardMeta { display: flex; justify-content: flex-end; margin-bottom: 6px; }
+.set { font-size: 11px; color: var(--hd-sub); font-family: var(--font-mono); }
 .setLink { cursor: pointer; padding: 2px 6px; border-radius: 4px; transition: background 120ms ease, color 120ms ease; }
 .setLink:hover { background: rgba(var(--hd-accent-rgb), 0.12); color: var(--hd-accent); }
 .setLink:focus-visible { outline: 1px solid var(--hd-accent); outline-offset: 1px; }
-.price { font-size: 11px; font-family: var(--font-mono); }
+.price { font-size: 12px; font-weight: 600; font-family: var(--font-mono); }
 .up { color: var(--hd-accent); } .down { color: var(--hd-red); }
 .loading { text-align: center; padding: 24px; color: var(--hd-text-secondary); font-size: 12px; }
 .cardSelected { outline: 2px solid var(--hd-accent); outline-offset: -2px; }
@@ -47,7 +49,7 @@
 }
 .groupCount {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;
   color: var(--hd-sub);
 }
 
@@ -55,15 +57,15 @@
   position: absolute;
   top: 6px;
   right: 6px;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(4px);
-  border: 1px solid rgba(61, 232, 210, 0.35);
-  border-radius: 4px;
-  padding: 2px 6px;
+  background: rgba(0, 0, 0, 0.72);
+  border: 1px solid rgba(150, 200, 255, 0.2);
+  border-radius: 20px;
+  padding: 2px 7px;
   font-size: 10px;
   font-family: var(--font-mono);
   color: var(--hd-accent);
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  backdrop-filter: blur(4px);
   pointer-events: none;
 }

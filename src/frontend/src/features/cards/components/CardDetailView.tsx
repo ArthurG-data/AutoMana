@@ -94,8 +94,7 @@ export function CardDetailView({ card, versionsInSet, otherSets }: CardDetailVie
 
         {otherSets && otherSets.length > 0 && (
           <OtherSetsTable
-            sets={otherSets}
-            currentVersionId={card.card_version_id.toString()}
+            sets={otherSets.filter(s => s.set_code !== card.set_code)}
           />
         )}
       </div>

@@ -221,10 +221,9 @@ async def stream_to_staging(
     # forbids when CALL is invoked from an atomic block. Running without
     # an outer transaction lets the proc's own checkpointing do its job.
     runs_in_transaction=False,
-    # A fresh 90-day staging load runs for several minutes (normalisation
-    # passes + per-batch upserts across millions of rows). 1h is a loose
-    # safety net — far above observed durations, well below "hung forever".
-    command_timeout=3600,
+    # A fresh 90-day staging load runs for up to several hours (normalisation
+    # passes + per-batch upserts across millions of rows). 4h safety net.
+    command_timeout=14400,
 )
 async def promote_to_price_observation(
     mtgjson_repository: MtgjsonRepository,

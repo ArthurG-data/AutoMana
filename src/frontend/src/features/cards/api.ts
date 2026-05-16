@@ -88,6 +88,40 @@ export function setBrowseQueryOptions() {
   })
 }
 
+export function cardVersionsInSetQueryOptions(uniqueCardId: string, setCode: string) {
+  return queryOptions({
+    queryKey: ['cards', 'versions-in-set', uniqueCardId, setCode],
+    queryFn: async () => {
+      const qs = new URLSearchParams({ unique_card_id: uniqueCardId, set_code: setCode })
+      const res = await fetch(`/api/catalog/mtg/card-reference/versions-in-set?${qs}`, {
+        headers: { 'Content-Type': 'application/json' },
+      })
+      if (!res.ok) throw new Error(`Failed to fetch versions: ${res.status}`)
+      const json = await res.json()
+      return (json.data ?? []) as CardVersionRow[]
+    },
+    staleTime: 1000 * 60 * 30,
+    enabled: !!uniqueCardId && !!setCode,
+  })
+}
+
+export function cardOtherSetsQueryOptions(uniqueCardId: string) {
+  return queryOptions({
+    queryKey: ['cards', 'other-sets', uniqueCardId],
+    queryFn: async () => {
+      const qs = new URLSearchParams({ unique_card_id: uniqueCardId })
+      const res = await fetch(`/api/catalog/mtg/card-reference/other-sets?${qs}`, {
+        headers: { 'Content-Type': 'application/json' },
+      })
+      if (!res.ok) throw new Error(`Failed to fetch other sets: ${res.status}`)
+      const json = await res.json()
+      return (json.data ?? []) as OtherSetRow[]
+    },
+    staleTime: 1000 * 60 * 30,
+    enabled: !!uniqueCardId,
+  })
+}
+
 export function cardPriceHistoryQueryOptions(
   cardId: string,
   range: '1w' | '1m' | '3m' | '1y' | 'all' = '1m',
@@ -112,24 +146,3 @@ export function cardPriceHistoryQueryOptions(
   })
 }
 
-export function cardVersionsInSetQueryOptions(uniqueCardId: string, setCode: string) {
-  return queryOptions({
-    queryKey: ['cards', 'versions-in-set', uniqueCardId, setCode],
-    queryFn: () => {
-      const qs = new URLSearchParams({ unique_card_id: uniqueCardId, set_code: setCode })
-      return apiClient<CardVersionRow[]>(`/catalog/mtg/card-reference/versions-in-set?${qs}`)
-    },
-    staleTime: 1000 * 60 * 60,
-  })
-}
-
-export function cardOtherSetsQueryOptions(uniqueCardId: string) {
-  return queryOptions({
-    queryKey: ['cards', 'other-sets', uniqueCardId],
-    queryFn: () => {
-      const qs = new URLSearchParams({ unique_card_id: uniqueCardId })
-      return apiClient<OtherSetRow[]>(`/catalog/mtg/card-reference/other-sets?${qs}`)
-    },
-    staleTime: 1000 * 60 * 60,
-  })
-}

@@ -7,10 +7,9 @@ import styles from './VersionsTable.module.css'
 
 interface OtherSetsTableProps {
   sets: OtherSetRow[]
-  currentVersionId: string
 }
 
-export function OtherSetsTable({ sets, currentVersionId }: OtherSetsTableProps) {
+export function OtherSetsTable({ sets }: OtherSetsTableProps) {
   const navigate = useNavigate()
 
   if (!sets.length) return null
@@ -29,43 +28,31 @@ export function OtherSetsTable({ sets, currentVersionId }: OtherSetsTableProps) 
           </tr>
         </thead>
         <tbody>
-          {sets.map(s => {
-            const isCurrent = s.card_version_id === currentVersionId
-            return (
-              <tr
-                key={s.set_code}
-                className={isCurrent ? styles.activeRow : styles.row}
-                onClick={() => !isCurrent && navigate({ to: '/cards/$id', params: { id: s.card_version_id } })}
-              >
-                <td>
-                  <div className={styles.thumbCell}>
-                    <div className={[styles.setCircle, isCurrent ? styles.setCircleActive : ''].filter(Boolean).join(' ')}>
-                      {s.set_code.toUpperCase()}
-                    </div>
-                    <div className={isCurrent ? styles.labelActive : styles.rowLabel}>
-                      {s.set_name}
-                    </div>
+          {sets.map(s => (
+            <tr
+              key={s.set_code}
+              className={styles.row}
+              onClick={() => navigate({ to: '/cards/$id', params: { id: s.card_version_id } })}
+            >
+              <td>
+                <div className={styles.thumbCell}>
+                  <div className={styles.setCircle}>
+                    <img
+                      src={`https://svgs.scryfall.io/sets/${s.set_code.toLowerCase()}.svg`}
+                      alt=""
+                      aria-hidden
+                      className={styles.setIcon}
+                    />
                   </div>
-                </td>
-                <td><span className={styles.cn}>{formatMonth(s.released_at)}</span></td>
-                <td>
-                  <span className={isCurrent ? styles.labelActive : styles.cn}>
-                    {s.version_count} {s.version_count === 1 ? 'print' : 'prints'}
-                  </span>
-                </td>
-                <td>
-                  <PriceDelta price={s.price} priceChange1d={s.price_change_1d} />
-                </td>
-                <td>
-                  {isCurrent ? (
-                    <span className={styles.viewingLabel}>Viewing</span>
-                  ) : (
-                    <span className={styles.viewLink}>View →</span>
-                  )}
-                </td>
-              </tr>
-            )
-          })}
+                  <div className={styles.rowLabel}>{s.set_name}</div>
+                </div>
+              </td>
+              <td><span className={styles.cn}>{formatMonth(s.released_at)}</span></td>
+              <td><span className={styles.cn}>{s.version_count} {s.version_count === 1 ? 'print' : 'prints'}</span></td>
+              <td><PriceDelta price={s.price} priceChange1d={s.price_change_1d} /></td>
+              <td><span className={styles.viewLink}>View →</span></td>
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>

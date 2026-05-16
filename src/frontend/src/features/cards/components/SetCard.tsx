@@ -50,14 +50,13 @@ export function SetCard({ set, isChild = false, onSelect }: SetCardProps) {
             style={{ maskImage: `url("${iconUrl(set)}")`, WebkitMaskImage: `url("${iconUrl(set)}")` }}
             aria-hidden
           />
-          <div className={styles.setName}>{set.set_name}</div>
         </div>
       </div>
 
       {/* Info bar — mirrors .cardInfo in SearchResults */}
       <div className={styles.info}>
         <div className={styles.codeRow}>
-          <span className={styles.code}>{set.set_code.toUpperCase()}</span>
+          <span className={styles.nameCode}>{set.set_name} — {set.set_code.toUpperCase()}</span>
           <span className={styles.date}>{formatMonth(set.released_at)}</span>
         </div>
         <div className={styles.meta}>

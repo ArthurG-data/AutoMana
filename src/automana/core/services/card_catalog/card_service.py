@@ -470,6 +470,31 @@ async def register_external_identifier(
 
 
 @ServiceRegistry.register(
+    "card_catalog.card.get_versions_in_set",
+    db_repositories=["card"]
+)
+async def get_versions_in_set(
+    card_repository: CardReferenceRepository,
+    unique_card_id: UUID,
+    set_code: str,
+    **kwargs,
+) -> list[dict]:
+    return await card_repository.get_versions_in_set(unique_card_id, set_code)
+
+
+@ServiceRegistry.register(
+    "card_catalog.card.get_other_sets",
+    db_repositories=["card"]
+)
+async def get_other_sets(
+    card_repository: CardReferenceRepository,
+    unique_card_id: UUID,
+    **kwargs,
+) -> list[dict]:
+    return await card_repository.get_other_sets(unique_card_id)
+
+
+@ServiceRegistry.register(
     "card_catalog.card.process_large_json",
     db_repositories=["card", "ops"],
     storage_services=["scryfall", "errors"]

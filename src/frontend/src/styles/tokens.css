@@ -1,47 +1,47 @@
 /* src/frontend/src/styles/tokens.css */
 
 :root {
-  /* Deep Sea — dark default */
-  --hd-bg: #080f1e;
-  --hd-surface: #0f1830;
-  --hd-surface-alt: #152040;
-  --hd-border: rgba(150, 200, 255, 0.14);
-  --hd-border-hot: rgba(150, 200, 255, 0.28);
-  --hd-text: #e8efff;
-  --hd-muted: #8e9fc4;
-  --hd-sub: #4d5b80;
-  --hd-accent: #3de8d2;
-  --hd-accent-rgb: 61, 232, 210;
-  --hd-blue: #7aa6ff;
-  --hd-blue-rgb: 122, 166, 255;
-  --hd-red: #e35e6c;
-  --hd-amber: #e0a96a;
-  --hd-amber-rgb: 224, 169, 106;
+  /* Neutral Dark */
+  --hd-bg: #111318;
+  --hd-surface: #1a1d24;
+  --hd-surface-alt: #21252e;
+  --hd-border: rgba(200, 210, 240, 0.10);
+  --hd-border-hot: rgba(200, 210, 240, 0.20);
+  --hd-text: #e2e6f0;
+  --hd-muted: #8890a6;
+  --hd-sub: #4a5068;
+  --hd-accent: #5b8def;
+  --hd-accent-rgb: 91, 141, 239;
+  --hd-blue: #5b8def;
+  --hd-blue-rgb: 91, 141, 239;
+  --hd-red: #e05c6a;
+  --hd-amber: #d4943a;
+  --hd-amber-rgb: 212, 148, 58;
   --hd-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
-  --hd-glow: rgba(61, 232, 210, 0.07);
+  --hd-glow: rgba(91, 141, 239, 0.07);
 
-  --font-serif: 'Fraunces', serif;
-  --font-sans: 'Space Grotesk', 'Inter', sans-serif;
+  --font-serif: 'Inter', sans-serif;
+  --font-sans: 'Inter', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 }
 
 [data-theme='light'] {
-  /* Arctic — light override */
-  --hd-bg: #eef4f8;
+  /* Neutral Light */
+  --hd-bg: #f5f6f8;
   --hd-surface: #ffffff;
-  --hd-surface-alt: #f5f9fc;
-  --hd-border: rgba(20, 50, 80, 0.12);
-  --hd-border-hot: rgba(20, 50, 80, 0.24);
-  --hd-text: #0c1a25;
-  --hd-muted: #506576;
-  --hd-sub: #8898a6;
-  --hd-accent: #00b380;
-  --hd-accent-rgb: 0, 179, 128;
-  --hd-blue: #2b80c8;
-  --hd-blue-rgb: 43, 128, 200;
-  --hd-red: #c0392b;
-  --hd-amber: #b07d2a;
-  --hd-amber-rgb: 176, 125, 42;
+  --hd-surface-alt: #edf0f5;
+  --hd-border: rgba(20, 30, 60, 0.10);
+  --hd-border-hot: rgba(20, 30, 60, 0.20);
+  --hd-text: #111827;
+  --hd-muted: #4b5563;
+  --hd-sub: #9ca3af;
+  --hd-accent: #3b70d4;
+  --hd-accent-rgb: 59, 112, 212;
+  --hd-blue: #3b70d4;
+  --hd-blue-rgb: 59, 112, 212;
+  --hd-red: #dc2626;
+  --hd-amber: #d97706;
+  --hd-amber-rgb: 217, 119, 6;
   --hd-shadow: 0 16px 40px rgba(20, 50, 80, 0.10);
-  --hd-glow: rgba(0, 179, 128, 0.06);
+  --hd-glow: rgba(59, 112, 212, 0.06);
 }

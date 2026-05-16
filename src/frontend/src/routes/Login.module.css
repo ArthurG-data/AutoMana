@@ -43,8 +43,8 @@
   letter-spacing: 3px; text-transform: uppercase; margin-bottom: 18px;
 }
 .leftHeadline {
-  font-family: var(--font-serif); font-size: clamp(40px, 4vw, 64px);
-  font-weight: 400; letter-spacing: -1.6px; line-height: 1.05; margin: 0;
+  font-family: var(--font-serif); font-size: clamp(36px, 3.5vw, 56px);
+  font-weight: 700; letter-spacing: -1.8px; line-height: 1.05; margin: 0;
 }
 .leftHeadlineAccent { font-style: italic; color: var(--hd-accent); }
 .leftSub { font-size: 16px; color: var(--hd-muted); margin-top: 24px; line-height: 1.55; max-width: 460px; }
@@ -62,7 +62,7 @@
   box-sizing: border-box;
 }
 
-.formTitle { font-family: var(--font-serif); font-size: 36px; font-weight: 500; letter-spacing: -0.6px; margin-bottom: 8px; }
+.formTitle { font-family: var(--font-serif); font-size: 28px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 8px; }
 .formSub { font-size: 14px; color: var(--hd-muted); margin-bottom: 32px; }
 .formSubLink {
   color: var(--hd-accent); text-decoration: underline; text-underline-offset: 4px; cursor: pointer;

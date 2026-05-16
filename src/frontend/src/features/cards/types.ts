@@ -123,9 +123,12 @@ export interface CardVersionRow {
 
 export interface OtherSetRow {
   card_version_id: string
+  unique_card_id?: string
+  card_name: string
   set_code: string
   set_name: string
   released_at?: string
+  image_normal?: string | null
   version_count: number
   price?: number | null
   price_change_1d: number
