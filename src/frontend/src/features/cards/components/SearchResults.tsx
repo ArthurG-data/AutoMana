@@ -112,14 +112,19 @@ export function SearchResults({
             : navigate({ to: '/cards/$id', params: { id: card.card_version_id } })
         }
       >
-        <CardArt
-          name={card.card_name}
-          w="100%"
-          hue={(i * 47) % 360}
-          label={false}
-          imageUrl={card.image_normal}
-          finish={card.finish}
-        />
+        <div style={{ position: 'relative' }}>
+          <CardArt
+            name={card.card_name}
+            w="100%"
+            hue={(i * 47) % 360}
+            label={false}
+            imageUrl={card.image_normal}
+            finish={card.finish}
+          />
+          {(card.version_count ?? 1) > 1 && (
+            <span className={styles.versionBadge}>{card.version_count} prints</span>
+          )}
+        </div>
         <div className={styles.cardInfo}>
           <div className={styles.cardName}>{card.card_name}</div>
           <div className={styles.cardMeta}>

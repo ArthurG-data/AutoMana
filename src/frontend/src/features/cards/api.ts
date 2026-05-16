@@ -2,7 +2,7 @@
 import { queryOptions, infiniteQueryOptions } from '@tanstack/react-query'
 import { apiClient } from '../../lib/apiClient'
 import { useAuthStore } from '../../store/auth'
-import type { CardDetail, CardSearchParams, CardSearchResponse, CardSuggestParams, CardSuggestResponse, CatalogStats, SetBrowseItem } from './types'
+import type { CardDetail, CardSearchParams, CardSearchResponse, CardSuggestParams, CardSuggestResponse, CatalogStats, SetBrowseItem, CardVersionRow, OtherSetRow } from './types'
 
 export function cardInfiniteSearchQueryOptions(params: Omit<CardSearchParams, 'page'>) {
   const { group: _group, ...apiParams } = params
@@ -21,6 +21,7 @@ export function cardInfiniteSearchQueryOptions(params: Omit<CardSearchParams, 'p
       if (params.minPrice != null) qs.set('min_price', String(params.minPrice))
       if (params.maxPrice != null) qs.set('max_price', String(params.maxPrice))
       params.promoTypes?.forEach(pt => qs.append('promo_type', pt))
+      qs.set('collapse', 'true')
       qs.set('limit', '20')
       qs.set('offset', String(pageParam))
 
@@ -108,5 +109,27 @@ export function cardPriceHistoryQueryOptions(
     },
     staleTime: 1000 * 60 * 60 * 24,
     gcTime: 1000 * 60 * 60 * 24 * 7,
+  })
+}
+
+export function cardVersionsInSetQueryOptions(uniqueCardId: string, setCode: string) {
+  return queryOptions({
+    queryKey: ['cards', 'versions-in-set', uniqueCardId, setCode],
+    queryFn: () => {
+      const qs = new URLSearchParams({ unique_card_id: uniqueCardId, set_code: setCode })
+      return apiClient<CardVersionRow[]>(`/catalog/mtg/card-reference/versions-in-set?${qs}`)
+    },
+    staleTime: 1000 * 60 * 60,
+  })
+}
+
+export function cardOtherSetsQueryOptions(uniqueCardId: string) {
+  return queryOptions({
+    queryKey: ['cards', 'other-sets', uniqueCardId],
+    queryFn: () => {
+      const qs = new URLSearchParams({ unique_card_id: uniqueCardId })
+      return apiClient<OtherSetRow[]>(`/catalog/mtg/card-reference/other-sets?${qs}`)
+    },
+    staleTime: 1000 * 60 * 60,
   })
 }

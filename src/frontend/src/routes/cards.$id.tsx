@@ -1,9 +1,9 @@
 // src/frontend/src/routes/cards.$id.tsx
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { useSuspenseQuery } from '@tanstack/react-query'
+import { useSuspenseQuery, useQuery } from '@tanstack/react-query'
 import { AppShell } from '../components/layout/AppShell'
 import { TopBar } from '../components/layout/TopBar'
-import { cardDetailQueryOptions } from '../features/cards/api'
+import { cardDetailQueryOptions, cardVersionsInSetQueryOptions, cardOtherSetsQueryOptions } from '../features/cards/api'
 import { CardDetailView } from '../features/cards/components/CardDetailView'
 import styles from './cards.$id.module.css'
 
@@ -20,6 +20,19 @@ function CardDetailPage() {
   const setCode = card.set_code ?? ''
   const cardName = card.card_name ?? ''
   const uniqueCardId = card.unique_card_id
+
+  const { data: versionsInSet } = useQuery({
+    ...cardVersionsInSetQueryOptions(
+      uniqueCardId ? String(uniqueCardId) : '',
+      setCode
+    ),
+    enabled: !!uniqueCardId && !!setCode,
+  })
+
+  const { data: otherSets } = useQuery({
+    ...cardOtherSetsQueryOptions(uniqueCardId ? String(uniqueCardId) : ''),
+    enabled: !!uniqueCardId,
+  })
 
   // Card-name segment navigates to the search page filtered by the stable
   // unique_card_id of this print — so it shows every printing of the same
@@ -69,7 +82,11 @@ function CardDetailPage() {
   return (
     <AppShell active="collection">
       <TopBar breadcrumb={breadcrumb} />
-      <CardDetailView card={card} />
+      <CardDetailView
+        card={card}
+        versionsInSet={versionsInSet ?? undefined}
+        otherSets={otherSets ?? undefined}
+      />
     </AppShell>
   )
 }

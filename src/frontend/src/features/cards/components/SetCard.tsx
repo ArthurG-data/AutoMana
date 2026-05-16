@@ -1,12 +1,9 @@
 import type { SetBrowseItem } from '../types'
+import { formatMonth } from '../utils/formatMonth'
 import styles from './SetCard.module.css'
 
 function iconUrl(set: SetBrowseItem): string {
   return set.icon_svg_uri || `https://svgs.scryfall.io/sets/${set.set_code.toLowerCase()}.svg`
-}
-
-function formatDate(d: string): string {
-  return new Date(d).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
 }
 
 function prettyType(t: string): string {
@@ -61,7 +58,7 @@ export function SetCard({ set, isChild = false, onSelect }: SetCardProps) {
       <div className={styles.info}>
         <div className={styles.codeRow}>
           <span className={styles.code}>{set.set_code.toUpperCase()}</span>
-          <span className={styles.date}>{formatDate(set.released_at)}</span>
+          <span className={styles.date}>{formatMonth(set.released_at)}</span>
         </div>
         <div className={styles.meta}>
           <span className={styles.type}>{prettyType(set.set_type)}</span>

@@ -4,7 +4,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from uuid import UUID
 from automana.api.schemas.StandardisedQueryResponse import ApiResponse, PaginatedResponse, PaginationInfo, ErrorResponse
-from automana.core.models.card_catalog.card import BaseCard, CardDetail, CardSuggestionResponse, CreateCard, CreateCards, CatalogStats
+from automana.core.models.card_catalog.card import BaseCard, CardDetail, CardSuggestionResponse, CreateCard, CreateCards, CatalogStats, CardVersionRow, OtherSetRow
 from automana.core.models.card_catalog.price_history import CardPricesResponse, PriceHistoryResponse
 from automana.api.dependancies.service_deps import ServiceManagerDep
 from automana.api.dependancies.query_deps import (
@@ -87,6 +87,60 @@ async def get_catalog_stats(
     except HTTPException:
         raise
     except Exception:
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
+
+@card_reference_router.get(
+    '/versions-in-set',
+    summary="List all versions of a card in a given set",
+    description="Returns all card_version rows for a single (unique_card_id, set_code) pair — different treatments and finishes.",
+    response_model=ApiResponse[List[CardVersionRow]],
+    operation_id="cards_versions_in_set",
+    responses={**_CARD_ERRORS},
+)
+async def get_versions_in_set(
+    service_manager: ServiceManagerDep,
+    unique_card_id: UUID = Query(..., description="Stable unique card identity"),
+    set_code: str = Query(..., description="Set code (e.g. 'mkm')"),
+) -> ApiResponse[List[CardVersionRow]]:
+    try:
+        rows = await service_manager.execute_service(
+            "card_catalog.card.get_versions_in_set",
+            unique_card_id=unique_card_id,
+            set_code=set_code,
+        )
+        versions = [CardVersionRow.model_validate(r) for r in rows]
+        return ApiResponse(data=versions, message="Versions retrieved successfully")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error fetching versions in set", extra={"error": str(e)})
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
+
+@card_reference_router.get(
+    '/other-sets',
+    summary="List all sets where a unique card appears",
+    description="Returns one representative card_version per set for a given unique_card_id, sorted by release date descending.",
+    response_model=ApiResponse[List[OtherSetRow]],
+    operation_id="cards_other_sets",
+    responses={**_CARD_ERRORS},
+)
+async def get_other_sets(
+    service_manager: ServiceManagerDep,
+    unique_card_id: UUID = Query(..., description="Stable unique card identity"),
+) -> ApiResponse[List[OtherSetRow]]:
+    try:
+        rows = await service_manager.execute_service(
+            "card_catalog.card.get_other_sets",
+            unique_card_id=unique_card_id,
+        )
+        sets = [OtherSetRow.model_validate(r) for r in rows]
+        return ApiResponse(data=sets, message="Other sets retrieved successfully")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error fetching other sets", extra={"error": str(e)})
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 

@@ -2,6 +2,7 @@
 
 export interface CardSummary {
   card_version_id: string
+  unique_card_id?: string
   card_name: string
   set_code: string
   set_name: string
@@ -14,6 +15,9 @@ export interface CardSummary {
   image_uri: string | null
   image_normal?: string | null
   spark: number[]
+  version_count?: number
+  promo_types?: string[]
+  collector_number?: string
 }
 
 export interface CardPrint {
@@ -100,6 +104,31 @@ export interface CatalogStats {
   total_card_versions: number
   data_source: string
   last_updated: string | null
+}
+
+export interface CardVersionRow {
+  card_version_id: string
+  unique_card_id?: string
+  card_name: string
+  set_code: string
+  set_name: string
+  collector_number?: string
+  promo_types: string[]
+  rarity_name: string
+  image_normal?: string | null
+  available_finishes: string[]
+  price?: number | null
+  price_change_1d: number
+}
+
+export interface OtherSetRow {
+  card_version_id: string
+  set_code: string
+  set_name: string
+  released_at?: string
+  version_count: number
+  price?: number | null
+  price_change_1d: number
 }
 
 export interface SetBrowseItem {

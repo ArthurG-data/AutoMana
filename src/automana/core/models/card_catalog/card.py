@@ -11,6 +11,7 @@ class BaseCard(BaseModel):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
     card_version_id: Optional[Union[UUID, str]] = Field(default=None, title="Unique card version identifier")
+    unique_card_id: Optional[UUID] = Field(default=None, title="Stable identity shared by all printings of this logical card")
     name: str = Field(alias="card_name", title="The name of the card")
     set_name: str = Field(title="The complete name of the set")
     set: str = Field(alias="set_code", title="The abbreviation of the set")
@@ -25,6 +26,9 @@ class BaseCard(BaseModel):
     price_change_30d: float = Field(default=0.0, title="30-day price change percentage")
     spark: List[float] = Field(default_factory=list, title="Recent price points for sparkline (ascending)")
     finish: str = Field(default="non-foil", title="Card finish (non-foil, foil, etched)")
+    collector_number: Optional[str] = Field(default=None, title="Collector number within the set")
+    promo_types: List[str] = Field(default_factory=list, title="Promo treatment labels (e.g. showcase, borderless)")
+    version_count: int = Field(default=1, title="Number of distinct versions (treatments/finishes) in the same (unique_card_id, set_code) pair")
 
     @staticmethod
     def to_json_safe(data):
@@ -56,13 +60,36 @@ class CardDetail(BaseCard):
     mana_cost: Optional[str] = Field(default=None)
     type_line: Optional[str] = Field(default=None)
     artist: Optional[str] = Field(default=None)
-    collector_number: Optional[str] = Field(default=None)
-    promo_types: List[str] = Field(default_factory=list)
     legalities: Dict[str, str] = Field(default_factory=dict)
-    unique_card_id: Optional[UUID] = Field(
-        default=None,
-        title="Stable identity shared by all printings of this logical card",
-    )
+
+
+class CardVersionRow(BaseModel):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    card_version_id: UUID
+    unique_card_id: Optional[UUID] = None
+    card_name: str
+    set_code: str
+    set_name: str
+    collector_number: Optional[str] = None
+    promo_types: List[str] = Field(default_factory=list)
+    rarity_name: str
+    image_normal: Optional[str] = None
+    available_finishes: List[str] = Field(default_factory=list)
+    price: Optional[float] = None
+    price_change_1d: float = 0.0
+
+
+class OtherSetRow(BaseModel):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    card_version_id: UUID
+    set_code: str
+    set_name: str
+    released_at: Optional[str] = None
+    version_count: int = 1
+    price: Optional[float] = None
+    price_change_1d: float = 0.0
 
 class CardFace(BaseModel):
     name: str

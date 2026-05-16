@@ -106,6 +106,7 @@ async def card_search_params(
     format: Optional[str] = Query(None, description="Filter by format legality (e.g. 'standard', 'modern')"),
     layout: Optional[str] = Query(None, description="Filter by layout type (e.g. 'normal', 'token', 'saga')"),
     promo_type: Optional[List[str]] = Query(None, description="Filter by promo type (repeatable: ?promo_type=prerelease&promo_type=buyabox)"),
+    collapse: bool = Query(False, description="Collapse results to one tile per (unique_card_id, set_code) pair with a version_count badge"),
 ):
     """Card search parameters"""
     # Use 'q' if provided, otherwise fall back to 'name'
@@ -126,4 +127,5 @@ async def card_search_params(
         "format": format,
         "layout": layout,
         "promo_type": promo_type,
+        "collapse": collapse,
     }
