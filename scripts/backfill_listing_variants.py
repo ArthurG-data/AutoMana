@@ -6,9 +6,10 @@ condition_id / finish_id / product_id (created before migration_37).
 
 Usage:
     cd /home/arthur/projects/AutoMana
-    ./.venv/bin/python scripts/backfill_listing_variants.py [--dry-run] [--app-code CODE]
+    ./.venv/bin/python scripts/backfill_listing_variants.py [--seed] [--dry-run] [--app-code CODE]
 
 Options:
+    --seed            Pull live eBay active listings first, then backfill.
     --dry-run         Print what would be saved without writing to the DB.
     --app-code CODE   Only process listings for this seller account.
 """
@@ -20,6 +21,7 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
 DRY_RUN = "--dry-run" in sys.argv
+SEED    = "--seed"    in sys.argv
 APP_CODE: str | None = None
 for _i, _a in enumerate(sys.argv):
     if _a == "--app-code" and _i + 1 < len(sys.argv):
@@ -146,6 +148,107 @@ async def save_variant(
     """, item_id, card_version_id, product_id, condition_code, finish_code)
 
 
+async def seed_from_ebay(conn, app_code_filter: str | None = None, dry_run: bool = False) -> None:
+    """Pull all active eBay listings and insert new ones into ebay_active_listings."""
+    from uuid import UUID
+    from automana.core.repositories.app_integration.ebay.auth_repository import EbayAuthRepository
+    from automana.core.repositories.app_integration.ebay.ApiSelling_repository import EbaySellingRepository
+    from automana.core.repositories.card_catalog.card_repository import CardReferenceRepository
+    from automana.core.services.app_integration.ebay._auth_context import resolve_token
+    from automana.core.services.app_integration.ebay.market_price_scorer import score_title
+    from automana.core.QueryExecutor import AsyncQueryExecutor
+
+    executor = AsyncQueryExecutor()
+    auth_repo = EbayAuthRepository(conn, executor)
+    card_repo = CardReferenceRepository(conn, executor)
+
+    active_users = await auth_repo.get_active_app_code_users()
+    if not active_users:
+        print("No active eBay sellers found in the database.")
+        return
+
+    for row in active_users:
+        user_id  = UUID(str(row["user_id"]))
+        app_code = str(row["app_code"])
+        if app_code_filter and app_code != app_code_filter:
+            continue
+
+        print(f"\033[34mFetching eBay active listings for {app_code}...\033[0m")
+        token = await resolve_token(auth_repo, user_id=user_id, app_code=app_code)
+        env   = await auth_repo.get_environment(app_code=app_code)
+        selling_repo = EbaySellingRepository(environment=(env or "production").lower())
+
+        seeded = skipped = unresolvable = 0
+        page = 1
+        while True:
+            payload = {"token": token, "limit": 100, "offset": page, "marketplace_id": "15"}
+            raw = await selling_repo.get_active(payload)
+            active_list = (raw.get("GetMyeBaySellingResponse") or {}).get("ActiveList") or {}
+            item_array  = active_list.get("ItemArray") or {}
+            raw_items   = item_array.get("Item")
+
+            if not raw_items:
+                break
+            if isinstance(raw_items, dict):
+                raw_items = [raw_items]
+
+            for item in raw_items:
+                item_id = str(item.get("ItemID", "")).strip()
+                title   = str(item.get("Title", "")).strip()
+                if not item_id:
+                    continue
+
+                # Resolve card_version_id from listing title using trigram + score_title
+                candidates = await card_repo.suggest(query=title, limit=10)
+                best_cv: UUID | None = None
+                best_score = 0.4  # lower threshold for seeding; user can re-link during backfill
+                for c in candidates:
+                    sc = score_title(
+                        title,
+                        card_name=c.get("card_name", ""),
+                        set_code=c.get("set_code"),
+                        is_foil=None,
+                        frame=None,
+                    )
+                    if sc >= best_score:
+                        best_score = sc
+                        best_cv = UUID(str(c["card_version_id"]))
+
+                if best_cv is None:
+                    print(f"  \033[33m⚠ Unresolvable:\033[0m {title[:70]}")
+                    unresolvable += 1
+                    continue
+
+                if dry_run:
+                    print(f"  [dry-run] {item_id}: {title[:60]}")
+                    seeded += 1
+                    continue
+
+                status = await conn.execute("""
+                    INSERT INTO app_integration.ebay_active_listings
+                        (item_id, app_code, card_version_id, marketplace_id)
+                    VALUES ($1, $2, $3, '15')
+                    ON CONFLICT (item_id) DO NOTHING
+                """, item_id, app_code, str(best_cv))
+                if status == "INSERT 0 1":
+                    seeded += 1
+                else:
+                    skipped += 1
+
+            # Pagination
+            pagination   = active_list.get("PaginationResult") or {}
+            total_pages  = int(pagination.get("TotalNumberOfPages") or 1)
+            if page >= total_pages:
+                break
+            page += 1
+
+        tag = "[dry-run] " if dry_run else ""
+        print(
+            f"\033[32m{tag}Seed complete for {app_code}:\033[0m "
+            f"{seeded} new · {skipped} already tracked · {unresolvable} unresolvable"
+        )
+
+
 def _prompt(label: str, hint: str, default: str) -> str:
     """Print a coloured prompt and return stripped user input."""
     return input(f"\033[32m{label}\033[0m \033[90m{hint} (default: {default}):\033[0m ").strip()
@@ -239,11 +342,23 @@ async def _review_listing(conn, row: dict, idx: int, total: int) -> str:
 
 
 async def main() -> None:
+    import os
+    from pathlib import Path
     from automana.tools.tui.shared import bootstrap, teardown
+
+    # Load PGP secret from the local secrets directory when running outside Docker.
+    pgp_file = Path(__file__).resolve().parents[1] / "config" / "secrets" / "pgp_secret_key.txt"
+    if pgp_file.exists() and not os.environ.get("PGP_SECRET_KEY"):
+        os.environ["PGP_SECRET_KEY"] = pgp_file.read_text().strip()
 
     pool = await bootstrap()
     try:
         async with pool.acquire() as conn:
+            if SEED:
+                await seed_from_ebay(conn, app_code_filter=APP_CODE, dry_run=DRY_RUN)
+                if DRY_RUN:
+                    return
+
             rows = await fetch_pending(conn, APP_CODE)
             total = len(rows)
             if total == 0:
