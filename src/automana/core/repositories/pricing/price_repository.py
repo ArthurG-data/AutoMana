@@ -132,6 +132,40 @@ WHERE ir.identifier_name = 'tcgplayer_id'
 AND ei.value = ANY($1::text[])
 """
 
+_GET_PRICE_HISTORY_SQL = """
+WITH source_priority AS (
+    SELECT
+        ppd.source_id,
+        ps.code,
+        COUNT(*)                                      AS n_rows,
+        CASE WHEN ps.code = 'tcg' THEN 0 ELSE 1 END  AS preferred
+    FROM pricing.print_price_daily ppd
+    JOIN pricing.price_source ps USING (source_id)
+    WHERE ppd.card_version_id = $1
+      AND ppd.finish_id       = $2
+      AND ppd.condition_id    = $3
+      AND ppd.price_date      >= CURRENT_DATE - make_interval(days => $4)
+      AND ppd.list_avg_cents  IS NOT NULL
+    GROUP BY ppd.source_id, ps.code
+    ORDER BY preferred, n_rows DESC
+    LIMIT 1
+),
+best AS (SELECT source_id, code AS source_code FROM source_priority)
+SELECT
+    ppd.price_date,
+    ppd.list_avg_cents,
+    ppd.list_low_cents,
+    best.source_code
+FROM pricing.print_price_daily ppd
+JOIN best USING (source_id)
+WHERE ppd.card_version_id = $1
+  AND ppd.finish_id       = $2
+  AND ppd.condition_id    = $3
+  AND ppd.price_date      >= CURRENT_DATE - make_interval(days => $4)
+  AND ppd.list_avg_cents  IS NOT NULL
+ORDER BY ppd.price_date ASC
+"""
+
 _UPSERT_OPENTCG_PRICE_OBSERVATION_SQL = """
 INSERT INTO pricing.price_observation (
     ts_date, source_product_id, price_type_id, finish_id,
@@ -183,6 +217,29 @@ class PricingTierRepository(AbstractRepository):
     async def get_card_current_prices(self, card_version_id) -> list[dict]:
         """Return current price entries from print_price_latest for a card."""
         rows = await self.connection.fetch(_GET_CARD_CURRENT_PRICES_SQL, card_version_id)
+        return [dict(r) for r in rows]
+
+    async def get_price_history(
+        self,
+        card_version_id,
+        finish_id: int,
+        condition_id: int,
+        days: int = 90,
+    ) -> list[dict]:
+        """Return daily price series for a card variant over the last `days` days.
+
+        Uses best-available source: prefers TCGPlayer ('tcg'), falls back to the
+        source with the most observations for this card+finish+condition window.
+
+        Returns list of dicts sorted oldest-first. Empty list if no data.
+        """
+        rows = await self.connection.fetch(
+            _GET_PRICE_HISTORY_SQL,
+            card_version_id,
+            finish_id,
+            condition_id,
+            days,
+        )
         return [dict(r) for r in rows]
 
     async def refresh_daily_prices(

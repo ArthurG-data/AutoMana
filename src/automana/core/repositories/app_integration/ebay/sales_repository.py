@@ -198,3 +198,19 @@ class EbaySalesRepository(AbstractRepository):
                 sold_count,
             ),
         )
+
+    async def get_listing_meta(self, item_id: str, app_code: str) -> Optional[dict]:
+        """Fetch card_version_id + finish/condition IDs for an active listing.
+
+        Returns None if the listing does not exist or card_version_id is NULL.
+        """
+        rows = await self.execute_query(
+            sales_queries.GET_LISTING_META,
+            (item_id, app_code),
+        )
+        if not rows:
+            return None
+        row = dict(rows[0])
+        if row["card_version_id"] is None:
+            return None
+        return row
