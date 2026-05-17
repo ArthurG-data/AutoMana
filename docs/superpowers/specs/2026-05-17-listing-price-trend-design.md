@@ -195,7 +195,7 @@ Response shape:
 }
 ```
 
-Registered as `integrations.ebay.recommendations.trend`, `db_repositories=["pricing", "selling"]`.
+Registered as `integrations.ebay.recommendations.trend`, `db_repositories=["pricing", "ebay_sales"]`.
 
 **Error cases:**
 - Listing not found → 404
@@ -218,7 +218,8 @@ Registered as `integrations.ebay.recommendations.trend`, `db_repositories=["pric
 
 | Action   | File |
 |----------|------|
-| Modify   | `src/automana/core/repositories/app_integration/ebay/ApiSelling_repository.py` — add `get_listing_meta()` |
+| Modify   | `src/automana/core/repositories/app_integration/ebay/sales_queries.py` — add `GET_LISTING_META` SQL constant |
+| Modify   | `src/automana/core/repositories/app_integration/ebay/sales_repository.py` — add `get_listing_meta()` |
 | Modify   | `src/automana/core/repositories/pricing/price_repository.py` — add `get_price_history()` |
 | Modify   | `src/automana/core/services/app_integration/ebay/listing_recommendation_service.py` — add `PriceTrend`, `compute_price_trend()`, extend `compute_recommendation()` |
 | Modify   | `src/automana/api/routers/integrations/ebay/ebay_recommendations.py` — add `GET /{item_id}/trend` |
