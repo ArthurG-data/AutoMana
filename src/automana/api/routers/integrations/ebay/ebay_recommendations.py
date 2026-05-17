@@ -106,6 +106,7 @@ async def get_pending_action(
 @router.get("/{item_id}/trend", description="Get historical price trend and recommendation for an active eBay listing")
 async def get_listing_price_trend(
     item_id: str,
+    user: CurrentUserDep,
     service_manager: ServiceManagerDep,
     app_code: str = Query(..., description="eBay application code"),
 ):

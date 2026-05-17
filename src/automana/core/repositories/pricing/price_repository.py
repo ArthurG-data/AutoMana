@@ -145,6 +145,7 @@ WITH source_priority AS (
       AND ppd.finish_id       = $2
       AND ppd.condition_id    = $3
       AND ppd.price_date      >= CURRENT_DATE - make_interval(days => $4)
+      AND ppd.list_avg_cents  IS NOT NULL
     GROUP BY ppd.source_id, ps.code
     ORDER BY preferred, n_rows DESC
     LIMIT 1
@@ -161,6 +162,7 @@ WHERE ppd.card_version_id = $1
   AND ppd.finish_id       = $2
   AND ppd.condition_id    = $3
   AND ppd.price_date      >= CURRENT_DATE - make_interval(days => $4)
+  AND ppd.list_avg_cents  IS NOT NULL
 ORDER BY ppd.price_date ASC
 """
 

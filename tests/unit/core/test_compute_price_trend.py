@@ -234,3 +234,19 @@ def test_trend_overlay_lower_up_becomes_hold():
     signals = {"days_listed": 20, "watch_count": 1, "price": 10.0}
     rec = compute_recommendation(signals, price_trend=_trend("UP"))
     assert rec.suggested_action == "hold"
+
+
+def test_compute_price_trend_handles_series_with_zero_anchor():
+    from automana.core.services.app_integration.ebay.listing_recommendation_service import compute_price_trend
+    from datetime import date, timedelta
+
+    # If anchor row has list_avg_cents=0 (edge case), _delta_pct returns None (division by zero guard)
+    today = date(2026, 5, 17)
+    series = [
+        {"price_date": today - timedelta(days=35), "list_avg_cents": 0, "list_low_cents": 0, "source_code": "tcg"},
+        {"price_date": today, "list_avg_cents": 1000, "list_low_cents": 900, "source_code": "tcg"},
+    ]
+    result = compute_price_trend(series)
+    # anchor=0 → _delta_pct returns None for d30; signal degrades to INSUFFICIENT_DATA
+    assert result.delta_30d_pct is None
+    assert result.signal == "INSUFFICIENT_DATA"
