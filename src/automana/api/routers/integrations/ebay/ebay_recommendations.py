@@ -4,7 +4,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
-import automana.core.services.app_integration.ebay.price_trend_service  # noqa: F401  # registers path
+import automana.core.services.app_integration.ebay.price_trend_service  # noqa: F401  — registers 'integrations.ebay.recommendations.trend'
 from automana.api.dependancies.auth.users import CurrentUserDep
 from automana.api.dependancies.service_deps import ServiceManagerDep
 from automana.api.schemas.StandardisedQueryResponse import ApiResponse
