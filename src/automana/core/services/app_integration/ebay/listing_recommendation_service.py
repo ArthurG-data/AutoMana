@@ -29,7 +29,7 @@ class ListingRecommendation:
     strategy_kind: str
     suggested_price: Optional[float]
     confidence: float
-    signals_used: Literal['behavioral', 'market']  # 'market' = percentiles available; 'behavioral' = fallback
+    signals_used: Literal['behavioral', 'market', 'trend']
     all_strategies: dict = field(default_factory=dict)
 
 
