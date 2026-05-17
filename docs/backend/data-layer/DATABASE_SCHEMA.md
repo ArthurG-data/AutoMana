@@ -410,15 +410,118 @@ User collection management (cards a user owns).
 
 ### Schema: `app_integration`
 
-Third-party API credentials and OAuth tokens (eBay, Shopify, Scryfall).
+Third-party API credentials, OAuth tokens, and listing management (eBay, Shopify, Scryfall).
 
-**Typical Structure:**
+**File:** [`05_app_integration_schema.sql`](../../../src/automana/database/SQL/schemas/05_app_integration_schema.sql) and migrations 31, 32, 37, 38, 39
+
+#### OAuth & Credentials Tables
 
 | Table | Purpose |
 |-------|---------|
 | `oauth_credentials` | Store refresh tokens and scopes for external APIs |
 | `api_key_store` | API keys for data providers |
 | `webhook_subscriptions` | Track registered webhooks (e.g., for inventory sync) |
+
+#### eBay Listing Tables
+
+**`ebay_active_listings`** — currently-active eBay listings.
+
+| Column | Type | Constraints | Notes |
+|--------|------|-----------|-------|
+| `item_id` | TEXT | PK | eBay item ID |
+| `app_code` | VARCHAR(50) | FK to `app_info`, NOT NULL | Seller account |
+| `card_version_id` | UUID | FK to `card_catalog.card_version`, NOT NULL | Card being sold |
+| `listed_at` | TIMESTAMPTZ | NOT NULL, DEFAULT now() | Listing creation time |
+| `ended_at` | TIMESTAMPTZ | | When listing ended (NULL = active) |
+| `created_at` | TIMESTAMPTZ | NOT NULL, DEFAULT now() | Row creation time |
+| `product_id` | UUID | FK to `pricing.product_ref`, NULLABLE | Link to product (null for pre-migration rows) |
+| `condition_id` | SMALLINT | FK to `pricing.card_condition`, NULLABLE | Card condition (NM, LP, MP, HP, DMG, SP) |
+| `finish_id` | SMALLINT | FK to `card_catalog.card_finished`, NULLABLE | Card finish (NONFOIL, FOIL, ETCHED, etc.) |
+| `language_id` | SMALLINT | FK to `card_catalog.language_ref`, NULLABLE | Card language |
+| `marketplace_id` | VARCHAR(10) | NULLABLE | eBay marketplace code (e.g., '15' for US; default in new listings) |
+| `template_id` | UUID | FK to `listing_template`, NULLABLE | Link to strategy template |
+| `title` | TEXT | NULLABLE | eBay listing title |
+| `match_score` | REAL | NULLABLE | Numeric relevance score (used for card name matching) |
+
+**Indexes:**
+- PK on `item_id`
+- `idx_ebay_active_listings_app` on `app_code`
+- `idx_ebay_active_listings_card` on `card_version_id`
+- `idx_ebay_active_listings_marketplace` on `marketplace_id WHERE marketplace_id IS NOT NULL`
+
+**Design Notes:**
+- All variant columns (`condition_id`, `finish_id`, `language_id`, `product_id`, `marketplace_id`, `template_id`, `title`, `match_score`) are nullable for backwards compatibility with rows created before migration_37.
+- `ended_at` is NULL for active listings; it is set when a listing ends via `DELETE /api/integrations/ebay/listing/{item_id}`.
+
+**`listing_template`** — one-row-per-variant template for bulk listing strategies.
+
+| Column | Type | Constraints | Notes |
+|--------|------|-----------|-------|
+| `template_id` | UUID | PK, DEFAULT gen_random_uuid() | Template identity |
+| `app_code` | VARCHAR(50) | FK to `app_info`, NOT NULL | Seller account |
+| `product_id` | UUID | FK to `pricing.product_ref`, NOT NULL | Card product |
+| `condition_id` | SMALLINT | FK to `pricing.card_condition`, NOT NULL | Card condition |
+| `finish_id` | SMALLINT | FK to `card_catalog.card_finished`, NOT NULL | Card finish |
+| `language_id` | SMALLINT | FK to `card_catalog.language_ref`, NOT NULL DEFAULT | Card language |
+| `marketplace_id` | VARCHAR(10) | NOT NULL DEFAULT '15' | eBay marketplace code |
+| `price_cents` | INTEGER | NULLABLE | List price in cents (NULL = no preset) |
+| `quantity` | INTEGER | NOT NULL DEFAULT 1 | Default quantity per listing |
+| `created_at` | TIMESTAMPTZ | NOT NULL, DEFAULT now() | Template creation time |
+| `updated_at` | TIMESTAMPTZ | NOT NULL, DEFAULT now() | Last modification time |
+
+**Unique Constraint:**
+- `(app_code, product_id, condition_id, finish_id, language_id, marketplace_id)` — one template per variant combination
+
+**Purpose:** Templates enable bulk creation of listings for the same product in multiple conditions/finishes/marketplaces. UPSERT on unique constraint updates `price_cents`, `quantity`, and `updated_at` if the template already exists.
+
+**`listing_pending_actions`** — action queue for delayed or batched listing updates.
+
+| Column | Type | Constraints | Notes |
+|--------|------|-----------|-------|
+| `id` | UUID | PK, DEFAULT gen_random_uuid() | Action ID |
+| `item_id` | TEXT | NOT NULL | eBay item ID |
+| `user_id` | UUID | FK to `user_management.users`, NOT NULL | User who triggered the action |
+| `app_code` | VARCHAR(50) | FK to `app_info`, NOT NULL | Seller account |
+| `action_type` | TEXT | NOT NULL CHECK (IN 'raise','lower','hold','draft') | Type of price action |
+| `strategy_kind` | TEXT | NOT NULL | Strategy name (e.g., 'arb_floor', 'weekly_restock') |
+| `suggested_price` | NUMERIC(10,2) | NULLABLE | Suggested price (if applicable to action_type) |
+| `status` | TEXT | NOT NULL DEFAULT 'pending' CHECK (IN 'pending','processing','done','failed') | Action status |
+| `error` | TEXT | NULLABLE | Error message if status = 'failed' |
+| `created_at` | TIMESTAMPTZ | NOT NULL, DEFAULT now() | When action was queued |
+| `executed_at` | TIMESTAMPTZ | NULLABLE | When action completed (for 'done' or 'failed') |
+
+**Indexes:**
+- `idx_listing_actions_pending` on `created_at WHERE status = 'pending'` — fast polling for next-batch tasks
+- `idx_listing_actions_item` on `item_id` — check for pending actions on a specific listing
+
+**Purpose:** Decouple listing update requests from immediate execution. Celery workers poll the `pending` queue, execute actions, and update status to `done` or `failed`.
+
+#### Pricing Scraped Data
+
+**`pricing.ebay_scraped_sold`** — scraped sold eBay listings (historical price data source).
+
+| Column | Type | Constraints | Notes |
+|--------|------|-----------|-------|
+| `scrape_id` | BIGSERIAL | PK | Auto-incrementing scrape record ID |
+| `item_id` | TEXT | UNIQUE, NOT NULL | eBay item ID |
+| `title` | TEXT | NOT NULL | Listing title as shown on eBay |
+| `source_product_id` | BIGINT | FK to `pricing.source_product`, NULLABLE | Product + marketplace link |
+| `price_cents` | INTEGER | NOT NULL CHECK (≥ 0) | Final sale price in cents |
+| `currency` | VARCHAR(3) | NOT NULL DEFAULT 'USD' | Currency code |
+| `condition_id` | SMALLINT | FK to `pricing.card_condition`, NULLABLE | Card condition |
+| `finish_id` | SMALLINT | FK to `card_catalog.card_finished`, NOT NULL DEFAULT | Card finish |
+| `language_id` | SMALLINT | FK to `card_catalog.language_ref`, NOT NULL DEFAULT | Card language |
+| `sold_at` | TIMESTAMPTZ | NOT NULL | When item sold on eBay |
+| `scraped_at` | TIMESTAMPTZ | NOT NULL, DEFAULT now() | When row was created by scraper |
+| `promoted_to_obs` | BOOLEAN | NOT NULL DEFAULT false | Flag: row promoted to price_observation yet |
+
+**Indexes:**
+- PK on `scrape_id`
+- `UNIQUE(item_id)` — each eBay item scraped once
+- `idx_ebay_scraped_unpromoted` on `(source_product_id) WHERE promoted_to_obs = false AND source_product_id IS NOT NULL` — fast query for rows ready to promote
+- `idx_ebay_scraped_sold_at` on `(sold_at DESC)` — recent sales first
+
+**Purpose:** Capture sold prices from eBay marketplace as a data source for pricing tiers. Rows are promoted to `price_observation` after bulk vetting to ensure product linkage (`source_product_id` IS NOT NULL) and quality checks.
 
 ---
 
@@ -465,8 +568,30 @@ pricing.print_price_daily [Tier 2 — TimescaleDB]
 
 pricing.print_price_latest [Current snapshot]
 
+pricing.ebay_scraped_sold (scraped sold listings)
+    ├─ source_product (via source_product_id)
+    │   └─ price_observation (promoted to Tier 1)
+    └─ card_condition, card_finished, language_ref (via *_id)
+
 user_collection.collections
     └─ collection_items (M:M to card_version via card_version_id)
+
+app_integration.ebay_active_listings (active listings on eBay)
+    ├─ app_info (via app_code)
+    ├─ card_version (via card_version_id)
+    ├─ product_ref (via product_id, NULLABLE)
+    ├─ card_condition, card_finished, language_ref (via *_id, NULLABLE)
+    ├─ listing_template (via template_id, NULLABLE)
+    └─ [historically: card_version → product_ref via mtg_card_products]
+
+app_integration.listing_template (variant templates)
+    ├─ app_info (via app_code)
+    └─ product_ref (via product_id)
+
+app_integration.listing_pending_actions (action queue)
+    ├─ user_management.users (via user_id)
+    ├─ app_info (via app_code)
+    └─ [references ebay_active_listings.item_id (not a FK)]
 
 app_integration.oauth_credentials
     └─ per-user API credentials
