@@ -73,3 +73,18 @@ DO UPDATE SET
     sold_count     = EXCLUDED.sold_count,
     updated_at     = now();
 """
+
+GET_LISTING_META = """
+SELECT
+    eal.card_version_id,
+    COALESCE(eal.finish_id,    pricing.default_finish_id())    AS finish_id,
+    COALESCE(eal.condition_id, pricing.default_condition_id()) AS condition_id,
+    COALESCE(eal.language_id,  card_catalog.default_language_id()) AS language_id,
+    cf.code  AS finish_code,
+    cc.code  AS condition_code
+FROM app_integration.ebay_active_listings eal
+JOIN card_catalog.card_finished   cf ON cf.finish_id    = COALESCE(eal.finish_id,    pricing.default_finish_id())
+JOIN pricing.card_condition       cc ON cc.condition_id = COALESCE(eal.condition_id, pricing.default_condition_id())
+WHERE eal.item_id  = $1
+  AND eal.app_code = $2
+"""
