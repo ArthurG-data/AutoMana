@@ -2045,15 +2045,27 @@ WITH daily AS (
     SELECT
         ppd.card_version_id,
         ppd.price_date,
-        COALESCE(AVG(ppd.list_avg_cents), AVG(ppd.sold_avg_cents)) / 100.0 AS avg_price
+        -- Prefer NONFOIL (finish_id=1) list→sold, then fall back to any finish.
+        -- This lets foil-only cards (headliners, serialized) appear in the spark
+        -- instead of being silently excluded.
+        COALESCE(
+            AVG(ppd.list_avg_cents)  FILTER (WHERE ppd.finish_id = 1),
+            AVG(ppd.sold_avg_cents)  FILTER (WHERE ppd.finish_id = 1),
+            AVG(ppd.list_avg_cents),
+            AVG(ppd.sold_avg_cents)
+        ) / 100.0 AS avg_price
     FROM pricing.print_price_daily ppd
     WHERE ppd.transaction_type_id = 1
       AND ppd.condition_id        = 1
       AND ppd.language_id         = 1
-      AND ppd.finish_id           = 1
       AND ppd.price_date          > CURRENT_DATE - 365  -- exclusive: mirrors original runtime query
     GROUP BY ppd.card_version_id, ppd.price_date
-    HAVING COALESCE(AVG(ppd.list_avg_cents), AVG(ppd.sold_avg_cents)) IS NOT NULL
+    HAVING COALESCE(
+        AVG(ppd.list_avg_cents)  FILTER (WHERE ppd.finish_id = 1),
+        AVG(ppd.sold_avg_cents)  FILTER (WHERE ppd.finish_id = 1),
+        AVG(ppd.list_avg_cents),
+        AVG(ppd.sold_avg_cents)
+    ) IS NOT NULL
 ),
 ranked AS (
     SELECT
