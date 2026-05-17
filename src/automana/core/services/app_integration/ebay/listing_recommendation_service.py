@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
+from datetime import date, timedelta
 from typing import Literal, Optional
 from uuid import UUID
 
@@ -30,6 +31,77 @@ class ListingRecommendation:
     confidence: float
     signals_used: Literal['behavioral', 'market']  # 'market' = percentiles available; 'behavioral' = fallback
     all_strategies: dict = field(default_factory=dict)
+
+
+@dataclass
+class PriceTrend:
+    signal: Literal["UP", "DOWN", "SIDEWAYS", "INSUFFICIENT_DATA"]
+    delta_7d_pct: Optional[float]
+    delta_30d_pct: Optional[float]
+    delta_90d_pct: Optional[float]
+    latest_avg_cents: Optional[int]
+    n_observations: int
+    source_used: Optional[str]
+
+
+def _delta_pct(series: list[dict], latest_date: date, window_days: int) -> Optional[float]:
+    cutoff = latest_date - timedelta(days=window_days)
+    candidates = [r for r in series if r["price_date"] <= cutoff]
+    if not candidates:
+        return None
+    anchor = candidates[-1]["list_avg_cents"]
+    latest = series[-1]["list_avg_cents"]
+    if not anchor:
+        return None
+    return round((latest - anchor) / anchor * 100, 2)
+
+
+def compute_price_trend(price_series: list[dict]) -> PriceTrend:
+    """Classify a historical price series into a trend signal.
+
+    Args:
+        price_series: list of dicts with keys price_date (date), list_avg_cents (int),
+                      list_low_cents (int), source_code (str). Must be sorted oldest-first.
+    """
+    n = len(price_series)
+    if n < 2:
+        return PriceTrend(
+            signal="INSUFFICIENT_DATA",
+            delta_7d_pct=None,
+            delta_30d_pct=None,
+            delta_90d_pct=None,
+            latest_avg_cents=price_series[-1]["list_avg_cents"] if n == 1 else None,
+            n_observations=n,
+            source_used=price_series[-1]["source_code"] if n == 1 else None,
+        )
+
+    latest_date: date = price_series[-1]["price_date"]
+    latest_avg: int = price_series[-1]["list_avg_cents"]
+    source: str = price_series[-1]["source_code"]
+
+    d7  = _delta_pct(price_series, latest_date, 7)
+    d30 = _delta_pct(price_series, latest_date, 30)
+    d90 = _delta_pct(price_series, latest_date, 90)
+
+    primary = d30 if d30 is not None else d7
+    if primary is None:
+        signal: Literal["UP", "DOWN", "SIDEWAYS", "INSUFFICIENT_DATA"] = "INSUFFICIENT_DATA"
+    elif primary >= 10.0:
+        signal = "UP"
+    elif primary <= -10.0:
+        signal = "DOWN"
+    else:
+        signal = "SIDEWAYS"
+
+    return PriceTrend(
+        signal=signal,
+        delta_7d_pct=d7,
+        delta_30d_pct=d30,
+        delta_90d_pct=d90,
+        latest_avg_cents=latest_avg,
+        n_observations=n,
+        source_used=source,
+    )
 
 
 def compute_recommendation(
