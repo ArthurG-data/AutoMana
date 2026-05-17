@@ -106,16 +106,27 @@ class AsyncQueryExecutor(QueryExecutor):
         try:
             record = await connection.execute(query, *params)
             return record
+        except asyncpg.InFailedSQLTransactionError:
+            # A prior error left this PostgreSQL session in an aborted transaction
+            # (common after postgres restarts hit a pool connection mid-task).
+            # Roll back to clear the state and retry once.
+            await connection.execute("ROLLBACK")
+            return await connection.execute(query, *params)
         except Exception as e:
             await self._handle_exception(e)
             raise
+
     async def execute_query(
-        self, 
+        self,
         connection: asyncpg.Connection,
-        query: str, 
+        query: str,
         params: Tuple[Any, ...] = ()
     ) -> List[T]:
         try:
+            records = await connection.fetch(query, *params)
+            return [dict(row) for row in records]
+        except asyncpg.InFailedSQLTransactionError:
+            await connection.execute("ROLLBACK")
             records = await connection.fetch(query, *params)
             return [dict(row) for row in records]
         except Exception as e:

@@ -484,10 +484,10 @@ BEGIN
         v_ok  := FALSE;
 
         BEGIN
-            SET LOCAL work_mem                        = '512MB';
-            SET LOCAL maintenance_work_mem            = '1GB';
+            SET LOCAL work_mem                        = '64MB';
+            SET LOCAL maintenance_work_mem            = '128MB';
             SET LOCAL synchronous_commit              = off;
-            SET LOCAL max_parallel_workers_per_gather = 4;
+            SET LOCAL max_parallel_workers_per_gather = 0;
 
             -- Build the daily aggregate from tier 1 for this batch window.
             -- JOIN path: price_observation → source_product → mtg_card_products
@@ -2045,15 +2045,27 @@ WITH daily AS (
     SELECT
         ppd.card_version_id,
         ppd.price_date,
-        COALESCE(AVG(ppd.list_avg_cents), AVG(ppd.sold_avg_cents)) / 100.0 AS avg_price
+        -- Prefer NONFOIL (finish_id=1) list→sold, then fall back to any finish.
+        -- This lets foil-only cards (headliners, serialized) appear in the spark
+        -- instead of being silently excluded.
+        COALESCE(
+            AVG(ppd.list_avg_cents)  FILTER (WHERE ppd.finish_id = 1),
+            AVG(ppd.sold_avg_cents)  FILTER (WHERE ppd.finish_id = 1),
+            AVG(ppd.list_avg_cents),
+            AVG(ppd.sold_avg_cents)
+        ) / 100.0 AS avg_price
     FROM pricing.print_price_daily ppd
     WHERE ppd.transaction_type_id = 1
       AND ppd.condition_id        = 1
       AND ppd.language_id         = 1
-      AND ppd.finish_id           = 1
       AND ppd.price_date          > CURRENT_DATE - 365  -- exclusive: mirrors original runtime query
     GROUP BY ppd.card_version_id, ppd.price_date
-    HAVING COALESCE(AVG(ppd.list_avg_cents), AVG(ppd.sold_avg_cents)) IS NOT NULL
+    HAVING COALESCE(
+        AVG(ppd.list_avg_cents)  FILTER (WHERE ppd.finish_id = 1),
+        AVG(ppd.sold_avg_cents)  FILTER (WHERE ppd.finish_id = 1),
+        AVG(ppd.list_avg_cents),
+        AVG(ppd.sold_avg_cents)
+    ) IS NOT NULL
 ),
 ranked AS (
     SELECT
