@@ -72,6 +72,29 @@ async def stage_mtgjson_data(
 
 
 @ServiceRegistry.register(
+    "mtgjson.data.download.all_identifiers",
+    api_repositories=["mtgjson"],
+    storage_services=["mtgjson"],
+)
+async def download_all_identifiers(
+    mtgjson_repository: ApimtgjsonRepository,
+    storage_service: StorageService,
+) -> dict:
+    """Stream AllIdentifiers.json from the MTGJson API to a fixed path on disk.
+
+    Returns `identifiers_filename` so the downstream `sync_uuid_mappings` step
+    picks up the refreshed file via the run_service context-merge mechanism.
+    Fixed filename (no timestamp) — sync_uuid_mappings reads it by name and
+    the file is always current after this step runs.
+    """
+    dest_path = storage_service.build_path("AllIdentifiers.json")
+    logger.info("Starting MTGJson AllIdentifiers download")
+    await mtgjson_repository.fetch_all_identifiers_stream(dest_path)
+    logger.info("Streamed AllIdentifiers.json to disk", extra={"file": str(dest_path)})
+    return {"identifiers_filename": "AllIdentifiers.json"}
+
+
+@ServiceRegistry.register(
     "staging.mtgjson.sync_uuid_mappings",
     db_repositories=["mtgjson"],
     storage_services=["mtgjson"],
