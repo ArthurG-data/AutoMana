@@ -127,6 +127,15 @@ async def sync_uuid_mappings(
         scryfall_id = card_data.get("identifiers", {}).get("scryfallId")
         if scryfall_id:
             pairs.append((mtgjson_uuid, scryfall_id))
+        # foreignData carries separate MTGJson UUIDs for non-English prints,
+        # each with their own scryfallId. Without this loop, Japanese/French/etc.
+        # prints imported from Scryfall never get an mtgjson_id and therefore
+        # never get priced.
+        for fd in card_data.get("foreignData", []):
+            fd_uuid = fd.get("uuid")
+            fd_scryfall = fd.get("identifiers", {}).get("scryfallId")
+            if fd_uuid and fd_scryfall:
+                pairs.append((fd_uuid, fd_scryfall))
 
     logger.info(
         "MTGJson UUID pairs extracted",
