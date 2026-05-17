@@ -436,6 +436,20 @@ async def seed_from_ebay(conn, app_code_filter: str | None = None, dry_run: bool
                         best_cv = UUID(str(c["card_version_id"]))
 
                 if best_cv is None:
+                    # Check if already linked in DB — if so, just update title and move on
+                    existing_cv = await conn.fetchval(
+                        "SELECT card_version_id FROM app_integration.ebay_active_listings WHERE item_id = $1",
+                        item_id,
+                    )
+                    if existing_cv is not None:
+                        if not dry_run:
+                            await conn.execute(
+                                "UPDATE app_integration.ebay_active_listings SET title = $2 WHERE item_id = $1",
+                                item_id, title,
+                            )
+                        skipped += 1
+                        continue
+
                     if dry_run:
                         print(f"  [dry-run] UNRESOLVABLE: {title[:70]}")
                         unresolvable += 1
