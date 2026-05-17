@@ -237,9 +237,8 @@ class SetReferenceRepository(AbstractRepository[Any]):
                 WHERE cv.set_id = s.set_id
                   AND cv.lang = 'en'
                   AND cv.is_digital = FALSE
-                  AND cv.booster = TRUE
                   AND cvi.image_uris->>'art_crop' IS NOT NULL
-                ORDER BY ppl.list_avg_cents DESC NULLS LAST
+                ORDER BY (cv.booster) DESC, ppl.list_avg_cents DESC NULLS LAST
                 LIMIT 1
             ) key_art ON true
             WHERE vsm.digital = FALSE
