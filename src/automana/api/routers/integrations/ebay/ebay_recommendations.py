@@ -4,6 +4,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
+import automana.core.services.app_integration.ebay.price_trend_service  # noqa: F401  # registers path
 from automana.api.dependancies.auth.users import CurrentUserDep
 from automana.api.dependancies.service_deps import ServiceManagerDep
 from automana.api.schemas.StandardisedQueryResponse import ApiResponse
@@ -98,5 +99,24 @@ async def get_pending_action(
         return ApiResponse(message="Pending action found", data=result)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+    except Exception:
+        raise
+
+
+@router.get("/{item_id}/trend", description="Get historical price trend and recommendation for an active eBay listing")
+async def get_listing_price_trend(
+    item_id: str,
+    service_manager: ServiceManagerDep,
+    app_code: str = Query(..., description="eBay application code"),
+):
+    try:
+        result = await service_manager.execute_service(
+            "integrations.ebay.recommendations.trend",
+            item_id=item_id,
+            app_code=app_code,
+        )
+        return ApiResponse(message="Price trend retrieved", data=result)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
     except Exception:
         raise
