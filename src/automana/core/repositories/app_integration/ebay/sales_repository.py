@@ -37,6 +37,45 @@ class EbaySalesRepository(AbstractRepository):
     async def list(self, items=None) -> list:
         return []
 
+    async def ensure_product(self, card_version_id: UUID) -> Optional[UUID]:
+        """Get-or-create product_ref + mtg_card_products for a card_version. Returns product_id."""
+        rows = await self.execute_query(
+            sales_queries.ENSURE_PRODUCT,
+            (str(card_version_id),),
+        )
+        if rows:
+            return UUID(str(rows[0]["product_id"]))
+        return None
+
+    async def upsert_listing_template(
+        self,
+        app_code: str,
+        product_id: UUID,
+        condition_code: str,
+        finish_code: str,
+        language_code: str,
+        marketplace_id: str,
+        price_cents: Optional[int],
+        quantity: int,
+    ) -> Optional[UUID]:
+        """Get-or-create a listing template. Returns template_id."""
+        rows = await self.execute_query(
+            sales_queries.UPSERT_LISTING_TEMPLATE,
+            (app_code, str(product_id), condition_code, finish_code,
+             language_code, marketplace_id, price_cents, quantity),
+        )
+        if rows:
+            return UUID(str(rows[0]["template_id"]))
+        return None
+
+    async def get_listing_variant(self, item_id: str) -> Optional[dict]:
+        """Return condition_id, finish_id, language_id, marketplace_id for a listed item."""
+        rows = await self.execute_query(
+            sales_queries.GET_LISTING_VARIANT,
+            (item_id,),
+        )
+        return dict(rows[0]) if rows else None
+
     async def ensure_source_product(
         self, card_version_id: UUID, source_id: int
     ) -> Optional[int]:
@@ -55,10 +94,15 @@ class EbaySalesRepository(AbstractRepository):
         app_code: str,
         card_version_id: UUID,
         listed_at: datetime,
+        condition_code: str = "NM",
+        finish_code: str = "NONFOIL",
+        language_code: str = "en",
+        marketplace_id: str = "15",
     ) -> None:
         await self.execute_command(
             sales_queries.UPSERT_ACTIVE_LISTING,
-            (item_id, app_code, str(card_version_id), listed_at),
+            (item_id, app_code, str(card_version_id),
+             condition_code, finish_code, language_code, marketplace_id, listed_at),
         )
 
     async def get_card_version_by_item(self, item_id: str) -> Optional[UUID]:
@@ -92,6 +136,7 @@ class EbaySalesRepository(AbstractRepository):
         language_id: int,
         sold_at: datetime,
         buyer_username: Optional[str],
+        marketplace_id: Optional[str] = None,
     ) -> None:
         await self.execute_command(
             sales_queries.UPSERT_ORDER_SOURCE_PRODUCT,
@@ -109,6 +154,7 @@ class EbaySalesRepository(AbstractRepository):
                 language_id,
                 sold_at,
                 buyer_username,
+                marketplace_id,
             ),
         )
 

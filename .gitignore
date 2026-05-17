@@ -78,6 +78,7 @@ celerybeat.pid
 .ipynb_checkpoints/
 *.ipynb
 !notebooks/*.ipynb
+notebooks/data/
 
 # staging
 
