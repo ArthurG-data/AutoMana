@@ -114,10 +114,15 @@ def daily_mtgjson_data_pipeline(self):
                       source_name="mtgjson",
                       run_key=run_key,
                       celery_task_id=self.request.id),
-        run_service.s("mtgjson.data.download.today"),
-        # Sync UUID mappings so the promoter proc can resolve card_uuid → card_version_id.
+        # Download fresh AllIdentifiers.json so UUID→scryfallId mappings are
+        # current before prices are staged. Returns identifiers_filename for
+        # sync_uuid_mappings to consume via run_service context-merge.
+        run_service.s("mtgjson.data.download.all_identifiers"),
         # Idempotent: ON CONFLICT DO NOTHING skips duplicates on re-runs.
+        # Must run before download.today so the promoter can resolve every
+        # card_uuid staged in this run.
         run_service.s("staging.mtgjson.sync_uuid_mappings"),
+        run_service.s("mtgjson.data.download.today"),
         # Consumes `file_path_prices` from the download step. Streams the
         # compressed payload directly into `pricing.mtgjson_card_prices_staging`
         # via lzma + ijson + asyncpg COPY — no intermediate JSONB archive.
