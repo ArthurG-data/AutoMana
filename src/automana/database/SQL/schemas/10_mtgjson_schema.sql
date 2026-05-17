@@ -281,7 +281,7 @@ BEGIN
             created_at,
             updated_at
           )
-          SELECT
+          SELECT DISTINCT ON (r.ts_date, r.source_product_id, r.price_type_id, r.finish_id, r.condition_id, r.language_id)
             r.ts_date,
             r.price_type_id,
             r.finish_id,
@@ -297,6 +297,7 @@ BEGIN
             v_data_provider_id,
             now(), now(), now()
           FROM resolved r
+          ORDER BY r.ts_date, r.source_product_id, r.price_type_id, r.finish_id, r.condition_id, r.language_id
           ON CONFLICT (ts_date, source_product_id, price_type_id, finish_id, condition_id, language_id, data_provider_id)
           DO UPDATE SET
             list_avg_cents = EXCLUDED.list_avg_cents,
