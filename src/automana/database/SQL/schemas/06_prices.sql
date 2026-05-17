@@ -484,10 +484,10 @@ BEGIN
         v_ok  := FALSE;
 
         BEGIN
-            SET LOCAL work_mem                        = '512MB';
-            SET LOCAL maintenance_work_mem            = '1GB';
+            SET LOCAL work_mem                        = '64MB';
+            SET LOCAL maintenance_work_mem            = '128MB';
             SET LOCAL synchronous_commit              = off;
-            SET LOCAL max_parallel_workers_per_gather = 4;
+            SET LOCAL max_parallel_workers_per_gather = 0;
 
             -- Build the daily aggregate from tier 1 for this batch window.
             -- JOIN path: price_observation → source_product → mtg_card_products
