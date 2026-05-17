@@ -121,8 +121,8 @@ No DB access. Takes a list of `{"price_date": date, "list_avg_cents": int}` rows
 - If fewer than 2 data points span the window: set `delta_pct = None`.
 
 **Signal classification** (based on the 30-day delta, the primary window):
-- `delta_pct >= +5%` → `UP`
-- `delta_pct <= -5%` → `DOWN`
+- `delta_pct >= +10%` → `UP`
+- `delta_pct <= -10%` → `DOWN`
 - Otherwise → `SIDEWAYS`
 
 If the 30-day window has no data, fall back to the 7-day window. If neither is available: `signal = "INSUFFICIENT_DATA"`.
