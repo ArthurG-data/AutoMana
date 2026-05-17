@@ -167,3 +167,70 @@ def test_compute_price_trend_sets_source_and_latest_cents():
     result = compute_price_trend(series)
     assert result.source_used == "cardkingdom"
     assert result.latest_avg_cents == 1200
+
+
+def _trend(signal: str):
+    from automana.core.services.app_integration.ebay.listing_recommendation_service import PriceTrend
+    return PriceTrend(
+        signal=signal,  # type: ignore[arg-type]
+        delta_7d_pct=None, delta_30d_pct=None, delta_90d_pct=None,
+        latest_avg_cents=1000, n_observations=30, source_used="tcg",
+    )
+
+
+def test_trend_overlay_hold_up_becomes_raise():
+    from automana.core.services.app_integration.ebay.listing_recommendation_service import compute_recommendation
+    # Behavioral: 10 days listed, 1 watch → hold
+    signals = {"days_listed": 10, "watch_count": 1, "price": 10.0}
+    rec = compute_recommendation(signals, price_trend=_trend("UP"))
+    assert rec.suggested_action == "raise"
+    assert rec.signals_used == "trend"
+
+
+def test_trend_overlay_hold_down_becomes_lower():
+    from automana.core.services.app_integration.ebay.listing_recommendation_service import compute_recommendation
+    signals = {"days_listed": 10, "watch_count": 1, "price": 10.0}
+    rec = compute_recommendation(signals, price_trend=_trend("DOWN"))
+    assert rec.suggested_action == "lower"
+    assert rec.signals_used == "trend"
+
+
+def test_trend_overlay_draft_unchanged():
+    from automana.core.services.app_integration.ebay.listing_recommendation_service import compute_recommendation
+    # Behavioral: 35 days listed, 0 watches → draft
+    signals = {"days_listed": 35, "watch_count": 0, "price": 10.0}
+    rec = compute_recommendation(signals, price_trend=_trend("UP"))
+    assert rec.suggested_action == "draft"
+
+
+def test_trend_overlay_sideways_leaves_action_unchanged():
+    from automana.core.services.app_integration.ebay.listing_recommendation_service import compute_recommendation
+    signals = {"days_listed": 10, "watch_count": 1, "price": 10.0}
+    rec_no_trend = compute_recommendation(signals)
+    rec_sideways = compute_recommendation(signals, price_trend=_trend("SIDEWAYS"))
+    assert rec_sideways.suggested_action == rec_no_trend.suggested_action
+    assert rec_sideways.signals_used == rec_no_trend.signals_used
+
+
+def test_trend_overlay_insufficient_data_leaves_action_unchanged():
+    from automana.core.services.app_integration.ebay.listing_recommendation_service import compute_recommendation
+    signals = {"days_listed": 10, "watch_count": 1, "price": 10.0}
+    rec_no_trend = compute_recommendation(signals)
+    rec = compute_recommendation(signals, price_trend=_trend("INSUFFICIENT_DATA"))
+    assert rec.suggested_action == rec_no_trend.suggested_action
+
+
+def test_trend_overlay_raise_down_becomes_hold():
+    from automana.core.services.app_integration.ebay.listing_recommendation_service import compute_recommendation
+    # Behavioral: 3 days listed, 6 watches → raise
+    signals = {"days_listed": 3, "watch_count": 6, "price": 10.0}
+    rec = compute_recommendation(signals, price_trend=_trend("DOWN"))
+    assert rec.suggested_action == "hold"
+
+
+def test_trend_overlay_lower_up_becomes_hold():
+    from automana.core.services.app_integration.ebay.listing_recommendation_service import compute_recommendation
+    # Behavioral: 20 days listed, 1 watch → lower
+    signals = {"days_listed": 20, "watch_count": 1, "price": 10.0}
+    rec = compute_recommendation(signals, price_trend=_trend("UP"))
+    assert rec.suggested_action == "hold"

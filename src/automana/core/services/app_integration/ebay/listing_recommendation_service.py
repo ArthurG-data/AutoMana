@@ -104,9 +104,18 @@ def compute_price_trend(price_series: list[dict]) -> PriceTrend:
     )
 
 
+_TREND_ADJUSTER: dict[tuple[str, str], tuple[str, float]] = {
+    ("hold",  "UP"):   ("raise", +0.05),
+    ("hold",  "DOWN"): ("lower", +0.05),
+    ("raise", "DOWN"): ("hold",  -0.05),
+    ("lower", "UP"):   ("hold",  -0.05),
+}
+
+
 def compute_recommendation(
     signals: dict,
     market_data: dict | None = None,
+    price_trend: PriceTrend | None = None,
 ) -> ListingRecommendation:
     """Pure recommendation engine — no DB access. Safe to call from router or agent tool."""
     days_listed = signals.get('days_listed', 0)
@@ -114,9 +123,36 @@ def compute_recommendation(
     price = signals.get('price', 0.0)
 
     if market_data is None:
-        return _behavioral_recommendation(days_listed, watch_count)
+        rec = _behavioral_recommendation(days_listed, watch_count)
+    else:
+        rec = _market_recommendation(days_listed, price, market_data)
 
-    return _market_recommendation(days_listed, price, market_data)
+    if price_trend is None or price_trend.signal in ("SIDEWAYS", "INSUFFICIENT_DATA"):
+        return rec
+
+    if rec.suggested_action == "draft":
+        return rec
+
+    key = (rec.suggested_action, price_trend.signal)
+    if key in _TREND_ADJUSTER:
+        new_action, confidence_delta = _TREND_ADJUSTER[key]
+        return ListingRecommendation(
+            suggested_action=new_action,  # type: ignore[arg-type]
+            strategy_kind=rec.strategy_kind,
+            suggested_price=rec.suggested_price,
+            confidence=max(0.0, min(1.0, rec.confidence + confidence_delta)),
+            signals_used="trend",
+            all_strategies=rec.all_strategies,
+        )
+
+    return ListingRecommendation(
+        suggested_action=rec.suggested_action,
+        strategy_kind=rec.strategy_kind,
+        suggested_price=rec.suggested_price,
+        confidence=max(0.0, min(1.0, rec.confidence + 0.05)),
+        signals_used="trend",
+        all_strategies=rec.all_strategies,
+    )
 
 
 def _behavioral_recommendation(days_listed: int, watch_count: int) -> ListingRecommendation:
