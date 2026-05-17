@@ -248,6 +248,10 @@ class StorageService:
         timestamped = self.build_timestamped_name(filename, timestamp)
         return self.backend.resolve_path(timestamped)
 
+    def build_path(self, filename: str) -> Path:
+        """Return the full resolved path for a fixed-name file (no timestamp)."""
+        return self.backend.resolve_path(filename)
+
     async def save_with_timestamp(self, filename: str, data: Any, file_format: str = "xz") -> str:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         timestamped = self.build_timestamped_name(filename, timestamp)
