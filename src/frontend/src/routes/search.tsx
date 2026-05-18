@@ -28,6 +28,7 @@ const searchSchema = z.object({
   sort_order:     z.enum(['asc', 'desc']).optional(),
   colors:         z.array(z.string()).optional(),
   card_type:      z.string().optional(),
+  frame_effects:  z.array(z.string()).optional(),
 })
 
 export const Route = createFileRoute('/search')({

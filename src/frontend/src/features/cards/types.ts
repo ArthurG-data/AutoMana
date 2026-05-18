@@ -6,7 +6,7 @@ export interface CardSummary {
   card_name: string
   set_code: string
   set_name: string
-  finish: 'non-foil' | 'foil' | 'etched'
+  finish: string
   rarity_name: 'common' | 'uncommon' | 'rare' | 'mythic'
   price?: number
   price_change_1d: number
@@ -25,7 +25,7 @@ export interface CardPrint {
   id: string
   set: string
   set_name: string
-  finish: 'non-foil' | 'foil' | 'etched'
+  finish: string
   price: number
   image_uri: string | null
 }
@@ -68,6 +68,7 @@ export interface CardSearchParams {
   sort_order?: 'asc' | 'desc'
   colors?: string[]
   card_type?: string
+  frame_effects?: string[]
 }
 
 export interface PaginationInfo {

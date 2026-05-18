@@ -4,7 +4,21 @@ import type { CardGroupBy, CardSearchParams } from '../types'
 import { SearchBarWithSuggestions } from './SearchBarWithSuggestions'
 import styles from './SearchFilters.module.css'
 
-const FINISHES = ['non-foil', 'foil', 'etched'] as const
+const FINISHES: ReadonlyArray<{ label: string; value: string }> = [
+  { label: 'Non-foil',     value: 'nonfoil'      },
+  { label: 'Foil',         value: 'foil'          },
+  { label: 'Etched',       value: 'etched'        },
+  { label: 'Surge Foil',   value: 'surge_foil'    },
+  { label: 'Ripple Foil',  value: 'ripple_foil'   },
+  { label: 'Rainbow Foil', value: 'rainbow_foil'  },
+]
+
+const FRAME_EFFECTS: ReadonlyArray<{ label: string; value: string }> = [
+  { label: 'Borderless',   value: 'borderless'   },
+  { label: 'Extended Art', value: 'extendedart'  },
+  { label: 'Showcase',     value: 'showcase'     },
+  { label: 'Full Art',     value: 'fullart'      },
+]
 const LAYOUTS = ['normal', 'token', 'transform', 'saga', 'adventure'] as const
 const GROUPINGS: ReadonlyArray<{ value: CardGroupBy | 'none'; label: string }> = [
   { value: 'none',   label: 'None' },
@@ -119,6 +133,12 @@ export function SearchFilters({
     update({ promoTypes: next.length > 0 ? next : undefined })
   }
 
+  function toggleFrameEffect(value: string) {
+    const current = params.frame_effects ?? []
+    const next = current.includes(value) ? current.filter((fe) => fe !== value) : [...current, value]
+    update({ frame_effects: next.length > 0 ? next : undefined })
+  }
+
   const selectedPromoCount = params.promoTypes?.length ?? 0
 
   return (
@@ -213,6 +233,22 @@ export function SearchFilters({
         </div>
       </section>
 
+      {/* TREATMENT */}
+      <section className={styles.group}>
+        <div className={styles.groupLabel}>Treatment</div>
+        <div className={styles.finishGrid} style={{ gridTemplateColumns: '1fr 1fr' }}>
+          {FRAME_EFFECTS.map(({ label, value }) => (
+            <button
+              key={value}
+              className={[styles.finishBtn, params.frame_effects?.includes(value) ? styles.finishActive : ''].join(' ')}
+              onClick={() => toggleFrameEffect(value)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </section>
+
       {/* PRICE TREND */}
       <section className={styles.group}>
         <div className={styles.groupLabel}>Price trend (7d)</div>
@@ -263,14 +299,14 @@ export function SearchFilters({
 
       <section className={styles.group}>
         <div className={styles.groupLabel}>Finish</div>
-        <div className={styles.finishGrid}>
-          {FINISHES.map((f) => (
+        <div className={styles.finishGrid} style={{ gridTemplateColumns: '1fr 1fr' }}>
+          {FINISHES.map(({ label, value }) => (
             <button
-              key={f}
-              className={[styles.finishBtn, params.finish === f ? styles.finishActive : ''].join(' ')}
-              onClick={() => update({ finish: params.finish === f ? undefined : f })}
+              key={value}
+              className={[styles.finishBtn, params.finish === value ? styles.finishActive : ''].join(' ')}
+              onClick={() => update({ finish: params.finish === value ? undefined : value })}
             >
-              {f}
+              {label}
             </button>
           ))}
         </div>
