@@ -1,15 +1,11 @@
 // src/frontend/src/features/collection/components/CollectionTable.tsx
+import { formatUSD } from '../../../lib/format'
 import type { CollectionEntry } from '../api'
 import styles from './CollectionTable.module.css'
 
 interface CollectionTableProps {
   entries: CollectionEntry[]
   onRemove?: (entryId: string) => void
-}
-
-function formatUSD(n: number | null | undefined): string {
-  if (n == null) return 'N/A'
-  return `$${n.toFixed(2)}`
 }
 
 export function CollectionTable({ entries, onRemove }: CollectionTableProps) {
@@ -65,11 +61,11 @@ export function CollectionTable({ entries, onRemove }: CollectionTableProps) {
                 </td>
                 <td className={styles.right}>
                   {pl != null ? (
-                    <span style={{ color: pl >= 0 ? 'var(--hd-accent)' : 'var(--hd-red)' }}>
+                    <span className={pl >= 0 ? styles.positive : styles.negative}>
                       {plSign}{formatUSD(Math.abs(pl))}
                     </span>
                   ) : (
-                    <span style={{ color: 'var(--hd-muted)' }}>—</span>
+                    <span className={styles.neutral}>—</span>
                   )}
                 </td>
                 <td className={styles.right}>

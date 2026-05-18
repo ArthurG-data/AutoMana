@@ -7,6 +7,7 @@ import { Sparkline } from '../../../components/design-system/Sparkline'
 import { AddToCollectionPopover } from '../../collection/components/AddToCollectionPopover'
 import { addCollectionEntry, collectionsQueryOptions, collectionEntriesQueryOptions } from '../../collection/api'
 import { useAuthStore } from '../../../store/auth'
+import { cn } from '../../../lib/cn'
 import type { Collection } from '../../collection/api'
 import type { CardGroupBy, CardSummary } from '../types'
 import styles from './SearchResults.module.css'
@@ -71,7 +72,7 @@ export function SearchResults({
 
   async function handleAdd(params: {
     collectionId: string
-    condition: 'NM' | 'LP' | 'MP' | 'HP'
+    condition: 'NM' | 'LP' | 'MP' | 'HP' | 'DMG' | 'SP'
     finish: 'NONFOIL' | 'FOIL' | 'ETCHED'
   }) {
     if (!addTarget) return
@@ -84,6 +85,9 @@ export function SearchResults({
     queryClient.invalidateQueries({ queryKey: collectionEntriesQueryOptions(params.collectionId).queryKey })
     setAddTarget(null)
   }
+
+  const groups = useMemo(() => buildGroups(cards, groupBy), [cards, groupBy])
+  const lastCardId = cards.length > 0 ? cards[cards.length - 1].card_version_id : null
 
   useEffect(() => {
     if (!lastCardRef.current || !hasNextPage || isFetchingNextPage) return
@@ -98,13 +102,26 @@ export function SearchResults({
     )
     observer.observe(lastCardRef.current)
     return () => observer.disconnect()
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage])
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage, lastCardId])
 
-  const groups = useMemo(() => buildGroups(cards, groupBy), [cards, groupBy])
-  const lastCardId = cards.length > 0 ? cards[cards.length - 1].card_version_id : null
+  const today = new Date().toISOString().slice(0, 10)
 
   if (cards.length === 0) {
     return <div className={styles.empty}>No cards found. Try a different search.</div>
+  }
+
+  function cardPrice(card: CardSummary, delta: number) {
+    if (card.price != null) {
+      return (
+        <span className={cn(styles.price, delta >= 0 ? styles.up : styles.down)}>
+          ${card.price.toFixed(2)}
+        </span>
+      )
+    }
+    if (card.released_at != null && card.released_at > today) {
+      return <span className={`${styles.price} ${styles.unreleased}`}>Not yet released</span>
+    }
+    return <span className={styles.price}>N/A</span>
   }
 
   const renderCard = (card: CardSummary, i: number) => {
@@ -114,10 +131,7 @@ export function SearchResults({
       <div key={card.card_version_id} className={styles.cardWrap}>
         <button
           ref={isLastCard ? lastCardRef : null}
-          className={[
-            styles.card,
-            card.card_version_id === selectedId ? styles.cardSelected : '',
-          ].filter(Boolean).join(' ')}
+          className={cn(styles.card, card.card_version_id === selectedId && styles.cardSelected)}
           onClick={() =>
             onSelect
               ? onSelect(card)
@@ -162,21 +176,7 @@ export function SearchResults({
               <span className={styles.rarity}>{card.rarity_name}</span>
             </div>
             <div className={styles.cardMeta}>
-              {(() => {
-                const today = new Date().toISOString().slice(0, 10)
-                const isUpcoming = card.released_at != null && card.released_at > today
-                if (card.price != null) {
-                  return (
-                    <span className={[styles.price, delta >= 0 ? styles.up : styles.down].join(' ')}>
-                      ${card.price.toFixed(2)}
-                    </span>
-                  )
-                }
-                if (isUpcoming) {
-                  return <span className={`${styles.price} ${styles.unreleased}`}>Not yet released</span>
-                }
-                return <span className={styles.price}>N/A</span>
-              })()}
+              {cardPrice(card, delta)}
             </div>
             <Sparkline
               points={card.spark}

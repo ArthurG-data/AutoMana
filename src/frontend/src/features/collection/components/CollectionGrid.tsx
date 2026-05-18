@@ -1,5 +1,6 @@
 // src/frontend/src/features/collection/components/CollectionGrid.tsx
 import { CardArt } from '../../../components/design-system/CardArt'
+import { formatUSD } from '../../../lib/format'
 import type { CollectionEntry } from '../api'
 import styles from './CollectionGrid.module.css'
 
@@ -39,10 +40,7 @@ export function CollectionGrid({ entries, onRemove }: CollectionGridProps) {
           entry.price != null
             ? entry.price - Number(entry.purchase_price)
             : null
-        const plLabel =
-          pl != null
-            ? `${pl >= 0 ? '+' : '-'}$${Math.abs(pl).toFixed(2)}`
-            : null
+        const plLabel = pl != null ? `${pl >= 0 ? '+' : '-'}${formatUSD(Math.abs(pl))}` : null
 
         return (
           <div key={entry.item_id} className={styles.cardWrap}>
@@ -73,11 +71,9 @@ export function CollectionGrid({ entries, onRemove }: CollectionGridProps) {
                 )}
               </div>
               <div className={styles.priceRow}>
-                <span className={styles.price}>
-                  {entry.price != null ? `$${entry.price.toFixed(2)}` : 'N/A'}
-                </span>
-                {plLabel != null && pl != null && (
-                  <span className={`${styles.pl} ${pl >= 0 ? styles.plUp : styles.plDown}`}>
+                <span className={styles.price}>{formatUSD(entry.price)}</span>
+                {plLabel != null && (
+                  <span className={`${styles.pl} ${pl! >= 0 ? styles.plUp : styles.plDown}`}>
                     {plLabel}
                   </span>
                 )}

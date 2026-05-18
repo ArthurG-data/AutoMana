@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
-import type { Collection } from '../api'
+import { useRef, useState } from 'react'
+import { useClickOutside } from '../../../hooks/useClickOutside'
+import type { Collection, CollectionEntry } from '../api'
 import styles from './AddToCollectionPopover.module.css'
 
-type Condition = 'NM' | 'LP' | 'MP' | 'HP' | 'DMG' | 'SP'
-type FinishOut = 'NONFOIL' | 'FOIL' | 'ETCHED'
+type FinishOut = CollectionEntry['finish']
 
 function normaliseFinish(finish: string): FinishOut {
   const f = finish.toLowerCase()
@@ -17,11 +17,11 @@ interface Props {
   cardName: string
   finish: string
   collections: Collection[]
-  onAdd: (params: { collectionId: string; condition: Condition; finish: FinishOut }) => void
+  onAdd: (params: { collectionId: string; condition: CollectionEntry['condition']; finish: FinishOut }) => void
   onClose: () => void
 }
 
-const CONDITIONS: Condition[] = ['NM', 'LP', 'MP', 'HP', 'DMG', 'SP']
+const CONDITIONS: CollectionEntry['condition'][] = ['NM', 'LP', 'MP', 'HP', 'DMG', 'SP']
 
 export function AddToCollectionPopover({
   cardName,
@@ -30,24 +30,11 @@ export function AddToCollectionPopover({
   onAdd,
   onClose,
 }: Props) {
-  const [condition, setCondition] = useState<Condition>('NM')
+  const [condition, setCondition] = useState<CollectionEntry['condition']>('NM')
   const [collectionId, setCollectionId] = useState(collections[0]?.collection_id ?? '')
   const ref = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
-    }
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('mousedown', handleClick)
-    document.addEventListener('keydown', handleKey)
-    return () => {
-      document.removeEventListener('mousedown', handleClick)
-      document.removeEventListener('keydown', handleKey)
-    }
-  }, [onClose])
+  useClickOutside(ref, onClose)
 
   if (collections.length === 0) {
     return (
