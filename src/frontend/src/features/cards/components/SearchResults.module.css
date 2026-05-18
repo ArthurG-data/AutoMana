@@ -69,3 +69,5 @@
   backdrop-filter: blur(4px);
   pointer-events: none;
 }
+
+.unreleased { color: #b8860b; font-style: italic; font-weight: 400; }
