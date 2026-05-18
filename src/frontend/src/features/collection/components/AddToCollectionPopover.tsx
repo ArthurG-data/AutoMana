@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Collection } from '../api'
 import styles from './AddToCollectionPopover.module.css'
 
-type Condition = 'NM' | 'LP' | 'MP' | 'HP'
+type Condition = 'NM' | 'LP' | 'MP' | 'HP' | 'DMG' | 'SP'
 type FinishOut = 'NONFOIL' | 'FOIL' | 'ETCHED'
 
 function normaliseFinish(finish: string): FinishOut {
@@ -21,7 +21,7 @@ interface Props {
   onClose: () => void
 }
 
-const CONDITIONS: Condition[] = ['NM', 'LP', 'MP', 'HP']
+const CONDITIONS: Condition[] = ['NM', 'LP', 'MP', 'HP', 'DMG', 'SP']
 
 export function AddToCollectionPopover({
   cardName,

@@ -2,62 +2,85 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import { CollectionTable } from '../CollectionTable'
-import { MOCK_COLLECTION } from '../../mockCollection'
+import type { CollectionEntry } from '../../api'
+
+const ENTRIES: CollectionEntry[] = [
+  {
+    item_id: 'e1',
+    card_version_id: 'cv1',
+    card_name: 'Ragavan, Nimble Pilferer',
+    set_code: 'MH2',
+    collector_number: '138',
+    finish: 'NONFOIL',
+    condition: 'NM',
+    purchase_price: '28.00',
+    purchase_date: '2024-01-01',
+    currency_code: 'USD',
+    image_normal: null,
+    price: 54.20,
+    price_change_1d: 1.5,
+  },
+  {
+    item_id: 'e2',
+    card_version_id: 'cv2',
+    card_name: 'Force of Will',
+    set_code: 'ALL',
+    collector_number: '28',
+    finish: 'FOIL',
+    condition: 'LP',
+    purchase_price: '120.00',
+    purchase_date: '2024-01-02',
+    currency_code: 'USD',
+    image_normal: null,
+    price: 110,
+    price_change_1d: -0.5,
+  },
+]
 
 describe('CollectionTable', () => {
   it('renders table headers', () => {
-    render(<CollectionTable cards={[]} />)
+    render(<CollectionTable entries={[]} />)
     expect(screen.getByText('Card name')).toBeTruthy()
     expect(screen.getByText('Set')).toBeTruthy()
-    expect(screen.getByText('Market price')).toBeTruthy()
+    expect(screen.getByText('Market')).toBeTruthy()
     expect(screen.getByText('P/L')).toBeTruthy()
-    expect(screen.getByText('Status')).toBeTruthy()
+    expect(screen.getByText('Finish')).toBeTruthy()
   })
 
-  it('shows empty state when no cards', () => {
-    render(<CollectionTable cards={[]} />)
+  it('shows empty state when no entries', () => {
+    render(<CollectionTable entries={[]} />)
     expect(screen.getByText(/no cards match/i)).toBeTruthy()
   })
 
-  it('renders mock collection rows', () => {
-    render(<CollectionTable cards={MOCK_COLLECTION} />)
+  it('renders card rows', () => {
+    render(<CollectionTable entries={ENTRIES} />)
     expect(screen.getByText('Ragavan, Nimble Pilferer')).toBeTruthy()
     expect(screen.getByText('Force of Will')).toBeTruthy()
-    expect(screen.getByText('Mox Diamond')).toBeTruthy()
   })
 
-  it('shows LIST button only for ready cards', () => {
-    render(<CollectionTable cards={MOCK_COLLECTION} />)
-    const readyCards = MOCK_COLLECTION.filter((c) => c.aiStatus === 'ready')
-    // Each ready card has a LIST button
-    const listButtons = screen.getAllByRole('button', { name: /list/i })
-    // At least one List button per ready card
-    expect(listButtons.length).toBeGreaterThanOrEqual(readyCards.length)
+  it('shows set code, condition, and finish', () => {
+    render(<CollectionTable entries={[ENTRIES[0]]} />)
+    expect(screen.getByText('MH2')).toBeTruthy()
+    expect(screen.getByText('NM')).toBeTruthy()
+    expect(screen.getByText('nonfoil')).toBeTruthy()
   })
 
-  it('calls onList when LIST button is clicked', () => {
-    const onList = vi.fn()
-    const readyCard = MOCK_COLLECTION.find((c) => c.aiStatus === 'ready')!
-    render(<CollectionTable cards={[readyCard]} onList={onList} />)
-
-    const listBtn = screen.getByRole('button', { name: new RegExp(`list ${readyCard.name}`, 'i') })
-    fireEvent.click(listBtn)
-    expect(onList).toHaveBeenCalledWith(readyCard)
+  it('shows positive P/L', () => {
+    render(<CollectionTable entries={[ENTRIES[0]]} />)
+    // profit: 54.20 - 28.00 = +$26.20
+    expect(screen.getByText('+$26.20')).toBeTruthy()
   })
 
-  it('renders mana pip for each card color', () => {
-    const card = MOCK_COLLECTION.find((c) => c.name === 'Teferi, Time Raveler')!
-    render(<CollectionTable cards={[card]} />)
-    // Teferi is W/U — both pip letters should appear
-    expect(screen.getAllByText('W').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('U').length).toBeGreaterThan(0)
+  it('shows negative P/L', () => {
+    render(<CollectionTable entries={[ENTRIES[1]]} />)
+    // loss: 110 - 120 = -$10.00
+    expect(screen.getByText('-$10.00')).toBeTruthy()
   })
 
-  it('shows accessible aria-label on more button', () => {
-    const card = MOCK_COLLECTION[0]
-    render(<CollectionTable cards={[card]} />)
-    expect(
-      screen.getByRole('button', { name: new RegExp(`more options for ${card.name}`, 'i') })
-    ).toBeTruthy()
+  it('calls onRemove with item_id when remove is clicked', () => {
+    const onRemove = vi.fn()
+    render(<CollectionTable entries={[ENTRIES[0]]} onRemove={onRemove} />)
+    fireEvent.click(screen.getByRole('button', { name: /remove ragavan/i }))
+    expect(onRemove).toHaveBeenCalledWith('e1')
   })
 })

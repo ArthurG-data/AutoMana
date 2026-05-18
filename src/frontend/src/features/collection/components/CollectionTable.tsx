@@ -1,19 +1,18 @@
 // src/frontend/src/features/collection/components/CollectionTable.tsx
-import React from 'react'
-import { AIBadge } from '../../../components/design-system/AIBadge'
-import { Pip } from '../../../components/design-system/Pip'
-import { Icon } from '../../../components/design-system/Icon'
-import type { CollectionCard } from '../mockCollection'
-import { formatUSD } from '../mockCollection'
+import type { CollectionEntry } from '../api'
 import styles from './CollectionTable.module.css'
 
 interface CollectionTableProps {
-  cards: CollectionCard[]
-  onList?: (card: CollectionCard) => void
-  onMore?: (card: CollectionCard) => void
+  entries: CollectionEntry[]
+  onRemove?: (entryId: string) => void
 }
 
-export function CollectionTable({ cards, onList, onMore }: CollectionTableProps) {
+function formatUSD(n: number | null | undefined): string {
+  if (n == null) return 'N/A'
+  return `$${n.toFixed(2)}`
+}
+
+export function CollectionTable({ entries, onRemove }: CollectionTableProps) {
   return (
     <div className={styles.wrapper} role="region" aria-label="Collection table">
       <table className={styles.table}>
@@ -21,100 +20,68 @@ export function CollectionTable({ cards, onList, onMore }: CollectionTableProps)
           <tr>
             <th scope="col">Card name</th>
             <th scope="col">Set</th>
-            <th scope="col" className={styles.center}>Qty</th>
-            <th scope="col" className={styles.right}>Market price</th>
-            <th scope="col" className={styles.right}>30d peak</th>
+            <th scope="col">Finish</th>
+            <th scope="col">Condition</th>
+            <th scope="col" className={styles.right}>Purchase</th>
+            <th scope="col" className={styles.right}>Market</th>
             <th scope="col" className={styles.right}>P/L</th>
-            <th scope="col" className={styles.center}>Status</th>
             <th scope="col" className={styles.right}>Actions</th>
           </tr>
         </thead>
         <tbody>
-          {cards.length === 0 && (
+          {entries.length === 0 && (
             <tr>
               <td colSpan={8} className={styles.empty}>
                 No cards match your filters
               </td>
             </tr>
           )}
-          {cards.map((card) => {
-            const pl = (card.marketPrice - card.costBasis) * card.qty
-            const isReady = card.aiStatus === 'ready'
+          {entries.map((entry) => {
+            const pl =
+              entry.price != null
+                ? entry.price - Number(entry.purchase_price)
+                : null
+            const plSign = pl != null && pl >= 0 ? '+' : '-'
 
             return (
-              <tr
-                key={card.id}
-                className={[
-                  styles.row,
-                  isReady ? styles.rowReady : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-              >
-                {/* Card name + pips */}
+              <tr key={entry.item_id} className={styles.row}>
                 <td>
-                  <div className={styles.nameCell}>
-                    <div className={styles.pips}>
-                      {card.colors.map((c) => (
-                        <Pip key={c} color={c} size={13} />
-                      ))}
-                    </div>
-                    <span className={styles.cardName}>{card.name}</span>
-                    {card.foil && <span className={styles.foilBadge}>foil</span>}
-                  </div>
+                  <span className={styles.cardName}>{entry.card_name}</span>
                 </td>
-
-                {/* Set */}
                 <td>
-                  <span className={styles.setCode}>{card.setCode}</span>
+                  <span className={styles.setCode}>{entry.set_code.toUpperCase()}</span>
                 </td>
-
-                {/* Qty */}
-                <td className={styles.center}>{card.qty}</td>
-
-                {/* Market price */}
-                <td className={styles.right}>
-                  {formatUSD(card.marketPrice)}
-                </td>
-
-                {/* 30d peak */}
-                <td className={styles.right}>
-                  <span className={styles.neutral}>{formatUSD(card.peak30d)}</span>
-                </td>
-
-                {/* P/L */}
-                <td className={styles.right}>
-                  <span className={pl >= 0 ? styles.positive : styles.negative}>
-                    {pl >= 0 ? '+' : ''}{formatUSD(pl)}
-                  </span>
-                </td>
-
-                {/* Status badge */}
-                <td className={styles.center}>
-                  <AIBadge status={card.aiStatus} showLabel size="sm" />
-                </td>
-
-                {/* Actions */}
                 <td>
-                  <div className={styles.actionsCell}>
-                    {isReady ? (
-                      <button
-                        className={styles.listBtn}
-                        onClick={() => onList?.(card)}
-                        aria-label={`List ${card.name} on eBay`}
-                      >
-                        <Icon kind="tag" size={11} color="currentColor" />
-                        List
-                      </button>
-                    ) : null}
+                  <span className={styles.finish}>{entry.finish.toLowerCase()}</span>
+                </td>
+                <td>
+                  <span className={styles.condition}>{entry.condition}</span>
+                </td>
+                <td className={styles.right}>
+                  {formatUSD(Number(entry.purchase_price))}
+                </td>
+                <td className={styles.right}>
+                  {formatUSD(entry.price ?? null)}
+                </td>
+                <td className={styles.right}>
+                  {pl != null ? (
+                    <span style={{ color: pl >= 0 ? 'var(--hd-accent)' : 'var(--hd-red)' }}>
+                      {plSign}{formatUSD(Math.abs(pl))}
+                    </span>
+                  ) : (
+                    <span style={{ color: 'var(--hd-muted)' }}>—</span>
+                  )}
+                </td>
+                <td className={styles.right}>
+                  {onRemove && (
                     <button
-                      className={styles.moreBtn}
-                      onClick={() => onMore?.(card)}
-                      aria-label={`More options for ${card.name}`}
+                      className={styles.removeBtn}
+                      onClick={() => onRemove(entry.item_id)}
+                      aria-label={`Remove ${entry.card_name}`}
                     >
-                      <Icon kind="more" size={14} color="currentColor" />
+                      ×
                     </button>
-                  </div>
+                  )}
                 </td>
               </tr>
             )

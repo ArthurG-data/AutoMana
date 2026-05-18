@@ -415,3 +415,56 @@
 .colorFilterBtnActive {
   border-color: var(--hd-accent);
 }
+
+/* ── Collection tabs ─────────────────────────────────────── */
+.tabRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  margin-bottom: 16px;
+}
+
+.tab {
+  padding: 4px 14px;
+  border-radius: 5px;
+  border: 1px solid var(--hd-border, #1f2937);
+  background: transparent;
+  color: var(--hd-sub);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 120ms ease;
+}
+.tab:hover { border-color: var(--hd-accent); color: var(--hd-accent); }
+.tabActive {
+  background: var(--hd-accent);
+  border-color: var(--hd-accent);
+  color: #fff;
+}
+
+.tabNew {
+  padding: 4px 12px;
+  border-radius: 5px;
+  border: 1px dashed var(--hd-border, #1f2937);
+  background: transparent;
+  color: var(--hd-sub);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 120ms ease;
+}
+.tabNew:hover { border-color: var(--hd-accent); color: var(--hd-accent); }
+
+.newCollectionInput {
+  padding: 4px 10px;
+  border-radius: 5px;
+  border: 1px solid var(--hd-accent);
+  background: var(--hd-surface-2, #1f2937);
+  color: var(--hd-text);
+  font-size: 12px;
+  outline: none;
+  width: 140px;
+}
