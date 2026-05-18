@@ -19,7 +19,7 @@ export interface CollectionEntry {
   collector_number: string
   finish: 'NONFOIL' | 'FOIL' | 'ETCHED'
   condition: 'NM' | 'LP' | 'MP' | 'HP' | 'DMG' | 'SP'
-  purchase_price: number
+  purchase_price: string
   purchase_date: string
   currency_code: string
   language_id?: number | null
