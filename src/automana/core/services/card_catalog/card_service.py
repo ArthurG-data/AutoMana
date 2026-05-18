@@ -138,7 +138,7 @@ async def get_catalog_stats(
 )
 async def search_cards(card_repository: CardReferenceRepository
                    , name: Optional[str] = None
-                   , color: Optional[str] = None
+                   , colors: Optional[List[str]] = None
                    , rarity: Optional[str] = None
                    , card_id: Optional[UUID] = None
                    , unique_card_id: Optional[UUID] = None
@@ -154,6 +154,8 @@ async def search_cards(card_repository: CardReferenceRepository
                    , format: Optional[str] = None
                    , layout: Optional[str] = None
                    , promo_type: Optional[List[str]] = None
+                   , finish: Optional[str] = None
+                   , frame_effects: Optional[List[str]] = None
                    , collapse: bool = False
                    # Pagination
                    , limit: int = 100
@@ -161,11 +163,11 @@ async def search_cards(card_repository: CardReferenceRepository
                    , sort_by: str = "name"
                    , sort_order: str = "asc"
                    ) -> CardSearchResult:
-    logger.info("Searching cards", extra={"card_name": name, "color": color, "rarity": rarity, "card_id": str(card_id) if card_id else None, "set_name": set_name, "mana_cost": mana_cost, "digital": digital})
+    logger.info("Searching cards", extra={"card_name": name, "colors": colors, "rarity": rarity, "card_id": str(card_id) if card_id else None, "set_name": set_name, "mana_cost": mana_cost, "digital": digital})
     try:
         params = {
             "name": name,
-            "color": color,
+            "colors": colors,
             "rarity": rarity,
             "card_id": str(card_id) if card_id else None,
             "unique_card_id": str(unique_card_id) if unique_card_id else None,
@@ -181,6 +183,8 @@ async def search_cards(card_repository: CardReferenceRepository
             "format": format,
             "layout": layout,
             "promo_type": promo_type,
+            "finish": finish,
+            "frame_effects": frame_effects,
             "collapse": collapse,
             "limit": limit,
             "offset": offset,
@@ -209,7 +213,7 @@ async def search_cards(card_repository: CardReferenceRepository
             result = CardSearchResult(cards=[BaseCard.model_validate(card)], total_count=1)
         else:
             raw = await card_repository.search(name=name,
-                                               color=color,
+                                               colors=colors,
                                                rarity=rarity,
                                                set_name=set_name,
                                                set_code=set_code,
@@ -228,7 +232,9 @@ async def search_cards(card_repository: CardReferenceRepository
                                                sort_by=sort_by,
                                                card_type=card_type,
                                                sort_order=sort_order,
-                                               promo_type=promo_type)
+                                               promo_type=promo_type,
+                                               finish=finish,
+                                               frame_effects=frame_effects)
             cards = raw.get("cards", [])
             total_count = raw.get("total_count", 0)
             promo_type_facets = raw.get("promo_type_facets", [])
