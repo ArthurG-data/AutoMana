@@ -63,7 +63,7 @@ export function SearchResults({
   const lastCardRef = useRef<HTMLButtonElement>(null)
   const [addTarget, setAddTarget] = useState<CardSummary | null>(null)
 
-  const isAuthed = Boolean(useAuthStore.getState().token)
+  const isAuthed = Boolean(useAuthStore((s) => s.token))
   const { data: collections = [] } = useQuery({
     ...collectionsQueryOptions(),
     enabled: isAuthed,
