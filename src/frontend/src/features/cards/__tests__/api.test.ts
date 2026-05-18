@@ -11,6 +11,19 @@ describe('cardInfiniteSearchQueryOptions', () => {
     const data = await qc.fetchQuery(opts)
     expect(data.cards.length).toBeGreaterThan(0)
   })
+
+  it('includes sort_by and sort_order in queryKey', () => {
+    const opts = cardInfiniteSearchQueryOptions({ sort_by: 'price', sort_order: 'asc' })
+    const [, , apiParams] = opts.queryKey as [string, string, Record<string, unknown>]
+    expect(apiParams.sort_by).toBe('price')
+    expect(apiParams.sort_order).toBe('asc')
+  })
+
+  it('includes colors in queryKey', () => {
+    const opts = cardInfiniteSearchQueryOptions({ colors: ['Blue', 'Green'] })
+    const [, , apiParams] = opts.queryKey as [string, string, Record<string, unknown>]
+    expect(apiParams.colors).toEqual(['Blue', 'Green'])
+  })
 })
 
 describe('cardDetailQueryOptions', () => {

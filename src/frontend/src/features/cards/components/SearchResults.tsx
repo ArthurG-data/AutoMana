@@ -20,9 +20,6 @@ interface SearchResultsProps {
 const RARITY_ORDER: Record<string, number> = {
   mythic: 0, rare: 1, uncommon: 2, common: 3,
 }
-const FINISH_ORDER: Record<string, number> = {
-  'non-foil': 0, foil: 1, etched: 2,
-}
 
 interface CardGroup {
   key: string
@@ -35,28 +32,14 @@ function buildGroups(cards: CardSummary[], groupBy: CardGroupBy | undefined): Ca
 
   const buckets = new Map<string, CardGroup>()
   for (const card of cards) {
-    let key: string
-    let label: string
-    if (groupBy === 'set') {
-      key = card.set_code
-      label = `${card.set_name} · ${card.set_code.toUpperCase()}`
-    } else if (groupBy === 'rarity') {
-      key = card.rarity_name
-      label = card.rarity_name.charAt(0).toUpperCase() + card.rarity_name.slice(1)
-    } else {
-      key = card.finish
-      label = card.finish
-    }
+    const key = card.rarity_name
+    const label = card.rarity_name.charAt(0).toUpperCase() + card.rarity_name.slice(1)
     if (!buckets.has(key)) buckets.set(key, { key, label, cards: [] })
     buckets.get(key)!.cards.push(card)
   }
 
   const groups = Array.from(buckets.values())
-  if (groupBy === 'rarity') {
-    groups.sort((a, b) => (RARITY_ORDER[a.key] ?? 99) - (RARITY_ORDER[b.key] ?? 99))
-  } else if (groupBy === 'finish') {
-    groups.sort((a, b) => (FINISH_ORDER[a.key] ?? 99) - (FINISH_ORDER[b.key] ?? 99))
-  }
+  groups.sort((a, b) => (RARITY_ORDER[a.key] ?? 99) - (RARITY_ORDER[b.key] ?? 99))
   return groups
 }
 
@@ -96,7 +79,7 @@ export function SearchResults({
   }
 
   const renderCard = (card: CardSummary, i: number) => {
-    const delta = card.price_change_1d
+    const delta = card.price_change_1d ?? 0
     const isLastCard = card.card_version_id === lastCardId
     return (
       <button
@@ -150,9 +133,21 @@ export function SearchResults({
             <span className={styles.rarity}>{card.rarity_name}</span>
           </div>
           <div className={styles.cardMeta}>
-            <span className={[styles.price, delta >= 0 ? styles.up : styles.down].join(' ')}>
-              {card.price != null ? `$${card.price.toFixed(2)}` : 'N/A'}
-            </span>
+            {(() => {
+              const today = new Date().toISOString().slice(0, 10)
+              const isUpcoming = card.released_at != null && card.released_at > today
+              if (card.price != null) {
+                return (
+                  <span className={[styles.price, delta >= 0 ? styles.up : styles.down].join(' ')}>
+                    ${card.price.toFixed(2)}
+                  </span>
+                )
+              }
+              if (isUpcoming) {
+                return <span className={`${styles.price} ${styles.unreleased}`}>Not yet released</span>
+              }
+              return <span className={styles.price}>N/A</span>
+            })()}
           </div>
           <Sparkline
             points={card.spark}

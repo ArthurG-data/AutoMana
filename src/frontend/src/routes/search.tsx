@@ -1,11 +1,11 @@
 // src/frontend/src/routes/search.tsx
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { z } from 'zod'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { AppShell } from '../components/layout/AppShell'
 import { TopBar } from '../components/layout/TopBar'
-import { SearchFilters } from '../features/cards/components/SearchFilters'
+import { SearchFilters, type PriceTrend } from '../features/cards/components/SearchFilters'
 import { SearchResults } from '../features/cards/components/SearchResults'
 import { SetBrowser } from '../features/cards/components/SetBrowser'
 import { SelectedSetBanner } from '../features/cards/components/SelectedSetBanner'
@@ -23,7 +23,12 @@ const searchSchema = z.object({
   minPrice:       z.number().optional(),
   maxPrice:       z.number().optional(),
   promoTypes:     z.array(z.string()).optional(),
-  group:          z.enum(['set', 'rarity', 'finish']).optional(),
+  group:          z.enum(['rarity']).optional(),
+  sort_by:        z.enum(['card_name', 'released_at', 'price']).optional(),
+  sort_order:     z.enum(['asc', 'desc']).optional(),
+  colors:         z.array(z.string()).optional(),
+  card_type:      z.string().optional(),
+  frame_effects:  z.array(z.string()).optional(),
 })
 
 export const Route = createFileRoute('/search')({
@@ -43,6 +48,8 @@ function SearchPage() {
 
   // Default to card mode — the landing experience shows cards immediately.
   const [mode, setMode] = useState<Mode>('card')
+  const [priceTrend, setPriceTrend] = useState<PriceTrend | undefined>(undefined)
+  const [upcomingOnly, setUpcomingOnly] = useState(false)
 
   // Fetch cards whenever in card mode (even without a query — shows recent
   // releases), when a set is selected, or when resolving a unique card id.
@@ -54,10 +61,20 @@ function SearchPage() {
     enabled: shouldFetchCards,
   })
 
-  const cards = data?.pages?.flatMap(p => p.cards) ?? []
+  const rawCards = data?.pages?.flatMap(p => p.cards) ?? []
   const total = data?.pages?.[0]?.pagination?.total_count ?? 0
   const promoTypeFacets = data?.pages?.[0]?.facets?.promo_types ?? []
   const rarityFacets = data?.pages?.[0]?.facets?.rarities ?? []
+
+  const cards = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10)
+    let result = rawCards
+    if (upcomingOnly) result = result.filter(c => c.released_at != null && c.released_at > today)
+    if (priceTrend === 'rising')  result = result.filter(c => (c.price_change_7d ?? 0) > 0.05)
+    if (priceTrend === 'stable')  result = result.filter(c => (c.price_change_7d ?? 0) >= -0.05 && (c.price_change_7d ?? 0) <= 0.05)
+    if (priceTrend === 'falling') result = result.filter(c => (c.price_change_7d ?? 0) < -0.05)
+    return result
+  }, [rawCards, upcomingOnly, priceTrend])
 
   const subtitle = search.set
     ? search.set.toUpperCase()
@@ -71,6 +88,25 @@ function SearchPage() {
           ? 'search by card name'
           : 'browse by set'
 
+  const filterProps = {
+    params: search,
+    promoTypeFacets,
+    rarityFacets,
+    priceTrend,
+    onPriceTrendChange: setPriceTrend,
+    upcomingOnly,
+    onUpcomingOnlyChange: setUpcomingOnly,
+  }
+
+  const resultsProps = {
+    cards,
+    total,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    groupBy: search.group,
+  }
+
   // ---- Set selected: banner + filters + results ----
   if (search.set) {
     return (
@@ -81,19 +117,8 @@ function SearchPage() {
           onClear={() => navigate({ search: prev => ({ ...prev, set: undefined }) })}
         />
         <div className={styles.layout}>
-          <SearchFilters
-            params={search}
-            promoTypeFacets={promoTypeFacets}
-            rarityFacets={rarityFacets}
-          />
-          <SearchResults
-            cards={cards}
-            total={total}
-            fetchNextPage={fetchNextPage}
-            hasNextPage={hasNextPage}
-            isFetchingNextPage={isFetchingNextPage}
-            groupBy={search.group}
-          />
+          <SearchFilters {...filterProps} />
+          <SearchResults {...resultsProps} />
         </div>
       </AppShell>
     )
@@ -131,19 +156,8 @@ function SearchPage() {
         />
       ) : (
         <div className={styles.layout}>
-          <SearchFilters
-            params={search}
-            promoTypeFacets={promoTypeFacets}
-            rarityFacets={rarityFacets}
-          />
-          <SearchResults
-            cards={cards}
-            total={total}
-            fetchNextPage={fetchNextPage}
-            hasNextPage={hasNextPage}
-            isFetchingNextPage={isFetchingNextPage}
-            groupBy={search.group}
-          />
+          <SearchFilters {...filterProps} />
+          <SearchResults {...resultsProps} />
         </div>
       )}
     </AppShell>

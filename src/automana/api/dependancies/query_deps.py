@@ -33,8 +33,8 @@ async def pagination_params(
     return PaginationParams(limit=limit, offset=offset)
 
 async def sort_params(
-    sort_by: str = Query("released_at", description="Field to sort by"),
-    sort_order: str = Query("desc", regex="^(asc|desc)$", description="Sort order")
+    sort_by: str = Query("card_name", description="Field to sort by"),
+    sort_order: str = Query("asc", regex="^(asc|desc)$", description="Sort order")
 ) -> SortParams:
     """Standard sorting parameters"""
     return SortParams(sort_by=sort_by, sort_order=sort_order)
@@ -90,7 +90,7 @@ async def card_search_params(
     set_code: Optional[str] = Query(None, alias="set", description="Filter by exact set code (e.g. 'mkm')"),
     card_type: Optional[str] = Query(None, description="Filter by card type"),
     rarity: Optional[str] = Query(None, description="Filter by rarity"),
-    color: Optional[str] = Query(None, description="Filter by card color"),
+    colors: Optional[List[str]] = Query(None, alias="color", description="Filter by card color (repeatable: ?color=Blue&color=Green)"),
     mana_cost: Optional[int] = Query(None, ge=0, description="Filter by mana cost"),
     card_id: Optional[UUID] = Query(None, description="Filter by card ID"),
     unique_card_id: Optional[UUID] = Query(None, description="Filter by stable unique card identity (returns all versions/printings of a single logical card)"),
@@ -107,6 +107,8 @@ async def card_search_params(
     layout: Optional[str] = Query(None, description="Filter by layout type (e.g. 'normal', 'token', 'saga')"),
     promo_type: Optional[List[str]] = Query(None, description="Filter by promo type (repeatable: ?promo_type=prerelease&promo_type=buyabox)"),
     collapse: bool = Query(False, description="Collapse results to one representative per (unique_card_id, set_code). Returns version_count on each tile."),
+    finish: Optional[str] = Query(None, description="Filter by finish (nonfoil, foil, etched, surge_foil, ripple_foil, rainbow_foil)"),
+    frame_effects: Optional[List[str]] = Query(None, alias="frame_effect", description="Filter by frame treatment (repeatable: ?frame_effect=borderless&frame_effect=showcase)"),
 ):
     """Card search parameters"""
     # Use 'q' if provided, otherwise fall back to 'name'
@@ -117,7 +119,7 @@ async def card_search_params(
         "set_code": set_code,
         "rarity": rarity,
         "mana_cost": mana_cost,
-        "color": color,
+        "colors": colors,
         "card_id": card_id,
         "unique_card_id": unique_card_id,
         "artist": artist,
@@ -128,4 +130,6 @@ async def card_search_params(
         "layout": layout,
         "promo_type": promo_type,
         "collapse": collapse,
+        "finish": finish,
+        "frame_effects": frame_effects,
     }

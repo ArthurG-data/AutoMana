@@ -74,4 +74,24 @@ describe('SetCard', () => {
       /url\(["']?https:\/\/cards\.scryfall\.io\/art_crop\/front\/a\/b\/ab12\.jpg["']?\)/
     )
   })
+
+  it('shows UPCOMING badge when released_at is in the future', () => {
+    const futureSet: SetBrowseItem = {
+      ...mockSet,
+      released_at: '2099-01-01',
+    }
+    render(<SetCard set={futureSet} onSelect={vi.fn()} />)
+    expect(screen.getByText('UPCOMING')).toBeTruthy()
+  })
+
+  it('does not show UPCOMING badge for past sets', () => {
+    render(<SetCard set={mockSet} onSelect={vi.fn()} />)
+    expect(screen.queryByText('UPCOMING')).toBeNull()
+  })
+
+  it('applies upcoming class when released_at is in the future', () => {
+    const futureSet: SetBrowseItem = { ...mockSet, released_at: '2099-01-01' }
+    const { container } = render(<SetCard set={futureSet} onSelect={vi.fn()} />)
+    expect(container.querySelector('button')!.className).toMatch(/upcoming/)
+  })
 })

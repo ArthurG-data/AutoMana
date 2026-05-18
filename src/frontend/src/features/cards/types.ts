@@ -6,7 +6,7 @@ export interface CardSummary {
   card_name: string
   set_code: string
   set_name: string
-  finish: 'non-foil' | 'foil' | 'etched'
+  finish: string
   rarity_name: 'common' | 'uncommon' | 'rare' | 'mythic'
   price?: number
   price_change_1d: number
@@ -18,13 +18,14 @@ export interface CardSummary {
   version_count?: number
   promo_types?: string[]
   collector_number?: string
+  released_at?: string | null
 }
 
 export interface CardPrint {
   id: string
   set: string
   set_name: string
-  finish: 'non-foil' | 'foil' | 'etched'
+  finish: string
   price: number
   image_uri: string | null
 }
@@ -49,7 +50,7 @@ export interface CardDetail extends CardSummary {
   legalities?: Record<string, string>
 }
 
-export type CardGroupBy = 'set' | 'rarity' | 'finish'
+export type CardGroupBy = 'rarity'
 
 export interface CardSearchParams {
   q?: string
@@ -63,6 +64,11 @@ export interface CardSearchParams {
   maxPrice?: number
   promoTypes?: string[]
   group?: CardGroupBy
+  sort_by?: 'card_name' | 'released_at' | 'price'
+  sort_order?: 'asc' | 'desc'
+  colors?: string[]
+  card_type?: string
+  frame_effects?: string[]
 }
 
 export interface PaginationInfo {

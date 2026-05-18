@@ -4,14 +4,48 @@ import type { CardGroupBy, CardSearchParams } from '../types'
 import { SearchBarWithSuggestions } from './SearchBarWithSuggestions'
 import styles from './SearchFilters.module.css'
 
-const FINISHES = ['non-foil', 'foil', 'etched'] as const
+const FINISHES: ReadonlyArray<{ label: string; value: string }> = [
+  { label: 'Non-foil',     value: 'nonfoil'      },
+  { label: 'Foil',         value: 'foil'          },
+  { label: 'Etched',       value: 'etched'        },
+  { label: 'Surge Foil',   value: 'surge_foil'    },
+  { label: 'Ripple Foil',  value: 'ripple_foil'   },
+  { label: 'Rainbow Foil', value: 'rainbow_foil'  },
+]
+
+const FRAME_EFFECTS: ReadonlyArray<{ label: string; value: string }> = [
+  { label: 'Borderless',   value: 'borderless'   },
+  { label: 'Extended Art', value: 'extendedart'  },
+  { label: 'Showcase',     value: 'showcase'     },
+  { label: 'Full Art',     value: 'fullart'      },
+]
 const LAYOUTS = ['normal', 'token', 'transform', 'saga', 'adventure'] as const
 const GROUPINGS: ReadonlyArray<{ value: CardGroupBy | 'none'; label: string }> = [
   { value: 'none',   label: 'None' },
-  { value: 'set',    label: 'Set' },
   { value: 'rarity', label: 'Rarity' },
-  { value: 'finish', label: 'Finish' },
 ]
+
+type SortOption = { label: string; sort_by: 'card_name' | 'released_at' | 'price'; sort_order: 'asc' | 'desc' }
+const SORT_OPTIONS: ReadonlyArray<SortOption> = [
+  { label: 'Name A→Z', sort_by: 'card_name',   sort_order: 'asc'  },
+  { label: 'Newest',   sort_by: 'released_at', sort_order: 'desc' },
+  { label: 'Oldest',   sort_by: 'released_at', sort_order: 'asc'  },
+  { label: 'Cheapest', sort_by: 'price',        sort_order: 'asc'  },
+  { label: 'Priciest', sort_by: 'price',        sort_order: 'desc' },
+]
+
+type ColorCode = 'White' | 'Blue' | 'Black' | 'Red' | 'Green' | 'Colorless' | 'Multi'
+const COLOR_OPTIONS: ReadonlyArray<{ label: string; value: ColorCode }> = [
+  { label: 'W', value: 'White' },
+  { label: 'U', value: 'Blue' },
+  { label: 'B', value: 'Black' },
+  { label: 'R', value: 'Red' },
+  { label: 'G', value: 'Green' },
+  { label: 'C', value: 'Colorless' },
+  { label: 'Multi', value: 'Multi' },
+]
+
+const CARD_TYPES = ['Creature', 'Instant', 'Sorcery', 'Enchantment', 'Artifact', 'Land', 'Planeswalker'] as const
 
 const PROMO_TYPE_LABELS: Record<string, string> = {
   arenaleague:        'Arena League',
@@ -60,23 +94,49 @@ function promoLabel(code: string): string {
   return PROMO_TYPE_LABELS[code] ?? code.charAt(0).toUpperCase() + code.slice(1)
 }
 
+export type PriceTrend = 'rising' | 'stable' | 'falling'
+
 interface SearchFiltersProps {
   params: CardSearchParams
   promoTypeFacets: string[]
   rarityFacets: string[]
+  priceTrend: PriceTrend | undefined
+  onPriceTrendChange: (v: PriceTrend | undefined) => void
+  upcomingOnly: boolean
+  onUpcomingOnlyChange: (v: boolean) => void
 }
 
-export function SearchFilters({ params, promoTypeFacets, rarityFacets }: SearchFiltersProps) {
+export function SearchFilters({
+  params,
+  promoTypeFacets,
+  rarityFacets,
+  priceTrend,
+  onPriceTrendChange,
+  upcomingOnly,
+  onUpcomingOnlyChange,
+}: SearchFiltersProps) {
   const navigate = useNavigate({ from: '/search' })
 
   function update(patch: Partial<CardSearchParams>) {
     navigate({ search: (prev) => ({ ...prev, ...patch }) })
   }
 
+  function toggleColor(value: string) {
+    const current = params.colors ?? []
+    const next = current.includes(value) ? current.filter((c) => c !== value) : [...current, value]
+    update({ colors: next.length > 0 ? next : undefined })
+  }
+
   function togglePromoType(pt: string) {
     const current = params.promoTypes ?? []
     const next = current.includes(pt) ? current.filter((x) => x !== pt) : [...current, pt]
     update({ promoTypes: next.length > 0 ? next : undefined })
+  }
+
+  function toggleFrameEffect(value: string) {
+    const current = params.frame_effects ?? []
+    const next = current.includes(value) ? current.filter((fe) => fe !== value) : [...current, value]
+    update({ frame_effects: next.length > 0 ? next : undefined })
   }
 
   const selectedPromoCount = params.promoTypes?.length ?? 0
@@ -94,6 +154,26 @@ export function SearchFilters({ params, promoTypeFacets, rarityFacets }: SearchF
         </button>
       </div>
 
+      {/* SORT */}
+      <section className={styles.group}>
+        <div className={styles.groupLabel}>Sort</div>
+        <div className={styles.finishGrid} style={{ gridTemplateColumns: '1fr 1fr' }}>
+          {SORT_OPTIONS.map(({ label, sort_by, sort_order }) => {
+            const active = (params.sort_by ?? 'card_name') === sort_by &&
+                           (params.sort_order ?? 'asc') === sort_order
+            return (
+              <button
+                key={label}
+                className={[styles.finishBtn, active ? styles.finishActive : ''].join(' ')}
+                onClick={() => update({ sort_by, sort_order })}
+              >
+                {label}
+              </button>
+            )
+          })}
+        </div>
+      </section>
+
       <section className={styles.group}>
         <div className={styles.groupLabel}>Group by</div>
         <div className={styles.finishGrid}>
@@ -103,6 +183,7 @@ export function SearchFilters({ params, promoTypeFacets, rarityFacets }: SearchF
             return (
               <button
                 key={value}
+                data-group={value}
                 className={[styles.finishBtn, active ? styles.finishActive : ''].join(' ')}
                 onClick={() => update({ group: value === 'none' ? undefined : value })}
               >
@@ -111,6 +192,90 @@ export function SearchFilters({ params, promoTypeFacets, rarityFacets }: SearchF
             )
           })}
         </div>
+      </section>
+
+      {/* COLOR */}
+      <section className={styles.group}>
+        <div className={styles.groupLabel}>Color</div>
+        <div className={styles.colorGrid}>
+          {COLOR_OPTIONS.map(({ label, value }) => {
+            const active = params.colors?.includes(value) ?? false
+            return (
+              <button
+                key={value}
+                className={[
+                  styles.colorBtn,
+                  styles[`color${value}`],
+                  active ? styles.colorActive : '',
+                ].filter(Boolean).join(' ')}
+                onClick={() => toggleColor(value)}
+              >
+                {label}
+              </button>
+            )
+          })}
+        </div>
+      </section>
+
+      {/* TYPE */}
+      <section className={styles.group}>
+        <div className={styles.groupLabel}>Type</div>
+        <div className={styles.finishGrid} style={{ gridTemplateColumns: '1fr 1fr' }}>
+          {CARD_TYPES.map((t) => (
+            <button
+              key={t}
+              className={[styles.finishBtn, params.card_type === t ? styles.finishActive : ''].join(' ')}
+              onClick={() => update({ card_type: params.card_type === t ? undefined : t })}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* TREATMENT */}
+      <section className={styles.group}>
+        <div className={styles.groupLabel}>Treatment</div>
+        <div className={styles.finishGrid} style={{ gridTemplateColumns: '1fr 1fr' }}>
+          {FRAME_EFFECTS.map(({ label, value }) => (
+            <button
+              key={value}
+              className={[styles.finishBtn, params.frame_effects?.includes(value) ? styles.finishActive : ''].join(' ')}
+              onClick={() => toggleFrameEffect(value)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* PRICE TREND */}
+      <section className={styles.group}>
+        <div className={styles.groupLabel}>Price trend (7d)</div>
+        <div className={styles.finishGrid}>
+          {([['rising', '↑ Rising'], ['stable', '→ Stable'], ['falling', '↓ Falling']] as const).map(([val, label]) => (
+            <button
+              key={val}
+              className={[styles.finishBtn, priceTrend === val ? styles.finishActive : ''].join(' ')}
+              onClick={() => onPriceTrendChange(priceTrend === val ? undefined : val)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* UPCOMING */}
+      <section className={styles.group}>
+        <div className={styles.groupLabel}>Upcoming</div>
+        <label className={styles.checkRow}>
+          <input
+            type="checkbox"
+            checked={upcomingOnly}
+            onChange={(e) => onUpcomingOnlyChange(e.target.checked)}
+          />
+          Show upcoming only
+        </label>
       </section>
 
       {rarityFacets.length > 0 && (
@@ -134,14 +299,14 @@ export function SearchFilters({ params, promoTypeFacets, rarityFacets }: SearchF
 
       <section className={styles.group}>
         <div className={styles.groupLabel}>Finish</div>
-        <div className={styles.finishGrid}>
-          {FINISHES.map((f) => (
+        <div className={styles.finishGrid} style={{ gridTemplateColumns: '1fr 1fr' }}>
+          {FINISHES.map(({ label, value }) => (
             <button
-              key={f}
-              className={[styles.finishBtn, params.finish === f ? styles.finishActive : ''].join(' ')}
-              onClick={() => update({ finish: params.finish === f ? undefined : f })}
+              key={value}
+              className={[styles.finishBtn, params.finish === value ? styles.finishActive : ''].join(' ')}
+              onClick={() => update({ finish: params.finish === value ? undefined : value })}
             >
-              {f}
+              {label}
             </button>
           ))}
         </div>

@@ -102,6 +102,9 @@ class PublicCollectionEntry(BaseModel):
     condition: Conditions
     currency_code: str
     language_id: Optional[int] = None
+    image_normal: Optional[str] = None
+    price: Optional[float] = None
+    price_change_1d: float = 0.0
 
 
 class UpdateCollectionEntry(BaseModel):

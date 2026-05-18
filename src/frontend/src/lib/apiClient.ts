@@ -68,6 +68,10 @@ export async function apiClient<T>(
     throw new ApiError(`API ${res.status}: ${path}`, res.status)
   }
 
+  if (res.status === 204) {
+    return undefined as T
+  }
+
   const body = await res.json() as any
 
   // If response has a 'data' field, extract it (for wrapped API responses)

@@ -288,13 +288,15 @@ class CardReferenceRepository(AbstractRepository[Any]):
     async def search(
             self,
             name: Optional[str] = None,
-            color: Optional[str] = None,
+            colors: Optional[list[str]] = None,
             rarity: Optional[str] = None,
             set_name: Optional[str] = None,
             set_code: Optional[str] = None,
             mana_cost: Optional[int] = None,
             digital: Optional[bool] = None,
             card_type: Optional[str] = None,
+            finish: Optional[str] = None,
+            frame_effects: Optional[list[str]] = None,
             released_after: Optional[str] = None,
             released_before: Optional[str] = None,
             oracle_text: Optional[str] = None,
@@ -316,9 +318,10 @@ class CardReferenceRepository(AbstractRepository[Any]):
         pair controls ordering.
 
         Notes:
-            - ``color`` matches against ``color_identity`` (text[]) stored as
-              proper-cased colour names (e.g. 'White', 'Blue'). Callers must
-              pass the value in that casing.
+            - ``colors`` matches against ``color_identity`` (text[]) stored as
+              proper-cased colour names (e.g. 'White', 'Blue'). Each entry adds
+              an AND condition — cards must contain ALL listed colours. Callers
+              must pass values in that casing.
             - ``card_type`` matches against the ``types`` array (e.g. 'Creature').
             - ``digital`` uses the per-card-version ``is_digital`` flag, not the
               legacy per-set ``sets.digital`` column.
@@ -350,14 +353,20 @@ class CardReferenceRepository(AbstractRepository[Any]):
             counter += 1
             rf_counter += 1
 
-        if color:
+        for c in (colors or []):
             # color_identity is text[]; caller must use canonical casing (e.g. 'White').
-            conditions.append(f"${counter} = ANY(v.color_identity)")
-            rf_conditions.append(f"${rf_counter} = ANY(v.color_identity)")
-            values.append(color)
-            rf_values.append(color)
-            counter += 1
-            rf_counter += 1
+            if c == 'Multi':
+                # Special value: cards with 2 or more colors in their identity.
+                conditions.append("array_length(v.color_identity, 1) > 1")
+                rf_conditions.append("array_length(v.color_identity, 1) > 1")
+                # No bind parameter added — do NOT increment counter/rf_counter.
+            else:
+                conditions.append(f"${counter} = ANY(v.color_identity)")
+                rf_conditions.append(f"${rf_counter} = ANY(v.color_identity)")
+                values.append(c)
+                rf_values.append(c)
+                counter += 1
+                rf_counter += 1
 
         if rarity:
             conditions.append(f"v.rarity_name ILIKE ${counter}")
@@ -429,6 +438,32 @@ class CardReferenceRepository(AbstractRepository[Any]):
             rf_conditions.append(f"${rf_counter} = ANY(v.types)")
             values.append(card_type)
             rf_values.append(card_type)
+            counter += 1
+            rf_counter += 1
+
+        if finish:
+            conditions.append(
+                f"EXISTS (SELECT 1 FROM card_catalog.card_version_finish cvf "
+                f"JOIN card_catalog.card_finished cf ON cvf.finish_id = cf.finish_id "
+                f"WHERE cvf.card_version_id = v.card_version_id "
+                f"AND UPPER(cf.code) = ${counter})"
+            )
+            rf_conditions.append(
+                f"EXISTS (SELECT 1 FROM card_catalog.card_version_finish cvf "
+                f"JOIN card_catalog.card_finished cf ON cvf.finish_id = cf.finish_id "
+                f"WHERE cvf.card_version_id = v.card_version_id "
+                f"AND UPPER(cf.code) = ${rf_counter})"
+            )
+            values.append(finish.upper())
+            rf_values.append(finish.upper())
+            counter += 1
+            rf_counter += 1
+
+        for fe in (frame_effects or []):
+            conditions.append(f"${counter} = ANY(v.frame_effects)")
+            rf_conditions.append(f"${rf_counter} = ANY(v.frame_effects)")
+            values.append(fe)
+            rf_values.append(fe)
             counter += 1
             rf_counter += 1
 
@@ -529,11 +564,15 @@ class CardReferenceRepository(AbstractRepository[Any]):
             )
         else:
             _set_cols = {"released_at"}
+            _price_cols = {"price"}
             _view_cols = {"card_name", "cmc", "rarity_name", "set_name", "set_code"}
             safe_sort_order = "DESC" if (sort_order or "").upper() == "DESC" else "ASC"
             if sort_by in _set_cols:
                 order_clause = f"ORDER BY s.{sort_by} {safe_sort_order}"
                 collapse_order_clause = f"ORDER BY {sort_by} {safe_sort_order}"
+            elif sort_by in _price_cols:
+                order_clause = f"ORDER BY psp.price {safe_sort_order} NULLS LAST"
+                collapse_order_clause = f"ORDER BY sort_price {safe_sort_order} NULLS LAST"
             else:
                 safe_sort_by = sort_by if sort_by in _view_cols else "card_name"
                 order_clause = f"ORDER BY v.{safe_sort_by} {safe_sort_order}"
@@ -544,6 +583,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
             "FROM card_catalog.v_card_versions_complete v"
             " JOIN card_catalog.sets s ON s.set_id = v.set_id"
             " LEFT JOIN card_catalog.card_version_illustration cvi ON cvi.card_version_id = v.card_version_id"
+            " LEFT JOIN pricing.mv_card_price_spark psp ON psp.card_version_id = v.card_version_id"  # mv_card_price_spark is keyed on card_version_id (one row per version) — no fan-out risk
         )
 
         # Outer ORDER BY for collapse mode — references subquery columns (no table prefix).
@@ -564,10 +604,13 @@ class CardReferenceRepository(AbstractRepository[Any]):
                 )
             else:
                 _set_cols = {"released_at"}
+                _price_cols = {"price"}
                 _view_cols = {"card_name", "cmc", "rarity_name", "set_name", "set_code"}
                 safe_sort_order = "DESC" if (sort_order or "").upper() == "DESC" else "ASC"
                 if sort_by in _set_cols:
                     outer_order = f"ORDER BY released_at {safe_sort_order}"
+                elif sort_by in _price_cols:
+                    outer_order = f"ORDER BY sort_price {safe_sort_order} NULLS LAST"
                 else:
                     safe_sort_by = sort_by if sort_by in _view_cols else "card_name"
                     outer_order = f"ORDER BY {safe_sort_by} {safe_sort_order}"
@@ -590,7 +633,8 @@ class CardReferenceRepository(AbstractRepository[Any]):
                 v.collector_number,
                 v.promo_types,
                 s.released_at,
-                cvi.image_uris->>'normal' AS image_normal
+                cvi.image_uris->>'normal' AS image_normal,
+                psp.price AS sort_price
                 {sv_col}"""
 
         if collapse:

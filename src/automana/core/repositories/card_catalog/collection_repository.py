@@ -120,7 +120,10 @@ class CollectionRepository(AbstractRepository):
                    ci.purchase_price,
                    ci.currency_code,
                    ci.purchase_date,
-                   ci.language_id
+                   ci.language_id,
+                   cvi.image_uris->>'normal'  AS image_normal,
+                   ps.price                    AS price,
+                   ps.price_change_1d          AS price_change_1d
             FROM user_collection.collection_items ci
             JOIN user_collection.collections col
                 ON col.collection_id = ci.collection_id AND col.user_id = $3
@@ -128,6 +131,10 @@ class CollectionRepository(AbstractRepository):
             JOIN card_catalog.unique_cards_ref uc ON uc.unique_card_id = cv.unique_card_id
             JOIN card_catalog.sets s ON s.set_id = cv.set_id
             JOIN card_catalog.card_finished cf ON cf.finish_id = ci.finish_id
+            LEFT JOIN card_catalog.card_version_illustration cvi
+                ON cvi.card_version_id = cv.card_version_id
+            LEFT JOIN pricing.mv_card_price_spark ps
+                ON ps.card_version_id = ci.unique_card_id
             WHERE ci.item_id = $1 AND ci.collection_id = $2;
         """
         rows = await self.execute_query(query, (item_id, collection_id, user_id))
@@ -147,7 +154,10 @@ class CollectionRepository(AbstractRepository):
                    ci.purchase_price,
                    ci.currency_code,
                    ci.purchase_date,
-                   ci.language_id
+                   ci.language_id,
+                   cvi.image_uris->>'normal'  AS image_normal,
+                   ps.price                    AS price,
+                   ps.price_change_1d          AS price_change_1d
             FROM user_collection.collection_items ci
             JOIN user_collection.collections col
                 ON col.collection_id = ci.collection_id AND col.user_id = $2
@@ -155,6 +165,10 @@ class CollectionRepository(AbstractRepository):
             JOIN card_catalog.unique_cards_ref uc ON uc.unique_card_id = cv.unique_card_id
             JOIN card_catalog.sets s ON s.set_id = cv.set_id
             JOIN card_catalog.card_finished cf ON cf.finish_id = ci.finish_id
+            LEFT JOIN card_catalog.card_version_illustration cvi
+                ON cvi.card_version_id = cv.card_version_id
+            LEFT JOIN pricing.mv_card_price_spark ps
+                ON ps.card_version_id = ci.unique_card_id
             WHERE ci.collection_id = $1;
         """
         rows = await self.execute_query(query, (collection_id, user_id))

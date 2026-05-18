@@ -25,6 +25,7 @@ class BaseCard(BaseModel):
     price_change_7d: float = Field(default=0.0, title="7-day price change percentage")
     price_change_30d: float = Field(default=0.0, title="30-day price change percentage")
     spark: List[float] = Field(default_factory=list, title="Recent price points for sparkline (ascending)")
+    released_at: Optional[str] = Field(default=None, title="Set release date (ISO 8601, e.g. '2024-02-09')")
     finish: str = Field(default="non-foil", title="Card finish (non-foil, foil, etched)")
     collector_number: Optional[str] = Field(default=None, title="Collector number within the set")
     promo_types: List[str] = Field(default_factory=list, title="Promo treatment labels (e.g. showcase, borderless)")
