@@ -17,3 +17,23 @@
 .promoSummary::-webkit-details-marker { display: none; }
 .promoList { margin-top: 8px; max-height: 180px; overflow-y: auto; display: flex; flex-direction: column; gap: 1px; }
 .promoDropdown[open] .promoCaret { display: inline-block; transform: rotate(180deg); }
+.colorGrid { display: flex; flex-wrap: wrap; gap: 6px; }
+.colorBtn {
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  border: 1px solid var(--hd-border);
+  color: var(--hd-muted);
+  background: transparent;
+  cursor: pointer;
+  transition: border-color 80ms, color 80ms, background 80ms;
+}
+.colorWhite.colorActive   { border-color: #e8dfc8; color: #e8dfc8; background: rgba(232,223,200,.12); }
+.colorBlue.colorActive    { border-color: #5b9bd5; color: #5b9bd5; background: rgba(91,155,213,.12); }
+.colorBlack.colorActive   { border-color: #aaa;    color: #aaa;    background: rgba(170,170,170,.10); }
+.colorRed.colorActive     { border-color: #d95f5f; color: #d95f5f; background: rgba(217,95,95,.12); }
+.colorGreen.colorActive   { border-color: #4caf50; color: #4caf50; background: rgba(76,175,80,.12); }
+.colorColorless.colorActive { border-color: #888; color: #888; background: rgba(136,136,136,.10); }
+.colorMulti.colorActive   { border-color: #f5c518; color: #f5c518; background: rgba(245,197,24,.12); }

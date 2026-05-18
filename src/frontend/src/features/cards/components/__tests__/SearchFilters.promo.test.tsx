@@ -96,4 +96,31 @@ describe('SearchFilters — filter facets', () => {
     expect(groupSection.querySelector('[data-group="set"]')).toBeNull()
     expect(groupSection.querySelector('[data-group="finish"]')).toBeNull()
   })
+
+  it('renders Color section with W U B R G C Multi pills', () => {
+    render(<SearchFilters params={BASE_PARAMS} promoTypeFacets={[]} rarityFacets={[]} priceTrend={undefined} onPriceTrendChange={vi.fn()} upcomingOnly={false} onUpcomingOnlyChange={vi.fn()} />, { wrapper: Wrapper })
+    expect(screen.getByRole('button', { name: 'W' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'U' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Multi' })).toBeTruthy()
+  })
+
+  it('toggles a color on click — adds to colors array', () => {
+    navigateMock.mockClear()
+    render(<SearchFilters params={BASE_PARAMS} promoTypeFacets={[]} rarityFacets={[]} priceTrend={undefined} onPriceTrendChange={vi.fn()} upcomingOnly={false} onUpcomingOnlyChange={vi.fn()} />, { wrapper: Wrapper })
+    fireEvent.click(screen.getByRole('button', { name: 'U' }))
+    expect(navigateMock).toHaveBeenCalledOnce()
+  })
+
+  it('renders Price trend section with Rising Stable Falling', () => {
+    render(<SearchFilters params={BASE_PARAMS} promoTypeFacets={[]} rarityFacets={[]} priceTrend={undefined} onPriceTrendChange={vi.fn()} upcomingOnly={false} onUpcomingOnlyChange={vi.fn()} />, { wrapper: Wrapper })
+    expect(screen.getByText(/rising/i)).toBeTruthy()
+    expect(screen.getByText(/falling/i)).toBeTruthy()
+  })
+
+  it('calls onPriceTrendChange when Rising is clicked', () => {
+    const onChange = vi.fn()
+    render(<SearchFilters params={BASE_PARAMS} promoTypeFacets={[]} rarityFacets={[]} priceTrend={undefined} onPriceTrendChange={onChange} upcomingOnly={false} onUpcomingOnlyChange={vi.fn()} />, { wrapper: Wrapper })
+    fireEvent.click(screen.getByText(/↑ rising/i))
+    expect(onChange).toHaveBeenCalledWith('rising')
+  })
 })
