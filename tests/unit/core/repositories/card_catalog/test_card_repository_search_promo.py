@@ -103,3 +103,12 @@ async def test_search_sort_by_price_desc_nulls_last():
     main_call_sql = repo.execute_query.call_args_list[0][0][0]
     assert "NULLS LAST" in main_call_sql
     assert "DESC" in main_call_sql
+
+
+@pytest.mark.asyncio
+async def test_search_multi_color_adds_condition_per_color():
+    repo = _make_repo([_CARD_ROW], [{"total_count": 1}], [{"promo_type_facets": []}])
+    await repo.search(colors=["Blue", "Green"])
+    main_call_sql = repo.execute_query.call_args_list[0][0][0]
+    # Two separate ANY conditions, one per color
+    assert main_call_sql.count("= ANY(v.color_identity)") == 2

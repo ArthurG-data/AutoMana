@@ -288,7 +288,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
     async def search(
             self,
             name: Optional[str] = None,
-            color: Optional[str] = None,
+            colors: Optional[list[str]] = None,
             rarity: Optional[str] = None,
             set_name: Optional[str] = None,
             set_code: Optional[str] = None,
@@ -316,9 +316,10 @@ class CardReferenceRepository(AbstractRepository[Any]):
         pair controls ordering.
 
         Notes:
-            - ``color`` matches against ``color_identity`` (text[]) stored as
-              proper-cased colour names (e.g. 'White', 'Blue'). Callers must
-              pass the value in that casing.
+            - ``colors`` matches against ``color_identity`` (text[]) stored as
+              proper-cased colour names (e.g. 'White', 'Blue'). Each entry adds
+              an AND condition — cards must contain ALL listed colours. Callers
+              must pass values in that casing.
             - ``card_type`` matches against the ``types`` array (e.g. 'Creature').
             - ``digital`` uses the per-card-version ``is_digital`` flag, not the
               legacy per-set ``sets.digital`` column.
@@ -350,12 +351,12 @@ class CardReferenceRepository(AbstractRepository[Any]):
             counter += 1
             rf_counter += 1
 
-        if color:
+        for c in (colors or []):
             # color_identity is text[]; caller must use canonical casing (e.g. 'White').
             conditions.append(f"${counter} = ANY(v.color_identity)")
             rf_conditions.append(f"${rf_counter} = ANY(v.color_identity)")
-            values.append(color)
-            rf_values.append(color)
+            values.append(c)
+            rf_values.append(c)
             counter += 1
             rf_counter += 1
 
