@@ -71,6 +71,12 @@ describe('CollectionTable', () => {
     expect(screen.getByText('+$26.20')).toBeTruthy()
   })
 
+  it('shows negative P/L', () => {
+    render(<CollectionTable entries={[ENTRIES[1]]} />)
+    // loss: 110 - 120 = -$10.00
+    expect(screen.getByText('-$10.00')).toBeTruthy()
+  })
+
   it('calls onRemove with item_id when remove is clicked', () => {
     const onRemove = vi.fn()
     render(<CollectionTable entries={[ENTRIES[0]]} onRemove={onRemove} />)

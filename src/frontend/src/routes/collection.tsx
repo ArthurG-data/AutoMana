@@ -78,7 +78,7 @@ function CollectionPage() {
     setNewCollectionName('')
   }
 
-  const plSign = metrics.pl >= 0 ? '+' : ''
+  const plSign = metrics.pl >= 0 ? '+' : '-'
 
   return (
     <AppShell active="collection">

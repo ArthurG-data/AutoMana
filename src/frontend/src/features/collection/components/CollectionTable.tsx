@@ -41,7 +41,7 @@ export function CollectionTable({ entries, onRemove }: CollectionTableProps) {
               entry.price != null
                 ? entry.price - Number(entry.purchase_price)
                 : null
-            const plSign = pl != null && pl >= 0 ? '+' : ''
+            const plSign = pl != null && pl >= 0 ? '+' : '-'
 
             return (
               <tr key={entry.item_id} className={styles.row}>
