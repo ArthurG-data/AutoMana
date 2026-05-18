@@ -4,7 +4,7 @@ from uuid import UUID
 from typing import Any, Dict, Optional,  List, Union
 from automana.core.utils.type_parser import process_type_line
 from automana.core.utils.card_face_parser import parse_card_faces
-from datetime import datetime
+from datetime import datetime, date
 import json
 
 class BaseCard(BaseModel):
@@ -25,7 +25,7 @@ class BaseCard(BaseModel):
     price_change_7d: float = Field(default=0.0, title="7-day price change percentage")
     price_change_30d: float = Field(default=0.0, title="30-day price change percentage")
     spark: List[float] = Field(default_factory=list, title="Recent price points for sparkline (ascending)")
-    released_at: Optional[str] = Field(default=None, title="Set release date (ISO 8601, e.g. '2024-02-09')")
+    released_at: Optional[date] = Field(default=None, title="Set release date (ISO 8601, e.g. '2024-02-09')")
     finish: str = Field(default="non-foil", title="Card finish (non-foil, foil, etched)")
     collector_number: Optional[str] = Field(default=None, title="Collector number within the set")
     promo_types: List[str] = Field(default_factory=list, title="Promo treatment labels (e.g. showcase, borderless)")
@@ -38,7 +38,7 @@ class BaseCard(BaseModel):
                 return {k: clean(v) for k, v in obj.items()}
             elif isinstance(obj, list):
                 return [clean(v) for v in obj]
-            elif isinstance(obj, UUID):
+            elif isinstance(obj, (UUID, date, datetime)):
                 return str(obj)
             else:
                 return obj
@@ -88,7 +88,7 @@ class OtherSetRow(BaseModel):
     card_version_id: UUID
     set_code: str
     set_name: str
-    released_at: Optional[str] = None
+    released_at: Optional[date] = None
     version_count: int = 1
     price: Optional[float] = None
     price_change_1d: float = 0.0

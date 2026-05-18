@@ -14,6 +14,8 @@ import {
   createCollection,
   deleteCollectionEntry,
 } from '../features/collection/api'
+import { cn } from '../lib/cn'
+import { formatUSD } from '../lib/format'
 import styles from './Collection.module.css'
 
 export const Route = createFileRoute('/collection')({
@@ -21,10 +23,6 @@ export const Route = createFileRoute('/collection')({
 })
 
 type ViewMode = 'list' | 'grid'
-
-function formatUSD(n: number): string {
-  return `$${n.toFixed(2)}`
-}
 
 function CollectionPage() {
   const navigate = useNavigate()
@@ -85,7 +83,6 @@ function CollectionPage() {
       <TopBar title="Collection" />
 
       <div className={styles.page}>
-        {/* ── Header ──────────────────────────────── */}
         <header className={styles.header}>
           <div className={styles.titleBlock}>
             <div className={styles.eyebrow}>automana / collection</div>
@@ -103,15 +100,11 @@ function CollectionPage() {
           </div>
         </header>
 
-        {/* ── Collection tabs ──────────────────────── */}
         <div className={styles.tabRow}>
           {collections.map((col) => (
             <button
               key={col.collection_id}
-              className={[
-                styles.tab,
-                col.collection_id === activeCollectionId ? styles.tabActive : '',
-              ].filter(Boolean).join(' ')}
+              className={cn(styles.tab, col.collection_id === activeCollectionId && styles.tabActive)}
               onClick={() => setSelectedCollectionId(col.collection_id)}
             >
               {col.collection_name}
@@ -137,7 +130,6 @@ function CollectionPage() {
           )}
         </div>
 
-        {/* ── Metrics strip ─────────────────────── */}
         <section aria-label="Portfolio metrics">
           <div className={styles.metricsStrip}>
             <div className={styles.metricCard}>
@@ -152,12 +144,7 @@ function CollectionPage() {
             </div>
             <div className={styles.metricCard}>
               <div className={styles.metricLabel}>Unrealized P/L</div>
-              <div
-                className={[
-                  styles.metricValue,
-                  metrics.pl >= 0 ? styles.positive : styles.negative,
-                ].join(' ')}
-              >
+              <div className={cn(styles.metricValue, metrics.pl >= 0 ? styles.positive : styles.negative)}>
                 {plSign}{formatUSD(Math.abs(metrics.pl))}
               </div>
               <div className={styles.metricSub}>vs cost basis</div>
@@ -170,7 +157,6 @@ function CollectionPage() {
           </div>
         </section>
 
-        {/* ── Toolbar ───────────────────────────── */}
         <div className={styles.toolbar} role="toolbar" aria-label="Collection filters">
           <div className={styles.searchBox}>
             <Icon kind="search" size={14} color="var(--hd-sub)" />
@@ -186,10 +172,7 @@ function CollectionPage() {
           <div className={styles.toolbarRight}>
             <div className={styles.viewToggle} role="group" aria-label="View mode">
               <button
-                className={[
-                  styles.viewBtn,
-                  viewMode === 'grid' ? styles.viewBtnActive : '',
-                ].filter(Boolean).join(' ')}
+                className={cn(styles.viewBtn, viewMode === 'grid' && styles.viewBtnActive)}
                 onClick={() => setViewMode('grid')}
                 aria-pressed={viewMode === 'grid'}
                 aria-label="Grid view"
@@ -198,10 +181,7 @@ function CollectionPage() {
                 <Icon kind="grid" size={14} color="currentColor" />
               </button>
               <button
-                className={[
-                  styles.viewBtn,
-                  viewMode === 'list' ? styles.viewBtnActive : '',
-                ].filter(Boolean).join(' ')}
+                className={cn(styles.viewBtn, viewMode === 'list' && styles.viewBtnActive)}
                 onClick={() => setViewMode('list')}
                 aria-pressed={viewMode === 'list'}
                 aria-label="List view"
@@ -213,11 +193,8 @@ function CollectionPage() {
           </div>
         </div>
 
-        {/* ── Main content ──────────────────────── */}
         {isLoading ? (
-          <div style={{ padding: '40px', textAlign: 'center', color: 'var(--hd-sub)' }}>
-            Loading…
-          </div>
+          <div className={styles.loading}>Loading…</div>
         ) : viewMode === 'grid' ? (
           <CollectionGrid entries={filtered} onRemove={handleRemove} />
         ) : (

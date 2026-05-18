@@ -416,6 +416,13 @@
   border-color: var(--hd-accent);
 }
 
+/* ── Loading state ───────────────────────────────────────── */
+.loading {
+  padding: 40px;
+  text-align: center;
+  color: var(--hd-sub);
+}
+
 /* ── Collection tabs ─────────────────────────────────────── */
 .tabRow {
   display: flex;
