@@ -107,6 +107,8 @@ async def card_search_params(
     layout: Optional[str] = Query(None, description="Filter by layout type (e.g. 'normal', 'token', 'saga')"),
     promo_type: Optional[List[str]] = Query(None, description="Filter by promo type (repeatable: ?promo_type=prerelease&promo_type=buyabox)"),
     collapse: bool = Query(False, description="Collapse results to one representative per (unique_card_id, set_code). Returns version_count on each tile."),
+    finish: Optional[str] = Query(None, description="Filter by finish (nonfoil, foil, etched, surge_foil, ripple_foil, rainbow_foil)"),
+    frame_effects: Optional[List[str]] = Query(None, alias="frame_effect", description="Filter by frame treatment (repeatable: ?frame_effect=borderless&frame_effect=showcase)"),
 ):
     """Card search parameters"""
     # Use 'q' if provided, otherwise fall back to 'name'
@@ -128,4 +130,6 @@ async def card_search_params(
         "layout": layout,
         "promo_type": promo_type,
         "collapse": collapse,
+        "finish": finish,
+        "frame_effects": frame_effects,
     }

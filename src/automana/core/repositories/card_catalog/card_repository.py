@@ -295,6 +295,8 @@ class CardReferenceRepository(AbstractRepository[Any]):
             mana_cost: Optional[int] = None,
             digital: Optional[bool] = None,
             card_type: Optional[str] = None,
+            finish: Optional[str] = None,
+            frame_effects: Optional[list[str]] = None,
             released_after: Optional[str] = None,
             released_before: Optional[str] = None,
             oracle_text: Optional[str] = None,
@@ -436,6 +438,32 @@ class CardReferenceRepository(AbstractRepository[Any]):
             rf_conditions.append(f"${rf_counter} = ANY(v.types)")
             values.append(card_type)
             rf_values.append(card_type)
+            counter += 1
+            rf_counter += 1
+
+        if finish:
+            conditions.append(
+                f"EXISTS (SELECT 1 FROM card_catalog.card_version_finish cvf "
+                f"JOIN card_catalog.card_finished cf ON cvf.finish_id = cf.finish_id "
+                f"WHERE cvf.card_version_id = v.card_version_id "
+                f"AND UPPER(cf.code) = ${counter})"
+            )
+            rf_conditions.append(
+                f"EXISTS (SELECT 1 FROM card_catalog.card_version_finish cvf "
+                f"JOIN card_catalog.card_finished cf ON cvf.finish_id = cf.finish_id "
+                f"WHERE cvf.card_version_id = v.card_version_id "
+                f"AND UPPER(cf.code) = ${rf_counter})"
+            )
+            values.append(finish.upper())
+            rf_values.append(finish.upper())
+            counter += 1
+            rf_counter += 1
+
+        for fe in (frame_effects or []):
+            conditions.append(f"${counter} = ANY(v.frame_effects)")
+            rf_conditions.append(f"${rf_counter} = ANY(v.frame_effects)")
+            values.append(fe)
+            rf_values.append(fe)
             counter += 1
             rf_counter += 1
 
