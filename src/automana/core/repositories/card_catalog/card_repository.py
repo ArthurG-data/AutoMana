@@ -529,11 +529,15 @@ class CardReferenceRepository(AbstractRepository[Any]):
             )
         else:
             _set_cols = {"released_at"}
+            _price_cols = {"price"}
             _view_cols = {"card_name", "cmc", "rarity_name", "set_name", "set_code"}
             safe_sort_order = "DESC" if (sort_order or "").upper() == "DESC" else "ASC"
             if sort_by in _set_cols:
                 order_clause = f"ORDER BY s.{sort_by} {safe_sort_order}"
                 collapse_order_clause = f"ORDER BY {sort_by} {safe_sort_order}"
+            elif sort_by in _price_cols:
+                order_clause = f"ORDER BY psp.price {safe_sort_order} NULLS LAST"
+                collapse_order_clause = f"ORDER BY sort_price {safe_sort_order} NULLS LAST"
             else:
                 safe_sort_by = sort_by if sort_by in _view_cols else "card_name"
                 order_clause = f"ORDER BY v.{safe_sort_by} {safe_sort_order}"
@@ -544,6 +548,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
             "FROM card_catalog.v_card_versions_complete v"
             " JOIN card_catalog.sets s ON s.set_id = v.set_id"
             " LEFT JOIN card_catalog.card_version_illustration cvi ON cvi.card_version_id = v.card_version_id"
+            " LEFT JOIN pricing.mv_card_price_spark psp ON psp.card_version_id = v.card_version_id"
         )
 
         # Outer ORDER BY for collapse mode — references subquery columns (no table prefix).
@@ -564,10 +569,13 @@ class CardReferenceRepository(AbstractRepository[Any]):
                 )
             else:
                 _set_cols = {"released_at"}
+                _price_cols = {"price"}
                 _view_cols = {"card_name", "cmc", "rarity_name", "set_name", "set_code"}
                 safe_sort_order = "DESC" if (sort_order or "").upper() == "DESC" else "ASC"
                 if sort_by in _set_cols:
                     outer_order = f"ORDER BY released_at {safe_sort_order}"
+                elif sort_by in _price_cols:
+                    outer_order = f"ORDER BY sort_price {safe_sort_order} NULLS LAST"
                 else:
                     safe_sort_by = sort_by if sort_by in _view_cols else "card_name"
                     outer_order = f"ORDER BY {safe_sort_by} {safe_sort_order}"
@@ -590,7 +598,8 @@ class CardReferenceRepository(AbstractRepository[Any]):
                 v.collector_number,
                 v.promo_types,
                 s.released_at,
-                cvi.image_uris->>'normal' AS image_normal
+                cvi.image_uris->>'normal' AS image_normal,
+                psp.price AS sort_price
                 {sv_col}"""
 
         if collapse:

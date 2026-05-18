@@ -16,12 +16,21 @@ _CARD_ROW = {
     "digital": False,
     "released_at": "2021-06-18",
     "image_normal": None,
+    "sort_price": 1.23,
 }
 
 
 def _make_repo(cards_rows, count_rows, facet_rows):
     repo = CardReferenceRepository.__new__(CardReferenceRepository)
-    repo.execute_query = AsyncMock(side_effect=[cards_rows, count_rows, facet_rows, [{"rarity_facets": []}]])
+    repo.execute_query = AsyncMock(side_effect=[
+        cards_rows,                  # 0: main search query
+        count_rows,                  # 1: count query
+        facet_rows,                  # 2: promo facet query
+        [{"rarity_facets": []}],     # 3: rarity facet query
+    ])
+    # Stub _fetch_prices_for_cards so it never hits execute_query in unit tests,
+    # keeping the call-index assertions stable regardless of result size.
+    repo._fetch_prices_for_cards = AsyncMock(return_value={})
     return repo
 
 
@@ -67,3 +76,21 @@ async def test_facet_query_excludes_promo_type_predicate():
     assert "v.promo_types && $" in main_call_sql
     # Facet query must NOT contain it — so other promo types remain visible
     assert "v.promo_types && $" not in facet_call_sql
+
+
+@pytest.mark.asyncio
+async def test_search_sort_by_price_uses_psp_join():
+    repo = _make_repo([_CARD_ROW], [{"total_count": 1}], [{"promo_type_facets": []}])
+    await repo.search(sort_by="price", sort_order="asc")
+    main_call_sql = repo.execute_query.call_args_list[0][0][0]
+    assert "pricing.mv_card_price_spark" in main_call_sql
+    assert "psp.price" in main_call_sql or "sort_price" in main_call_sql
+
+
+@pytest.mark.asyncio
+async def test_search_sort_by_price_desc_nulls_last():
+    repo = _make_repo([_CARD_ROW], [{"total_count": 1}], [{"promo_type_facets": []}])
+    await repo.search(sort_by="price", sort_order="desc")
+    main_call_sql = repo.execute_query.call_args_list[0][0][0]
+    assert "NULLS LAST" in main_call_sql
+    assert "DESC" in main_call_sql
