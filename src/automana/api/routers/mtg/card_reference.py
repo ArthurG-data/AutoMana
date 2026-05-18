@@ -205,12 +205,10 @@ async def get_card(
 async def get_card_price_history(
     card_id: UUID,
     service_manager: ServiceManagerDep,
-    price_range: str = Query('1m', regex='^(1w|1m|3m|1y|all)$', description="Time range: 1w, 1m, 3m, 1y, or all"),
-    finish: Optional[str] = Query(None, regex='^(nonfoil|foil|etched|surge_foil|ripple_foil|rainbow_foil)$', description="Finish type (nonfoil, foil, etched, etc.). Omit to aggregate all finishes."),
+    price_range: str = Query('1m', pattern='^(1w|1m|3m|1y|all)$', description="Time range: 1w, 1m, 3m, 1y, or all"),
+    finish: Optional[str] = Query(None, pattern='^(nonfoil|foil|etched|surge_foil|ripple_foil|rainbow_foil)$', description="Finish type (nonfoil, foil, etched, etc.). Omit to aggregate all finishes."),
 ) -> ApiResponse[PriceHistoryResponse]:
-    """Get price history for a card in the specified time range."""
     try:
-        # Map price_range to days_back and aggregation
         range_map = {
             '1w': (7, 'daily'),
             '1m': (30, 'daily'),
@@ -354,7 +352,8 @@ async def insert_card(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to insert card: {str(e)}")
+        logger.error("Failed to insert card", extra={"error": str(e)})
+        raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
 @card_reference_router.post(
@@ -378,22 +377,19 @@ async def bulk_insert_cards(
     cards: List[CreateCard],
     service_manager: ServiceManagerDep,
 ):
+    if len(cards) == 0:
+        raise HTTPException(status_code=400, detail="No cards provided for bulk insert")
+    if len(cards) > BULK_INSERT_LIMIT:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Bulk insert limited to {BULK_INSERT_LIMIT} cards. "
+                f"You provided {len(cards)} cards. "
+                "Use the file upload endpoint for larger batches."
+            ),
+        )
     validated_cards: CreateCards = CreateCards(items=cards)
     try:
-        if len(cards) > BULK_INSERT_LIMIT:
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    f"Bulk insert limited to {BULK_INSERT_LIMIT} cards. "
-                    f"You provided {len(cards)} cards. "
-                    "Use the file upload endpoint for larger batches."
-                ),
-            )
-        if len(cards) == 0:
-            raise HTTPException(
-                status_code=400,
-                detail="No cards provided for bulk insert",
-            )
         result = await service_manager.execute_service(
             "card_catalog.card.create_many",
             cards=validated_cards,
@@ -411,7 +407,8 @@ async def bulk_insert_cards(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to insert cards: {str(e)}")
+        logger.error("Failed to bulk insert cards", extra={"error": str(e)})
+        raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
 @card_reference_router.delete(
@@ -439,7 +436,8 @@ async def delete_card(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to delete card: {str(e)}")
+        logger.error("Failed to delete card", extra={"card_id": str(card_id), "error": str(e)})
+        raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
 @card_reference_router.post(
@@ -463,8 +461,6 @@ async def test_service(
     service_manager: ServiceManagerDep,
 ):
     try:
-        if not os.path.exists(file_path):
-            raise HTTPException(status_code=400, detail=f"File not found: {file_path}")
         result = await service_manager.execute_service(
             "card_catalog.card.process_large_json",
             file_path=file_path,
@@ -476,4 +472,5 @@ async def test_service(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Service test failed: {str(e)}")
+        logger.error("Service test failed", extra={"file_path": file_path, "error": str(e)})
+        raise HTTPException(status_code=500, detail="Internal Server Error")

@@ -6,62 +6,51 @@ from datetime import datetime
 from uuid import UUID
 
 class PaginationParams(BaseModel):
-    """Pagination parameters"""
     limit: int
     offset: int
-    
-    @property
-    def skip(self) -> int:
-        return self.offset
 
 class SortParams(BaseModel):
-    """Sorting parameters"""
     sort_by: str
     sort_order: str
 
 class DateRangeParams(BaseModel):
-    """Date range filtering"""
     created_after: Optional[datetime]
     created_before: Optional[datetime]
 
-# Dependency functions
 async def pagination_params(
     limit: int = Query(20, ge=1, le=100, description="Number of items to return"),
     offset: int = Query(0, ge=0, description="Number of items to skip")
 ) -> PaginationParams:
-    """Standard pagination parameters"""
     return PaginationParams(limit=limit, offset=offset)
 
 async def sort_params(
     sort_by: str = Query("card_name", description="Field to sort by"),
-    sort_order: str = Query("asc", regex="^(asc|desc)$", description="Sort order")
+    sort_order: str = Query("asc", pattern="^(asc|desc)$", description="Sort order")
 ) -> SortParams:
-    """Standard sorting parameters"""
     return SortParams(sort_by=sort_by, sort_order=sort_order)
 
 async def date_range_params(
     created_after: Optional[datetime] = Query(None, description="Filter items created after this date"),
     created_before: Optional[datetime] = Query(None, description="Filter items created before this date")
 ) -> DateRangeParams:
-    """Date range filtering parameters"""
     return DateRangeParams(created_after=created_after, created_before=created_before)
 
 async def session_search_params(
-       username: Optional[str] = Query(None, description="Search by username"),
-       user_id: Optional[UUID] = Query(None, description="Filter by user ID"),
-       session_id : Optional[UUID] = Query(None, description="Filter by session ID"),
-       ip_address: Optional[str] = Query(None, description="Filter by IP address"),
-       user_agent: Optional[str] = Query(None, description="Filter by user agent"),
-       token_id: Optional[UUID] = Query(None, description="Filter by token ID")
-   ):
-       return {
-           "username": username,
-           "user_id": user_id,
-           "session_id": session_id,
-           "ip_address": ip_address,
-           "user_agent": user_agent,
-           "token_id": token_id
-       }
+    username: Optional[str] = Query(None, description="Search by username"),
+    user_id: Optional[UUID] = Query(None, description="Filter by user ID"),
+    session_id: Optional[UUID] = Query(None, description="Filter by session ID"),
+    ip_address: Optional[str] = Query(None, description="Filter by IP address"),
+    user_agent: Optional[str] = Query(None, description="Filter by user agent"),
+    token_id: Optional[UUID] = Query(None, description="Filter by token ID")
+):
+    return {
+        "username": username,
+        "user_id": user_id,
+        "session_id": session_id,
+        "ip_address": ip_address,
+        "user_agent": user_agent,
+        "token_id": token_id,
+    }
 
 async def user_search_params(
     username: Optional[str] = Query(None, description="Search by username"),
@@ -69,10 +58,8 @@ async def user_search_params(
     full_name: Optional[str] = Query(None, description="Search by full name"),
     search_query: Optional[str] = Query(None, min_length=2, description="General search across username and full name"),
     disabled: Optional[bool] = Query(None, description="Filter by active status"),
-    user_id : Optional[UUID] = Query(None, description="Filter by user ID"),
-    #role: Optional[str] = Query(None, description="Filter by user role (admin only)")
+    user_id: Optional[UUID] = Query(None, description="Filter by user ID"),
 ):
-    """User search parameters"""
     return {
         "username": username,
         "email": email,
@@ -82,7 +69,6 @@ async def user_search_params(
         "user_id": user_id,
     }
 
-# Card-specific search parameters
 async def card_search_params(
     q: Optional[str] = Query(None, description="Search query for card name or oracle text"),
     name: Optional[str] = Query(None, description="Filter by card name"),
@@ -95,12 +81,6 @@ async def card_search_params(
     card_id: Optional[UUID] = Query(None, description="Filter by card ID"),
     unique_card_id: Optional[UUID] = Query(None, description="Filter by stable unique card identity (returns all versions/printings of a single logical card)"),
     artist: Optional[str] = Query(None, description="Filter by artist"),
-    artist_id: Optional[UUID] = Query(None, description="Filter by artist ID"),
-    illustration_id: Optional[UUID] = Query(None, description="Filter by illustration ID"),
-    power: Optional[int] = Query(None, ge=0, description="Filter by power"),
-    toughness: Optional[int] = Query(None, ge=0, description="Filter by toughness"),
-    flavor_text: Optional[str] = Query(None, description="Filter by flavor text"),
-    card_faces: Optional[List[UUID]] = Query(None, description="Filter by card faces"),
     digital: bool = Query(False, description="Filter by digital status (default excludes MTGO/Arena-only cards)"),
     oracle_text: Optional[str] = Query(None, description="Filter by oracle text (full-text search)"),
     format: Optional[str] = Query(None, description="Filter by format legality (e.g. 'standard', 'modern')"),
@@ -110,11 +90,8 @@ async def card_search_params(
     finish: Optional[str] = Query(None, description="Filter by finish (nonfoil, foil, etched, surge_foil, ripple_foil, rainbow_foil)"),
     frame_effects: Optional[List[str]] = Query(None, alias="frame_effect", description="Filter by frame treatment (repeatable: ?frame_effect=borderless&frame_effect=showcase)"),
 ):
-    """Card search parameters"""
-    # Use 'q' if provided, otherwise fall back to 'name'
-    search_name = q or name
     return {
-        "name": search_name,
+        "name": q or name,
         "set_name": set_name,
         "set_code": set_code,
         "rarity": rarity,

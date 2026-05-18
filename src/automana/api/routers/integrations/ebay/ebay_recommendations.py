@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
@@ -21,7 +21,7 @@ class RecommendationRequest(BaseModel):
 
 
 class StageActionRequest(BaseModel):
-    action_type: str  # one of: raise, lower, hold, draft
+    action_type: Literal["raise", "lower", "hold", "draft"]
     strategy_kind: str
     suggested_price: Optional[float] = None
 
@@ -60,12 +60,6 @@ async def stage_action(
     service_manager: ServiceManagerDep,
     app_code: str = Query(..., description="eBay application code"),
 ):
-    valid_action_types = {"raise", "lower", "hold", "draft"}
-    if body.action_type not in valid_action_types:
-        raise HTTPException(
-            status_code=400,
-            detail=f"action_type must be one of {sorted(valid_action_types)}",
-        )
     try:
         result = await service_manager.execute_service(
             "integrations.ebay.actions.stage",

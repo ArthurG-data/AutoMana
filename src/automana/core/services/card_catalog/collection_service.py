@@ -114,11 +114,7 @@ async def delete_collection(user_collection_repository: CollectionRepository
                             ) -> bool:
     try:
         await user_collection_repository.delete(collection_id, user.unique_id)
-
-        check = await user_collection_repository.get(collection_id, user.unique_id)
-        if check:
-            raise card_catalog_exceptions.CollectionDeleteError(f"Collection with ID {collection_id} was not deleted successfully")
-        return True     
+        return True
     except card_catalog_exceptions.CollectionNotFoundError:
         raise
     except Exception as e:
