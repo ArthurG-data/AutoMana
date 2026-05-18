@@ -1,8 +1,13 @@
 // src/frontend/src/features/cards/components/SearchResults.tsx
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { CardArt } from '../../../components/design-system/CardArt'
 import { Sparkline } from '../../../components/design-system/Sparkline'
+import { AddToCollectionPopover } from '../../collection/components/AddToCollectionPopover'
+import { addCollectionEntry, collectionsQueryOptions, collectionEntriesQueryOptions } from '../../collection/api'
+import { useAuthStore } from '../../../store/auth'
+import type { Collection } from '../../collection/api'
 import type { CardGroupBy, CardSummary } from '../types'
 import styles from './SearchResults.module.css'
 
@@ -54,7 +59,31 @@ export function SearchResults({
   groupBy,
 }: SearchResultsProps) {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const lastCardRef = useRef<HTMLButtonElement>(null)
+  const [addTarget, setAddTarget] = useState<CardSummary | null>(null)
+
+  const isAuthed = Boolean(useAuthStore.getState().token)
+  const { data: collections = [] } = useQuery({
+    ...collectionsQueryOptions(),
+    enabled: isAuthed,
+  })
+
+  async function handleAdd(params: {
+    collectionId: string
+    condition: 'NM' | 'LP' | 'MP' | 'HP'
+    finish: 'NONFOIL' | 'FOIL' | 'ETCHED'
+  }) {
+    if (!addTarget) return
+    await addCollectionEntry(
+      params.collectionId,
+      addTarget.card_version_id,
+      params.condition,
+      params.finish,
+    )
+    queryClient.invalidateQueries({ queryKey: collectionEntriesQueryOptions(params.collectionId).queryKey })
+    setAddTarget(null)
+  }
 
   useEffect(() => {
     if (!lastCardRef.current || !hasNextPage || isFetchingNextPage) return
@@ -82,81 +111,104 @@ export function SearchResults({
     const delta = card.price_change_1d ?? 0
     const isLastCard = card.card_version_id === lastCardId
     return (
-      <button
-        key={card.card_version_id}
-        ref={isLastCard ? lastCardRef : null}
-        className={[
-          styles.card,
-          card.card_version_id === selectedId ? styles.cardSelected : '',
-        ].filter(Boolean).join(' ')}
-        onClick={() =>
-          onSelect
-            ? onSelect(card)
-            : navigate({ to: '/cards/$id', params: { id: card.card_version_id } })
-        }
-      >
-        <div style={{ position: 'relative' }}>
-          <CardArt
-            name={card.card_name}
-            w="100%"
-            hue={(i * 47) % 360}
-            label={false}
-            imageUrl={card.image_normal}
-            finish={card.finish}
-          />
-          {(card.version_count ?? 1) > 1 && (
-            <span className={styles.versionBadge}>{card.version_count} prints</span>
-          )}
-        </div>
-        <div className={styles.cardInfo}>
-          <div className={styles.cardName}>{card.card_name}</div>
-          <div className={styles.cardSubtitle}>
-            <span
-              className={`${styles.set} ${styles.setLink}`}
-              role="button"
-              tabIndex={0}
-              title={`Search ${card.set_code.toUpperCase()} only`}
-              onClick={(e) => {
-                e.stopPropagation()
-                navigate({ to: '/search', search: { set: card.set_code } })
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
+      <div key={card.card_version_id} className={styles.cardWrap}>
+        <button
+          ref={isLastCard ? lastCardRef : null}
+          className={[
+            styles.card,
+            card.card_version_id === selectedId ? styles.cardSelected : '',
+          ].filter(Boolean).join(' ')}
+          onClick={() =>
+            onSelect
+              ? onSelect(card)
+              : navigate({ to: '/cards/$id', params: { id: card.card_version_id } })
+          }
+        >
+          <div style={{ position: 'relative' }}>
+            <CardArt
+              name={card.card_name}
+              w="100%"
+              hue={(i * 47) % 360}
+              label={false}
+              imageUrl={card.image_normal}
+              finish={card.finish}
+            />
+            {(card.version_count ?? 1) > 1 && (
+              <span className={styles.versionBadge}>{card.version_count} prints</span>
+            )}
+          </div>
+          <div className={styles.cardInfo}>
+            <div className={styles.cardName}>{card.card_name}</div>
+            <div className={styles.cardSubtitle}>
+              <span
+                className={`${styles.set} ${styles.setLink}`}
+                role="button"
+                tabIndex={0}
+                title={`Search ${card.set_code.toUpperCase()} only`}
+                onClick={(e) => {
                   e.stopPropagation()
-                  e.preventDefault()
                   navigate({ to: '/search', search: { set: card.set_code } })
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.stopPropagation()
+                    e.preventDefault()
+                    navigate({ to: '/search', search: { set: card.set_code } })
+                  }
+                }}
+              >
+                {card.set_name}
+              </span>
+              <span className={styles.rarity}>{card.rarity_name}</span>
+            </div>
+            <div className={styles.cardMeta}>
+              {(() => {
+                const today = new Date().toISOString().slice(0, 10)
+                const isUpcoming = card.released_at != null && card.released_at > today
+                if (card.price != null) {
+                  return (
+                    <span className={[styles.price, delta >= 0 ? styles.up : styles.down].join(' ')}>
+                      ${card.price.toFixed(2)}
+                    </span>
+                  )
                 }
-              }}
-            >
-              {card.set_name}
-            </span>
-            <span className={styles.rarity}>{card.rarity_name}</span>
+                if (isUpcoming) {
+                  return <span className={`${styles.price} ${styles.unreleased}`}>Not yet released</span>
+                }
+                return <span className={styles.price}>N/A</span>
+              })()}
+            </div>
+            <Sparkline
+              points={card.spark}
+              color={delta >= 0 ? 'var(--hd-accent)' : 'var(--hd-red)'}
+              width={100}
+              height={24}
+            />
           </div>
-          <div className={styles.cardMeta}>
-            {(() => {
-              const today = new Date().toISOString().slice(0, 10)
-              const isUpcoming = card.released_at != null && card.released_at > today
-              if (card.price != null) {
-                return (
-                  <span className={[styles.price, delta >= 0 ? styles.up : styles.down].join(' ')}>
-                    ${card.price.toFixed(2)}
-                  </span>
-                )
-              }
-              if (isUpcoming) {
-                return <span className={`${styles.price} ${styles.unreleased}`}>Not yet released</span>
-              }
-              return <span className={styles.price}>N/A</span>
-            })()}
-          </div>
-          <Sparkline
-            points={card.spark}
-            color={delta >= 0 ? 'var(--hd-accent)' : 'var(--hd-red)'}
-            width={100}
-            height={24}
+        </button>
+
+        <button
+          className={styles.addBtn}
+          onClick={(e) => {
+            e.stopPropagation()
+            setAddTarget(addTarget?.card_version_id === card.card_version_id ? null : card)
+          }}
+          aria-label={`Add ${card.card_name} to collection`}
+        >
+          + Add
+        </button>
+
+        {addTarget?.card_version_id === card.card_version_id && (
+          <AddToCollectionPopover
+            cardVersionId={card.card_version_id}
+            cardName={card.card_name}
+            finish={card.finish}
+            collections={collections as Collection[]}
+            onAdd={handleAdd}
+            onClose={() => setAddTarget(null)}
           />
-        </div>
-      </button>
+        )}
+      </div>
     )
   }
 
