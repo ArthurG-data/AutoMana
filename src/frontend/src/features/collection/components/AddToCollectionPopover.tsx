@@ -49,6 +49,20 @@ export function AddToCollectionPopover({
     }
   }, [onClose])
 
+  if (collections.length === 0) {
+    return (
+      <div ref={ref} className={styles.popover}>
+        <div className={styles.header}>{cardName}</div>
+        <p className={styles.label} style={{ color: 'var(--hd-sub)', textTransform: 'none' }}>
+          Create a collection first
+        </p>
+        <div className={styles.actions}>
+          <button className={styles.btnCancel} onClick={onClose}>Close</button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div ref={ref} className={styles.popover} role="dialog" aria-label={`Add ${cardName} to collection`}>
       <div className={styles.header}>{cardName}</div>

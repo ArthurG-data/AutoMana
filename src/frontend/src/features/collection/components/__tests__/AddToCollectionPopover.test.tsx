@@ -105,4 +105,25 @@ describe('AddToCollectionPopover', () => {
     fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
     expect(onClose).toHaveBeenCalled()
   })
+
+  it('hides dropdown with single collection and still submits correctly', () => {
+    const onAdd = vi.fn()
+    render(
+      <AddToCollectionPopover
+        cardVersionId="cv1"
+        cardName="Ragavan"
+        finish="foil"
+        collections={[COLLECTIONS[0]]}
+        onAdd={onAdd}
+        onClose={vi.fn()}
+      />
+    )
+    expect(screen.queryByRole('combobox')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /add to collection/i }))
+    expect(onAdd).toHaveBeenCalledWith({
+      collectionId: 'col1',
+      condition: 'NM',
+      finish: 'FOIL',
+    })
+  })
 })
