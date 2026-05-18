@@ -77,4 +77,14 @@ describe('CollectionGrid', () => {
     render(<CollectionGrid entries={[]} onRemove={vi.fn()} />)
     expect(screen.getByText(/no cards yet/i)).toBeTruthy()
   })
+
+  it('renders finish badge for FOIL entries', () => {
+    render(<CollectionGrid entries={[ENTRIES[1]]} onRemove={vi.fn()} />)
+    expect(screen.getByText('foil')).toBeTruthy()
+  })
+
+  it('does not render a finish badge for NONFOIL entries', () => {
+    render(<CollectionGrid entries={[ENTRIES[0]]} onRemove={vi.fn()} />)
+    expect(screen.queryByText('nonfoil')).toBeNull()
+  })
 })

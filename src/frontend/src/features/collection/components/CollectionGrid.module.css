@@ -37,6 +37,7 @@
   padding: 0;
 }
 .removeBtn:hover { background: rgba(200, 50, 50, 0.72); }
+.removeBtn:focus-visible { opacity: 1; outline: 2px solid #f87171; outline-offset: 2px; }
 
 .cardInfo { padding: 6px 4px; }
 
