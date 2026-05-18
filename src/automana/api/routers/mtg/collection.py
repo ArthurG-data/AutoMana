@@ -109,7 +109,6 @@ async def get_collection(
     ),
     response_model=PaginatedResponse,
     operation_id="collections_list",
-    responses=_COLLECTION_ERRORS,
 )
 async def list_collections(
     current_user: CurrentUserDep,
