@@ -12,6 +12,7 @@
 2. Does the type of reprint set (masters, expansion, commander, special) drive different outcomes?
 3. After a reprint, does the original printing recover better than the new reprint version?
 4. Does rarity (mythic vs rare) change these dynamics?
+5. Do high-value cards start declining *before* the official announcement, suggesting information leakage?
 
 ---
 
@@ -37,11 +38,13 @@ All data from the AutoMana PostgreSQL database.
 
 ### Event Time Axis
 - `T = 0`: reprint set release date.
+- `T = -90`: **drift detection start** — extended look-back to catch pre-announcement information leakage.
 - `T = -45`: **clean baseline** — predates virtually all set announcements and spoiler-season movement.
 - `T = -21`: secondary timestamp marking the start of active preview season.
 - `T = +7`: end of release-week price shock.
-- Window: `T-45` to `T+365` (capped by data availability — max `2026-05-16`).
-- Three analytically distinct sub-windows:
+- Window: `T-90` to `T+365` (capped by data availability — max `2026-05-16`).
+- Four analytically distinct sub-windows:
+  - `[T-90, T-45]` — **pre-announcement drift** (is the card already declining before any official news?)
   - `[T-45, T-21]` — **announcement effect** (set announced, market front-runs reprint probability)
   - `[T-21, T+7]` — **preview season effect** (individual cards spoiled, confirmed reprints drop)
   - `[T+7, T+365]` — **post-release trajectory** (price discovery, recovery or continued decline)
@@ -79,7 +82,7 @@ if n < 5, excluded from aggregate regression/chart lines.
 
 ### Part 0 — Setup
 - Imports, DB config, helper functions (same pattern as `treatment_price_analysis.ipynb`)
-- Constants: `EVENT_WINDOW = (-45, 365)`, `BASELINE_WINDOW = (-52, -38)`, `RARITY_FILTER = ['mythic', 'rare']`
+- Constants: `EVENT_WINDOW = (-90, 365)`, `BASELINE_WINDOW = (-52, -38)`, `RARITY_FILTER = ['mythic', 'rare']`, `DRIFT_WINDOW = (-90, -45)`
 - Set type category map: `masters / expansion / core / commander / ub_large / secret_lair / list_jumpstart`
 - `REFRESH = True` flag for re-querying vs loading parquet cache
 
@@ -94,7 +97,7 @@ if n < 5, excluded from aggregate regression/chart lines.
 ### Part 2 — Event Price Windows
 **SQL:** For each reprint event, pull `print_price_daily` rows for all `card_version_id`s of that `unique_card_id`, filtered to:
 - `finish IN (NONFOIL, FOIL)`, `condition = NM`, `transaction_type = sell`, `language = en`
-- Date range: `[reprint_release - 52, reprint_release + 365]`
+- Date range: `[reprint_release - 97, reprint_release + 365]` (T-90 window + 7-day buffer)
 
 **Processing:**
 1. Separate rows into `version_type`: `original_print` (earliest set) vs `reprint_version` (reprint set) vs `other_reprint` (any other earlier print also affected).
@@ -175,15 +178,46 @@ Cross-cut of Parts 3–6 split by rarity. Focus: does rarity change drop depth, 
 
 **Answers:** Are mythics more resilient to reprints than rares?
 
-### Part 8 — Conclusions
+### Part 8 — Pre-Announcement Drift: Information Leakage Investigation
+
+**Hypothesis:** If a card's price begins declining meaningfully in the `[T-90, T-45]` window — before any official set announcement — it may indicate that holders with advance knowledge (distributor leaks, early preview access, WotC employee channel) are selling ahead of the reprint confirmation.
+
+**Method:**
+
+1. **Construct a control group** of comparable high-value cards (same rarity + format tier) that had no reprint, ban, or rules-change event in the `[T-90, T+30]` window. Compute their median price change in `[T-90, T-45]` as the market baseline drift.
+
+2. **Compute pre-announcement drift per event:**
+   - `drift_T90_T45`: `(price_at_T-45 / price_at_T-90) - 1` — is the card already declining before the baseline?
+   - Compare to control group: `abnormal_drift = drift_T90_T45 - control_drift` — negative = unusual decline.
+
+3. **Price threshold filter:** Focus on cards with price > $15 NM at T-90. Low-value cards have high noise-to-signal ratio; leakage incentives only exist for expensive cards.
+
+4. **Early decline slope:** Fit a linear trend to the daily price in `[T-90, T-45]` and compute the slope. Compare to the same card's typical price stability in a non-reprint control window (if available).
+
+**Key outputs:**
+- Distribution of `abnormal_drift` across all events — is the mean negative? Is it statistically different from zero?
+- Heat map of median `drift_T90_T45` by set type — do Masters-style sets show more pre-announcement leakage than expansion reprints?
+- **Leakage candidates**: events in the bottom 10th percentile of `abnormal_drift` (sharpest pre-announcement declines relative to the market). Annotated list: card name, set, drift %, price at T-90.
+- Subgroup: does the effect strengthen for cards whose price at T-90 was > $30? > $50? (higher value = stronger incentive to sell early)
+
+**Chart:**
+- Panel A: Histogram of `abnormal_drift` for all events. Mark the mean and a reference line at 0.
+- Panel B: Median pre-announcement drift by set type (bar chart).
+- Panel C: For the top 10 leakage candidate events, show the full `[T-90, T+90]` price trajectory annotated with T-45 and T=0 lines.
+
+**Interpretation note:** Abnormal pre-announcement declines are *consistent with* information leakage but are not proof of it — they could also reflect: (1) speculation based on WotC's reprint pattern history; (2) broad market downturns; (3) organic demand decline unrelated to the reprint. The analysis should be framed as "price signals worth investigating" rather than "evidence of misconduct."
+
+**Answers:** Do certain set types or high-value cards show statistically unusual price declines before any public announcement? Which specific events are the strongest candidates?
+
+### Part 9 — Conclusions
 Synthesized findings in a printed summary + a compact table:
 
-| Set type | Rarity | Avg drop | Trough day | T+365 recovery | Original premium at T+365 |
-|---|---|---|---|---|---|
-| masters | mythic | ... | ... | ... | ... |
-| ... | | | | | |
+| Set type | Rarity | Pre-ann drift | Avg drop (T-45→trough) | Trough day | T+365 nominal recovery | Original premium at T+365 |
+|---|---|---|---|---|---|---|
+| masters | mythic | ... | ... | ... | ... | ... |
+| ... | | | | | | |
 
-Human-readable takeaways (4–6 bullet points), in the same style as the treatment notebook.
+Human-readable takeaways (4–6 bullet points), in the same style as the treatment notebook. Include a specific callout on the leakage finding: whether any set type shows a statistically significant pre-announcement drift.
 
 ---
 
