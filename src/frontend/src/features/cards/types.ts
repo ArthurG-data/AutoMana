@@ -18,6 +18,7 @@ export interface CardSummary {
   version_count?: number
   promo_types?: string[]
   collector_number?: string
+  released_at?: string | null
 }
 
 export interface CardPrint {
@@ -49,7 +50,7 @@ export interface CardDetail extends CardSummary {
   legalities?: Record<string, string>
 }
 
-export type CardGroupBy = 'set' | 'rarity' | 'finish'
+export type CardGroupBy = 'rarity'
 
 export interface CardSearchParams {
   q?: string
@@ -63,6 +64,10 @@ export interface CardSearchParams {
   maxPrice?: number
   promoTypes?: string[]
   group?: CardGroupBy
+  sort_by?: 'card_name' | 'released_at' | 'price'
+  sort_order?: 'asc' | 'desc'
+  colors?: string[]
+  card_type?: string
 }
 
 export interface PaginationInfo {
