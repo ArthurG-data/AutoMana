@@ -353,12 +353,18 @@ class CardReferenceRepository(AbstractRepository[Any]):
 
         for c in (colors or []):
             # color_identity is text[]; caller must use canonical casing (e.g. 'White').
-            conditions.append(f"${counter} = ANY(v.color_identity)")
-            rf_conditions.append(f"${rf_counter} = ANY(v.color_identity)")
-            values.append(c)
-            rf_values.append(c)
-            counter += 1
-            rf_counter += 1
+            if c == 'Multi':
+                # Special value: cards with 2 or more colors in their identity.
+                conditions.append("array_length(v.color_identity, 1) > 1")
+                rf_conditions.append("array_length(v.color_identity, 1) > 1")
+                # No bind parameter added — do NOT increment counter/rf_counter.
+            else:
+                conditions.append(f"${counter} = ANY(v.color_identity)")
+                rf_conditions.append(f"${rf_counter} = ANY(v.color_identity)")
+                values.append(c)
+                rf_values.append(c)
+                counter += 1
+                rf_counter += 1
 
         if rarity:
             conditions.append(f"v.rarity_name ILIKE ${counter}")

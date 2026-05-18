@@ -33,8 +33,8 @@ async def pagination_params(
     return PaginationParams(limit=limit, offset=offset)
 
 async def sort_params(
-    sort_by: str = Query("released_at", description="Field to sort by"),
-    sort_order: str = Query("desc", regex="^(asc|desc)$", description="Sort order")
+    sort_by: str = Query("card_name", description="Field to sort by"),
+    sort_order: str = Query("asc", regex="^(asc|desc)$", description="Sort order")
 ) -> SortParams:
     """Standard sorting parameters"""
     return SortParams(sort_by=sort_by, sort_order=sort_order)
