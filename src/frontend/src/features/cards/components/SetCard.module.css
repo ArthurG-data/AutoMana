@@ -136,6 +136,31 @@
   flex-shrink: 0;
 }
 
+/* Upcoming set treatment */
+.upcoming {
+  outline: 1px solid #b8860b;
+  border-radius: 6px;
+}
+.artUpcoming {
+  background: linear-gradient(160deg, #2a2200 0%, rgba(184,134,11,0.15) 100%);
+}
+.upcomingBadge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: #b8860b;
+  color: #000;
+  font-size: 9px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+  z-index: 3;
+  pointer-events: none;
+}
+.dateUpcoming { color: #b8860b; }
+
 /* Child variant — same proportions, just slightly dimmed */
 .childCard {
   opacity: 0.75;
