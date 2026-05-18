@@ -37,27 +37,41 @@ All data from the AutoMana PostgreSQL database.
 
 ### Event Time Axis
 - `T = 0`: reprint set release date.
-- `T = -21`: proxy for announcement/spoiler season start (~3 weeks before release).
-- Window: `T-21` to `T+365` (capped by data availability — max `2026-05-16`).
+- `T = -45`: **clean baseline** — predates virtually all set announcements and spoiler-season movement.
+- `T = -21`: secondary timestamp marking the start of active preview season.
+- `T = +7`: end of release-week price shock.
+- Window: `T-45` to `T+365` (capped by data availability — max `2026-05-16`).
+- Three analytically distinct sub-windows:
+  - `[T-45, T-21]` — **announcement effect** (set announced, market front-runs reprint probability)
+  - `[T-21, T+7]` — **preview season effect** (individual cards spoiled, confirmed reprints drop)
+  - `[T+7, T+365]` — **post-release trajectory** (price discovery, recovery or continued decline)
 
 ### Baseline Price
-- For each reprint event, compute the **baseline price** as the median NM sell price of the card's `regular_nonfoil` finish in the `[T-28, T-14]` window.
-- If no price exists in that window, the event is excluded from normalized trajectory analysis (still counted in the catalog).
-- Normalized price: `indexed_price = daily_price / baseline_price` (1.0 = pre-announcement level).
+- For each reprint event, compute the **baseline price** as the median NM sell price of the card's `regular_nonfoil` finish in the `[T-52, T-38]` window (7-day buffer before T-45).
+- If no price exists in that window, fall back to the earliest available price in `[T-90, T-38]`.
+- If still no price, the event is excluded from normalized trajectory analysis (still counted in the catalog).
+- Normalized price: `indexed_price = daily_price / baseline_price` (1.0 = pre-announcement clean baseline).
 
 ### Version Tracking
+- **Primary comparison**: `regular_nonfoil` for both original print and reprint version — apples-to-apples, highest liquidity.
+- **Parallel foil series**: also track `regular_foil` of the original print normalized to the same T-45 baseline, as a separate series (not merged into primary analysis).
+- **Reprint foil flag**: each event is tagged `reprint_includes_foil = True/False` depending on whether the reprint set includes a foil version of the card. This is the single most important moderating variable.
 - **Original print**: the `card_version_id` belonging to the card's first-ever set (or earliest set with price data).
-- **Reprint version**: the `card_version_id` belonging to the reprint set.
-- Both tracked in `regular_nonfoil` finish for a clean apples-to-apples comparison.
+- **Reprint version**: the `card_version_id` belonging to the reprint set being studied.
 
 ### Set Type Categories
 ```
-masters        → UMA, 2XM, 2X2, CMM, DMR, MMA, etc.
-expansion      → Standard-legal expansion sets
+masters        → UMA, 2XM, 2X2, CMM, DMR, MMA, MH2, MH3, etc.
+expansion      → Standard-legal expansion sets (bonus sheet cards included)
 core           → Core sets (M19, M20, M21, etc.)
 commander      → Commander precon decks
-special        → Universes Beyond, Secret Lair, Jumpstart, etc.
+ub_large       → Universes Beyond large sets (LTR, FIN, SPM, TLA, TMT, etc.)
+secret_lair    → Secret Lair drops (print-to-demand, fixed supply window)
+list_jumpstart → The List / Special Guests / Jumpstart (moderate pull rate reprints)
 ```
+
+Note: Secret Lair and list_jumpstart will have low event counts — reported descriptively
+if n < 5, excluded from aggregate regression/chart lines.
 
 ---
 
@@ -65,7 +79,8 @@ special        → Universes Beyond, Secret Lair, Jumpstart, etc.
 
 ### Part 0 — Setup
 - Imports, DB config, helper functions (same pattern as `treatment_price_analysis.ipynb`)
-- Constants: `EVENT_WINDOW = (-21, 365)`, `RARITY_FILTER = ['mythic', 'rare']`
+- Constants: `EVENT_WINDOW = (-45, 365)`, `BASELINE_WINDOW = (-52, -38)`, `RARITY_FILTER = ['mythic', 'rare']`
+- Set type category map: `masters / expansion / core / commander / ub_large / secret_lair / list_jumpstart`
 - `REFRESH = True` flag for re-querying vs loading parquet cache
 
 ### Part 1 — Reprint Event Catalog
@@ -78,15 +93,17 @@ special        → Universes Beyond, Secret Lair, Jumpstart, etc.
 
 ### Part 2 — Event Price Windows
 **SQL:** For each reprint event, pull `print_price_daily` rows for all `card_version_id`s of that `unique_card_id`, filtered to:
-- `finish = NONFOIL`, `condition = NM`, `transaction_type = sell`, `language = en`
-- Date range: `[reprint_release - 28, reprint_release + 365]`
+- `finish IN (NONFOIL, FOIL)`, `condition = NM`, `transaction_type = sell`, `language = en`
+- Date range: `[reprint_release - 52, reprint_release + 365]`
 
 **Processing:**
 1. Separate rows into `version_type`: `original_print` (earliest set) vs `reprint_version` (reprint set) vs `other_reprint` (any other earlier print also affected).
-2. Compute baseline price = median in `[T-28, T-14]` per `version_type`. Exclude events with no baseline.
-3. Compute `indexed_price = price_cents / baseline_cents`.
-4. Add `days_from_release = price_date - reprint_release`.
-5. Bin days into weekly intervals for smoothing.
+2. Separate `finish_code` column — primary analysis uses `NONFOIL`; foil data kept as parallel series.
+3. Compute baseline price = median in `[T-52, T-38]` per `version_type` × `finish_code`. Exclude events with no nonfoil baseline.
+4. Tag each event with `reprint_includes_foil` flag (True if the reprint set has a FOIL version of this card in our price data).
+5. Compute `indexed_price = price_cents / baseline_cents`.
+6. Add `days_from_release = price_date - reprint_release`.
+7. Bin days into weekly intervals for smoothing.
 
 **Output:**
 - Long-form DataFrame: `(event_id, version_type, days_from_release, indexed_price)`
@@ -94,13 +111,13 @@ special        → Universes Beyond, Secret Lair, Jumpstart, etc.
 
 ### Part 3 — Average Trajectory by Set Type
 **Chart:** 2 subplots (mythic / rare), each with one line per `reprint_set_type`.
-- X-axis: days from release (`-21` to `+365`), weekly resolution
-- Y-axis: median indexed price across all events in that bucket
+- X-axis: days from release (`-45` to `+365`), weekly resolution
+- Y-axis: median indexed price across all events in that bucket (nonfoil primary)
 - Shaded IQR band (p25–p75) per set type
-- Horizontal dashed line at `y = 1.0` (pre-announcement baseline)
-- Vertical dashed line at `x = 0` (release day)
+- Three vertical dashed lines: `T-45` (baseline), `T-21` (preview season opens), `T=0` (release day)
+- Horizontal dashed line at `y = 1.0` (baseline reference)
 
-**Answers:** How much does each reprint category suppress price on average, and does it recover?
+**Answers:** How much does each reprint category suppress price on average, and does it recover? Also reveals the announcement-effect phase (T-45 to T-21) vs the spoiler-season phase (T-21 to T0).
 
 ### Part 4 — Price Drop Depth
 **Metrics per event:**
@@ -119,27 +136,37 @@ special        → Universes Beyond, Secret Lair, Jumpstart, etc.
 - `rebound_T90`: `indexed_price_at_T+90 / trough_value - 1`
 - `rebound_T180`: `indexed_price_at_T+180 / trough_value - 1`
 - `rebound_T365`: `indexed_price_at_T+365 / trough_value - 1`
-- `full_recovery_flag`: boolean — does `indexed_price_at_T+365 >= 1.0`?
 
-**Chart:** Line chart of median rebound over time, by set type + rarity.
+**Three recovery thresholds (all computed):**
 
-**Summary table:** percent of events achieving full recovery at T+90, T+180, T+365.
+1. **Nominal recovery**: `indexed_price_at_T+365 >= 1.0` — price returns to the T-45 pre-announcement level.
+2. **Market-adjusted recovery**: `indexed_price_at_T+365 >= control_group_index_at_T+365` — price keeps pace with comparable unaffected cards over the same period. Control group = cards of same rarity + format tier with no reprints or bans in the window; their median price change from T-45 to each horizon forms the market index.
+3. **Spread normalization**: `value_retention_ratio` (original/reprint) stabilizes within a consistent range (observed empirically from Part 6 data).
 
-**Answers:** Does the price ever come back, and how long does it take?
+**Chart:** Line chart of median rebound over time by set type + rarity; three threshold lines overlaid.
+
+**Summary table:** percent of events achieving each recovery threshold at T+90, T+180, T+365.
+
+**Answers:** Does the price come back? On what definition? How does the answer change if you adjust for market inflation?
 
 ### Part 6 — Original Print vs Reprint Version
-Restricted to events where we have price data for **both** `original_print` and `reprint_version`.
+Restricted to events where we have price data for **both** `original_print` and `reprint_version` (nonfoil primary; foil original tracked as a third line where available).
 
 **Metrics:**
-- `value_retention_ratio`: `indexed_price_original / indexed_price_reprint` at each time step
-- If `ratio > 1`: original is holding value better than the reprint
-- Computed at `T+30, T+90, T+180, T+365`
+- `value_retention_ratio`: `indexed_price_original_nf / indexed_price_reprint_nf` at each time step.
+  - Ratio > 1.0: original nonfoil is worth more than the reprint nonfoil (premium expanding)
+  - Ratio < 1.0: reprint is priced higher (unusual but happens for premium-art reprints)
+- `foil_multiplier_original`: `price_original_foil / price_original_nonfoil` tracked over time — does the foil premium expand after the nonfoil is reprinted?
+- Both computed at `T+30, T+90, T+180, T+365`.
+- Split by `reprint_includes_foil` flag — the dynamics differ significantly.
 
-**Chart:** Dual-line normalized trajectory — original vs reprint, for each `reprint_set_type`. Faceted by rarity.
+**Chart:**
+- Panel A: Dual-line normalized trajectory (original NF vs reprint NF), faceted by set type + rarity.
+- Panel B (where n ≥ 10): Triple-line chart (original NF / original foil / reprint NF), restricted to events where the reprint does NOT include a foil — cleanest case for foil premium expansion.
 
-**Summary table:** median `value_retention_ratio` by set type and rarity at each horizon.
+**Summary table:** median `value_retention_ratio` and `foil_multiplier_original` by set type, rarity, and `reprint_includes_foil` flag.
 
-**Answers:** Does buying the original print protect you better than buying the reprint?
+**Answers:** Does buying the original print protect you? Does the foil premium on the original expand after the nonfoil gets reprinted?
 
 ### Part 7 — Rarity Effect
 Cross-cut of Parts 3–6 split by rarity. Focus: does rarity change drop depth, rebound speed, or original vs reprint retention?
@@ -171,14 +198,18 @@ Human-readable takeaways (4–6 bullet points), in the same style as the treatme
 
 ---
 
-## MTG Finance Assumptions to Validate
+## MTG Finance Expert Validation — Resolved
 
-The following assumptions should be reviewed by the MTG finance expert before finalizing:
+Consulted with MTG finance expert 2026-05-18. All four assumptions updated based on feedback:
 
-1. **T-21 as announcement proxy**: WotC typically previews cards 2–3 weeks before release. Some cards are revealed earlier via pack leaks or official previews. This is a simplification.
-2. **Regular nonfoil as price proxy**: We compare `regular_nonfoil` for both original and reprint versions. Foil/treatment price dynamics after reprints may differ significantly.
-3. **"Recovery" definition**: We define full recovery as returning to the pre-announcement price. In finance terms this ignores opportunity cost and market-wide MTG price trends (which have been inflationary 2021–2026).
-4. **Set type taxonomy**: "Special" is a catch-all for Universes Beyond, Secret Lair, Jumpstart. These have different print run dynamics and may warrant separation.
+| Assumption | Resolution |
+|---|---|
+| T-21 baseline | Changed to T-45 (clean pre-announcement); T-21 kept as secondary timestamp. Three sub-windows defined. |
+| Regular nonfoil primary | Kept. Added parallel original-foil series + `reprint_includes_foil` flag per event. |
+| Recovery = nominal price | Changed. Three definitions: nominal, market-adjusted (vs control cards), spread normalization. |
+| "Special" catch-all | Split into `ub_large` / `secret_lair` / `list_jumpstart`. Thin buckets reported descriptively only. |
+
+**Key domain insight from expert:** The `reprint_includes_foil` flag is the single most important moderating variable. When the reprint does NOT include a foil, the original foil often holds flat or rises (scarcity identity); when the reprint includes a foil, original foil drops but recovers faster than original nonfoil.
 
 ---
 
