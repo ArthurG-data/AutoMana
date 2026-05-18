@@ -1,0 +1,102 @@
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+  padding: 0;
+}
+@media (min-width: 980px)  { .grid { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 1460px) { .grid { grid-template-columns: repeat(4, 1fr); } }
+@media (min-width: 1700px) { .grid { grid-template-columns: repeat(5, 1fr); } }
+
+.cardWrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.cardWrap:hover .removeBtn { opacity: 1; }
+
+.removeBtn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.72);
+  border: 1px solid rgba(255, 100, 100, 0.3);
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #f87171;
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 150ms ease;
+  backdrop-filter: blur(4px);
+  padding: 0;
+}
+.removeBtn:hover { background: rgba(200, 50, 50, 0.72); }
+
+.cardInfo { padding: 6px 4px; }
+
+.cardName {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--hd-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 3px;
+}
+
+.badges {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+.badge {
+  font-size: 9px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--hd-surface-2, #1f2937);
+  color: var(--hd-sub);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.badgeFoil { color: #818cf8; }
+.badgeEtched { color: #f59e0b; }
+
+.priceRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 2px;
+}
+
+.price {
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--hd-text);
+}
+
+.pl {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+.plUp { color: var(--hd-accent); }
+.plDown { color: var(--hd-red); }
+
+.empty {
+  padding: 40px;
+  text-align: center;
+  color: var(--hd-muted);
+  font-size: 14px;
+  grid-column: 1 / -1;
+}
