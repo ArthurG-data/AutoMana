@@ -84,7 +84,16 @@ async def test_search_sort_by_price_uses_psp_join():
     await repo.search(sort_by="price", sort_order="asc")
     main_call_sql = repo.execute_query.call_args_list[0][0][0]
     assert "pricing.mv_card_price_spark" in main_call_sql
-    assert "psp.price" in main_call_sql or "sort_price" in main_call_sql
+    assert "ORDER BY psp.price" in main_call_sql or "ORDER BY sort_price" in main_call_sql
+
+
+@pytest.mark.asyncio
+async def test_search_sort_by_price_collapse_uses_sort_price():
+    repo = _make_repo([_CARD_ROW], [{"total_count": 1}], [{"promo_type_facets": []}])
+    await repo.search(sort_by="price", sort_order="asc", collapse=True)
+    main_call_sql = repo.execute_query.call_args_list[0][0][0]
+    assert "sort_price" in main_call_sql
+    assert "NULLS LAST" in main_call_sql
 
 
 @pytest.mark.asyncio

@@ -548,7 +548,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
             "FROM card_catalog.v_card_versions_complete v"
             " JOIN card_catalog.sets s ON s.set_id = v.set_id"
             " LEFT JOIN card_catalog.card_version_illustration cvi ON cvi.card_version_id = v.card_version_id"
-            " LEFT JOIN pricing.mv_card_price_spark psp ON psp.card_version_id = v.card_version_id"
+            " LEFT JOIN pricing.mv_card_price_spark psp ON psp.card_version_id = v.card_version_id"  # mv_card_price_spark is keyed on card_version_id (one row per version) — no fan-out risk
         )
 
         # Outer ORDER BY for collapse mode — references subquery columns (no table prefix).
