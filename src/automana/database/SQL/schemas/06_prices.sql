@@ -1859,6 +1859,8 @@ DECLARE
   v_print_id        bigint := 0;
   v_external_id     bigint := 0;
   v_set_collector   bigint := 0;
+  v_art_card        bigint := 0;
+  v_token_name      bigint := 0;
   v_unresolved      bigint := 0;
   v_terminal_scry   bigint := 0;
 BEGIN
@@ -1964,30 +1966,71 @@ BEGIN
           OR lower(uc.card_name) = lower(r.card_name)
           OR lower(r.card_name) LIKE (lower(uc.card_name) || ' (%')
       )
+  ),
+  map_art AS (
+    SELECT DISTINCT r.print_id, cv.card_version_id
+    FROM tmp_rejects r
+    JOIN pricing.mtgstock_art_set_map asm
+      ON asm.mtgstocks_set_code = UPPER(r.set_abbr)
+    JOIN card_catalog.sets s
+      ON s.set_code = asm.scryfall_set_code
+    JOIN card_catalog.card_version cv
+      ON cv.set_id = s.set_id
+     AND cv.collector_number::text = r.collector_number
+    WHERE r.set_abbr IS NOT NULL
+      AND r.collector_number IS NOT NULL
+  ),
+  map_tok AS (
+    SELECT DISTINCT ON (r.print_id)
+      r.print_id, cv.card_version_id
+    FROM tmp_rejects r
+    JOIN pricing.mtgstock_token_set_map tsm
+      ON tsm.mtgstocks_set_code = UPPER(r.set_abbr)
+    JOIN card_catalog.sets s
+      ON s.set_code = tsm.token_set_code
+    JOIN card_catalog.card_version cv
+      ON cv.set_id = s.set_id
+    WHERE r.set_abbr IS NOT NULL
+      AND r.collector_number IS NULL
+      AND r.card_name IS NOT NULL
+      AND (
+        cv.name ILIKE SPLIT_PART(REGEXP_REPLACE(r.card_name, '\s*(Token|Double-Sided Token)$', '', 'i'), ' // ', 1)
+        OR (
+          SPLIT_PART(REGEXP_REPLACE(r.card_name, '\s*(Token|Double-Sided Token)$', '', 'i'), ' // ', 2) <> ''
+          AND cv.name ILIKE SPLIT_PART(REGEXP_REPLACE(r.card_name, '\s*(Token|Double-Sided Token)$', '', 'i'), ' // ', 2)
+        )
+      )
+    ORDER BY r.print_id, cv.card_version_id
   )
   SELECT
     r.*,
-    COALESCE(mp.card_version_id, me.card_version_id, mf.card_version_id) AS card_version_id,
+    COALESCE(mp.card_version_id, me.card_version_id, mf.card_version_id, ma.card_version_id, mt.card_version_id) AS card_version_id,
     CASE
       WHEN mp.card_version_id IS NOT NULL THEN 'PRINT_ID'
       WHEN me.card_version_id IS NOT NULL THEN 'EXTERNAL_ID'
       WHEN mf.card_version_id IS NOT NULL THEN 'SET_COLLECTOR'
+      WHEN ma.card_version_id IS NOT NULL THEN 'ART_CARD'
+      WHEN mt.card_version_id IS NOT NULL THEN 'TOKEN_NAME'
       ELSE 'UNRESOLVED'
     END AS resolution_method
   FROM tmp_rejects r
   LEFT JOIN map_print mp ON mp.print_id = r.print_id
   LEFT JOIN map_ext   me ON me.print_id = r.print_id
-  LEFT JOIN map_fb    mf ON mf.set_abbr = r.set_abbr AND mf.collector_number = r.collector_number;
+  LEFT JOIN map_fb    mf ON mf.set_abbr = r.set_abbr AND mf.collector_number = r.collector_number
+  LEFT JOIN map_art   ma ON ma.print_id = r.print_id
+  LEFT JOIN map_tok   mt ON mt.print_id = r.print_id;
 
   SELECT
     COUNT(*) FILTER (WHERE resolution_method = 'PRINT_ID'),
     COUNT(*) FILTER (WHERE resolution_method = 'EXTERNAL_ID'),
     COUNT(*) FILTER (WHERE resolution_method = 'SET_COLLECTOR'),
+    COUNT(*) FILTER (WHERE resolution_method = 'ART_CARD'),
+    COUNT(*) FILTER (WHERE resolution_method = 'TOKEN_NAME'),
     COUNT(*) FILTER (WHERE resolution_method = 'UNRESOLVED')
-  INTO v_print_id, v_external_id, v_set_collector, v_unresolved
+  INTO v_print_id, v_external_id, v_set_collector, v_art_card, v_token_name, v_unresolved
   FROM tmp_resolved;
-  RAISE NOTICE 'resolve_price_rejects: PRINT_ID=% EXTERNAL_ID=% SET_COLLECTOR=% UNRESOLVED=%',
-    v_print_id, v_external_id, v_set_collector, v_unresolved;
+  RAISE NOTICE 'resolve_price_rejects: PRINT_ID=% EXTERNAL_ID=% SET_COLLECTOR=% ART_CARD=% TOKEN_NAME=% UNRESOLVED=%',
+    v_print_id, v_external_id, v_set_collector, v_art_card, v_token_name, v_unresolved;
 
   -- 1b) Back-fill mtgstock_id mapping for rows resolved via EXTERNAL_ID or
   --     SET_COLLECTOR (PRINT_ID rows are already in card_external_identifier).
