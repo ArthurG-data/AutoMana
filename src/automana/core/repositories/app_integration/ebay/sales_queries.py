@@ -122,6 +122,20 @@ DO UPDATE SET
     updated_at     = now();
 """
 
+GET_LISTING_META_BATCH = """
+SELECT
+    eal.item_id,
+    eal.card_version_id,
+    cf.code  AS finish_code,
+    cc.code  AS condition_code
+FROM app_integration.ebay_active_listings eal
+JOIN card_catalog.card_finished   cf ON cf.finish_id    = COALESCE(eal.finish_id,    pricing.default_finish_id())
+JOIN pricing.card_condition       cc ON cc.condition_id = COALESCE(eal.condition_id, pricing.default_condition_id())
+WHERE eal.item_id  = ANY($1::TEXT[])
+  AND eal.app_code = $2
+  AND eal.card_version_id IS NOT NULL
+"""
+
 GET_LISTING_META = """
 SELECT
     eal.card_version_id,

@@ -446,6 +446,8 @@ class ItemModel(BaseModel):
     VRM: Optional[str] = Field(None, alias="vrm")
     VRMLink: Optional[str] = Field(None, alias="vrmLink")
     WatchCount: Optional[int] = Field(None, alias="watchCount")
+    CatalogFinish: Optional[str] = Field(None, alias="catalogFinish")
+    CatalogCondition: Optional[str] = Field(None, alias="catalogCondition")
 
     model_config = ConfigDict(populate_by_name=True, extra="allow")
 

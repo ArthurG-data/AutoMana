@@ -199,6 +199,18 @@ class EbaySalesRepository(AbstractRepository):
             ),
         )
 
+    async def get_listing_meta_batch(
+        self, item_ids: list[str], app_code: str
+    ) -> dict[str, dict]:
+        """Return a mapping of item_id → {finish_code, condition_code} for linked listings."""
+        if not item_ids:
+            return {}
+        rows = await self.execute_query(
+            sales_queries.GET_LISTING_META_BATCH,
+            (item_ids, app_code),
+        )
+        return {str(r["item_id"]): dict(r) for r in rows}
+
     async def get_listing_meta(self, item_id: str, app_code: str) -> Optional[dict]:
         """Fetch card_version_id + finish/condition IDs for an active listing.
 

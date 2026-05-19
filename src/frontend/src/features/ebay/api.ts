@@ -118,6 +118,32 @@ interface RawEbayItem {
       | Array<{ Name: string; Value: string | string[] }>
       | { Name: string; Value: string | string[] }
   } | null
+  catalogFinish?: string | null
+  catalogCondition?: string | null
+}
+
+function catalogFinishToLabel(code: string | null | undefined): string {
+  switch (code?.toUpperCase()) {
+    case 'NONFOIL':     return 'Regular'
+    case 'FOIL':        return 'Foil'
+    case 'ETCHED':      return 'Etched Foil'
+    case 'SURGE_FOIL':  return 'Surge Foil'
+    case 'RIPPLE_FOIL': return 'Ripple Foil'
+    case 'RAINBOW_FOIL':return 'Rainbow Foil'
+    default:            return ''
+  }
+}
+
+function catalogConditionToLabel(code: string | null | undefined): string {
+  switch (code?.toUpperCase()) {
+    case 'NM':  return 'Near Mint'
+    case 'LP':  return 'Lightly Played'
+    case 'SP':  return 'Slightly Played'
+    case 'MP':  return 'Moderately Played'
+    case 'HP':  return 'Heavily Played'
+    case 'DMG': return 'Damaged'
+    default:    return ''
+  }
 }
 
 // Generic eBay condition ID → label fallback for when ConditionDisplayName is absent.
@@ -198,13 +224,14 @@ function mapToLiveListing(raw: RawEbayItem): Omit<EbayLiveListing, 'appCode' | '
     price: Number(priceObj?.value ?? 0),
     currency: priceObj?.currency ?? 'AUD',
     conditionLabel:
-      raw.conditionDisplayName ??
-      raw.conditionDescription ??
+      catalogConditionToLabel(raw.catalogCondition) ||
+      raw.conditionDisplayName ||
+      raw.conditionDescription ||
       ebayConditionLabel(raw.conditionID),
     conditionId: raw.conditionID ?? undefined,
     quantity: raw.quantity ?? undefined,
-    // ItemSpecifics is the primary source; fall back to title-extracted value.
-    finish: getFinish(raw.itemSpecifics) || titleFinish || 'Regular',
+    // Prefer catalog-resolved finish (from ebay_active_listings FK); fall back to ItemSpecifics then title.
+    finish: catalogFinishToLabel(raw.catalogFinish) || getFinish(raw.itemSpecifics) || titleFinish || 'Regular',
     style: getStyle(raw.itemSpecifics) || titleStyle,
     daysListed: calcDaysListed(raw.listingDetails?.startTime),
     watchCount: raw.watchCount ?? 0,
