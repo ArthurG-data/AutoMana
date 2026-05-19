@@ -13,8 +13,10 @@ interface ListingsTableProps {
   onRowClick?: (id: string) => void
 }
 
-type SortKey = 'cardName' | 'setCode' | 'appName' | 'conditionLabel' | 'finish' | 'style' | 'price' | 'daysListed' | 'watchCount'
+type SortKey = 'cardName' | 'setCode' | 'appName' | 'conditionLabel' | 'finish' | 'style' | 'price' | 'daysListed' | 'watchCount' | 'signal'
 type SortDir = 'asc' | 'desc'
+
+const SIGNAL_ORDER: Record<string, number> = { raise: 0, lower: 1, hold: 2, draft: 3 }
 
 const APP_PALETTE = ['#a78bfa', '#60a5fa', '#34d399', '#f59e0b']
 const COL_COUNT = 11
@@ -54,6 +56,11 @@ export function ListingsTable({ listings, isLoading = false, selectedId, onRowCl
     if (!sortKey) return filtered
 
     return [...filtered].sort((a, b) => {
+      if (sortKey === 'signal') {
+        const ao = SIGNAL_ORDER[a.recommendation?.suggested_action ?? ''] ?? 99
+        const bo = SIGNAL_ORDER[b.recommendation?.suggested_action ?? ''] ?? 99
+        return sortDir === 'asc' ? ao - bo : bo - ao
+      }
       const av = a[sortKey]
       const bv = b[sortKey]
       if (typeof av === 'number' && typeof bv === 'number') {
@@ -140,7 +147,9 @@ export function ListingsTable({ listings, isLoading = false, selectedId, onRowCl
                 WATCH <SortIndicator active={sortKey === 'watchCount'} dir={sortDir} />
               </th>
               <th scope="col" className={styles.center}>STATUS</th>
-              <th scope="col" className={styles.center}>SIGNAL</th>
+              <th scope="col" className={[styles.center, styles.sortable].join(' ')} onClick={() => handleSort('signal')}>
+                SIGNAL <SortIndicator active={sortKey === 'signal'} dir={sortDir} />
+              </th>
             </tr>
           </thead>
           <tbody>
