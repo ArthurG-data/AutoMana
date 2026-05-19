@@ -306,6 +306,8 @@ export function ListingsTable({ listings, isLoading = false, selectedId, onRowCl
                     <SignalBadge
                       action={listing.recommendation?.suggested_action}
                       confidence={listing.recommendation?.confidence}
+                      strategies={listing.recommendation?.all_strategies}
+                      currency={listing.currency}
                     />
                   </td>
                 </tr>

@@ -143,22 +143,31 @@ export function ListingDetailPanel({ listing, onEdit, onClose, onCompare }: List
               <SignalBadge
                 action={recommendation.suggested_action}
                 confidence={recommendation.confidence}
+                currency={listing.currency}
               />
             </div>
 
             {Object.keys(recommendation.all_strategies).length > 0 && (
               <ul className={styles.strategyList}>
-                {Object.entries(recommendation.all_strategies).map(([kind, strategy]) => (
-                  <li key={kind} className={styles.strategyItem}>
-                    <span className={styles.strategyKind}>{kind}</span>
-                    <span className={styles.strategyPrice}>
-                      {listing.currency} {strategy.price.toFixed(2)}
-                    </span>
-                    <span className={styles.strategyConfidence}>
-                      {Math.round(strategy.confidence * 100)}%
-                    </span>
-                  </li>
-                ))}
+                {Object.entries(recommendation.all_strategies).map(([kind, strategy]) => {
+                  const isSelected = kind === recommendation.strategy_kind
+                  return (
+                    <li
+                      key={kind}
+                      className={[styles.strategyItem, isSelected ? styles.strategyItemActive : ''].filter(Boolean).join(' ')}
+                    >
+                      <span className={[styles.strategyKind, isSelected ? styles.strategyKindActive : ''].filter(Boolean).join(' ')}>
+                        {isSelected ? '▶ ' : '  '}{kind}
+                      </span>
+                      <span className={styles.strategyPrice}>
+                        {listing.currency} {strategy.price.toFixed(2)}
+                      </span>
+                      <span className={styles.strategyConfidence}>
+                        {Math.round(strategy.confidence * 100)}%
+                      </span>
+                    </li>
+                  )
+                })}
               </ul>
             )}
 
