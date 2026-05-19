@@ -89,7 +89,92 @@ INSERT INTO pricing.mtgstock_art_set_map (mtgstocks_set_code, scryfall_set_code)
     ('AATDM', 'aatdm'),
     ('ASLD',  'asld'),
     ('APRE',  'apre'),
-    ('AMAT',  'amat')
+    ('AMAT',  'amat'),
+    ('AACR',  'aacr'),
+    ('AAFR',  'aafr'),
+    ('ABLB',  'ablb'),
+    ('ABRO',  'abro'),
+    ('ACLB',  'aclb'),
+    ('ACMM',  'acmm'),
+    ('ADMU',  'admu'),
+    ('ADSK',  'adsk'),
+    ('AECL',  'aecl'),
+    ('AFDN',  'afdn'),
+    ('AJMP',  'ajmp'),
+    ('AKHM',  'akhm'),
+    ('ALCI',  'alci'),
+    ('ALTC',  'altc'),
+    ('ALTR',  'altr'),
+    ('AMH1',  'amh1'),
+    ('AMH2',  'amh2'),
+    ('AMH3',  'amh3'),
+    ('AMID',  'amid'),
+    ('AMKM',  'amkm'),
+    ('AMOM',  'amom'),
+    ('ANEO',  'aneo'),
+    ('AONE',  'aone'),
+    ('AOTJ',  'aotj'),
+    ('ASNC',  'asnc'),
+    ('ASOS',  'asos'),
+    ('ASPM',  'aspm'),
+    ('ASTX',  'astx'),
+    ('ATDM',  'atdm'),
+    ('ATLA',  'atla'),
+    ('ATLE',  'atle'),
+    ('ATMT',  'atmt'),
+    ('AVOW',  'avow'),
+    ('AWOE',  'awoe'),
+    ('AZNR',  'aznr')
+ON CONFLICT (mtgstocks_set_code) DO NOTHING;
+
+INSERT INTO pricing.mtgstock_token_set_map (mtgstocks_set_code, token_set_code) VALUES
+    ('10E', 't10e'), ('2X2', 't2x2'), ('2XM', 't2xm'), ('30A', 't30a'),
+    ('40K', 't40k'), ('A25', 'ta25'), ('ACR', 'tacr'), ('AER', 'taer'),
+    ('AFC', 'tafc'), ('AFR', 'tafr'), ('AKH', 'takh'), ('ALA', 'tala'),
+    ('ARB', 'tarb'), ('AVR', 'tavr'), ('BBD', 'tbbd'), ('BFZ', 'tbfz'),
+    ('BIG', 'tbig'), ('BLB', 'tblb'), ('BLC', 'tblc'), ('BNG', 'tbng'),
+    ('BOT', 'tbot'), ('BRC', 'tbrc'), ('BRO', 'tbro'), ('C14', 'tc14'),
+    ('C15', 'tc15'), ('C16', 'tc16'), ('C17', 'tc17'), ('C18', 'tc18'),
+    ('C19', 'tc19'), ('C20', 'tc20'), ('C21', 'tc21'), ('CLB', 'tclb'),
+    ('CM2', 'tcm2'), ('CMA', 'tcma'), ('CMM', 'tcmm'), ('CMR', 'tcmr'),
+    ('CN2', 'tcn2'), ('CNS', 'tcns'), ('CON', 'tcon'), ('DD1', 'tdd1'),
+    ('DD2', 'tdd2'), ('DDC', 'tddc'), ('DDD', 'tddd'), ('DDE', 'tdde'),
+    ('DDF', 'tddf'), ('DDG', 'tddg'), ('DDH', 'tddh'), ('DDI', 'tddi'),
+    ('DDJ', 'tddj'), ('DDK', 'tddk'), ('DDL', 'tddl'), ('DDM', 'tddm'),
+    ('DDS', 'tdds'), ('DDT', 'tddt'), ('DDU', 'tddu'), ('DFT', 'tdft'),
+    ('DGM', 'tdgm'), ('DKA', 'tdka'), ('DMC', 'tdmc'), ('DMR', 'tdmr'),
+    ('DMU', 'tdmu'), ('DOM', 'tdom'), ('DRC', 'tdrc'), ('DSC', 'tdsc'),
+    ('DSK', 'tdsk'), ('DTK', 'tdtk'), ('DVD', 'tdvd'), ('E01', 'te01'),
+    ('ECC', 'tecc'), ('ECL', 'tecl'), ('ELD', 'teld'), ('EMA', 'tema'),
+    ('EMN', 'temn'), ('EOC', 'teoc'), ('EOE', 'teoe'), ('EVE', 'teve'),
+    ('EVG', 'tevg'), ('FDN', 'tfdn'), ('FIC', 'tfic'), ('FIN', 'tfin'),
+    ('FRF', 'tfrf'), ('GK1', 'tgk1'), ('GK2', 'tgk2'), ('GN2', 'tgn2'),
+    ('GN3', 'tgn3'), ('GRN', 'tgrn'), ('GTC', 'tgtc'), ('GVL', 'tgvl'),
+    ('HOB', 'thob'), ('HOU', 'thou'), ('IKO', 'tiko'), ('IMA', 'tima'),
+    ('INR', 'tinr'), ('ISD', 'tisd'), ('JOU', 'tjou'), ('JVC', 'tjvc'),
+    ('KHC', 'tkhc'), ('KHM', 'tkhm'), ('KLD', 'tkld'), ('KTK', 'tktk'),
+    ('LCC', 'tlcc'), ('LCI', 'tlci'), ('LRW', 'tlrw'), ('LTC', 'tltc'),
+    ('LTR', 'tltr'), ('M10', 'tm10'), ('M11', 'tm11'), ('M12', 'tm12'),
+    ('M13', 'tm13'), ('M14', 'tm14'), ('M15', 'tm15'), ('M19', 'tm19'),
+    ('M20', 'tm20'), ('M21', 'tm21'), ('M3C', 'tm3c'), ('MBS', 'tmbs'),
+    ('MD1', 'tmd1'), ('MED', 'tmed'), ('MH1', 'tmh1'), ('MH2', 'tmh2'),
+    ('MH3', 'tmh3'), ('MIC', 'tmic'), ('MID', 'tmid'), ('MKC', 'tmkc'),
+    ('MKM', 'tmkm'), ('MM2', 'tmm2'), ('MM3', 'tmm3'), ('MMA', 'tmma'),
+    ('MOC', 'tmoc'), ('MOM', 'tmom'), ('MOR', 'tmor'), ('MSH', 'tmsh'),
+    ('MUL', 'tmul'), ('NCC', 'tncc'), ('NEC', 'tnec'), ('NEO', 'tneo'),
+    ('NPH', 'tnph'), ('OGW', 'togw'), ('ONC', 'tonc'), ('ONE', 'tone'),
+    ('ORI', 'tori'), ('OTC', 'totc'), ('OTJ', 'totj'), ('OTP', 'totp'),
+    ('PCA', 'tpca'), ('PIP', 'tpip'), ('REX', 'trex'), ('RIX', 'trix'),
+    ('RNA', 'trna'), ('ROE', 'troe'), ('RTR', 'trtr'), ('RVR', 'trvr'),
+    ('SCD', 'tscd'), ('SHM', 'tshm'), ('SNC', 'tsnc'), ('SOC', 'tsoc'),
+    ('SOI', 'tsoi'), ('SOM', 'tsom'), ('SOS', 'tsos'), ('SPM', 'tspm'),
+    ('STX', 'tstx'), ('TDC', 'ttdc'), ('TDM', 'ttdm'), ('THB', 'tthb'),
+    ('THS', 'tths'), ('TLA', 'ttla'), ('TLE', 'ttle'), ('TMC', 'ttmc'),
+    ('TMT', 'ttmt'), ('TSR', 'ttsr'), ('UGL', 'tugl'), ('UMA', 'tuma'),
+    ('UND', 'tund'), ('UNF', 'tunf'), ('UST', 'tust'), ('VOC', 'tvoc'),
+    ('VOW', 'tvow'), ('WAR', 'twar'), ('WHO', 'twho'), ('WOC', 'twoc'),
+    ('WOE', 'twoe'), ('WWK', 'twwk'), ('XLN', 'txln'), ('ZEN', 'tzen'),
+    ('ZNC', 'tznc'), ('ZNR', 'tznr')
 ON CONFLICT (mtgstocks_set_code) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS pricing.card_game (
@@ -1141,6 +1226,48 @@ BEGIN
         OR lower(u.card_name) LIKE (lower(uc.card_name) || ' (%')
     );
 
+  -- (4) art card resolution: lookup via mtgstock_art_set_map, match by collector_number only
+  DROP TABLE IF EXISTS tmp_map_art;
+  CREATE TEMP TABLE tmp_map_art ON COMMIT DROP AS
+  SELECT DISTINCT
+    u.print_id,
+    cv.card_version_id
+  FROM tmp_raw_batch u
+  JOIN pricing.mtgstock_art_set_map asm
+    ON asm.mtgstocks_set_code = UPPER(u.set_abbr)
+  JOIN card_catalog.sets s
+    ON s.set_code = asm.scryfall_set_code
+  JOIN card_catalog.card_version cv
+    ON cv.set_id = s.set_id
+   AND cv.collector_number::text = u.collector_number
+  WHERE u.set_abbr IS NOT NULL
+    AND u.collector_number IS NOT NULL;
+
+  -- (5) token resolution: strip Token suffix, split double-sided faces, match by name
+  DROP TABLE IF EXISTS tmp_map_tok;
+  CREATE TEMP TABLE tmp_map_tok ON COMMIT DROP AS
+  SELECT DISTINCT ON (u.print_id)
+    u.print_id,
+    cv.card_version_id
+  FROM tmp_raw_batch u
+  JOIN pricing.mtgstock_token_set_map tsm
+    ON tsm.mtgstocks_set_code = UPPER(u.set_abbr)
+  JOIN card_catalog.sets s
+    ON s.set_code = tsm.token_set_code
+  JOIN card_catalog.card_version cv
+    ON cv.set_id = s.set_id
+  WHERE u.set_abbr IS NOT NULL
+    AND u.collector_number IS NULL
+    AND u.card_name IS NOT NULL
+    AND (
+      cv.name ILIKE SPLIT_PART(REGEXP_REPLACE(u.card_name, '\s*(Token|Double-Sided Token)$', '', 'i'), ' // ', 1)
+      OR (
+        SPLIT_PART(REGEXP_REPLACE(u.card_name, '\s*(Token|Double-Sided Token)$', '', 'i'), ' // ', 2) <> ''
+        AND cv.name ILIKE SPLIT_PART(REGEXP_REPLACE(u.card_name, '\s*(Token|Double-Sided Token)$', '', 'i'), ' // ', 2)
+      )
+    )
+  ORDER BY u.print_id, cv.card_version_id;
+
   -- 3d) Final resolved rows — built from tmp_batch_foil_split so that each row
   --     already carries the foil-split price columns (list_low_cents, list_avg_cents,
   --     sold_avg_cents, is_foil, value) needed by the reject insert and the staging
@@ -1151,11 +1278,13 @@ BEGIN
   CREATE TEMP TABLE tmp_resolved ON COMMIT DROP AS
   SELECT
     u.*,
-    COALESCE(mp.card_version_id, me.card_version_id, mf.card_version_id) AS card_version_id,
+    COALESCE(mp.card_version_id, me.card_version_id, mf.card_version_id, ma.card_version_id, mt.card_version_id) AS card_version_id,
     CASE
       WHEN mp.card_version_id IS NOT NULL THEN 'PRINT_ID'
       WHEN me.card_version_id IS NOT NULL THEN 'EXTERNAL_ID'
       WHEN mf.card_version_id IS NOT NULL THEN 'SET_COLLECTOR'
+      WHEN ma.card_version_id IS NOT NULL THEN 'ART_CARD'
+      WHEN mt.card_version_id IS NOT NULL THEN 'TOKEN_NAME'
       ELSE 'UNRESOLVED'
     END AS resolution_method
   FROM tmp_batch_foil_split u
@@ -1165,7 +1294,11 @@ BEGIN
     ON me.print_id = u.print_id
   LEFT JOIN tmp_map_fallback mf
     ON mf.set_abbr = u.set_abbr
-  AND mf.collector_number = u.collector_number;
+   AND mf.collector_number = u.collector_number
+  LEFT JOIN tmp_map_art ma
+    ON ma.print_id = u.print_id
+  LEFT JOIN tmp_map_tok mt
+    ON mt.print_id = u.print_id;
 
   -- -------------------------------------------------------------------------
   -- 3e) Backfill mtgstock_id mapping into identifier tables (if missing)
@@ -1726,6 +1859,8 @@ DECLARE
   v_print_id        bigint := 0;
   v_external_id     bigint := 0;
   v_set_collector   bigint := 0;
+  v_art_card        bigint := 0;
+  v_token_name      bigint := 0;
   v_unresolved      bigint := 0;
   v_terminal_scry   bigint := 0;
 BEGIN
@@ -1831,30 +1966,71 @@ BEGIN
           OR lower(uc.card_name) = lower(r.card_name)
           OR lower(r.card_name) LIKE (lower(uc.card_name) || ' (%')
       )
+  ),
+  map_art AS (
+    SELECT DISTINCT r.print_id, cv.card_version_id
+    FROM tmp_rejects r
+    JOIN pricing.mtgstock_art_set_map asm
+      ON asm.mtgstocks_set_code = UPPER(r.set_abbr)
+    JOIN card_catalog.sets s
+      ON s.set_code = asm.scryfall_set_code
+    JOIN card_catalog.card_version cv
+      ON cv.set_id = s.set_id
+     AND cv.collector_number::text = r.collector_number
+    WHERE r.set_abbr IS NOT NULL
+      AND r.collector_number IS NOT NULL
+  ),
+  map_tok AS (
+    SELECT DISTINCT ON (r.print_id)
+      r.print_id, cv.card_version_id
+    FROM tmp_rejects r
+    JOIN pricing.mtgstock_token_set_map tsm
+      ON tsm.mtgstocks_set_code = UPPER(r.set_abbr)
+    JOIN card_catalog.sets s
+      ON s.set_code = tsm.token_set_code
+    JOIN card_catalog.card_version cv
+      ON cv.set_id = s.set_id
+    WHERE r.set_abbr IS NOT NULL
+      AND r.collector_number IS NULL
+      AND r.card_name IS NOT NULL
+      AND (
+        cv.name ILIKE SPLIT_PART(REGEXP_REPLACE(r.card_name, '\s*(Token|Double-Sided Token)$', '', 'i'), ' // ', 1)
+        OR (
+          SPLIT_PART(REGEXP_REPLACE(r.card_name, '\s*(Token|Double-Sided Token)$', '', 'i'), ' // ', 2) <> ''
+          AND cv.name ILIKE SPLIT_PART(REGEXP_REPLACE(r.card_name, '\s*(Token|Double-Sided Token)$', '', 'i'), ' // ', 2)
+        )
+      )
+    ORDER BY r.print_id, cv.card_version_id
   )
   SELECT
     r.*,
-    COALESCE(mp.card_version_id, me.card_version_id, mf.card_version_id) AS card_version_id,
+    COALESCE(mp.card_version_id, me.card_version_id, mf.card_version_id, ma.card_version_id, mt.card_version_id) AS card_version_id,
     CASE
       WHEN mp.card_version_id IS NOT NULL THEN 'PRINT_ID'
       WHEN me.card_version_id IS NOT NULL THEN 'EXTERNAL_ID'
       WHEN mf.card_version_id IS NOT NULL THEN 'SET_COLLECTOR'
+      WHEN ma.card_version_id IS NOT NULL THEN 'ART_CARD'
+      WHEN mt.card_version_id IS NOT NULL THEN 'TOKEN_NAME'
       ELSE 'UNRESOLVED'
     END AS resolution_method
   FROM tmp_rejects r
   LEFT JOIN map_print mp ON mp.print_id = r.print_id
   LEFT JOIN map_ext   me ON me.print_id = r.print_id
-  LEFT JOIN map_fb    mf ON mf.set_abbr = r.set_abbr AND mf.collector_number = r.collector_number;
+  LEFT JOIN map_fb    mf ON mf.set_abbr = r.set_abbr AND mf.collector_number = r.collector_number
+  LEFT JOIN map_art   ma ON ma.print_id = r.print_id
+  LEFT JOIN map_tok   mt ON mt.print_id = r.print_id;
 
   SELECT
     COUNT(*) FILTER (WHERE resolution_method = 'PRINT_ID'),
     COUNT(*) FILTER (WHERE resolution_method = 'EXTERNAL_ID'),
     COUNT(*) FILTER (WHERE resolution_method = 'SET_COLLECTOR'),
+    COUNT(*) FILTER (WHERE resolution_method = 'ART_CARD'),
+    COUNT(*) FILTER (WHERE resolution_method = 'TOKEN_NAME'),
     COUNT(*) FILTER (WHERE resolution_method = 'UNRESOLVED')
-  INTO v_print_id, v_external_id, v_set_collector, v_unresolved
+  INTO v_print_id, v_external_id, v_set_collector, v_art_card, v_token_name, v_unresolved
   FROM tmp_resolved;
-  RAISE NOTICE 'resolve_price_rejects: PRINT_ID=% EXTERNAL_ID=% SET_COLLECTOR=% UNRESOLVED=%',
-    v_print_id, v_external_id, v_set_collector, v_unresolved;
+  RAISE NOTICE 'resolve_price_rejects: PRINT_ID=% EXTERNAL_ID=% SET_COLLECTOR=% ART_CARD=% TOKEN_NAME=% UNRESOLVED=%',
+    v_print_id, v_external_id, v_set_collector, v_art_card, v_token_name, v_unresolved;
 
   -- 1b) Back-fill mtgstock_id mapping for rows resolved via EXTERNAL_ID or
   --     SET_COLLECTOR (PRINT_ID rows are already in card_external_identifier).
@@ -2040,7 +2216,7 @@ $$;
 -- Refreshed once per day via CALL pricing.refresh_card_price_spark().
 -- ===========================================================================
 
-CREATE MATERIALIZED VIEW pricing.mv_card_price_spark AS
+CREATE MATERIALIZED VIEW IF NOT EXISTS pricing.mv_card_price_spark AS
 WITH daily AS (
     SELECT
         ppd.card_version_id,
@@ -2117,7 +2293,7 @@ LEFT JOIN daily d30
 LEFT JOIN spark_rows sr ON sr.card_version_id = cp.card_version_id
 WITH DATA;
 
-CREATE UNIQUE INDEX idx_mv_card_price_spark_cv
+CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_card_price_spark_cv
     ON pricing.mv_card_price_spark (card_version_id);
 
 CREATE OR REPLACE PROCEDURE pricing.refresh_card_price_spark()

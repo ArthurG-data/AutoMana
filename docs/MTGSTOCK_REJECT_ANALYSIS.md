@@ -15,6 +15,7 @@ unresolved in `pricing.stg_price_observation_reject`.
 | 2026-04-27 | Full historical backfill (228 M raw rows) | — | 6,073,613 |
 | 2026-04-29 | Case-insensitive set_code fix (`LOWER()` on both sides) | 2,150 prints | ~6,073,613\* |
 | 2026-04-29 | **Fix 4** — foil-treatment name suffix + granular finish_ids | 271,803 rows | **5,801,810** |
+| 2026-05-19 | **Fix 2** — art card set-code mapping (`map_art` CTE + `mtgstock_art_set_map` seeds) + **Fix 3** — token name resolution (`map_tok` CTE + `mtgstock_token_set_map` seeds) | pending next pipeline run | pending next pipeline run |
 
 \* Row count unchanged; 2,150 prints that failed due to case mismatch resolved into `price_observation` on the next run.
 
@@ -173,8 +174,8 @@ Estimated irreducible floor: **~1.3 M rows (~22.4 % of current open rejects)**
 | Priority | Fix | Rows recoverable | Effort | Status |
 |---|---|---|---|---|
 | ~~1~~ | ~~Foil-treatment name suffix~~ | ~~403 K~~ | ~~1 SQL line + migration~~ | ✅ **Done** (271 803 rows, 2026-04-29) |
-| 2 | Art card set-code + name mapping | ~680 K | Mapping table + new `map_art` CTE | Pending |
-| 3 | Token resolution via `mtgstock_token_set_map` | ~3.8 M | New mapping table + 4th resolution path | Pending |
+| ~~2~~ | ~~Art card set-code + name mapping~~ | ~~680 K~~ | ~~Mapping table + new `map_art` CTE~~ | ✅ **Done** (migration_40, 2026-05-19) |
+| ~~3~~ | ~~Token resolution via `mtgstock_token_set_map`~~ | ~~3.8 M~~ | ~~New mapping table + 4th resolution path~~ | ✅ **Done** (migration_40, 2026-05-19) |
 | — | No-set-abbr + old tokens + catalog gaps | 0–small | Structurally blocked / requires upstream data | Blocked |
 
 Applying fixes 2–3 would reduce open rejects from **5.8 M → ~1.3 M** (~78 % reduction on remaining).
