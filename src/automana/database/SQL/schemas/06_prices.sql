@@ -1226,6 +1226,48 @@ BEGIN
         OR lower(u.card_name) LIKE (lower(uc.card_name) || ' (%')
     );
 
+  -- (4) art card resolution: lookup via mtgstock_art_set_map, match by collector_number only
+  DROP TABLE IF EXISTS tmp_map_art;
+  CREATE TEMP TABLE tmp_map_art ON COMMIT DROP AS
+  SELECT DISTINCT
+    u.print_id,
+    cv.card_version_id
+  FROM tmp_raw_batch u
+  JOIN pricing.mtgstock_art_set_map asm
+    ON asm.mtgstocks_set_code = UPPER(u.set_abbr)
+  JOIN card_catalog.sets s
+    ON s.set_code = asm.scryfall_set_code
+  JOIN card_catalog.card_version cv
+    ON cv.set_id = s.set_id
+   AND cv.collector_number::text = u.collector_number
+  WHERE u.set_abbr IS NOT NULL
+    AND u.collector_number IS NOT NULL;
+
+  -- (5) token resolution: strip Token suffix, split double-sided faces, match by name
+  DROP TABLE IF EXISTS tmp_map_tok;
+  CREATE TEMP TABLE tmp_map_tok ON COMMIT DROP AS
+  SELECT DISTINCT ON (u.print_id)
+    u.print_id,
+    cv.card_version_id
+  FROM tmp_raw_batch u
+  JOIN pricing.mtgstock_token_set_map tsm
+    ON tsm.mtgstocks_set_code = UPPER(u.set_abbr)
+  JOIN card_catalog.sets s
+    ON s.set_code = tsm.token_set_code
+  JOIN card_catalog.card_version cv
+    ON cv.set_id = s.set_id
+  WHERE u.set_abbr IS NOT NULL
+    AND u.collector_number IS NULL
+    AND u.card_name IS NOT NULL
+    AND (
+      cv.name ILIKE SPLIT_PART(REGEXP_REPLACE(u.card_name, '\s*(Token|Double-Sided Token)$', '', 'i'), ' // ', 1)
+      OR (
+        SPLIT_PART(REGEXP_REPLACE(u.card_name, '\s*(Token|Double-Sided Token)$', '', 'i'), ' // ', 2) <> ''
+        AND cv.name ILIKE SPLIT_PART(REGEXP_REPLACE(u.card_name, '\s*(Token|Double-Sided Token)$', '', 'i'), ' // ', 2)
+      )
+    )
+  ORDER BY u.print_id, cv.card_version_id;
+
   -- 3d) Final resolved rows — built from tmp_batch_foil_split so that each row
   --     already carries the foil-split price columns (list_low_cents, list_avg_cents,
   --     sold_avg_cents, is_foil, value) needed by the reject insert and the staging
@@ -1236,11 +1278,13 @@ BEGIN
   CREATE TEMP TABLE tmp_resolved ON COMMIT DROP AS
   SELECT
     u.*,
-    COALESCE(mp.card_version_id, me.card_version_id, mf.card_version_id) AS card_version_id,
+    COALESCE(mp.card_version_id, me.card_version_id, mf.card_version_id, ma.card_version_id, mt.card_version_id) AS card_version_id,
     CASE
       WHEN mp.card_version_id IS NOT NULL THEN 'PRINT_ID'
       WHEN me.card_version_id IS NOT NULL THEN 'EXTERNAL_ID'
       WHEN mf.card_version_id IS NOT NULL THEN 'SET_COLLECTOR'
+      WHEN ma.card_version_id IS NOT NULL THEN 'ART_CARD'
+      WHEN mt.card_version_id IS NOT NULL THEN 'TOKEN_NAME'
       ELSE 'UNRESOLVED'
     END AS resolution_method
   FROM tmp_batch_foil_split u
@@ -1250,7 +1294,11 @@ BEGIN
     ON me.print_id = u.print_id
   LEFT JOIN tmp_map_fallback mf
     ON mf.set_abbr = u.set_abbr
-  AND mf.collector_number = u.collector_number;
+   AND mf.collector_number = u.collector_number
+  LEFT JOIN tmp_map_art ma
+    ON ma.print_id = u.print_id
+  LEFT JOIN tmp_map_tok mt
+    ON mt.print_id = u.print_id;
 
   -- -------------------------------------------------------------------------
   -- 3e) Backfill mtgstock_id mapping into identifier tables (if missing)
