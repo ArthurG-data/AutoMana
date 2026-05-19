@@ -219,6 +219,15 @@ class PriceRepository(AbstractRepository):
 
     async def fetch_per_source_lag_hours(self) -> dict[str, float | None]:
         """{source_code: hours_since_latest_observation} for every price_source."""
+        # Short-circuit when no observations exist: avoids an expensive full join
+        # across source_product (millions of rows) on a TimescaleDB hypertable.
+        exists_rows = await self.execute_query(
+            "SELECT EXISTS (SELECT 1 FROM pricing.price_observation LIMIT 1) AS has_data", ()
+        )
+        if not exists_rows or not exists_rows[0]["has_data"]:
+            sources = await self.execute_query("SELECT code FROM pricing.price_source", ())
+            return {r["code"]: None for r in sources}
+
         query = """
         SELECT
             ps.code AS source_code,
@@ -299,6 +308,14 @@ class PriceRepository(AbstractRepository):
 
     async def fetch_observation_pk_collision_count(self) -> int:
         """Composite-PK violations in price_observation. Should always be 0."""
+        # Short-circuit when no observations exist: GROUP BY on an empty
+        # TimescaleDB hypertable with many chunks still scans the chunk tree.
+        exists_rows = await self.execute_query(
+            "SELECT EXISTS (SELECT 1 FROM pricing.price_observation LIMIT 1) AS has_data", ()
+        )
+        if not exists_rows or not exists_rows[0]["has_data"]:
+            return 0
+
         query = """
         SELECT COUNT(*)::int AS n
         FROM (

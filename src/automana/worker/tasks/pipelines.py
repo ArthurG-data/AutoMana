@@ -6,7 +6,7 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-@shared_task(name="daily_scryfall_data_pipeline", bind=True)
+@shared_task(name="automana.worker.tasks.pipelines.daily_scryfall_data_pipeline", bind=True)
 def daily_scryfall_data_pipeline(self):
     set_task_id(self.request.id)
     run_key = f"scryfall_daily:{datetime.utcnow().date().isoformat()}"
@@ -48,7 +48,7 @@ def daily_scryfall_data_pipeline(self):
     )
     return wf.apply_async().id
  
-@shared_task(name="mtgStock_download_pipeline", bind=True)
+@shared_task(name="automana.worker.tasks.pipelines.mtgStock_download_pipeline", bind=True)
 def mtgStock_download_pipeline(self):
     set_task_id(self.request.id)
     run_key = f"mtgStock_All:{datetime.utcnow().date().isoformat()}"
@@ -83,7 +83,7 @@ def mtgStock_download_pipeline(self):
     return wf.apply_async().id
 
 
-@shared_task(name="daily_mtgjson_data_pipeline", bind=True)
+@shared_task(name="automana.worker.tasks.pipelines.daily_mtgjson_data_pipeline", bind=True)
 def daily_mtgjson_data_pipeline(self):
     # NB: `datetime.utcnow()` is deprecated in 3.12+ and scheduled for removal.
     # Prefer `datetime.now(timezone.utc)` — keeping utcnow() here only because
@@ -148,7 +148,7 @@ def daily_mtgjson_data_pipeline(self):
     return wf.apply_async().id
 
 
-@shared_task(name="open_tcg_pricing_pipeline", bind=True)
+@shared_task(name="automana.worker.tasks.pipelines.open_tcg_pricing_pipeline", bind=True)
 def open_tcg_pricing_pipeline(self):
     set_task_id(self.request.id)
     run_key = f"opentcg_pricing:{datetime.utcnow().date().isoformat()}"
