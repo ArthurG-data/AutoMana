@@ -218,13 +218,17 @@ class PriceRepository(AbstractRepository):
         return rows[0]["age_days"] if rows else None
 
     async def fetch_per_source_lag_hours(self) -> dict[str, float | None]:
-        """{source_code: hours_since_latest_observation} for every price_source.
 
-        Uses a 14-day window so TimescaleDB's chunk exclusion prunes ~99% of
-        the hypertable (714 of ~722 chunks).  Sources with no observation in
-        the last 14 days return NULL — the metric treats that as an error state,
-        which is correct: data older than 14 days is considered stale.
-        """
+        """{source_code: hours_since_latest_observation} for every price_source."""
+        # Short-circuit when no observations exist: avoids an expensive full join
+        # across source_product (millions of rows) on a TimescaleDB hypertable.
+        exists_rows = await self.execute_query(
+            "SELECT EXISTS (SELECT 1 FROM pricing.price_observation LIMIT 1) AS has_data", ()
+        )
+        if not exists_rows or not exists_rows[0]["has_data"]:
+            sources = await self.execute_query("SELECT code FROM pricing.price_source", ())
+            return {r["code"]: None for r in sources}
+
         query = """
         SELECT
             ps.code AS source_code,
@@ -306,12 +310,25 @@ class PriceRepository(AbstractRepository):
         return rows[0]["n"] if rows else 0
 
     async def fetch_observation_pk_collision_count(self) -> int:
-        """Composite-PK violations in price_observation.
 
-        The UNIQUE constraint ``price_observation_pkey`` already enforces
-        uniqueness on (ts_date, source_product_id, price_type_id, finish_id,
-        condition_id, language_id, data_provider_id), so duplicates are
-        impossible at the DB level.  No scan needed — always returns 0.
+        """Composite-PK violations in price_observation. Should always be 0."""
+        # Short-circuit when no observations exist: GROUP BY on an empty
+        # TimescaleDB hypertable with many chunks still scans the chunk tree.
+        exists_rows = await self.execute_query(
+            "SELECT EXISTS (SELECT 1 FROM pricing.price_observation LIMIT 1) AS has_data", ()
+        )
+        if not exists_rows or not exists_rows[0]["has_data"]:
+            return 0
+
+        query = """
+        SELECT COUNT(*)::int AS n
+        FROM (
+            SELECT 1
+            FROM pricing.price_observation
+            GROUP BY ts_date, source_product_id, price_type_id, finish_id,
+                     condition_id, language_id, data_provider_id
+            HAVING COUNT(*) > 1
+        ) dup
         """
         return 0
 
