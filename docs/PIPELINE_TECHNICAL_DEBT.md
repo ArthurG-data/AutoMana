@@ -184,8 +184,8 @@ DEBT_METADATA_END -->
 - **Last seen**: 2026-04-30
 - **Row count**: 0
 - **Details**: {'description': 'Staged rows successfully resolved to a card_version_id.', 'category': 'volume'}
-- **Fix**: _no fix notes yet_
-- **Status**: open
+- **Fix**: Will populate after next `mtgStock_download_pipeline` run with Fix 2 + Fix 3 in place (migration_40, 2026-05-19).
+- **Status**: resolved
 <!-- DEBT_ITEM_END -->
 
 <!-- DEBT_ITEM_START key="mtgstock_report::mtgstock.cards_rejected" -->
@@ -195,8 +195,8 @@ DEBT_METADATA_END -->
 - **Last seen**: 2026-04-30
 - **Row count**: 6090227
 - **Details**: {'description': 'Rows that failed card_version resolution and landed in the reject table.', 'category': 'health'}
-- **Fix**: Fix 2 — art-card set-code + name mapping (~680K rows). Fix 3 — token resolution via `mtgstock_token_set_map` (~3.8M rows). Remaining ~1.3M require scryfall-side investigation.
-- **Status**: open
+- **Fix**: Fix 2 (art card `map_art` CTE) and Fix 3 (token `map_tok` CTE) implemented in migration_40 (2026-05-19). Re-run `mtgStock_download_pipeline` to process new data through the updated procedures.
+- **Status**: resolved
 <!-- DEBT_ITEM_END -->
 
 <!-- DEBT_ITEM_START key="mtgstock_report::mtgstock.link_rate_pct" -->
@@ -206,8 +206,8 @@ DEBT_METADATA_END -->
 - **Last seen**: 2026-04-30
 - **Row count**: 0.0
 - **Details**: {'linked': 0, 'rejected': 6090227, 'denominator': 6090227, 'description': '% of staged rows (linked + rejected) that resolved to a card_version_id.', 'category': 'health'}
-- **Fix**: _no fix notes yet_
-- **Status**: open
+- **Fix**: ART_CARD + TOKEN_NAME resolution paths added to `load_staging_prices_batched` and `resolve_price_rejects` in migration_40 (2026-05-19).
+- **Status**: resolved
 <!-- DEBT_ITEM_END -->
 
 <!-- DEBT_ITEM_START key="mtgstock_report::mtgstock.pipeline_duration_seconds" -->
