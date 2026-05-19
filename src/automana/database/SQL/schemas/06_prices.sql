@@ -89,7 +89,92 @@ INSERT INTO pricing.mtgstock_art_set_map (mtgstocks_set_code, scryfall_set_code)
     ('AATDM', 'aatdm'),
     ('ASLD',  'asld'),
     ('APRE',  'apre'),
-    ('AMAT',  'amat')
+    ('AMAT',  'amat'),
+    ('AACR',  'aacr'),
+    ('AAFR',  'aafr'),
+    ('ABLB',  'ablb'),
+    ('ABRO',  'abro'),
+    ('ACLB',  'aclb'),
+    ('ACMM',  'acmm'),
+    ('ADMU',  'admu'),
+    ('ADSK',  'adsk'),
+    ('AECL',  'aecl'),
+    ('AFDN',  'afdn'),
+    ('AJMP',  'ajmp'),
+    ('AKHM',  'akhm'),
+    ('ALCI',  'alci'),
+    ('ALTC',  'altc'),
+    ('ALTR',  'altr'),
+    ('AMH1',  'amh1'),
+    ('AMH2',  'amh2'),
+    ('AMH3',  'amh3'),
+    ('AMID',  'amid'),
+    ('AMKM',  'amkm'),
+    ('AMOM',  'amom'),
+    ('ANEO',  'aneo'),
+    ('AONE',  'aone'),
+    ('AOTJ',  'aotj'),
+    ('ASNC',  'asnc'),
+    ('ASOS',  'asos'),
+    ('ASPM',  'aspm'),
+    ('ASTX',  'astx'),
+    ('ATDM',  'atdm'),
+    ('ATLA',  'atla'),
+    ('ATLE',  'atle'),
+    ('ATMT',  'atmt'),
+    ('AVOW',  'avow'),
+    ('AWOE',  'awoe'),
+    ('AZNR',  'aznr')
+ON CONFLICT (mtgstocks_set_code) DO NOTHING;
+
+INSERT INTO pricing.mtgstock_token_set_map (mtgstocks_set_code, token_set_code) VALUES
+    ('10E', 't10e'), ('2X2', 't2x2'), ('2XM', 't2xm'), ('30A', 't30a'),
+    ('40K', 't40k'), ('A25', 'ta25'), ('ACR', 'tacr'), ('AER', 'taer'),
+    ('AFC', 'tafc'), ('AFR', 'tafr'), ('AKH', 'takh'), ('ALA', 'tala'),
+    ('ARB', 'tarb'), ('AVR', 'tavr'), ('BBD', 'tbbd'), ('BFZ', 'tbfz'),
+    ('BIG', 'tbig'), ('BLB', 'tblb'), ('BLC', 'tblc'), ('BNG', 'tbng'),
+    ('BOT', 'tbot'), ('BRC', 'tbrc'), ('BRO', 'tbro'), ('C14', 'tc14'),
+    ('C15', 'tc15'), ('C16', 'tc16'), ('C17', 'tc17'), ('C18', 'tc18'),
+    ('C19', 'tc19'), ('C20', 'tc20'), ('C21', 'tc21'), ('CLB', 'tclb'),
+    ('CM2', 'tcm2'), ('CMA', 'tcma'), ('CMM', 'tcmm'), ('CMR', 'tcmr'),
+    ('CN2', 'tcn2'), ('CNS', 'tcns'), ('CON', 'tcon'), ('DD1', 'tdd1'),
+    ('DD2', 'tdd2'), ('DDC', 'tddc'), ('DDD', 'tddd'), ('DDE', 'tdde'),
+    ('DDF', 'tddf'), ('DDG', 'tddg'), ('DDH', 'tddh'), ('DDI', 'tddi'),
+    ('DDJ', 'tddj'), ('DDK', 'tddk'), ('DDL', 'tddl'), ('DDM', 'tddm'),
+    ('DDS', 'tdds'), ('DDT', 'tddt'), ('DDU', 'tddu'), ('DFT', 'tdft'),
+    ('DGM', 'tdgm'), ('DKA', 'tdka'), ('DMC', 'tdmc'), ('DMR', 'tdmr'),
+    ('DMU', 'tdmu'), ('DOM', 'tdom'), ('DRC', 'tdrc'), ('DSC', 'tdsc'),
+    ('DSK', 'tdsk'), ('DTK', 'tdtk'), ('DVD', 'tdvd'), ('E01', 'te01'),
+    ('ECC', 'tecc'), ('ECL', 'tecl'), ('ELD', 'teld'), ('EMA', 'tema'),
+    ('EMN', 'temn'), ('EOC', 'teoc'), ('EOE', 'teoe'), ('EVE', 'teve'),
+    ('EVG', 'tevg'), ('FDN', 'tfdn'), ('FIC', 'tfic'), ('FIN', 'tfin'),
+    ('FRF', 'tfrf'), ('GK1', 'tgk1'), ('GK2', 'tgk2'), ('GN2', 'tgn2'),
+    ('GN3', 'tgn3'), ('GRN', 'tgrn'), ('GTC', 'tgtc'), ('GVL', 'tgvl'),
+    ('HOB', 'thob'), ('HOU', 'thou'), ('IKO', 'tiko'), ('IMA', 'tima'),
+    ('INR', 'tinr'), ('ISD', 'tisd'), ('JOU', 'tjou'), ('JVC', 'tjvc'),
+    ('KHC', 'tkhc'), ('KHM', 'tkhm'), ('KLD', 'tkld'), ('KTK', 'tktk'),
+    ('LCC', 'tlcc'), ('LCI', 'tlci'), ('LRW', 'tlrw'), ('LTC', 'tltc'),
+    ('LTR', 'tltr'), ('M10', 'tm10'), ('M11', 'tm11'), ('M12', 'tm12'),
+    ('M13', 'tm13'), ('M14', 'tm14'), ('M15', 'tm15'), ('M19', 'tm19'),
+    ('M20', 'tm20'), ('M21', 'tm21'), ('M3C', 'tm3c'), ('MBS', 'tmbs'),
+    ('MD1', 'tmd1'), ('MED', 'tmed'), ('MH1', 'tmh1'), ('MH2', 'tmh2'),
+    ('MH3', 'tmh3'), ('MIC', 'tmic'), ('MID', 'tmid'), ('MKC', 'tmkc'),
+    ('MKM', 'tmkm'), ('MM2', 'tmm2'), ('MM3', 'tmm3'), ('MMA', 'tmma'),
+    ('MOC', 'tmoc'), ('MOM', 'tmom'), ('MOR', 'tmor'), ('MSH', 'tmsh'),
+    ('MUL', 'tmul'), ('NCC', 'tncc'), ('NEC', 'tnec'), ('NEO', 'tneo'),
+    ('NPH', 'tnph'), ('OGW', 'togw'), ('ONC', 'tonc'), ('ONE', 'tone'),
+    ('ORI', 'tori'), ('OTC', 'totc'), ('OTJ', 'totj'), ('OTP', 'totp'),
+    ('PCA', 'tpca'), ('PIP', 'tpip'), ('REX', 'trex'), ('RIX', 'trix'),
+    ('RNA', 'trna'), ('ROE', 'troe'), ('RTR', 'trtr'), ('RVR', 'trvr'),
+    ('SCD', 'tscd'), ('SHM', 'tshm'), ('SNC', 'tsnc'), ('SOC', 'tsoc'),
+    ('SOI', 'tsoi'), ('SOM', 'tsom'), ('SOS', 'tsos'), ('SPM', 'tspm'),
+    ('STX', 'tstx'), ('TDC', 'ttdc'), ('TDM', 'ttdm'), ('THB', 'tthb'),
+    ('THS', 'tths'), ('TLA', 'ttla'), ('TLE', 'ttle'), ('TMC', 'ttmc'),
+    ('TMT', 'ttmt'), ('TSR', 'ttsr'), ('UGL', 'tugl'), ('UMA', 'tuma'),
+    ('UND', 'tund'), ('UNF', 'tunf'), ('UST', 'tust'), ('VOC', 'tvoc'),
+    ('VOW', 'tvow'), ('WAR', 'twar'), ('WHO', 'twho'), ('WOC', 'twoc'),
+    ('WOE', 'twoe'), ('WWK', 'twwk'), ('XLN', 'txln'), ('ZEN', 'tzen'),
+    ('ZNC', 'tznc'), ('ZNR', 'tznr')
 ON CONFLICT (mtgstocks_set_code) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS pricing.card_game (
@@ -2040,7 +2125,7 @@ $$;
 -- Refreshed once per day via CALL pricing.refresh_card_price_spark().
 -- ===========================================================================
 
-CREATE MATERIALIZED VIEW pricing.mv_card_price_spark AS
+CREATE MATERIALIZED VIEW IF NOT EXISTS pricing.mv_card_price_spark AS
 WITH daily AS (
     SELECT
         ppd.card_version_id,
@@ -2117,7 +2202,7 @@ LEFT JOIN daily d30
 LEFT JOIN spark_rows sr ON sr.card_version_id = cp.card_version_id
 WITH DATA;
 
-CREATE UNIQUE INDEX idx_mv_card_price_spark_cv
+CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_card_price_spark_cv
     ON pricing.mv_card_price_spark (card_version_id);
 
 CREATE OR REPLACE PROCEDURE pricing.refresh_card_price_spark()
