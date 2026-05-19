@@ -16,6 +16,7 @@ import { Route as CollectionRouteImport } from './routes/collection'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as EbayIndexRouteImport } from './routes/ebay/index'
 import { Route as ListingsNewRouteImport } from './routes/listings_.new'
+import { Route as ListingsMatchRouteImport } from './routes/listings_.match'
 import { Route as ListingsIdRouteImport } from './routes/listings_.$id'
 import { Route as EbayShareRouteImport } from './routes/ebay/share'
 import { Route as EbaySetupRouteImport } from './routes/ebay/setup'
@@ -57,6 +58,11 @@ const ListingsNewRoute = ListingsNewRouteImport.update({
   path: '/listings/new',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ListingsMatchRoute = ListingsMatchRouteImport.update({
+  id: '/listings_/match',
+  path: '/listings/match',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ListingsIdRoute = ListingsIdRouteImport.update({
   id: '/listings_/$id',
   path: '/listings/$id',
@@ -94,6 +100,7 @@ export interface FileRoutesByFullPath {
   '/ebay/setup': typeof EbaySetupRoute
   '/ebay/share': typeof EbayShareRoute
   '/listings/$id': typeof ListingsIdRoute
+  '/listings/match': typeof ListingsMatchRoute
   '/listings/new': typeof ListingsNewRoute
   '/ebay/': typeof EbayIndexRoute
 }
@@ -108,6 +115,7 @@ export interface FileRoutesByTo {
   '/ebay/setup': typeof EbaySetupRoute
   '/ebay/share': typeof EbayShareRoute
   '/listings/$id': typeof ListingsIdRoute
+  '/listings/match': typeof ListingsMatchRoute
   '/listings/new': typeof ListingsNewRoute
   '/ebay': typeof EbayIndexRoute
 }
@@ -123,6 +131,7 @@ export interface FileRoutesById {
   '/ebay/setup': typeof EbaySetupRoute
   '/ebay/share': typeof EbayShareRoute
   '/listings_/$id': typeof ListingsIdRoute
+  '/listings_/match': typeof ListingsMatchRoute
   '/listings_/new': typeof ListingsNewRoute
   '/ebay/': typeof EbayIndexRoute
 }
@@ -139,6 +148,7 @@ export interface FileRouteTypes {
     | '/ebay/setup'
     | '/ebay/share'
     | '/listings/$id'
+    | '/listings/match'
     | '/listings/new'
     | '/ebay/'
   fileRoutesByTo: FileRoutesByTo
@@ -153,6 +163,7 @@ export interface FileRouteTypes {
     | '/ebay/setup'
     | '/ebay/share'
     | '/listings/$id'
+    | '/listings/match'
     | '/listings/new'
     | '/ebay'
   id:
@@ -167,6 +178,7 @@ export interface FileRouteTypes {
     | '/ebay/setup'
     | '/ebay/share'
     | '/listings_/$id'
+    | '/listings_/match'
     | '/listings_/new'
     | '/ebay/'
   fileRoutesById: FileRoutesById
@@ -182,6 +194,7 @@ export interface RootRouteChildren {
   EbaySetupRoute: typeof EbaySetupRoute
   EbayShareRoute: typeof EbayShareRoute
   ListingsIdRoute: typeof ListingsIdRoute
+  ListingsMatchRoute: typeof ListingsMatchRoute
   ListingsNewRoute: typeof ListingsNewRoute
   EbayIndexRoute: typeof EbayIndexRoute
 }
@@ -237,6 +250,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ListingsNewRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/listings_/match': {
+      id: '/listings_/match'
+      path: '/listings/match'
+      fullPath: '/listings/match'
+      preLoaderRoute: typeof ListingsMatchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/listings_/$id': {
       id: '/listings_/$id'
       path: '/listings/$id'
@@ -286,6 +306,7 @@ const rootRouteChildren: RootRouteChildren = {
   EbaySetupRoute: EbaySetupRoute,
   EbayShareRoute: EbayShareRoute,
   ListingsIdRoute: ListingsIdRoute,
+  ListingsMatchRoute: ListingsMatchRoute,
   ListingsNewRoute: ListingsNewRoute,
   EbayIndexRoute: EbayIndexRoute,
 }

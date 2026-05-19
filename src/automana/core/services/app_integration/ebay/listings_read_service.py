@@ -179,6 +179,7 @@ async def get_active_listings(
                     update={
                         "CatalogFinish": meta.get("finish_code"),
                         "CatalogCondition": meta.get("condition_code"),
+                        "CardVersionId": meta.get("card_version_id"),
                     }
                 )
             enriched.append(item)

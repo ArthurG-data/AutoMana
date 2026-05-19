@@ -24,6 +24,7 @@ import type { SoldOrder, DisplayStatus } from '../features/ebay/soldOrders'
 import { enrichWithCatalog } from '../features/ebay/lib/catalogEnrich'
 import { useListingsStore } from '../store/listings'
 import type { EbayLiveListing } from '../features/ebay/mockListings'
+import { BackfillConfirmDialog } from '../features/collection/components/BackfillConfirmDialog'
 import styles from './Listings.module.css'
 
 const LIMIT = 25
@@ -65,6 +66,7 @@ export function ListingsPage() {
   const [hasSoldMore, setHasSoldMore] = useState(false)
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
   const [totalActive, setTotalActive] = useState<number | null>(null)
+  const [backfillOpen, setBackfillOpen] = useState(false)
   const storeSet = useListingsStore((s) => s.setListings)
   const selectedListing = useListingsStore((s) => s.getById(selectedId ?? ''))
   const storeUpdateListing = useListingsStore((s) => s.updateListing)
@@ -379,6 +381,15 @@ export function ListingsPage() {
         actions={
           <div style={{ display: 'flex', gap: 8 }}>
             <Button variant="ghost" size="sm">Import</Button>
+            {tab === 'active' && listings.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setBackfillOpen(true)}
+              >
+                Add to Collection
+              </Button>
+            )}
             <Button
               variant="accent"
               size="sm"
@@ -542,6 +553,17 @@ export function ListingsPage() {
           </div>
         )}
       </div>
+
+      {backfillOpen && (
+        <BackfillConfirmDialog
+          listings={listings}
+          onClose={() => setBackfillOpen(false)}
+          onDone={(unmatched, collectionId) => {
+            setBackfillOpen(false)
+            navigate({ to: '/listings/match', state: { unmatched, collectionId } })
+          }}
+        />
+      )}
     </AppShell>
   )
 }
