@@ -482,7 +482,7 @@ export async function fetchRecommendation(
   appCode: string,
   item: EbayLiveListing,
 ): Promise<ListingRecommendation> {
-  const result = await apiClient<{ data: ListingRecommendation }>(
+  return apiClient<ListingRecommendation>(
     `/integrations/ebay/recommendations/${encodeURIComponent(item.itemId)}?app_code=${encodeURIComponent(appCode)}`,
     {
       method: 'POST',
@@ -494,7 +494,6 @@ export async function fetchRecommendation(
       }),
     }
   )
-  return result.data
 }
 
 export async function stageAction(
@@ -506,25 +505,23 @@ export async function stageAction(
     suggested_price?: number | null
   },
 ): Promise<StageActionResponse> {
-  const result = await apiClient<{ data: StageActionResponse }>(
+  return apiClient<StageActionResponse>(
     `/integrations/ebay/recommendations/${encodeURIComponent(itemId)}/stage?app_code=${encodeURIComponent(appCode)}`,
     {
       method: 'POST',
       body: JSON.stringify(payload),
     }
   )
-  return result.data
 }
 
 export async function fetchPendingAction(
   itemId: string,
 ): Promise<PendingAction | null> {
-  const result = await apiClient<{ data: PendingAction | { pending: null } }>(
+  const result = await apiClient<PendingAction | { pending: null }>(
     `/integrations/ebay/recommendations/${encodeURIComponent(itemId)}/pending`,
   )
-  const data = result.data
-  if (!data || 'pending' in data) return null
-  return data as PendingAction
+  if (!result || 'pending' in result) return null
+  return result as PendingAction
 }
 
 // ── Market price research ──────────────────────────────────────────────────

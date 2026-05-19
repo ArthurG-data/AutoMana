@@ -220,7 +220,7 @@ def _market_recommendation(days_listed: int, price: float, market_data: dict) ->
 
 @ServiceRegistry.register(
     path="integrations.ebay.recommendations.get",
-    db_repositories=[],
+    db_repositories=["ebay_sales", "pricing"],
     api_repositories=[],
 )
 async def get_listing_recommendation(
@@ -232,6 +232,8 @@ async def get_listing_recommendation(
     price: float,
     currency: str = "AUD",
     market_data: dict | None = None,
+    ebay_sales_repository=None,
+    pricing_repository=None,
 ) -> dict:
     signals = {
         'days_listed': days_listed,
@@ -239,9 +241,32 @@ async def get_listing_recommendation(
         'price': price,
         'currency': currency,
     }
-    rec = compute_recommendation(signals, market_data=market_data)
+
+    price_trend: PriceTrend | None = None
+    if ebay_sales_repository is not None and pricing_repository is not None:
+        try:
+            meta = await ebay_sales_repository.get_listing_meta(item_id, app_code)
+            if meta is not None:
+                history = await pricing_repository.get_price_history(
+                    meta["card_version_id"],
+                    meta["finish_id"],
+                    meta["condition_id"],
+                    days=90,
+                )
+                if history:
+                    price_trend = compute_price_trend(history)
+        except Exception:
+            logger.warning(
+                "Trend lookup failed — falling back to behavioral signal",
+                extra={"item_id": item_id},
+            )
+
+    rec = compute_recommendation(signals, market_data=market_data, price_trend=price_trend)
     logger.info("Recommendation computed", extra={
-        "item_id": item_id, "action": rec.suggested_action, "signals_used": rec.signals_used,
+        "item_id": item_id,
+        "action": rec.suggested_action,
+        "signals_used": rec.signals_used,
+        "trend_signal": price_trend.signal if price_trend else None,
     })
     return {
         'item_id': item_id,
