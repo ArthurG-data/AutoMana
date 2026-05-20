@@ -230,13 +230,17 @@ async def list_entries(
     user_collection_repository: CollectionRepository,
     collection_id: UUID,
     user: UserInDB,
+    limit: int = 50,
+    offset: int = 0,
 ) -> List[PublicCollectionEntry]:
     col = await user_collection_repository.get(collection_id, user.unique_id)
     if not col:
         raise card_catalog_exceptions.CollectionNotFoundError(
             f"Collection {collection_id} not found"
         )
-    rows = await user_collection_repository.get_all_entries(collection_id, user.unique_id)
+    rows = await user_collection_repository.get_all_entries(
+        collection_id, user.unique_id, limit=limit, offset=offset
+    )
     return [PublicCollectionEntry.model_validate(r) for r in rows]
 
 
