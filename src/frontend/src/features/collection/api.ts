@@ -32,6 +32,10 @@ export interface CollectionEntry {
   ebay_item_id?: string | null
 }
 
+// ── Constants ───────────────────────────────────────────────────────────────
+
+const PAGE_SIZE = 50
+
 // ── Query options ────────────────────────────────────────────────────────────
 
 export function collectionsQueryOptions() {
@@ -48,11 +52,24 @@ export function collectionEntriesQueryOptions(collectionId: string) {
   return queryOptions({
     queryKey: ['collection', 'entries', collectionId] as const,
     queryFn: () =>
-      apiClient<CollectionEntry[]>(`/catalog/mtg/collection/${collectionId}/entries`),
+      apiClient<CollectionEntry[]>(
+        `/catalog/mtg/collection/${collectionId}/entries?limit=${PAGE_SIZE}&offset=0`,
+      ),
     staleTime: 60_000,
     gcTime: 10 * 60_000,
     enabled: Boolean(collectionId),
   })
+}
+
+/** Fetch one page of collection entries. Used by useInfiniteEntries. */
+export async function fetchEntriesPage(
+  collectionId: string,
+  offset: number,
+  limit = PAGE_SIZE,
+): Promise<CollectionEntry[]> {
+  return apiClient<CollectionEntry[]>(
+    `/catalog/mtg/collection/${collectionId}/entries?limit=${limit}&offset=${offset}`,
+  )
 }
 
 // ── Mutations ────────────────────────────────────────────────────────────────
@@ -107,3 +124,5 @@ export async function deleteCollectionEntry(
     { method: 'DELETE' },
   )
 }
+
+export { PAGE_SIZE }
