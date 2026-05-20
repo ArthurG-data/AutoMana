@@ -104,10 +104,9 @@ beat_schedule = {
     },
     # Pricing tier archival: move Tier 2 (daily) to Tier 3 (weekly) for data >5y.
     # Reduces storage usage and speeds up daily price queries.
-    # Runs monthly (1st of month at 03:00 AEST) to avoid peak hours.
     "pricing-archive-to-weekly": {
         "task": "archive_to_weekly_prices",
-        "schedule": crontab(day_of_month=1, hour=3, minute=0),  # 1st at 03:00 AEST
+        "schedule": crontab(day_of_week=0, hour=5, minute=45),  # Sunday 05:45 AEST
     },
     # eBay sold-price persistence — own sales (Fulfillment API, 90-day window).
     "ebay-sync-own-sales-nightly": {
