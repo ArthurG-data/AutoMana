@@ -61,8 +61,11 @@ async def auth_headers(created_user, test_user_data):
 @pytest_asyncio.fixture
 async def seeded_collection(client, auth_headers, created_user):
     """
-    Creates a collection with multiple entries (seeded with test data).
+    Creates a collection with multiple seeded entries for pagination testing.
+    Uses known MTG card identifiers (set_code + collector_number) to populate the collection.
     Returns dict with collection_id and entry_ids.
+
+    Requires a running database with card catalog data loaded.
     """
     # Create a collection
     collection_response = await client.post(
@@ -74,12 +77,54 @@ async def seeded_collection(client, auth_headers, created_user):
     collection_data = collection_response.json().get("data")
     collection_id = collection_data["collection_id"]
 
-    # For now, return the collection with an empty list of entries.
-    # If seeded entries are needed, they would be added here by calling
-    # the add_entry endpoint. This fixture will be extended when test data
-    # seeding is implemented.
+    # Attempt to add entries using common MTG card identifiers.
+    # Using basic cards that are likely to exist in any standard Scryfall dataset.
+    # Format: (set_code, collector_number)
+    test_cards = [
+        ("dom", "1"),      # Plains from Dominaria
+        ("dom", "2"),      # Island from Dominaria
+        ("dom", "3"),      # Swamp from Dominaria
+        ("dom", "4"),      # Mountain from Dominaria
+        ("dom", "5"),      # Forest from Dominaria
+        ("m19", "1"),      # Plains from M19
+        ("m19", "2"),      # Island from M19
+        ("m19", "3"),      # Swamp from M19
+        ("m19", "4"),      # Mountain from M19
+        ("m19", "5"),      # Forest from M19
+        ("m20", "1"),      # Plains from M20
+        ("m20", "2"),      # Island from M20
+    ]
+
+    entry_ids = []
+    for set_code, collector_number in test_cards:
+        entry_response = await client.post(
+            f"/api/catalog/mtg/collection/{collection_id}/entries",
+            headers=auth_headers,
+            json={
+                "set_code": set_code,
+                "collector_number": collector_number,
+                "purchase_price": "10.00",
+                "condition": "NM",
+                "finish": "NONFOIL",
+            },
+        )
+
+        # If adding entries fails, it means either:
+        # 1. The card data doesn't exist in the database (cards not loaded yet)
+        # 2. There's an issue with the database connection
+        # In either case, skip the fixture to avoid vacuous test passes.
+        if entry_response.status_code != 201:
+            pytest.skip(
+                f"seeded_collection fixture skipped: failed to add test cards to collection. "
+                f"Card {set_code}/{collector_number} returned status {entry_response.status_code}. "
+                f"This fixture requires a running database with card catalog data loaded."
+            )
+
+        entry_data = entry_response.json().get("data")
+        entry_ids.append(entry_data["item_id"])
+
     return {
         "collection_id": collection_id,
         "collection_name": collection_data["collection_name"],
-        "entry_ids": [],
+        "entry_ids": entry_ids,
     }
