@@ -244,7 +244,7 @@ async def add_entry(
 @router.get(
     '/{collection_id}/entries',
     summary="List all entries in a collection",
-    description="Returns all cards in the specified collection owned by the authenticated user.",
+    description="Returns cards in the specified collection. Supports limit/offset pagination.",
     response_model=ApiResponse,
     operation_id="collection_entries_list",
     responses={
@@ -255,12 +255,16 @@ async def list_entries(
     collection_id: UUID,
     current_user: CurrentUserDep,
     service_manager: ServiceManagerDep,
+    limit: int = Query(50, ge=1, le=200, description="Page size"),
+    offset: int = Query(0, ge=0, description="Number of entries to skip"),
 ):
     try:
         result = await service_manager.execute_service(
             "card_catalog.collection.list_entries",
             collection_id=collection_id,
             user=current_user,
+            limit=limit,
+            offset=offset,
         )
         return ApiResponse(data=result)
     except CollectionNotFoundError:
