@@ -80,6 +80,7 @@ export function ListingsMatchPage() {
         selectedCard.card_version_id,
         condition,
         finish,
+        { status: 'listed', ebayItemId: listing?.itemId },
       )
       setAddedCount((n) => n + 1)
     } catch {

@@ -11,6 +11,8 @@ export interface Collection {
   username: string
 }
 
+export type EntryStatus = 'purchased' | 'listed' | 'stashed' | 'sold'
+
 export interface CollectionEntry {
   item_id: string
   card_version_id: string
@@ -26,6 +28,8 @@ export interface CollectionEntry {
   image_normal?: string | null
   price?: number | null
   price_change_1d: number
+  status: EntryStatus
+  ebay_item_id?: string | null
 }
 
 // ── Query options ────────────────────────────────────────────────────────────
@@ -65,6 +69,7 @@ export async function addCollectionEntry(
   cardVersionId: string,
   condition: CollectionEntry['condition'],
   finish: CollectionEntry['finish'],
+  options?: { status?: EntryStatus; ebayItemId?: string },
 ): Promise<CollectionEntry> {
   return apiClient<CollectionEntry>(
     `/catalog/mtg/collection/${collectionId}/entries`,
@@ -75,8 +80,21 @@ export async function addCollectionEntry(
         condition,
         finish,
         purchase_price: '0.00',
+        status: options?.status ?? 'purchased',
+        ebay_item_id: options?.ebayItemId ?? null,
       }),
     },
+  )
+}
+
+export async function updateEntryStatus(
+  collectionId: string,
+  entryId: string,
+  status: EntryStatus,
+): Promise<CollectionEntry> {
+  return apiClient<CollectionEntry>(
+    `/catalog/mtg/collection/${collectionId}/entries/${entryId}/status`,
+    { method: 'PATCH', body: JSON.stringify({ status }) },
   )
 }
 

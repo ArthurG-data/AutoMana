@@ -15,7 +15,12 @@ from automana.core.models.collections.collection import (
     PublicCollectionEntry,
     UpdateCollectionEntry,
     AddCollectionEntryRequest,
+    EntryStatus,
 )
+from pydantic import BaseModel
+
+class UpdateEntryStatusRequest(BaseModel):
+    status: EntryStatus
 from automana.api.dependancies.service_deps import ServiceManagerDep
 from automana.api.schemas.StandardisedQueryResponse import (
     ApiResponse,
@@ -282,6 +287,35 @@ async def get_entry(
             "card_catalog.collection.get_entry",
             collection_id=collection_id,
             entry_id=entry_id,
+            user=current_user,
+        )
+        return ApiResponse(data=result)
+    except CollectionNotFoundError:
+        raise HTTPException(status_code=404, detail="Entry not found")
+
+
+@router.patch(
+    '/{collection_id}/entries/{entry_id}/status',
+    summary="Update the status of a collection entry",
+    response_model=ApiResponse,
+    operation_id="collection_entries_update_status",
+    responses={
+        404: {"description": "Entry not found"},
+    },
+)
+async def update_entry_status(
+    collection_id: UUID,
+    entry_id: UUID,
+    body: UpdateEntryStatusRequest,
+    current_user: CurrentUserDep,
+    service_manager: ServiceManagerDep,
+):
+    try:
+        result = await service_manager.execute_service(
+            "card_catalog.collection.update_entry_status",
+            collection_id=collection_id,
+            entry_id=entry_id,
+            status=body.status,
             user=current_user,
         )
         return ApiResponse(data=result)

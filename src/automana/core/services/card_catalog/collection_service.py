@@ -2,7 +2,7 @@
 from automana.api.schemas.user_management.user import UserInDB
 from automana.core.models.collections.collection import (
     CreateCollection, PublicCollection, UpdateCollection, CollectionInDB,
-    AddCollectionEntryRequest, PublicCollectionEntry,
+    AddCollectionEntryRequest, PublicCollectionEntry, EntryStatus,
 )
 from automana.core.repositories.card_catalog.collection_repository import CollectionRepository
 from automana.core.repositories.card_catalog.card_repository import CardReferenceRepository
@@ -183,6 +183,8 @@ async def add_entry(
         currency_code=request.currency_code,
         purchase_date=request.purchase_date,
         language_id=request.language_id,
+        status=request.status.value,
+        ebay_item_id=request.ebay_item_id,
     )
     if row:
         item_id = row["item_id"]
@@ -196,6 +198,28 @@ async def add_entry(
 
     entry = await user_collection_repository.get_entry(item_id, collection_id, user.unique_id)
     return PublicCollectionEntry.model_validate(entry)
+
+
+@ServiceRegistry.register(
+    "card_catalog.collection.update_entry_status",
+    db_repositories=["user_collection"]
+)
+async def update_entry_status(
+    user_collection_repository: CollectionRepository,
+    collection_id: UUID,
+    entry_id: UUID,
+    status: EntryStatus,
+    user: UserInDB,
+) -> PublicCollectionEntry:
+    updated = await user_collection_repository.update_entry_status(
+        entry_id, collection_id, user.unique_id, status.value
+    )
+    if not updated:
+        raise card_catalog_exceptions.CollectionNotFoundError(
+            f"Entry {entry_id} not found"
+        )
+    row = await user_collection_repository.get_entry(entry_id, collection_id, user.unique_id)
+    return PublicCollectionEntry.model_validate(row)
 
 
 @ServiceRegistry.register(

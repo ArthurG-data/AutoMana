@@ -261,6 +261,7 @@ function CollectionPage() {
             sortBy={sortBy}
             sortDir={sortDir}
             onSort={handleSort}
+            collectionId={activeCollectionId ?? undefined}
           />
         )}
       </div>

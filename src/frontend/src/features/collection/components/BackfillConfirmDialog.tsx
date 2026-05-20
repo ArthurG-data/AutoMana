@@ -62,6 +62,7 @@ export function BackfillConfirmDialog({ listings, onClose, onDone }: Props) {
           listing.cardVersionId!,
           mapCondition(listing.catalogConditionCode),
           mapFinish(listing.catalogFinishCode),
+          { status: 'listed', ebayItemId: listing.itemId },
         )
       )
     )
