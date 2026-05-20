@@ -120,6 +120,7 @@ interface RawEbayItem {
   } | null
   catalogFinish?: string | null
   catalogCondition?: string | null
+  cardVersionId?: string | null
 }
 
 function catalogFinishToLabel(code: string | null | undefined): string {
@@ -238,6 +239,9 @@ function mapToLiveListing(raw: RawEbayItem): Omit<EbayLiveListing, 'appCode' | '
     viewItemUrl:
       raw.listingDetails?.viewItemUrl ?? `https://www.ebay.com.au/itm/${itemId}`,
     imageUrl: getImageUrl(raw.pictureDetails),
+    cardVersionId: raw.cardVersionId ?? null,
+    catalogConditionCode: raw.catalogCondition ?? null,
+    catalogFinishCode: raw.catalogFinish ?? null,
   }
 }
 
