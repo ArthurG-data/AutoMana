@@ -16,6 +16,7 @@ export function useInfiniteEntries(collectionId: string | null): UseInfiniteEntr
   const [hasMore, setHasMore] = useState(true)
   const offsetRef = useRef(0)
   const sentinelRef = useRef<HTMLDivElement>(null)
+  const isFetchingRef = useRef(false)
 
   // Reset and load first page when collectionId changes
   useEffect(() => {
@@ -24,27 +25,32 @@ export function useInfiniteEntries(collectionId: string | null): UseInfiniteEntr
       setHasMore(false)
       return
     }
+    let cancelled = false
     offsetRef.current = 0
     setAllEntries([])
     setHasMore(true)
     setIsFetchingMore(true)
     fetchEntriesPage(collectionId, 0, PAGE_SIZE).then((page) => {
+      if (cancelled) return
       setAllEntries(page)
       offsetRef.current = page.length
       setHasMore(page.length === PAGE_SIZE)
       setIsFetchingMore(false)
     })
+    return () => { cancelled = true }
   }, [collectionId])
 
   const fetchNextPage = useCallback(async () => {
-    if (!collectionId || isFetchingMore || !hasMore) return
+    if (!collectionId || isFetchingRef.current || !hasMore) return
+    isFetchingRef.current = true
     setIsFetchingMore(true)
     const page = await fetchEntriesPage(collectionId, offsetRef.current, PAGE_SIZE)
     setAllEntries((prev) => [...prev, ...page])
     offsetRef.current += page.length
     setHasMore(page.length === PAGE_SIZE)
+    isFetchingRef.current = false
     setIsFetchingMore(false)
-  }, [collectionId, isFetchingMore, hasMore])
+  }, [collectionId, hasMore])
 
   // Intersection Observer wires the sentinel to fetchNextPage
   useEffect(() => {
