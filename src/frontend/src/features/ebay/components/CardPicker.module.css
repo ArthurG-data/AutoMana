@@ -30,6 +30,12 @@
   border-color: var(--hd-accent);
 }
 
+.results {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
 .loading {
   padding: 24px;
   font-size: 13px;

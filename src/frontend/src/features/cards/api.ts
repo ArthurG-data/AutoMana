@@ -26,7 +26,7 @@ export function cardInfiniteSearchQueryOptions(params: Omit<CardSearchParams, 'p
       params.colors?.forEach(c => qs.append('color', c))
       if (params.card_type)  qs.set('card_type', params.card_type)
       params.frame_effects?.forEach(fe => qs.append('frame_effect', fe))
-      qs.set('collapse', 'true')
+      if (params.collapse !== false) qs.set('collapse', 'true')
       qs.set('limit', '20')
       qs.set('offset', String(pageParam))
 

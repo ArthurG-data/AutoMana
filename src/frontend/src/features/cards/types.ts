@@ -69,6 +69,7 @@ export interface CardSearchParams {
   colors?: string[]
   card_type?: string
   frame_effects?: string[]
+  collapse?: boolean
 }
 
 export interface PaginationInfo {

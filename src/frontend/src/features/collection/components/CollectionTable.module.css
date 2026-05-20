@@ -191,6 +191,71 @@
   font-size: 13px;
 }
 
+/* Sortable column headers */
+.thBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--hd-sub);
+  white-space: nowrap;
+  transition: color 0.12s;
+}
+.thBtn:hover { color: var(--hd-text); }
+.thBtnActive { color: var(--hd-text); }
+.sortArrow {
+  font-size: 9px;
+  opacity: 0.5;
+}
+.thBtnActive .sortArrow { opacity: 1; color: var(--hd-accent); }
+
+/* Status pill */
+.statusPill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  text-transform: lowercase;
+  letter-spacing: 0.03em;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: opacity 0.12s;
+  white-space: nowrap;
+  background: none;
+}
+.statusPill:hover { opacity: 0.75; }
+
+.status_purchased {
+  color: var(--hd-blue, #60a5fa);
+  border-color: rgba(96, 165, 250, 0.35);
+  background: rgba(96, 165, 250, 0.08);
+}
+.status_listed {
+  color: var(--hd-amber, #f59e0b);
+  border-color: rgba(245, 158, 11, 0.35);
+  background: rgba(245, 158, 11, 0.08);
+}
+.status_stashed {
+  color: var(--hd-sub);
+  border-color: var(--hd-border);
+  background: rgba(255,255,255,0.03);
+}
+.status_sold {
+  color: var(--hd-accent);
+  border-color: rgba(var(--hd-accent-rgb), 0.35);
+  background: rgba(var(--hd-accent-rgb), 0.08);
+}
+
 /* Finish / condition / remove — Task 6 additions */
 .finish {
   font-size: 11px;

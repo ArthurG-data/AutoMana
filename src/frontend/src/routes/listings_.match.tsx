@@ -18,6 +18,7 @@ type Condition = CollectionEntry['condition']
 type Finish = CollectionEntry['finish']
 
 const CONDITIONS: Condition[] = ['NM', 'LP', 'MP', 'HP', 'DMG']
+const FINISHES: Finish[] = ['NONFOIL', 'FOIL', 'ETCHED']
 
 function mapCondition(code: string | null | undefined): Condition {
   switch (code?.toUpperCase()) {
@@ -53,6 +54,9 @@ export function ListingsMatchPage() {
   const [condition, setCondition] = useState<Condition>(
     () => mapCondition(unmatched[0]?.catalogConditionCode)
   )
+  const [finish, setFinish] = useState<Finish>(
+    () => mapFinish(unmatched[0]?.catalogFinishCode)
+  )
   const [addedCount, setAddedCount] = useState(0)
   const [isAdding, setIsAdding] = useState(false)
 
@@ -64,6 +68,7 @@ export function ListingsMatchPage() {
     setSelectedCard(null)
     const next = unmatched[newIndex]
     setCondition(mapCondition(next?.catalogConditionCode))
+    setFinish(mapFinish(next?.catalogFinishCode))
   }
 
   async function handleAdd() {
@@ -74,9 +79,8 @@ export function ListingsMatchPage() {
         collectionId,
         selectedCard.card_version_id,
         condition,
-        mapFinish(listing?.catalogFinishCode) === 'NONFOIL'
-          ? mapFinish(selectedCard.finish)
-          : mapFinish(listing?.catalogFinishCode),
+        finish,
+        { status: 'listed', ebayItemId: listing?.itemId },
       )
       setAddedCount((n) => n + 1)
     } catch {
@@ -134,6 +138,7 @@ export function ListingsMatchPage() {
       />
 
       <div className={styles.page}>
+      <div className={styles.split}>
         {/* Left — listing details + condition */}
         <div className={styles.sidebar}>
           <div className={styles.listingTitle}>{listing.title}</div>
@@ -160,6 +165,19 @@ export function ListingsMatchPage() {
             ))}
           </div>
 
+          <div className={styles.label}>Finish</div>
+          <div className={styles.pills}>
+            {FINISHES.map((f) => (
+              <button
+                key={f}
+                className={[styles.pill, finish === f ? styles.pillActive : ''].join(' ')}
+                onClick={() => setFinish(f)}
+              >
+                {f === 'NONFOIL' ? 'Non-foil' : f === 'FOIL' ? 'Foil' : 'Etched'}
+              </button>
+            ))}
+          </div>
+
           {selectedCard && (
             <div className={styles.selectedCard}>
               <div className={styles.selectedCardName}>{selectedCard.card_name}</div>
@@ -181,13 +199,15 @@ export function ListingsMatchPage() {
           </div>
         </div>
 
-        {/* Right — card picker */}
+        {/* Right — card picker, collapse=false so all prints (incl. Japanese alt-art) are visible */}
         <div className={styles.pickerArea}>
           <CardPicker
             onSelect={(card) => setSelectedCard(card)}
             selectedId={selectedCard?.card_version_id}
+            collapse={false}
           />
         </div>
+      </div>
       </div>
     </AppShell>
   )

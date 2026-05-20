@@ -1,26 +1,72 @@
 // src/frontend/src/features/collection/components/CollectionTable.tsx
+import { useQueryClient } from '@tanstack/react-query'
+import { cn } from '../../../lib/cn'
 import { formatUSD } from '../../../lib/format'
-import type { CollectionEntry } from '../api'
+import { updateEntryStatus, collectionEntriesQueryOptions } from '../api'
+import type { CollectionEntry, EntryStatus } from '../api'
+import type { SortKey, SortDir } from '../../../routes/collection'
 import styles from './CollectionTable.module.css'
+
+const STATUS_CYCLE: EntryStatus[] = ['purchased', 'listed', 'stashed', 'sold']
+
+function nextStatus(current: EntryStatus): EntryStatus {
+  const i = STATUS_CYCLE.indexOf(current)
+  return STATUS_CYCLE[(i + 1) % STATUS_CYCLE.length]
+}
 
 interface CollectionTableProps {
   entries: CollectionEntry[]
   onRemove?: (entryId: string) => void
+  sortBy?: SortKey
+  sortDir?: SortDir
+  onSort?: (key: SortKey) => void
+  collectionId?: string
 }
 
-export function CollectionTable({ entries, onRemove }: CollectionTableProps) {
+function SortTh({
+  label, sortKey, current, dir, onSort, align = 'left',
+}: {
+  label: string
+  sortKey: SortKey
+  current?: SortKey
+  dir?: SortDir
+  onSort?: (k: SortKey) => void
+  align?: 'left' | 'right'
+}) {
+  const active = current === sortKey
+  return (
+    <th scope="col" className={align === 'right' ? styles.right : undefined}>
+      <button className={cn(styles.thBtn, active && styles.thBtnActive)} onClick={() => onSort?.(sortKey)}>
+        {label}
+        <span className={styles.sortArrow}>{active ? (dir === 'asc' ? '↑' : '↓') : '↕'}</span>
+      </button>
+    </th>
+  )
+}
+
+export function CollectionTable({ entries, onRemove, sortBy, sortDir, onSort, collectionId }: CollectionTableProps) {
+  const queryClient = useQueryClient()
+
+  async function handleStatusClick(entry: CollectionEntry) {
+    if (!collectionId) return
+    const next = nextStatus(entry.status)
+    await updateEntryStatus(collectionId, entry.item_id, next)
+    queryClient.invalidateQueries({ queryKey: collectionEntriesQueryOptions(collectionId).queryKey })
+  }
+
   return (
     <div className={styles.wrapper} role="region" aria-label="Collection table">
       <table className={styles.table}>
         <thead className={styles.thead}>
           <tr>
-            <th scope="col">Card name</th>
-            <th scope="col">Set</th>
-            <th scope="col">Finish</th>
+            <SortTh label="Card name" sortKey="name"     current={sortBy} dir={sortDir} onSort={onSort} />
+            <SortTh label="Set"       sortKey="set"      current={sortBy} dir={sortDir} onSort={onSort} />
+            <SortTh label="Finish"    sortKey="finish"   current={sortBy} dir={sortDir} onSort={onSort} />
             <th scope="col">Condition</th>
-            <th scope="col" className={styles.right}>Purchase</th>
+            <th scope="col">Status</th>
+            <SortTh label="Purchase"  sortKey="purchase" current={sortBy} dir={sortDir} onSort={onSort} align="right" />
             <th scope="col" className={styles.right}>Market</th>
-            <th scope="col" className={styles.right}>P/L</th>
+            <SortTh label="P/L"       sortKey="pl"       current={sortBy} dir={sortDir} onSort={onSort} align="right" />
             <th scope="col" className={styles.right}>Actions</th>
           </tr>
         </thead>
@@ -52,6 +98,15 @@ export function CollectionTable({ entries, onRemove }: CollectionTableProps) {
                 </td>
                 <td>
                   <span className={styles.condition}>{entry.condition}</span>
+                </td>
+                <td>
+                  <button
+                    className={cn(styles.statusPill, styles[`status_${entry.status}`])}
+                    onClick={() => handleStatusClick(entry)}
+                    title="Click to cycle status"
+                  >
+                    {entry.status}
+                  </button>
                 </td>
                 <td className={styles.right}>
                   {formatUSD(Number(entry.purchase_price))}
