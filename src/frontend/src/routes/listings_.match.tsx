@@ -18,6 +18,7 @@ type Condition = CollectionEntry['condition']
 type Finish = CollectionEntry['finish']
 
 const CONDITIONS: Condition[] = ['NM', 'LP', 'MP', 'HP', 'DMG']
+const FINISHES: Finish[] = ['NONFOIL', 'FOIL', 'ETCHED']
 
 function mapCondition(code: string | null | undefined): Condition {
   switch (code?.toUpperCase()) {
@@ -53,6 +54,9 @@ export function ListingsMatchPage() {
   const [condition, setCondition] = useState<Condition>(
     () => mapCondition(unmatched[0]?.catalogConditionCode)
   )
+  const [finish, setFinish] = useState<Finish>(
+    () => mapFinish(unmatched[0]?.catalogFinishCode)
+  )
   const [addedCount, setAddedCount] = useState(0)
   const [isAdding, setIsAdding] = useState(false)
 
@@ -64,6 +68,7 @@ export function ListingsMatchPage() {
     setSelectedCard(null)
     const next = unmatched[newIndex]
     setCondition(mapCondition(next?.catalogConditionCode))
+    setFinish(mapFinish(next?.catalogFinishCode))
   }
 
   async function handleAdd() {
@@ -74,9 +79,7 @@ export function ListingsMatchPage() {
         collectionId,
         selectedCard.card_version_id,
         condition,
-        mapFinish(listing?.catalogFinishCode) === 'NONFOIL'
-          ? mapFinish(selectedCard.finish)
-          : mapFinish(listing?.catalogFinishCode),
+        finish,
       )
       setAddedCount((n) => n + 1)
     } catch {
@@ -157,6 +160,19 @@ export function ListingsMatchPage() {
                 onClick={() => setCondition(c)}
               >
                 {c}
+              </button>
+            ))}
+          </div>
+
+          <div className={styles.label}>Finish</div>
+          <div className={styles.pills}>
+            {FINISHES.map((f) => (
+              <button
+                key={f}
+                className={[styles.pill, finish === f ? styles.pillActive : ''].join(' ')}
+                onClick={() => setFinish(f)}
+              >
+                {f === 'NONFOIL' ? 'Non-foil' : f === 'FOIL' ? 'Foil' : 'Etched'}
               </button>
             ))}
           </div>
