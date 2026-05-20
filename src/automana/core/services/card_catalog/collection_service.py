@@ -171,7 +171,8 @@ async def add_entry(
             f"Unknown finish: {request.finish}"
         )
 
-    # 4. Insert
+    # 4. Insert — ON CONFLICT DO NOTHING means row is None when the entry
+    # already exists; fetch existing rather than raising.
     row = await user_collection_repository.add_entry(
         collection_id=collection_id,
         user_id=user.unique_id,
@@ -183,12 +184,17 @@ async def add_entry(
         purchase_date=request.purchase_date,
         language_id=request.language_id,
     )
-    if not row:
-        raise card_catalog_exceptions.CollectionCreationError("Failed to insert entry")
+    if row:
+        item_id = row["item_id"]
+    else:
+        existing = await user_collection_repository.get_entry_by_key(
+            collection_id, card_version_id, finish_id, request.condition.value
+        )
+        if not existing:
+            raise card_catalog_exceptions.CollectionCreationError("Failed to insert entry")
+        item_id = existing["item_id"]
 
-    entry = await user_collection_repository.get_entry(
-        row["item_id"], collection_id, user.unique_id
-    )
+    entry = await user_collection_repository.get_entry(item_id, collection_id, user.unique_id)
     return PublicCollectionEntry.model_validate(entry)
 
 

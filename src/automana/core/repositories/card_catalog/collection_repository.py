@@ -95,6 +95,7 @@ class CollectionRepository(AbstractRepository):
             SELECT $1, $3, $4, $5, $6, $7, $8, $9
             FROM user_collection.collections
             WHERE collection_id = $1 AND user_id = $2
+            ON CONFLICT (collection_id, unique_card_id, finish_id, condition) DO NOTHING
             RETURNING item_id, collection_id, unique_card_id AS card_version_id,
                       finish_id, condition, purchase_price, currency_code,
                       purchase_date, language_id;
@@ -104,6 +105,26 @@ class CollectionRepository(AbstractRepository):
             (collection_id, user_id, card_version_id, finish_id, condition,
              purchase_price, currency_code, purchase_date, language_id),
         )
+        return dict(rows[0]) if rows else None
+
+    async def get_entry_by_key(
+        self,
+        collection_id: UUID,
+        card_version_id: UUID,
+        finish_id: int,
+        condition: str,
+    ) -> Optional[dict]:
+        query = """
+            SELECT item_id, collection_id, unique_card_id AS card_version_id,
+                   finish_id, condition, purchase_price, currency_code,
+                   purchase_date, language_id
+            FROM user_collection.collection_items
+            WHERE collection_id = $1
+              AND unique_card_id = $2
+              AND finish_id = $3
+              AND condition = $4;
+        """
+        rows = await self.execute_query(query, (collection_id, card_version_id, finish_id, condition))
         return dict(rows[0]) if rows else None
 
     async def get_entry(self, item_id: UUID, collection_id: UUID, user_id: UUID) -> Optional[dict]:
