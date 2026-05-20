@@ -1,9 +1,16 @@
 /* src/frontend/src/routes/ListingsMatch.module.css */
 
 .page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.split {
   display: grid;
   grid-template-columns: 300px 1fr;
-  height: 100%;
+  flex: 1;
   overflow: hidden;
   min-height: 0;
 }
@@ -139,7 +146,8 @@
 
 .pickerArea {
   overflow: hidden;
-  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .progress {

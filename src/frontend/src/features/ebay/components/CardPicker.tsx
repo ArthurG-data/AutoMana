@@ -9,9 +9,10 @@ import styles from './CardPicker.module.css'
 interface CardPickerProps {
   onSelect: (card: CardSummary) => void
   selectedId: string | undefined
+  collapse?: boolean
 }
 
-export function CardPicker({ onSelect, selectedId }: CardPickerProps) {
+export function CardPicker({ onSelect, selectedId, collapse = true }: CardPickerProps) {
   const [q, setQ] = useState('')
   const [debouncedQ, setDebouncedQ] = useState('')
 
@@ -21,7 +22,7 @@ export function CardPicker({ onSelect, selectedId }: CardPickerProps) {
   }, [q])
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =
-    useInfiniteQuery(cardInfiniteSearchQueryOptions({ q: debouncedQ || undefined }))
+    useInfiniteQuery(cardInfiniteSearchQueryOptions({ q: debouncedQ || undefined, collapse }))
 
   const cards = data?.pages.flatMap((p) => p.cards) ?? []
   const total = data?.pages[0]?.pagination?.total_count ?? cards.length
@@ -38,19 +39,21 @@ export function CardPicker({ onSelect, selectedId }: CardPickerProps) {
           aria-label="Search cards"
         />
       </div>
-      {isLoading ? (
-        <div className={styles.loading}>Loading…</div>
-      ) : (
-        <SearchResults
-          cards={cards}
-          total={total}
-          fetchNextPage={fetchNextPage}
-          hasNextPage={hasNextPage}
-          isFetchingNextPage={isFetchingNextPage}
-          onSelect={onSelect}
-          selectedId={selectedId}
-        />
-      )}
+      <div className={styles.results}>
+        {isLoading ? (
+          <div className={styles.loading}>Loading…</div>
+        ) : (
+          <SearchResults
+            cards={cards}
+            total={total}
+            fetchNextPage={fetchNextPage}
+            hasNextPage={hasNextPage}
+            isFetchingNextPage={isFetchingNextPage}
+            onSelect={onSelect}
+            selectedId={selectedId}
+          />
+        )}
+      </div>
     </div>
   )
 }

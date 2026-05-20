@@ -134,6 +134,7 @@ export function ListingsMatchPage() {
       />
 
       <div className={styles.page}>
+      <div className={styles.split}>
         {/* Left — listing details + condition */}
         <div className={styles.sidebar}>
           <div className={styles.listingTitle}>{listing.title}</div>
@@ -181,13 +182,15 @@ export function ListingsMatchPage() {
           </div>
         </div>
 
-        {/* Right — card picker */}
+        {/* Right — card picker, collapse=false so all prints (incl. Japanese alt-art) are visible */}
         <div className={styles.pickerArea}>
           <CardPicker
             onSelect={(card) => setSelectedCard(card)}
             selectedId={selectedCard?.card_version_id}
+            collapse={false}
           />
         </div>
+      </div>
       </div>
     </AppShell>
   )
