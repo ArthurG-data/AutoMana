@@ -1,26 +1,52 @@
 // src/frontend/src/features/collection/components/CollectionTable.tsx
+import { cn } from '../../../lib/cn'
 import { formatUSD } from '../../../lib/format'
 import type { CollectionEntry } from '../api'
+import type { SortKey, SortDir } from '../../../routes/collection'
 import styles from './CollectionTable.module.css'
 
 interface CollectionTableProps {
   entries: CollectionEntry[]
   onRemove?: (entryId: string) => void
+  sortBy?: SortKey
+  sortDir?: SortDir
+  onSort?: (key: SortKey) => void
 }
 
-export function CollectionTable({ entries, onRemove }: CollectionTableProps) {
+function SortTh({
+  label, sortKey, current, dir, onSort, align = 'left',
+}: {
+  label: string
+  sortKey: SortKey
+  current?: SortKey
+  dir?: SortDir
+  onSort?: (k: SortKey) => void
+  align?: 'left' | 'right'
+}) {
+  const active = current === sortKey
+  return (
+    <th scope="col" className={align === 'right' ? styles.right : undefined}>
+      <button className={cn(styles.thBtn, active && styles.thBtnActive)} onClick={() => onSort?.(sortKey)}>
+        {label}
+        <span className={styles.sortArrow}>{active ? (dir === 'asc' ? '↑' : '↓') : '↕'}</span>
+      </button>
+    </th>
+  )
+}
+
+export function CollectionTable({ entries, onRemove, sortBy, sortDir, onSort }: CollectionTableProps) {
   return (
     <div className={styles.wrapper} role="region" aria-label="Collection table">
       <table className={styles.table}>
         <thead className={styles.thead}>
           <tr>
-            <th scope="col">Card name</th>
-            <th scope="col">Set</th>
-            <th scope="col">Finish</th>
+            <SortTh label="Card name" sortKey="name"     current={sortBy} dir={sortDir} onSort={onSort} />
+            <SortTh label="Set"       sortKey="set"      current={sortBy} dir={sortDir} onSort={onSort} />
+            <SortTh label="Finish"    sortKey="finish"   current={sortBy} dir={sortDir} onSort={onSort} />
             <th scope="col">Condition</th>
-            <th scope="col" className={styles.right}>Purchase</th>
+            <SortTh label="Purchase"  sortKey="purchase" current={sortBy} dir={sortDir} onSort={onSort} align="right" />
             <th scope="col" className={styles.right}>Market</th>
-            <th scope="col" className={styles.right}>P/L</th>
+            <SortTh label="P/L"       sortKey="pl"       current={sortBy} dir={sortDir} onSort={onSort} align="right" />
             <th scope="col" className={styles.right}>Actions</th>
           </tr>
         </thead>

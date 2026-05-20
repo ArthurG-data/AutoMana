@@ -23,6 +23,18 @@ export const Route = createFileRoute('/collection')({
 })
 
 type ViewMode = 'list' | 'grid'
+export type SortKey = 'name' | 'set' | 'finish' | 'purchase' | 'pl'
+export type SortDir = 'asc' | 'desc'
+
+const FINISH_ORDER: Record<string, number> = { NONFOIL: 0, FOIL: 1, ETCHED: 2 }
+
+const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+  { value: 'name',     label: 'Name' },
+  { value: 'set',      label: 'Set' },
+  { value: 'finish',   label: 'Finish' },
+  { value: 'purchase', label: 'Purchase' },
+  { value: 'pl',       label: 'P/L' },
+]
 
 function CollectionPage() {
   const navigate = useNavigate()
@@ -32,6 +44,8 @@ function CollectionPage() {
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null)
   const [newCollectionName, setNewCollectionName] = useState('')
   const [creatingNew, setCreatingNew] = useState(false)
+  const [sortBy, setSortBy] = useState<SortKey>('name')
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
 
   const deferredQuery = useDeferredValue(query)
 
@@ -52,6 +66,29 @@ function CollectionPage() {
         e.set_code.toLowerCase().includes(q),
     )
   }, [entries, deferredQuery])
+
+  function handleSort(key: SortKey) {
+    if (key === sortBy) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortBy(key); setSortDir('asc') }
+  }
+
+  const sorted = useMemo(() => {
+    return [...filtered].sort((a, b) => {
+      let cmp = 0
+      switch (sortBy) {
+        case 'name':     cmp = a.card_name.localeCompare(b.card_name); break
+        case 'set':      cmp = a.set_code.localeCompare(b.set_code); break
+        case 'finish':   cmp = (FINISH_ORDER[a.finish] ?? 0) - (FINISH_ORDER[b.finish] ?? 0); break
+        case 'purchase': cmp = Number(a.purchase_price) - Number(b.purchase_price); break
+        case 'pl': {
+          const plA = (a.price ?? 0) - Number(a.purchase_price)
+          const plB = (b.price ?? 0) - Number(b.purchase_price)
+          cmp = plA - plB; break
+        }
+      }
+      return sortDir === 'asc' ? cmp : -cmp
+    })
+  }, [filtered, sortBy, sortDir])
 
   const metrics = useMemo(() => {
     const totalValue = entries.reduce((s, e) => s + (e.price ?? 0), 0)
@@ -170,6 +207,26 @@ function CollectionPage() {
             />
           </div>
           <div className={styles.toolbarRight}>
+            <div className={styles.sortControl}>
+              <select
+                className={styles.sortSelect}
+                value={sortBy}
+                onChange={(e) => handleSort(e.target.value as SortKey)}
+                aria-label="Sort by"
+              >
+                {SORT_OPTIONS.map(o => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+              <button
+                className={styles.sortDirBtn}
+                onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')}
+                aria-label={sortDir === 'asc' ? 'Sort ascending' : 'Sort descending'}
+                title={sortDir === 'asc' ? 'Ascending' : 'Descending'}
+              >
+                {sortDir === 'asc' ? '↑' : '↓'}
+              </button>
+            </div>
             <div className={styles.viewToggle} role="group" aria-label="View mode">
               <button
                 className={cn(styles.viewBtn, viewMode === 'grid' && styles.viewBtnActive)}
@@ -196,9 +253,15 @@ function CollectionPage() {
         {isLoading ? (
           <div className={styles.loading}>Loading…</div>
         ) : viewMode === 'grid' ? (
-          <CollectionGrid entries={filtered} onRemove={handleRemove} />
+          <CollectionGrid entries={sorted} onRemove={handleRemove} />
         ) : (
-          <CollectionTable entries={filtered} onRemove={handleRemove} />
+          <CollectionTable
+            entries={sorted}
+            onRemove={handleRemove}
+            sortBy={sortBy}
+            sortDir={sortDir}
+            onSort={handleSort}
+          />
         )}
       </div>
     </AppShell>

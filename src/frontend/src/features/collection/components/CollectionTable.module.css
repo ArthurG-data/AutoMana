@@ -191,6 +191,32 @@
   font-size: 13px;
 }
 
+/* Sortable column headers */
+.thBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--hd-sub);
+  white-space: nowrap;
+  transition: color 0.12s;
+}
+.thBtn:hover { color: var(--hd-text); }
+.thBtnActive { color: var(--hd-text); }
+.sortArrow {
+  font-size: 9px;
+  opacity: 0.5;
+}
+.thBtnActive .sortArrow { opacity: 1; color: var(--hd-accent); }
+
 /* Finish / condition / remove — Task 6 additions */
 .finish {
   font-size: 11px;
