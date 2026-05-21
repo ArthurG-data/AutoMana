@@ -363,7 +363,7 @@ function CollectionPage() {
         {isFetchingMore && <div className={styles.loadingMore}>Loading more…</div>}
         {hasMore && !isFetchingMore && <div ref={sentinelRef} className={styles.sentinel} />}
       </div>
+      <ToastContainer toasts={toasts} />
     </AppShell>
-    <ToastContainer toasts={toasts} />
   )
 }
