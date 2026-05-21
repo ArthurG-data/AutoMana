@@ -1,5 +1,4 @@
 ﻿import asyncio
-import itertools  # used in Task 2: chunked parallel loop via itertools.batched
 import os, json, logging
 import pandas as pd
 from automana.core.repositories.app_integration.mtg_stock.price_repository import PriceRepository
@@ -114,7 +113,7 @@ async def bulk_load(price_repository: PriceRepository,
     with tqdm(total=len(folders), desc="Processing MTG Stock folders") as pbar:
         async with track_step(ops_repository, ingestion_run_id, step_name):
             chunk_start_idx = 0
-            for chunk in itertools.batched(folders, batch_size):
+            for chunk in (folders[i:i+batch_size] for i in range(0, len(folders), batch_size)):
                 price_rows: list = []
                 folder_errors = 0
                 ids_master_dict: dict = {}

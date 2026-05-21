@@ -172,6 +172,11 @@ ServiceRegistry.register_db_repository(
     "session", "automana.api.repositories.auth.session_repository", "SessionRepository"
 )
 ServiceRegistry.register_db_repository(
+    "password_reset",
+    "automana.api.repositories.auth.password_reset_repository",
+    "PasswordResetRepository",
+)
+ServiceRegistry.register_db_repository(
     "user", "automana.api.repositories.user_management.user_repository", "UserRepository"
 )
 ServiceRegistry.register_db_repository(

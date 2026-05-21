@@ -8,10 +8,10 @@ services:
     env_file:
       - ../config/env/.env.prod
     volumes:
-      - pgdata-prod:/var/lib/postgresql/data
+      - /mnt/postgres-data/pgdata:/var/lib/postgresql/data
       - ../infra/db/init/:/docker-entrypoint-initdb.d/:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U app_prod -d manaforge_prod"]
+      test: ["CMD-SHELL", "pg_isready"]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -75,7 +75,8 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ../config/nginx/certs:/etc/nginx/certs:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /var/www/certbot:/var/www/certbot:ro
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:80/health || exit 1"]
       interval: 10s
@@ -191,6 +192,7 @@ services:
       retries: 5
 
   ollama:
+    profiles: ["gpu"]
     image: ollama/ollama:latest
     container_name: automana-ollama-prod
     restart: unless-stopped
@@ -220,7 +222,6 @@ networks:
   backend-network:   # backend <-> postgres <-> redis <-> celery
     driver: bridge
 volumes:
-  pgdata-prod:
   redis-data:
   redis-config:
   flower-data-prod:
