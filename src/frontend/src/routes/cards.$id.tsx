@@ -80,7 +80,7 @@ function CardDetailPage() {
   )
 
   return (
-    <AppShell active="collection">
+    <AppShell active="search">
       <TopBar breadcrumb={breadcrumb} />
       <CardDetailView
         card={card}
