@@ -45,7 +45,7 @@ EXPOSE 80
 # Health check: nginx responds with index.html on GET /.
 # Used by docker-compose to wait until container is ready.
 HEALTHCHECK --interval=10s --timeout=3s --start-period=15s --retries=3 \
-    CMD wget -qO- http://localhost/ > /dev/null || exit 1
+    CMD wget -qO- http://127.0.0.1/ > /dev/null || exit 1
 
 # Start nginx in foreground (standard in Docker).
 CMD ["nginx", "-g", "daemon off;"]

@@ -17,21 +17,29 @@ AutoMana is a FastAPI application backed by PostgreSQL (+ TimescaleDB + pgvector
 
 ### Production topology (Docker)
 
-In production, only the reverse proxy should publish ports to the host.
+In production, only the reverse proxy publishes ports to the host. The database is **not** a Docker service — it runs on the host (or a separate machine) and the backend container reaches it via the FRP TCP tunnel at `host.docker.internal:15432`.
 
 ```
 Internet
-	|
-	v
+    |
+    v
 nginx proxy (ports 80/443 published)
-	|
-	v
-FastAPI backend (internal network only)
-	|
-	+--> Postgres (internal network only)
-	+--> Redis (internal network only)
-	+--> db-backup (internal network only)
+    |
+    +-- /api/* , /docs , /health
+    |       |
+    |       v
+    |   FastAPI backend (backend-network, internal)
+    |       |
+    |       +--> Redis (backend-network, internal)
+    |       +--> Postgres (host, via FRP tunnel :15432)
+    |
+    +-- /*
+            |
+            v
+        React SPA / frontend (frontend-network, internal)
 ```
+
+Services **not in prod compose** (dev/local only): `postgres`, `celery-worker`, `celery-beat`, `flower`, `ollama`.
 
 Reference compose file: `deploy/docker-compose.prod.yml`.
 
@@ -210,6 +218,7 @@ Current integration areas include:
   - `listings_read_service` — `integrations.ebay.selling.listings.get`, `integrations.ebay.selling.listings.active`
   - `listings_write_service` — `integrations.ebay.selling.listings.create`, `integrations.ebay.selling.listings.update`, `integrations.ebay.selling.listings.end`
   - `fulfillment_service` — `integrations.ebay.selling.fulfillment.history`
+  - `local_sales_service` — `integrations.ebay.selling.local_history` — reads sold orders from `app_integration.ebay_sold_orders` (DB-persisted). Backs `GET /api/integrations/ebay/listing/local-history`; replaces direct eBay API calls for sold-order history in the frontend.
   - `selling_services` is kept as an unregistered import-time shim that emits `DeprecationWarning` and delegates to the typed modules above; it will be removed in a follow-up PR.
   - **Listing database schema** (see migrations 31, 32, 37, 38, 39):
     - `app_integration.ebay_active_listings` — track currently-active eBay listings. Core columns: `item_id` (PK), `app_code`, `card_version_id`, `listed_at`, `ended_at`. Extended columns: `product_id` (link to `pricing.product_ref`), `condition_id`/`finish_id`/`language_id` (variant details), `marketplace_id` (eBay marketplace code, default `'15'`), `template_id` (link to template), `title` (eBay title), `match_score` (numeric relevance score). All variant/template columns are nullable (backwards compatible with pre-migration rows).
@@ -273,13 +282,7 @@ nginx is containerized and is the only component that should publish ports in pr
 
 ### Database backups
 
-The prod compose includes a database backup container that:
-
-- shares the internal `backend-network`
-- runs `pg_dump` on a cron schedule
-- writes dumps to a mounted folder
-
-See: `deploy/docker-compose.prod.yml` (`db-backup-prod`).
+The `db-backup-prod` container was removed from the prod compose because the database is no longer a Docker service. Backups are run manually or via host cron using `pg_dump` against the external Postgres instance. See `CLAUDE.md` for the standard backup command.
 
 ## Adding new functionality (recommended pattern)
 

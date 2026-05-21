@@ -340,11 +340,12 @@ async def get_environment(
 )
 async def update_app_redirect_uri(
     app_repository: EbayAppRepository,
+    user_id: str,
     app_code: str,
     redirect_uri: str,
 ) -> bool:
-    """Update the redirect_uri stored for an eBay app."""
-    updated = await app_repository.update_redirect_uri(app_code, redirect_uri)
+    """Update the redirect_uri for an eBay app the calling user owns."""
+    updated = await app_repository.update_redirect_uri(user_id, app_code, redirect_uri)
     if not updated:
         raise app_exception.EbayAppNotFoundException(
             f"eBay app with code {app_code!r} not found"

@@ -81,12 +81,14 @@ async def stage_action(
 @router.get("/{item_id}/pending", description="Check for a pending action on an eBay listing")
 async def get_pending_action(
     item_id: str,
+    user: CurrentUserDep,
     service_manager: ServiceManagerDep,
 ):
     try:
         result = await service_manager.execute_service(
             "integrations.ebay.actions.get_pending",
             item_id=item_id,
+            user_id=str(user.unique_id),
         )
         if result is None:
             return ApiResponse(message="No pending action", data={"pending": None})

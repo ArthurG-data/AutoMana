@@ -26,6 +26,7 @@ async def test_returns_items_and_pagination():
     }
     result = await list_local_sales(
         ebay_sales_repository=_repo([row], 1),
+        user_id="user-uuid-123",
         app_code="my-app",
         limit=25,
         offset=0,
@@ -40,6 +41,7 @@ async def test_has_more_true_when_more_rows_exist():
     rows = [{"order_id": f"ord-{i}"} for i in range(25)]
     result = await list_local_sales(
         ebay_sales_repository=_repo(rows, 100),
+        user_id="user-uuid-123",
         app_code="my-app",
         limit=25,
         offset=0,
@@ -52,6 +54,7 @@ async def test_has_more_false_at_last_page():
     rows = [{"order_id": "ord-1"}]
     result = await list_local_sales(
         ebay_sales_repository=_repo(rows, 26),
+        user_id="user-uuid-123",
         app_code="my-app",
         limit=25,
         offset=25,
@@ -63,6 +66,7 @@ async def test_has_more_false_at_last_page():
 async def test_empty_result():
     result = await list_local_sales(
         ebay_sales_repository=_repo([], 0),
+        user_id="user-uuid-123",
         app_code="my-app",
         limit=25,
         offset=0,
@@ -75,10 +79,11 @@ async def test_passes_app_code_and_pagination_to_repo():
     repo = _repo([], 0)
     await list_local_sales(
         ebay_sales_repository=repo,
+        user_id="user-uuid-123",
         app_code="app-X",
         limit=10,
         offset=30,
     )
     repo.list_local_sales.assert_called_once_with(
-        app_code="app-X", limit=10, offset=30
+        user_id="user-uuid-123", app_code="app-X", limit=10, offset=30
     )

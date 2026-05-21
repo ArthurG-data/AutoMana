@@ -211,6 +211,16 @@ class EbaySalesRepository(AbstractRepository):
         )
         return {str(r["item_id"]): dict(r) for r in rows}
 
+    async def list_local_sales(
+        self, user_id: str, app_code: str, limit: int = 25, offset: int = 0
+    ) -> tuple[list[dict], int]:
+        rows = await self.execute_query(
+            sales_queries.LIST_LOCAL_SALES,
+            (user_id, app_code, limit, offset),
+        )
+        total = int(rows[0]["total_count"]) if rows else 0
+        return [dict(r) for r in rows], total
+
     async def get_listing_meta(self, item_id: str, app_code: str) -> Optional[dict]:
         """Fetch card_version_id + finish/condition IDs for an active listing.
 

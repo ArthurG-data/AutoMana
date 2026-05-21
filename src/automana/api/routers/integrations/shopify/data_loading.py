@@ -1,14 +1,17 @@
-﻿from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from automana.api.dependancies.service_deps import ServiceManagerDep
+from automana.api.dependancies.auth.users import AdminUserDep
 
 data_loading_router = APIRouter(prefix="/data_loading", tags=["Shopify Data Loading"])
 
 @data_loading_router.post("/load_data")
-async def load_data( service_manager: ServiceManagerDep
-    ,PATH_TO_JSON: str = Query(...)
-                    , market_code: str = Query(...)
-                    , output_path: str = Query(...)
-                   ):
+async def load_data(
+    _admin: AdminUserDep,
+    service_manager: ServiceManagerDep,
+    PATH_TO_JSON: str = Query(...),
+    market_code: str = Query(...),
+    output_path: str = Query(...),
+):
     try:
         await service_manager.execute_service(
             "integration.shopify.load_data",
@@ -18,18 +21,19 @@ async def load_data( service_manager: ServiceManagerDep
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
+
 @data_loading_router.post("/stage_data")
 async def stage_data(
-    service_manager: ServiceManagerDep
-    ,PATH_TO_PARQUET_DIR: str = Query(...)
-                     ,  batch_size: int = Query(10000)
-                      ):
+    _admin: AdminUserDep,
+    service_manager: ServiceManagerDep,
+    PATH_TO_PARQUET_DIR: str = Query(...),
+    batch_size: int = Query(10000),
+):
     try:
         test = await service_manager.execute_service(
             "integration.shopify.stage_data",
             parquet_base_path=PATH_TO_PARQUET_DIR,
-            batch_size=batch_size   
+            batch_size=batch_size
         )
         return test
     except Exception as e:
