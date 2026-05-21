@@ -324,3 +324,33 @@ async def patch_order_status(
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+@ebay_listing_router.get("/local-history", description="Get locally-synced sold orders")
+async def get_local_order_history(
+    user: CurrentUserDep,
+    service_manager: ServiceManagerDep,
+    app_code: str = Query(..., description="eBay application code"),
+    limit: Annotated[int, Query(gt=0, le=100)] = 25,
+    offset: Annotated[int, Query(ge=0)] = 0,
+):
+    try:
+        result = await service_manager.execute_service(
+            "integrations.ebay.selling.local_sales.list",
+            app_code=app_code,
+            limit=limit,
+            offset=offset,
+        )
+        return PaginatedResponse(
+            message="Local sold orders retrieved successfully",
+            data=result["items"],
+            pagination=PaginationInfo(
+                limit=limit,
+                offset=offset,
+                total_count=result["total"],
+                has_next=result["has_more"],
+                has_previous=offset > 0,
+            ),
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
