@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 from datetime import datetime, timezone
+from uuid import UUID
 
 from automana.core.services.app_integration.ebay.market_price_service import (
     fetch_card_market_price,
@@ -8,6 +9,16 @@ from automana.core.services.app_integration.ebay.market_price_service import (
     _finding_items_to_price_points,
 )
 from automana.core.models.ebay.market_price import PricePoint
+
+_USER_ID = UUID("00000000-0000-0000-0000-000000000001")
+_APP_CODE = "test-app"
+_APP_SETTINGS = {
+    "environment": "production",
+    "client_id": "CLIENT-ID",
+    "client_secret": "CLIENT-SECRET",
+    "dev_id": "DEV-ID",
+    "ru_name": None,
+}
 
 
 # ── helper parsers ──────────────────────────────────────────────────────────
@@ -61,34 +72,16 @@ def test_finding_items_to_price_points_basic():
 # ── full service ────────────────────────────────────────────────────────────
 
 @pytest.fixture
-def finding_repo():
+def auth_repo():
     repo = AsyncMock()
-    repo.find_completed_items = AsyncMock(return_value=[
-        {
-            "item_id": "001",
-            "title": "Sheoldred the Apocalypse NM DMR MTG",
-            "price": 45.0,
-            "currency": "AUD",
-            "condition": "Very Good",
-            "url": "https://ebay.com/itm/001",
-            "sold_date": "2026-01-01T10:00:00.000Z",
-        },
-        {
-            "item_id": "002",
-            "title": "Sheoldred the Apocalypse DMR MTG proxy",
-            "price": 5.0,
-            "currency": "AUD",
-            "condition": "Good",
-            "url": "https://ebay.com/itm/002",
-            "sold_date": "2026-01-02T10:00:00.000Z",
-        },
-    ])
+    repo.get_app_settings = AsyncMock(return_value=_APP_SETTINGS)
     return repo
 
 
 @pytest.fixture
 def browse_repo():
     repo = AsyncMock()
+    repo.environment = "production"
     repo.search_items = AsyncMock(return_value={
         "itemSummaries": [
             {
@@ -103,16 +96,17 @@ def browse_repo():
     return repo
 
 
-async def test_service_returns_card_market_data(finding_repo, browse_repo):
+async def test_service_returns_card_market_data(auth_repo, browse_repo):
     with patch(
-        "automana.core.services.app_integration.ebay.market_price_service.get_settings",
-        return_value=MagicMock(ebay_app_id="TEST-APP-ID"),
+        "automana.core.services.app_integration.ebay.market_price_service.resolve_app_token",
+        new=AsyncMock(return_value="fake-token"),
     ):
         result = await fetch_card_market_price(
-            ebay_finding_repository=finding_repo,
+            auth_repository=auth_repo,
             search_repository=browse_repo,
             card_name="Sheoldred the Apocalypse",
-            token="fake-token",
+            user_id=_USER_ID,
+            app_code=_APP_CODE,
             set_code="DMR",
             condition_id=None,
             is_foil=None,
@@ -124,58 +118,53 @@ async def test_service_returns_card_market_data(finding_repo, browse_repo):
 
     assert result.card_name == "Sheoldred the Apocalypse"
     assert result.set_code == "DMR"
-    # proxy item is excluded by scorer
-    proxy_ids = [p.item_id for p in result.sold]
-    assert "002" not in proxy_ids
-    # sold aggregates computed from the one valid sold item
-    assert result.sold_aggregates.count == 1
-    # suggested_price is None because < 3 sold items
+    # Finding API was decommissioned Feb 2025; sold is always empty
+    assert result.sold == []
+    assert result.sold_aggregates.count == 0
     assert result.suggested_price is None
+    # Browse API returns one active listing
+    assert result.active_aggregates.count >= 1
 
 
-async def test_service_sets_suggested_price_when_enough_sold(finding_repo, browse_repo):
-    # Override finding_repo to return 3 clean sold items
-    finding_repo.find_completed_items = AsyncMock(return_value=[
-        {"item_id": str(i), "title": "Sheoldred the Apocalypse DMR MTG",
-         "price": float(40 + i * 5), "currency": "AUD",
-         "condition": "Very Good", "url": f"https://ebay.com/itm/{i}",
-         "sold_date": "2026-01-01T10:00:00.000Z"}
-        for i in range(3)  # prices: 40, 45, 50
-    ])
+async def test_service_active_aggregates_computed_from_browse(auth_repo, browse_repo):
+    """Active price aggregates are populated from Browse API results."""
     with patch(
-        "automana.core.services.app_integration.ebay.market_price_service.get_settings",
-        return_value=MagicMock(ebay_app_id="TEST-APP-ID"),
+        "automana.core.services.app_integration.ebay.market_price_service.resolve_app_token",
+        new=AsyncMock(return_value="fake-token"),
     ):
         result = await fetch_card_market_price(
-            ebay_finding_repository=finding_repo,
+            auth_repository=auth_repo,
             search_repository=browse_repo,
             card_name="Sheoldred the Apocalypse",
-            token="fake-token",
+            user_id=_USER_ID,
+            app_code=_APP_CODE,
             set_code="DMR",
             condition_id=None,
             is_foil=None,
             frame=None,
             days_back=30,
             limit=50,
-            match_threshold=0.4,  # lower threshold so all 3 pass
+            match_threshold=0.4,
         )
-    # median of [40, 45, 50] = 45
-    assert result.suggested_price == 45.0
+    assert result.active_aggregates.count == 1
+    assert result.active_aggregates.median == 50.0
 
 
-async def test_service_partial_when_finding_fails(browse_repo):
-    failing_finding = AsyncMock()
-    failing_finding.find_completed_items = AsyncMock(side_effect=Exception("Finding API down"))
+async def test_service_browse_api_failure_returns_empty_active(auth_repo):
+    failing_browse = AsyncMock()
+    failing_browse.environment = "production"
+    failing_browse.search_items = AsyncMock(side_effect=Exception("Browse API down"))
 
     with patch(
-        "automana.core.services.app_integration.ebay.market_price_service.get_settings",
-        return_value=MagicMock(ebay_app_id="TEST-APP-ID"),
+        "automana.core.services.app_integration.ebay.market_price_service.resolve_app_token",
+        new=AsyncMock(return_value="fake-token"),
     ):
         result = await fetch_card_market_price(
-            ebay_finding_repository=failing_finding,
-            search_repository=browse_repo,
+            auth_repository=auth_repo,
+            search_repository=failing_browse,
             card_name="Sheoldred the Apocalypse",
-            token="fake-token",
+            user_id=_USER_ID,
+            app_code=_APP_CODE,
             set_code="DMR",
             condition_id=None,
             is_foil=None,
@@ -186,7 +175,5 @@ async def test_service_partial_when_finding_fails(browse_repo):
         )
 
     assert result.sold == []
-    assert result.sold_aggregates.count == 0
+    assert result.active == []
     assert result.suggested_price is None
-    # active results still present
-    assert result.active_aggregates.count >= 0

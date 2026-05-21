@@ -119,3 +119,8 @@ class SessionRepository(AbstractRepository):
         total_count = rows[0]["total_count"] if rows else 0
         sessions = [{k: v for k, v in dict(r).items() if k != "total_count"} for r in rows]
         return {"sessions": sessions, "total_count": total_count}
+
+    async def invalidate_all_for_user(self, user_id: UUID) -> None:
+        sessions = await self.get_by_user_id(user_id)
+        for session in sessions:
+            await self.invalidate_session(session["session_id"], "password-reset")

@@ -10,7 +10,7 @@ interface RouterContext {
 }
 
 // Paths accessible without a token
-const PUBLIC_PATHS = ['/login', '/search']
+const PUBLIC_PATHS = ['/login', '/search', '/reset-password']
 
 function RootComponent() {
   const navigate = useNavigate()

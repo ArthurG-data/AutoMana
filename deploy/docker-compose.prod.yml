@@ -5,13 +5,24 @@ services:
       dockerfile: Dockerfile
     #image: timescale-pgvector:pg17
     container_name: automana-postgres-prod
+    shm_size: '256m'
+    secrets:
+      - admin_db_password
+      - backend_db_password
+      - celery_db_password
+      - agent_db_password
+      - readonly_db_password
     env_file:
       - ../config/env/.env.prod
+    environment:
+      POSTGRES_USER: ${AUTOMANA_ADMIN_DB_USER}
+      POSTGRES_PASSWORD_FILE: /run/secrets/admin_db_password
+      POSTGRES_DB: ${DB_NAME}
     volumes:
-      - pgdata-prod:/var/lib/postgresql/data
+      - /mnt/postgres-data/pgdata:/var/lib/postgresql/data
       - ../infra/db/init/:/docker-entrypoint-initdb.d/:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U app_prod -d manaforge_prod"]
+      test: ["CMD-SHELL", "pg_isready"]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -30,30 +41,57 @@ services:
       PGPORT: 5432
       PGUSER: ${POSTGRES_USER}
       PGDATABASE: ${POSTGRES_DB}
-      BACKUP_CRON: ${BACKUP_CRON}  # every 24 hours
+      BACKUP_CRON: ${BACKUP_CRON}
+      B2_ACCOUNT_ID: ${B2_ACCOUNT_ID}
+      B2_APPLICATION_KEY: ${B2_APPLICATION_KEY}
     volumes:
       - ./backups/prod:/backups
     networks:
       - backend-network
     entrypoint: ["/bin/bash","-lc"]
-    command: 
+    command:
       - |
-        apt-get update && apt-get install -y --no-install-recommends cron gzip ca-certificates && \
-        mkdir -p /backups && \
-        echo "$$BACKUP_CRON root /bin/bash -c 'set -e; ts=\$$(date +%Y%m%d_%H%M%S); pg_dump -Fc -f /backups/\$${PGDATABASE}_\$${ts}.dump \$${PGDATABASE}; ls -1t /backups/*.dump 2>/dev/null | tail -n +7 | xargs -r rm -f'" > /etc/cron.d/pgbackup && \
-        chmod 0644 /etc/cron.d/pgbackup && \
-        crontab /etc/cron.d/pgbackup && \
+        set -e
+        apt-get update && apt-get install -y --no-install-recommends cron gzip ca-certificates curl unzip
+        curl -fsSL https://downloads.rclone.org/v1.68.2/rclone-v1.68.2-linux-amd64.zip -o /tmp/rclone.zip
+        unzip -q /tmp/rclone.zip -d /tmp && mv /tmp/rclone-*/rclone /usr/local/bin/rclone && rm -rf /tmp/rclone*
+        mkdir -p /backups
+        cat > /usr/local/bin/pg_backup.sh << 'SCRIPT'
+        #!/bin/bash
+        set -e
+        ts=$(date +%Y%m%d_%H%M%S)
+        pg_dump -Fc -f "/backups/${PGDATABASE}_${ts}.dump" "${PGDATABASE}"
+        ls -1t /backups/*.dump 2>/dev/null | tail -n +7 | xargs -r rm -f
+        rclone copy /backups/ :b2:automana-backups/postgres/ \
+          --b2-account "${B2_ACCOUNT_ID}" --b2-key "${B2_APPLICATION_KEY}" --min-age 2h
+        rclone delete :b2:automana-backups/postgres/ --min-age 7d \
+          --b2-account "${B2_ACCOUNT_ID}" --b2-key "${B2_APPLICATION_KEY}"
+        SCRIPT
+        chmod +x /usr/local/bin/pg_backup.sh
+        echo "$$BACKUP_CRON root /usr/local/bin/pg_backup.sh" > /etc/cron.d/pgbackup
+        chmod 0644 /etc/cron.d/pgbackup
+        crontab /etc/cron.d/pgbackup
         cron -f
   backend:
     build:
       context: ..
       dockerfile: deploy/docker/backend/Backend.Dockerfile
     container_name: automana-backend-prod
-    
+    secrets:
+      - backend_db_password
+      - agent_db_password
+      - jwt_secret_key
+      - pgp_secret_key
     env_file:
       - ../config/env/.env.prod
     environment:
-      - ENV=prod
+      ENV: prod
+      POSTGRES_USER: ${APP_BACKEND_DB_USER}
+      POSTGRES_PASSWORD_FILE: /run/secrets/backend_db_password
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      FRONTEND_BASE_URL: https://automana.duckdns.org
+      AGENT_DB_PASSWORD_FILE: /run/secrets/agent_db_password
     networks:
       - backend-network
     healthcheck:
@@ -75,7 +113,8 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ../config/nginx/certs:/etc/nginx/certs:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /var/www/certbot:/var/www/certbot:ro
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:80/health || exit 1"]
       interval: 10s
@@ -106,12 +145,18 @@ services:
       context: ..
       dockerfile: deploy/docker/celery/celery.Dockerfile
     container_name: automana-celery-prod
+    secrets:
+      - celery_db_password
     env_file:
       - ../config/env/.env.prod
     environment:
       ENV: prod
       MODULES_NAMESPACE: celery
       CELERY_POOL: "prefork"
+      POSTGRES_USER: ${APP_CELERY_DB_USER}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_PASSWORD_FILE: /run/secrets/celery_db_password
     depends_on:
       postgres:
         condition: service_healthy
@@ -134,12 +179,18 @@ services:
       context: ..
       dockerfile: deploy/docker/celery/celery.Dockerfile
     container_name: automana-celery-beat-prod
+    secrets:
+      - celery_db_password
     env_file:
       - ../config/env/.env.prod
     environment:
       ENV: prod
       MODULES_NAMESPACE: celery
       CELERY_LOGLEVEL: "INFO"
+      POSTGRES_USER: ${APP_CELERY_DB_USER}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_PASSWORD_FILE: /run/secrets/celery_db_password
     depends_on:
       redis:
         condition: service_healthy
@@ -191,6 +242,7 @@ services:
       retries: 5
 
   ollama:
+    profiles: ["gpu"]
     image: ollama/ollama:latest
     container_name: automana-ollama-prod
     restart: unless-stopped
@@ -214,13 +266,28 @@ services:
       retries: 5
       start_period: 60s
 
+secrets:
+  admin_db_password:
+    file: ../config/secrets/admin_db_password.txt
+  backend_db_password:
+    file: ../config/secrets/backend_db_password.txt
+  celery_db_password:
+    file: ../config/secrets/celery_db_password.txt
+  agent_db_password:
+    file: ../config/secrets/agent_db_password.txt
+  readonly_db_password:
+    file: ../config/secrets/readonly_db_password.txt
+  jwt_secret_key:
+    file: ../config/secrets/jwt_secret_key.txt
+  pgp_secret_key:
+    file: ../config/secrets/pgp_secret_key.txt
+
 networks:
   frontend-network:  # nginx <-> backend
     driver: bridge
   backend-network:   # backend <-> postgres <-> redis <-> celery
     driver: bridge
 volumes:
-  pgdata-prod:
   redis-data:
   redis-config:
   flower-data-prod:

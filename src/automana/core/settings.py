@@ -108,6 +108,11 @@ class Settings(BaseSettings):
     # Metrics
     metrics: MetricsSettings = Field(default_factory=MetricsSettings)
 
+    # Email / password reset
+    resend_api_key: str = Field(default="")
+    app_base_url: str = Field(default="http://localhost:5173")
+    from_email: str = Field(default="noreply@automana.app")
+
     # eBay
     ebay_app_id: str | None = None
     ebay_redirect_uri: str | None = None

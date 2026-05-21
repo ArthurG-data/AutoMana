@@ -24,13 +24,13 @@ async def stage_action(
 ) -> dict:
     existing = await listing_actions_repository.get_pending_for_item(item_id)
     if existing is not None:
-        logger.info("Action staged", extra={"item_id": item_id, "action_type": action_type, "created": False})
+        logger.info("Action staged", extra={"item_id": item_id, "action_type": action_type, "is_new": False})
         return {"action_id": existing["id"], "created": False}
 
     new_id = await listing_actions_repository.insert_action(
         item_id, user_id, app_code, action_type, strategy_kind, suggested_price
     )
-    logger.info("Action staged", extra={"item_id": item_id, "action_type": action_type, "created": True})
+    logger.info("Action staged", extra={"item_id": item_id, "action_type": action_type, "is_new": True})
     return {"action_id": new_id, "created": True}
 
 
