@@ -6,16 +6,19 @@ import { AppShell } from '../components/layout/AppShell'
 import { TopBar } from '../components/layout/TopBar'
 import { Button } from '../components/ui/Button'
 import { Icon } from '../components/design-system/Icon'
+import { ToastContainer } from '../components/design-system/Toast'
 import { CollectionTable } from '../features/collection/components/CollectionTable'
 import { CollectionGrid } from '../features/collection/components/CollectionGrid'
 import {
   collectionsQueryOptions,
+  collectionEntriesQueryOptions,
   createCollection,
   deleteCollectionEntry,
 } from '../features/collection/api'
 import { cn } from '../lib/cn'
 import { useInfiniteEntries } from '../features/collection/hooks/useInfiniteEntries'
 import { formatUSD } from '../lib/format'
+import { useToast } from '../lib/useToast'
 import styles from './Collection.module.css'
 
 export const Route = createFileRoute('/collection')({
@@ -39,6 +42,7 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
 function CollectionPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { toasts, toast } = useToast()
   const [query, setQuery] = useState('')
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null)
@@ -134,7 +138,8 @@ function CollectionPage() {
   async function handleRemove(itemId: string) {
     if (!activeCollectionId) return
     await deleteCollectionEntry(activeCollectionId, itemId)
-    window.location.reload()
+    queryClient.invalidateQueries({ queryKey: collectionEntriesQueryOptions(activeCollectionId).queryKey })
+    toast('Card removed')
   }
 
   async function handleCreateCollection() {
@@ -359,5 +364,6 @@ function CollectionPage() {
         {hasMore && !isFetchingMore && <div ref={sentinelRef} className={styles.sentinel} />}
       </div>
     </AppShell>
+    <ToastContainer toasts={toasts} />
   )
 }

@@ -52,9 +52,9 @@ describe('CollectionGrid', () => {
     expect(screen.getByText('×3')).toBeInTheDocument()
   })
 
-  it('does not show ×N badge for a single copy', () => {
+  it('shows ×1 badge for a single copy', () => {
     render(<CollectionGrid entries={[makeEntry()]} onRemove={vi.fn()} />)
-    expect(screen.queryByText(/×\d/)).not.toBeInTheDocument()
+    expect(screen.getByText('×1')).toBeInTheDocument()
   })
 
   it('does not show copy list when collapsed', () => {
