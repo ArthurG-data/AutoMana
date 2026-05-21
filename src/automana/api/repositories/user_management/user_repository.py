@@ -201,6 +201,13 @@ class UserRepository(AbstractRepository):
         result = await self.execute_query(query, values)
         return result[0] if result else None
 
+    async def update_password(self, user_id: UUID, hashed_password: str) -> None:
+        query = """
+        UPDATE users SET hashed_password = $1, updated_at = NOW()
+        WHERE unique_id = $2;
+        """
+        await self.execute_command(query, (hashed_password, user_id))
+
     async def get_user_from_session(self, session_id: UUID)-> dict:
         query = """
      WITH
