@@ -226,3 +226,17 @@ class EbaySalesRepository(AbstractRepository):
         if row["card_version_id"] is None:
             return None
         return row
+
+    async def list_local_sales(
+        self, app_code: str, limit: int, offset: int
+    ) -> tuple[list[dict], int]:
+        rows = await self.execute_query(
+            sales_queries.GET_LOCAL_SALES_PAGINATED,
+            (app_code, limit, offset),
+        )
+        count_rows = await self.execute_query(
+            sales_queries.COUNT_LOCAL_SALES,
+            (app_code,),
+        )
+        total = count_rows[0]["total"] if count_rows else 0
+        return [dict(r) for r in rows], int(total)
