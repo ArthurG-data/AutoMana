@@ -11,7 +11,6 @@ import { CollectionTable } from '../features/collection/components/CollectionTab
 import { CollectionGrid } from '../features/collection/components/CollectionGrid'
 import {
   collectionsQueryOptions,
-  collectionEntriesQueryOptions,
   createCollection,
   deleteCollectionEntry,
 } from '../features/collection/api'
@@ -64,6 +63,7 @@ function CollectionPage() {
     allEntries: entries,
     isFetchingMore,
     hasMore,
+    removeEntry,
     sentinelRef,
   } = useInfiniteEntries(activeCollectionId)
   const isLoading = entries.length === 0 && isFetchingMore
@@ -138,7 +138,7 @@ function CollectionPage() {
   async function handleRemove(itemId: string) {
     if (!activeCollectionId) return
     await deleteCollectionEntry(activeCollectionId, itemId)
-    queryClient.invalidateQueries({ queryKey: collectionEntriesQueryOptions(activeCollectionId).queryKey })
+    removeEntry(itemId)
     toast('Card removed')
   }
 

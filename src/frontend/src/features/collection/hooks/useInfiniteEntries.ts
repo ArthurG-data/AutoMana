@@ -7,6 +7,7 @@ interface UseInfiniteEntriesResult {
   isFetchingMore: boolean
   hasMore: boolean
   fetchNextPage: () => Promise<void>
+  removeEntry: (itemId: string) => void
   sentinelRef: React.RefObject<HTMLDivElement>
 }
 
@@ -66,5 +67,9 @@ export function useInfiniteEntries(collectionId: string | null): UseInfiniteEntr
     return () => observer.disconnect()
   }, [fetchNextPage])
 
-  return { allEntries, isFetchingMore, hasMore, fetchNextPage, sentinelRef }
+  const removeEntry = useCallback((itemId: string) => {
+    setAllEntries((prev) => prev.filter((e) => e.item_id !== itemId))
+  }, [])
+
+  return { allEntries, isFetchingMore, hasMore, fetchNextPage, removeEntry, sentinelRef }
 }
