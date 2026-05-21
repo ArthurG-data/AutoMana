@@ -57,34 +57,23 @@ describe('CollectionGrid', () => {
     expect(screen.getByText('×1')).toBeInTheDocument()
   })
 
-  it('does not show copy list when collapsed', () => {
+  it('always shows copy rows without needing to expand', () => {
     const entries = [makeEntry({ item_id: 'item-1' }), makeEntry({ item_id: 'item-2' })]
     render(<CollectionGrid entries={entries} onRemove={vi.fn()} />)
-    expect(screen.queryByRole('list')).not.toBeInTheDocument()
-  })
-
-  it('shows mini-rows when the tile is expanded', () => {
-    const entries = [makeEntry({ item_id: 'item-1' }), makeEntry({ item_id: 'item-2' })]
-    render(<CollectionGrid entries={entries} onRemove={vi.fn()} />)
-    fireEvent.click(screen.getByRole('button', { name: /Expand Sol Ring/i }))
     expect(screen.getByRole('list')).toBeInTheDocument()
     expect(screen.getAllByRole('listitem')).toHaveLength(2)
   })
 
-  it('collapses when the expand button is clicked again', () => {
+  it('shows remove button for each copy without interaction', () => {
     const entries = [makeEntry({ item_id: 'item-1' }), makeEntry({ item_id: 'item-2' })]
     render(<CollectionGrid entries={entries} onRemove={vi.fn()} />)
-    const btn = screen.getByRole('button', { name: /Expand Sol Ring/i })
-    fireEvent.click(btn)
-    fireEvent.click(btn)
-    expect(screen.queryByRole('list')).not.toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: /Remove copy/i })).toHaveLength(2)
   })
 
-  it('calls onRemove with the correct item_id from the copy list', () => {
+  it('calls onRemove with the correct item_id', () => {
     const onRemove = vi.fn()
     const entries = [makeEntry({ item_id: 'item-1' }), makeEntry({ item_id: 'item-2' })]
     render(<CollectionGrid entries={entries} onRemove={onRemove} />)
-    fireEvent.click(screen.getByRole('button', { name: /Expand Sol Ring/i }))
     const removeBtns = screen.getAllByRole('button', { name: /Remove copy/i })
     fireEvent.click(removeBtns[1])
     expect(onRemove).toHaveBeenCalledWith('item-2')

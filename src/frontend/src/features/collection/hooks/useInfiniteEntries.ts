@@ -28,6 +28,7 @@ export function useInfiniteEntries(collectionId: string | null): UseInfiniteEntr
     }
     let cancelled = false
     offsetRef.current = 0
+    isFetchingRef.current = true
     setAllEntries([])
     setHasMore(true)
     setIsFetchingMore(true)
@@ -36,9 +37,10 @@ export function useInfiniteEntries(collectionId: string | null): UseInfiniteEntr
       setAllEntries(page)
       offsetRef.current = page.length
       setHasMore(page.length === PAGE_SIZE)
+      isFetchingRef.current = false
       setIsFetchingMore(false)
     })
-    return () => { cancelled = true }
+    return () => { cancelled = true; isFetchingRef.current = false }
   }, [collectionId])
 
   const fetchNextPage = useCallback(async () => {
