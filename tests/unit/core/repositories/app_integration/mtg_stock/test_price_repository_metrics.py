@@ -121,8 +121,8 @@ async def test_fetch_stg_residual_count_no_rows_returns_zero():
 @pytest.mark.asyncio
 async def test_fetch_observation_pk_collision_count_returns_int():
     repo = PriceRepository.__new__(PriceRepository)
-    # First call: EXISTS check returns data present; function then returns 0.
-    repo.execute_query = AsyncMock(return_value=[{"has_data": True}])
+    # First call: EXISTS check; second call: duplicate-PK count query.
+    repo.execute_query = AsyncMock(side_effect=[[{"has_data": True}], [{"n": 0}]])
     assert await repo.fetch_observation_pk_collision_count() == 0
 
 

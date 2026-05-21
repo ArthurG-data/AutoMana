@@ -330,7 +330,8 @@ class PriceRepository(AbstractRepository):
             HAVING COUNT(*) > 1
         ) dup
         """
-        return 0
+        rows = await self.execute_query(query, ())
+        return rows[0]["n"] if rows else 0
 
     async def fetch_card_coverage_stats(self) -> dict:
         """Card-version-level price coverage across the full catalog.
