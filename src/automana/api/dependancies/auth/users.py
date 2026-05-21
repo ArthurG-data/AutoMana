@@ -62,7 +62,7 @@ async def get_current_active_user(
                 _raise_auth_error(request, "Account is disabled")
             return validated
         except session_exceptions.SessionError:
-            _raise_auth_error(request, "Invalid or expired session")
+            pass  # fall through to Bearer path
 
     # --- Bearer path ---
     auth_header = request.headers.get("Authorization", "")
