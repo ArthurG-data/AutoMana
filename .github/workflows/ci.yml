@@ -25,4 +25,6 @@ jobs:
         run: uv sync --frozen --extra dev
 
       - name: Run unit tests
+        env:
+          POSTGRES_PASSWORD: ci-dummy
         run: uv run pytest -v --tb=short
