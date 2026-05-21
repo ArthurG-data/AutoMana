@@ -44,7 +44,7 @@ async def test_upsert_active_listing_calls_command(repo):
     args = repo.execute_command.call_args[0][1]
     assert args[0] == "item-123"
     assert args[1] == "my-app"
-    assert args[3] == now
+    assert args[7] == now  # listed_at is 8th param after condition/finish/language/marketplace
 
 
 @pytest.mark.asyncio
