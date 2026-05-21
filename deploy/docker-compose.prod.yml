@@ -16,6 +16,7 @@ services:
       - ../config/env/.env.prod
     environment:
       POSTGRES_USER: ${AUTOMANA_ADMIN_DB_USER}
+      POSTGRES_PASSWORD: ""
       POSTGRES_PASSWORD_FILE: /run/secrets/admin_db_password
       POSTGRES_DB: ${DB_NAME}
     volumes:
