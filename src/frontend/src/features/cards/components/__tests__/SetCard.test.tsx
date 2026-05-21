@@ -18,7 +18,7 @@ const mockSet: SetBrowseItem = {
 describe('SetCard', () => {
   it('renders set code uppercased', () => {
     render(<SetCard set={mockSet} onSelect={vi.fn()} />)
-    expect(screen.getByText('MKM')).toBeTruthy()
+    expect(screen.getByText(/— MKM/)).toBeTruthy()
   })
 
   it('renders prettified set type', () => {
@@ -33,7 +33,7 @@ describe('SetCard', () => {
 
   it('renders set name in the art area', () => {
     render(<SetCard set={mockSet} onSelect={vi.fn()} />)
-    expect(screen.getByText('Murders at Karlov Manor')).toBeTruthy()
+    expect(screen.getByText(/Murders at Karlov Manor/)).toBeTruthy()
   })
 
   it('calls onSelect with set_code when clicked', () => {
@@ -43,12 +43,11 @@ describe('SetCard', () => {
     expect(onSelect).toHaveBeenCalledWith('mkm')
   })
 
-  it('shows fallback svg when image errors', () => {
+  it('renders icon mask div with maskImage style pointing to the icon url', () => {
     const { container } = render(<SetCard set={mockSet} onSelect={vi.fn()} />)
-    const img = container.querySelector('img')!
-    fireEvent.error(img)
-    expect(container.querySelector('svg')).toBeTruthy()
-    expect(container.querySelector('img')).toBeNull()
+    const iconMask = container.querySelector('[class*="iconMask"]') as HTMLElement
+    expect(iconMask).not.toBeNull()
+    expect(iconMask.style.maskImage).toContain('mkm.svg')
   })
 
   it('applies childCard class when isChild is true', () => {

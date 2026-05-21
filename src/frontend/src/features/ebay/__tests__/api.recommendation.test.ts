@@ -46,7 +46,7 @@ describe('fetchRecommendation', () => {
         market_median: { price: 68.0, description: 'Median of active listings', confidence: 0.82 },
       },
     }
-    mockApiClient.mockResolvedValue({ data: mockRec })
+    mockApiClient.mockResolvedValue(mockRec)
 
     const result = await fetchRecommendation('automana_au', baseListing)
 
@@ -66,7 +66,7 @@ describe('stageAction', () => {
   })
 
   it('returns StageActionResponse with created === true on happy path', async () => {
-    mockApiClient.mockResolvedValue({ data: { action_id: 'act-abc-123', created: true } })
+    mockApiClient.mockResolvedValue({ action_id: 'act-abc-123', created: true })
 
     const result = await stageAction('automana_au', 'item-001', {
       action_type: 'raise',
@@ -89,7 +89,7 @@ describe('fetchPendingAction', () => {
   })
 
   it('returns null when response data is { pending: null }', async () => {
-    mockApiClient.mockResolvedValue({ data: { pending: null } })
+    mockApiClient.mockResolvedValue({ pending: null })
 
     const result = await fetchPendingAction('item-001')
 

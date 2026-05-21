@@ -173,7 +173,7 @@ describe('ListingDetailPanel', () => {
 
     // Wait for recommendation to appear — SignalBadge renders span with title="raise"
     await waitFor(() => {
-      expect(screen.getByTitle('raise')).toBeInTheDocument()
+      expect(screen.getByTitle(/↑ Raise/)).toBeInTheDocument()
     })
   })
 
