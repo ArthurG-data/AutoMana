@@ -17,7 +17,7 @@ function CardDetailPage() {
   const { data: card } = useSuspenseQuery(cardDetailQueryOptions(id))
 
   return (
-    <AppShell active="collection">
+    <AppShell active="search">
       <TopBar
         title={card.card_name}
         breadcrumb={`SEARCH › ${card.set_code.toUpperCase()} › ${card.card_name.toUpperCase()}`}
