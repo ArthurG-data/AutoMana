@@ -524,8 +524,12 @@
   cursor: pointer;
   transition: border-color 120ms ease;
 }
-.filterBtn:hover,
-.filterBtnActive { border-color: var(--hd-accent); color: var(--hd-accent); }
+.filterBtn:hover { border-color: var(--hd-accent); color: var(--hd-accent); }
+.filterBtnActive {
+  border-color: var(--hd-accent);
+  color: var(--hd-accent);
+  background: rgba(var(--hd-accent-rgb), 0.1);
+}
 
 .filterPanel {
   margin-top: 6px;
