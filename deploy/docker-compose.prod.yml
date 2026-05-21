@@ -188,30 +188,6 @@ services:
       timeout: 5s
       retries: 5
 
-  ollama:
-    profiles: ["gpu"]
-    image: ollama/ollama:latest
-    container_name: automana-ollama-prod
-    restart: unless-stopped
-    volumes:
-      - /data/ollama:/root/.ollama
-    networks:
-      - backend-network
-    entrypoint: >
-      sh -c "ollama serve & sleep 5 && ollama pull qwen3:30b-a3b && wait"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-    healthcheck:
-      test: ["CMD", "ollama", "list"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
 
 secrets:
   backend_db_password:
