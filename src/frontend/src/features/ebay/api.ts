@@ -1,7 +1,7 @@
 import { queryOptions } from '@tanstack/react-query'
 import { apiClient, ApiError } from '../../lib/apiClient'
 import { parseCardTitle, type EbayLiveListing } from './mockListings'
-import { mapRawToSoldOrder, type SoldOrder } from './soldOrders'
+import { mapRawToSoldOrder, mapLocalOrderToSoldOrder, type SoldOrder } from './soldOrders'
 
 export interface EbayScopeItem {
   scope_url: string
@@ -388,7 +388,7 @@ export async function fetchSoldOrders(
   offset = 0,
 ): Promise<{ orders: SoldOrder[]; hasMore: boolean }> {
   const raw = await apiClient<unknown>(
-    `/integrations/ebay/listing/history?app_code=${encodeURIComponent(appCode)}&limit=${limit}&offset=${offset}`
+    `/integrations/ebay/listing/local-history?app_code=${encodeURIComponent(appCode)}&limit=${limit}&offset=${offset}`
   )
   let items: Record<string, unknown>[]
   let hasMore: boolean
@@ -402,7 +402,7 @@ export async function fetchSoldOrders(
     hasMore = paged.pagination?.has_next ?? (items.length === limit)
   }
   return {
-    orders: items.map((item) => mapRawToSoldOrder(item, appCode, '')),
+    orders: items.map((item) => mapLocalOrderToSoldOrder(item, appCode, '')),
     hasMore,
   }
 }
