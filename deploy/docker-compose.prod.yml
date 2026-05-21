@@ -30,19 +30,36 @@ services:
       PGPORT: 5432
       PGUSER: ${POSTGRES_USER}
       PGDATABASE: ${POSTGRES_DB}
-      BACKUP_CRON: ${BACKUP_CRON}  # every 24 hours
+      BACKUP_CRON: ${BACKUP_CRON}
+      B2_ACCOUNT_ID: ${B2_ACCOUNT_ID}
+      B2_APPLICATION_KEY: ${B2_APPLICATION_KEY}
     volumes:
       - ./backups/prod:/backups
     networks:
       - backend-network
     entrypoint: ["/bin/bash","-lc"]
-    command: 
+    command:
       - |
-        apt-get update && apt-get install -y --no-install-recommends cron gzip ca-certificates && \
-        mkdir -p /backups && \
-        echo "$$BACKUP_CRON root /bin/bash -c 'set -e; ts=\$$(date +%Y%m%d_%H%M%S); pg_dump -Fc -f /backups/\$${PGDATABASE}_\$${ts}.dump \$${PGDATABASE}; ls -1t /backups/*.dump 2>/dev/null | tail -n +7 | xargs -r rm -f'" > /etc/cron.d/pgbackup && \
-        chmod 0644 /etc/cron.d/pgbackup && \
-        crontab /etc/cron.d/pgbackup && \
+        set -e
+        apt-get update && apt-get install -y --no-install-recommends cron gzip ca-certificates curl unzip
+        curl -fsSL https://downloads.rclone.org/rclone-current-linux-amd64.zip -o /tmp/rclone.zip
+        unzip -q /tmp/rclone.zip -d /tmp && mv /tmp/rclone-*/rclone /usr/local/bin/rclone && rm -rf /tmp/rclone*
+        mkdir -p /backups
+        cat > /usr/local/bin/pg_backup.sh << 'SCRIPT'
+        #!/bin/bash
+        set -e
+        ts=$(date +%Y%m%d_%H%M%S)
+        pg_dump -Fc -f "/backups/${PGDATABASE}_${ts}.dump" "${PGDATABASE}"
+        ls -1t /backups/*.dump 2>/dev/null | tail -n +7 | xargs -r rm -f
+        rclone copy /backups/ :b2:automana-backups/postgres/ \
+          --b2-account "${B2_ACCOUNT_ID}" --b2-key "${B2_APPLICATION_KEY}" --min-age 2h
+        rclone delete :b2:automana-backups/postgres/ --min-age 7d \
+          --b2-account "${B2_ACCOUNT_ID}" --b2-key "${B2_APPLICATION_KEY}"
+        SCRIPT
+        chmod +x /usr/local/bin/pg_backup.sh
+        echo "$$BACKUP_CRON root /usr/local/bin/pg_backup.sh" > /etc/cron.d/pgbackup
+        chmod 0644 /etc/cron.d/pgbackup
+        crontab /etc/cron.d/pgbackup
         cron -f
   backend:
     build:
