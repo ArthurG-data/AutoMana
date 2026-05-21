@@ -8,15 +8,44 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
   return { ...actual, useNavigate: () => vi.fn() }
 })
 
+const {
+  mockFetchUserAppsImpl,
+  mockFetchActiveListingsPaginatedImpl,
+  mockFetchSoldOrdersImpl,
+} = vi.hoisted(() => ({
+  mockFetchUserAppsImpl: vi.fn(),
+  mockFetchActiveListingsPaginatedImpl: vi.fn(),
+  mockFetchSoldOrdersImpl: vi.fn(),
+}))
+
 vi.mock('../../features/ebay/api', () => ({
-  fetchUserApps: vi.fn(),
+  fetchUserApps: mockFetchUserAppsImpl,
   fetchActiveListings: vi.fn(),
-  fetchActiveListingsPaginated: vi.fn(),
+  fetchActiveListingsPaginated: mockFetchActiveListingsPaginatedImpl,
   updateListing: vi.fn(),
-  fetchSoldOrders: vi.fn(),
+  fetchSoldOrders: mockFetchSoldOrdersImpl,
   markOrderSent: vi.fn(),
   markOrderSentWithTracking: vi.fn(),
   updateOrderLocalStatus: vi.fn(),
+  fetchRecommendation: vi.fn().mockReturnValue(new Promise(() => {})),
+  userAppsQueryOptions: () => ({
+    queryKey: ['ebay', 'apps'],
+    queryFn: mockFetchUserAppsImpl,
+    staleTime: 0,
+    gcTime: 0,
+  }),
+  activeListingsPageQueryOptions: (appCode: string, limit: number, offset: number) => ({
+    queryKey: ['listings', 'active', appCode, offset],
+    queryFn: () => mockFetchActiveListingsPaginatedImpl(appCode, limit, offset),
+    staleTime: 0,
+    gcTime: 0,
+  }),
+  soldOrdersPageQueryOptions: (appCode: string, limit: number, offset: number) => ({
+    queryKey: ['listings', 'sold', appCode, offset],
+    queryFn: () => mockFetchSoldOrdersImpl(appCode, limit, offset),
+    staleTime: 0,
+    gcTime: 0,
+  }),
 }))
 
 vi.mock('../../features/ebay/lib/catalogEnrich', () => ({
@@ -123,14 +152,17 @@ vi.mock('../../features/ebay/components/SoldOrderDetailPanel', () => ({
   ),
 }))
 
-import { fetchUserApps, fetchActiveListingsPaginated, updateListing, fetchSoldOrders } from '../../features/ebay/api'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { updateListing } from '../../features/ebay/api'
 import type { EbayAppSummary } from '../../features/ebay/api'
 import type { EbayLiveListing } from '../../features/ebay/mockListings'
 import { useListingsStore } from '../../store/listings'
 import { ListingsPage } from '../listings'
 
-const mockFetchUserApps = vi.mocked(fetchUserApps)
-const mockFetchActiveListingsPaginated = vi.mocked(fetchActiveListingsPaginated)
+const createClient = () => new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+
+const mockFetchUserApps = mockFetchUserAppsImpl
+const mockFetchActiveListingsPaginated = mockFetchActiveListingsPaginatedImpl
 const mockUpdateListing = vi.mocked(updateListing)
 
 function makeApp(overrides: Partial<EbayAppSummary> = {}): EbayAppSummary {
@@ -177,7 +209,11 @@ function pagedResult(listings: EbayLiveListing[], hasMore = false) {
 }
 
 function renderListingsPage() {
-  return render(<ListingsPage />)
+  return render(
+    <QueryClientProvider client={createClient()}>
+      <ListingsPage />
+    </QueryClientProvider>
+  )
 }
 
 beforeEach(() => {
@@ -311,7 +347,7 @@ describe('ListingsPage — split-panel edit', () => {
   })
 
   it('shows detail panel after clicking a row', async () => {
-    render(<ListingsPage />)
+    render(<QueryClientProvider client={createClient()}><ListingsPage /></QueryClientProvider>)
     await waitFor(() => expect(screen.getByTestId('listings-table')).toBeInTheDocument())
 
     useListingsStore.getState().setListings([makeListing({ itemId: 'l1', cardName: 'Ragavan' })])
@@ -321,7 +357,7 @@ describe('ListingsPage — split-panel edit', () => {
   })
 
   it('switches to form panel when Edit listing is clicked', async () => {
-    render(<ListingsPage />)
+    render(<QueryClientProvider client={createClient()}><ListingsPage /></QueryClientProvider>)
     await waitFor(() => expect(screen.getByTestId('listings-table')).toBeInTheDocument())
 
     useListingsStore.getState().setListings([makeListing({ itemId: 'l1', cardName: 'Ragavan' })])
@@ -333,7 +369,7 @@ describe('ListingsPage — split-panel edit', () => {
   })
 
   it('returns to detail panel when Cancel is clicked in form', async () => {
-    render(<ListingsPage />)
+    render(<QueryClientProvider client={createClient()}><ListingsPage /></QueryClientProvider>)
     await waitFor(() => expect(screen.getByTestId('listings-table')).toBeInTheDocument())
 
     useListingsStore.getState().setListings([makeListing({ itemId: 'l1', cardName: 'Ragavan' })])
@@ -349,7 +385,7 @@ describe('ListingsPage — split-panel edit', () => {
     const listing = makeListing({ itemId: 'l1', cardName: 'Ragavan', imageUrl: 'https://img.example.com/ragavan.jpg' })
     mockFetchActiveListingsPaginated.mockResolvedValue(pagedResult([listing]))
 
-    render(<ListingsPage />)
+    render(<QueryClientProvider client={createClient()}><ListingsPage /></QueryClientProvider>)
     await waitFor(() => expect(screen.getByTestId('listings-table')).toBeInTheDocument())
 
     useListingsStore.getState().setListings([listing])
@@ -367,7 +403,7 @@ describe('ListingsPage — split-panel edit', () => {
     const listing = makeListing({ itemId: 'l1', cardName: 'Ragavan', imageUrl: 'https://img.example.com/ragavan.jpg' })
     mockFetchActiveListingsPaginated.mockResolvedValue(pagedResult([listing]))
 
-    render(<ListingsPage />)
+    render(<QueryClientProvider client={createClient()}><ListingsPage /></QueryClientProvider>)
     await waitFor(() => expect(screen.getByTestId('listings-table')).toBeInTheDocument())
 
     useListingsStore.getState().setListings([listing])
@@ -387,7 +423,7 @@ describe('ListingsPage — split-panel edit', () => {
   })
 })
 
-const mockFetchSoldOrders = vi.mocked(fetchSoldOrders)
+const mockFetchSoldOrders = mockFetchSoldOrdersImpl
 
 describe('ListingsPage — Sold tab', () => {
   beforeEach(() => {

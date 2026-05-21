@@ -241,8 +241,8 @@ describe('EbaySetupPage', () => {
         app_name: 'My Store',
         ebay_app_id: 'test-app-id',
         client_secret: 'test-cert-id',
-        environment: 'SANDBOX',
-        redirect_uri: 'MyApp-MyApp-PRD-ab1234567-89abcdef',
+        environment: 'PRODUCTION',
+        ru_name: 'MyApp-MyApp-PRD-ab1234567-89abcdef',
         allowed_scopes: expect.arrayContaining([
           'https://api.ebay.com/oauth/api_scope/sell.inventory',
         ]),

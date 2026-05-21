@@ -1,8 +1,14 @@
 // src/frontend/src/features/collection/components/__tests__/CollectionTable.test.tsx
 import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { CollectionTable } from '../CollectionTable'
 import type { CollectionEntry } from '../../api'
+
+const createClient = () => new QueryClient({ defaultOptions: { queries: { retry: false } } })
+const Wrapper = ({ children }: { children: React.ReactNode }) => (
+  <QueryClientProvider client={createClient()}>{children}</QueryClientProvider>
+)
 
 const ENTRIES: CollectionEntry[] = [
   {
@@ -39,7 +45,7 @@ const ENTRIES: CollectionEntry[] = [
 
 describe('CollectionTable', () => {
   it('renders table headers', () => {
-    render(<CollectionTable entries={[]} />)
+    render(<CollectionTable entries={[]} />, { wrapper: Wrapper })
     expect(screen.getByText('Card name')).toBeTruthy()
     expect(screen.getByText('Set')).toBeTruthy()
     expect(screen.getByText('Market')).toBeTruthy()
@@ -48,38 +54,38 @@ describe('CollectionTable', () => {
   })
 
   it('shows empty state when no entries', () => {
-    render(<CollectionTable entries={[]} />)
+    render(<CollectionTable entries={[]} />, { wrapper: Wrapper })
     expect(screen.getByText(/no cards match/i)).toBeTruthy()
   })
 
   it('renders card rows', () => {
-    render(<CollectionTable entries={ENTRIES} />)
+    render(<CollectionTable entries={ENTRIES} />, { wrapper: Wrapper })
     expect(screen.getByText('Ragavan, Nimble Pilferer')).toBeTruthy()
     expect(screen.getByText('Force of Will')).toBeTruthy()
   })
 
   it('shows set code, condition, and finish', () => {
-    render(<CollectionTable entries={[ENTRIES[0]]} />)
+    render(<CollectionTable entries={[ENTRIES[0]]} />, { wrapper: Wrapper })
     expect(screen.getByText('MH2')).toBeTruthy()
     expect(screen.getByText('NM')).toBeTruthy()
     expect(screen.getByText('nonfoil')).toBeTruthy()
   })
 
   it('shows positive P/L', () => {
-    render(<CollectionTable entries={[ENTRIES[0]]} />)
+    render(<CollectionTable entries={[ENTRIES[0]]} />, { wrapper: Wrapper })
     // profit: 54.20 - 28.00 = +$26.20
     expect(screen.getByText('+$26.20')).toBeTruthy()
   })
 
   it('shows negative P/L', () => {
-    render(<CollectionTable entries={[ENTRIES[1]]} />)
+    render(<CollectionTable entries={[ENTRIES[1]]} />, { wrapper: Wrapper })
     // loss: 110 - 120 = -$10.00
     expect(screen.getByText('-$10.00')).toBeTruthy()
   })
 
   it('calls onRemove with item_id when remove is clicked', () => {
     const onRemove = vi.fn()
-    render(<CollectionTable entries={[ENTRIES[0]]} onRemove={onRemove} />)
+    render(<CollectionTable entries={[ENTRIES[0]]} onRemove={onRemove} />, { wrapper: Wrapper })
     fireEvent.click(screen.getByRole('button', { name: /remove ragavan/i }))
     expect(onRemove).toHaveBeenCalledWith('e1')
   })

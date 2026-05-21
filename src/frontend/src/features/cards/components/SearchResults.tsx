@@ -4,9 +4,11 @@ import { useNavigate } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { CardArt } from '../../../components/design-system/CardArt'
 import { Sparkline } from '../../../components/design-system/Sparkline'
+import { ToastContainer } from '../../../components/design-system/Toast'
 import { AddToCollectionPopover } from '../../collection/components/AddToCollectionPopover'
 import { addCollectionEntry, collectionsQueryOptions, collectionEntriesQueryOptions } from '../../collection/api'
 import { useAuthStore } from '../../../store/auth'
+import { useToast } from '../../../lib/useToast'
 import { cn } from '../../../lib/cn'
 import type { Collection } from '../../collection/api'
 import type { CardGroupBy, CardSummary } from '../types'
@@ -61,6 +63,7 @@ export function SearchResults({
 }: SearchResultsProps) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { toasts, toast } = useToast()
   const lastCardRef = useRef<HTMLButtonElement>(null)
   const [addTarget, setAddTarget] = useState<CardSummary | null>(null)
 
@@ -68,6 +71,12 @@ export function SearchResults({
   const { data: collections = [] } = useQuery({
     ...collectionsQueryOptions(),
     enabled: isAuthed,
+  })
+
+  const firstCollectionId = collections[0]?.collection_id ?? ''
+  const { data: firstCollectionEntries = [] } = useQuery({
+    ...collectionEntriesQueryOptions(firstCollectionId),
+    enabled: Boolean(firstCollectionId) && isAuthed && Boolean(addTarget),
   })
 
   async function handleAdd(params: {
@@ -83,6 +92,7 @@ export function SearchResults({
       params.finish,
     )
     queryClient.invalidateQueries({ queryKey: collectionEntriesQueryOptions(params.collectionId).queryKey })
+    toast(`${addTarget.card_name} added to collection`)
     setAddTarget(null)
   }
 
@@ -127,6 +137,15 @@ export function SearchResults({
   const renderCard = (card: CardSummary, i: number) => {
     const delta = card.price_change_1d ?? 0
     const isLastCard = card.card_version_id === lastCardId
+    const normalizedFinish = (() => {
+      const f = card.finish.toLowerCase()
+      if (f === 'foil') return 'FOIL'
+      if (f === 'etched') return 'ETCHED'
+      return 'NONFOIL'
+    })()
+    const existingCopies = firstCollectionEntries.filter(
+      (e) => e.card_version_id === card.card_version_id && e.finish === normalizedFinish
+    ).length
     return (
       <div key={card.card_version_id} className={styles.cardWrap}>
         <button
@@ -204,6 +223,7 @@ export function SearchResults({
             cardName={card.card_name}
             finish={card.finish}
             collections={collections as Collection[]}
+            existingCopies={existingCopies}
             onAdd={handleAdd}
             onClose={() => setAddTarget(null)}
           />
@@ -235,6 +255,7 @@ export function SearchResults({
       {isFetchingNextPage && (
         <div className={styles.loading}>Loading more cards...</div>
       )}
+      <ToastContainer toasts={toasts} />
     </div>
   )
 }

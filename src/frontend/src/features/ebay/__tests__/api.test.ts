@@ -23,7 +23,7 @@ describe('registerEbayApp', () => {
       environment: 'SANDBOX',
       ebay_app_id: 'MyApp-1234',
       client_secret: 'SBX-secret',
-      redirect_uri: 'https://auth.automana.app/oauth/callback/ebay',
+      ru_name: 'https://auth.automana.app/oauth/callback/ebay',
       allowed_scopes: ['https://api.ebay.com/oauth/api_scope/sell.inventory'],
     })
 
@@ -35,7 +35,7 @@ describe('registerEbayApp', () => {
       environment: 'SANDBOX',
       ebay_app_id: 'MyApp-1234',
       client_secret: 'SBX-secret',
-      redirect_uri: 'https://auth.automana.app/oauth/callback/ebay',
+      ru_name: 'https://auth.automana.app/oauth/callback/ebay',
       allowed_scopes: ['https://api.ebay.com/oauth/api_scope/sell.inventory'],
       app_code: '',
       response_type: 'code',
@@ -53,7 +53,7 @@ describe('registerEbayApp', () => {
       environment: 'PRODUCTION',
       ebay_app_id: 'id',
       client_secret: 'secret',
-      redirect_uri: 'https://example.com',
+      ru_name: 'https://example.com',
       allowed_scopes: [],
     })
 
@@ -70,7 +70,7 @@ describe('registerEbayApp', () => {
         environment: 'SANDBOX',
         ebay_app_id: 'id',
         client_secret: 'secret',
-        redirect_uri: 'https://example.com',
+        ru_name: 'https://example.com',
         allowed_scopes: [],
       })
     ).rejects.toThrow('API 403: forbidden')

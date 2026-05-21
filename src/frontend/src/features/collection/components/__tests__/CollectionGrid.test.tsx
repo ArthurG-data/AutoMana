@@ -1,90 +1,91 @@
-import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { CollectionGrid } from '../CollectionGrid'
 import type { CollectionEntry } from '../../api'
 
-const ENTRIES: CollectionEntry[] = [
-  {
-    item_id: 'e1',
-    card_version_id: 'cv1',
-    card_name: 'Ragavan, Nimble Pilferer',
-    set_code: 'MH2',
-    collector_number: '138',
-    finish: 'NONFOIL',
-    condition: 'NM',
-    purchase_price: '28.00',
-    purchase_date: '2024-01-01',
-    currency_code: 'USD',
-    image_normal: null,
-    price: 54.20,
-    price_change_1d: 1.5,
-  },
-  {
-    item_id: 'e2',
-    card_version_id: 'cv2',
-    card_name: 'Force of Will',
-    set_code: 'ALL',
-    collector_number: '28',
-    finish: 'FOIL',
-    condition: 'LP',
-    purchase_price: '120.00',
-    purchase_date: '2024-01-02',
-    currency_code: 'USD',
-    image_normal: null,
-    price: 110,
-    price_change_1d: -0.5,
-  },
-]
+const makeEntry = (overrides: Partial<CollectionEntry> = {}): CollectionEntry => ({
+  item_id: 'item-1',
+  card_version_id: 'card-a',
+  card_name: 'Sol Ring',
+  set_code: 'lea',
+  collector_number: '265',
+  finish: 'NONFOIL',
+  condition: 'NM',
+  purchase_price: '5.00',
+  purchase_date: '2024-01-01',
+  currency_code: 'USD',
+  price: 10.00,
+  price_change_1d: 0,
+  status: 'purchased',
+  image_normal: null,
+  ...overrides,
+})
 
 describe('CollectionGrid', () => {
-  it('renders a card for each entry', () => {
-    render(<CollectionGrid entries={ENTRIES} onRemove={vi.fn()} />)
-    expect(screen.getByText('Ragavan, Nimble Pilferer')).toBeTruthy()
-    expect(screen.getByText('Force of Will')).toBeTruthy()
-  })
-
-  it('shows set code and condition', () => {
-    render(<CollectionGrid entries={[ENTRIES[0]]} onRemove={vi.fn()} />)
-    expect(screen.getByText('MH2')).toBeTruthy()
-    expect(screen.getByText('NM')).toBeTruthy()
-  })
-
-  it('shows market price', () => {
-    render(<CollectionGrid entries={[ENTRIES[0]]} onRemove={vi.fn()} />)
-    expect(screen.getByText('$54.20')).toBeTruthy()
-  })
-
-  it('shows P&L in green when profit', () => {
-    render(<CollectionGrid entries={[ENTRIES[0]]} onRemove={vi.fn()} />)
-    // profit: 54.20 - 28.00 = +$26.20
-    expect(screen.getByText('+$26.20')).toBeTruthy()
-  })
-
-  it('shows P&L in red when loss', () => {
-    render(<CollectionGrid entries={[ENTRIES[1]]} onRemove={vi.fn()} />)
-    // loss: 110 - 120 = -$10.00
-    expect(screen.getByText('-$10.00')).toBeTruthy()
-  })
-
-  it('calls onRemove with item_id when remove button clicked', () => {
-    const onRemove = vi.fn()
-    render(<CollectionGrid entries={[ENTRIES[0]]} onRemove={onRemove} />)
-    fireEvent.click(screen.getByRole('button', { name: /remove ragavan/i }))
-    expect(onRemove).toHaveBeenCalledWith('e1')
-  })
-
   it('shows empty state when no entries', () => {
     render(<CollectionGrid entries={[]} onRemove={vi.fn()} />)
-    expect(screen.getByText(/no cards yet/i)).toBeTruthy()
+    expect(screen.getByText(/No cards yet/)).toBeInTheDocument()
   })
 
-  it('renders finish badge for FOIL entries', () => {
-    render(<CollectionGrid entries={[ENTRIES[1]]} onRemove={vi.fn()} />)
-    expect(screen.getByText('foil')).toBeTruthy()
+  it('renders one tile for a single entry', () => {
+    render(<CollectionGrid entries={[makeEntry()]} onRemove={vi.fn()} />)
+    expect(screen.getAllByText('Sol Ring')).toHaveLength(1)
   })
 
-  it('does not render a finish badge for NONFOIL entries', () => {
-    render(<CollectionGrid entries={[ENTRIES[0]]} onRemove={vi.fn()} />)
-    expect(screen.queryByText('nonfoil')).toBeNull()
+  it('renders one tile for multiple copies of the same card', () => {
+    const entries = [
+      makeEntry({ item_id: 'item-1' }),
+      makeEntry({ item_id: 'item-2' }),
+      makeEntry({ item_id: 'item-3' }),
+    ]
+    render(<CollectionGrid entries={entries} onRemove={vi.fn()} />)
+    expect(screen.getAllByText('Sol Ring')).toHaveLength(1)
+  })
+
+  it('shows ×N badge when there are multiple copies', () => {
+    const entries = [
+      makeEntry({ item_id: 'item-1' }),
+      makeEntry({ item_id: 'item-2' }),
+      makeEntry({ item_id: 'item-3' }),
+    ]
+    render(<CollectionGrid entries={entries} onRemove={vi.fn()} />)
+    expect(screen.getByText('×3')).toBeInTheDocument()
+  })
+
+  it('shows ×1 badge for a single copy', () => {
+    render(<CollectionGrid entries={[makeEntry()]} onRemove={vi.fn()} />)
+    expect(screen.getByText('×1')).toBeInTheDocument()
+  })
+
+  it('always shows copy rows without needing to expand', () => {
+    const entries = [makeEntry({ item_id: 'item-1' }), makeEntry({ item_id: 'item-2' })]
+    render(<CollectionGrid entries={entries} onRemove={vi.fn()} />)
+    expect(screen.getByRole('list')).toBeInTheDocument()
+    expect(screen.getAllByRole('listitem')).toHaveLength(2)
+  })
+
+  it('shows remove button for each copy without interaction', () => {
+    const entries = [makeEntry({ item_id: 'item-1' }), makeEntry({ item_id: 'item-2' })]
+    render(<CollectionGrid entries={entries} onRemove={vi.fn()} />)
+    expect(screen.getAllByRole('button', { name: /Remove copy/i })).toHaveLength(2)
+  })
+
+  it('calls onRemove with the correct item_id', () => {
+    const onRemove = vi.fn()
+    const entries = [makeEntry({ item_id: 'item-1' }), makeEntry({ item_id: 'item-2' })]
+    render(<CollectionGrid entries={entries} onRemove={onRemove} />)
+    const removeBtns = screen.getAllByRole('button', { name: /Remove copy/i })
+    fireEvent.click(removeBtns[1])
+    expect(onRemove).toHaveBeenCalledWith('item-2')
+  })
+
+  it('renders two separate tiles for different card versions', () => {
+    const entries = [
+      makeEntry({ item_id: 'item-1', card_version_id: 'card-a', card_name: 'Sol Ring' }),
+      makeEntry({ item_id: 'item-2', card_version_id: 'card-b', card_name: 'Black Lotus' }),
+    ]
+    render(<CollectionGrid entries={entries} onRemove={vi.fn()} />)
+    expect(screen.getByText('Sol Ring')).toBeInTheDocument()
+    expect(screen.getByText('Black Lotus')).toBeInTheDocument()
   })
 })

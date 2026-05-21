@@ -30,9 +30,25 @@ const Wrapper = ({ children }: { children: React.ReactNode }) => (
   </QueryClientProvider>
 )
 
+const MOCK_SUGGESTIONS = [
+  { card_version_id: 'ragavan-mh2',  card_name: 'Ragavan, Nimble Pilferer', set_code: 'MH2', collector_number: '138', rarity_name: 'mythic', score: 0.95 },
+  { card_version_id: 'one-ring-ltr', card_name: 'The One Ring',             set_code: 'LTR', collector_number: '1',   rarity_name: 'mythic', score: 0.85 },
+]
+
 describe('SearchBarWithSuggestions', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // Provide a default MSW handler that filters by the `q` query param
+    server.use(
+      http.get('/api/catalog/mtg/card-reference/suggest', ({ request }) => {
+        const q = new URL(request.url).searchParams.get('q') ?? ''
+        const filtered = MOCK_SUGGESTIONS.filter((s) =>
+          s.card_name.toLowerCase().includes(q.toLowerCase()) ||
+          s.set_code.toLowerCase().includes(q.toLowerCase())
+        )
+        return HttpResponse.json({ success: true, data: { suggestions: filtered } })
+      })
+    )
   })
 
   it('renders search input with placeholder', () => {
@@ -50,7 +66,7 @@ describe('SearchBarWithSuggestions', () => {
     await user.type(input, 'rag')
 
     await waitFor(() => {
-      expect(screen.getByText('Ragavan, Nimble Pilferer')).toBeInTheDocument()
+      expect(screen.getByText(/Ragavan, Nimble Pilferer/)).toBeInTheDocument()
     })
   })
 
@@ -72,13 +88,13 @@ describe('SearchBarWithSuggestions', () => {
     await user.type(input, 'rag')
 
     await waitFor(() => {
-      expect(screen.getByText('Ragavan, Nimble Pilferer')).toBeInTheDocument()
+      expect(screen.getByText(/Ragavan, Nimble Pilferer/)).toBeInTheDocument()
     })
 
     await user.keyboard('{Escape}')
 
     await waitFor(() => {
-      expect(screen.queryByText('Ragavan, Nimble Pilferer')).not.toBeInTheDocument()
+      expect(screen.queryByText(/Ragavan, Nimble Pilferer/)).not.toBeInTheDocument()
     })
   })
 
@@ -90,14 +106,14 @@ describe('SearchBarWithSuggestions', () => {
     await user.type(input, 'rag')
 
     await waitFor(() => {
-      expect(screen.getByText('Ragavan, Nimble Pilferer')).toBeInTheDocument()
+      expect(screen.getByText(/Ragavan, Nimble Pilferer/)).toBeInTheDocument()
     })
 
     await user.tab()
 
     // Dropdown should close after blur
     await waitFor(() => {
-      expect(screen.queryByText('Ragavan, Nimble Pilferer')).not.toBeInTheDocument()
+      expect(screen.queryByText(/Ragavan, Nimble Pilferer/)).not.toBeInTheDocument()
     }, { timeout: 500 })
   })
 
@@ -109,10 +125,10 @@ describe('SearchBarWithSuggestions', () => {
     await user.type(input, 'rag')
 
     await waitFor(() => {
-      expect(screen.getByText('Ragavan, Nimble Pilferer')).toBeInTheDocument()
+      expect(screen.getByText(/Ragavan, Nimble Pilferer/)).toBeInTheDocument()
     })
 
-    await user.click(screen.getByText('Ragavan, Nimble Pilferer'))
+    await user.click(screen.getByText(/Ragavan, Nimble Pilferer/))
 
     expect(mockNavigate).toHaveBeenCalledTimes(1)
     expect(mockNavigate).toHaveBeenCalledWith({
@@ -130,7 +146,7 @@ describe('SearchBarWithSuggestions', () => {
     await user.type(input, 'rag')
 
     await waitFor(() => {
-      expect(screen.getByText('Ragavan, Nimble Pilferer')).toBeInTheDocument()
+      expect(screen.getByText(/Ragavan, Nimble Pilferer/)).toBeInTheDocument()
     })
 
     // Press ArrowDown to select next item
@@ -154,7 +170,7 @@ describe('SearchBarWithSuggestions', () => {
     })
 
     // Should not show Ragavan results for "ring" search
-    expect(screen.queryByText('Ragavan, Nimble Pilferer')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Ragavan, Nimble Pilferer/)).not.toBeInTheDocument()
   })
 
   it('hides suggestions with score < 0.5 when 3 or more are returned', async () => {
@@ -177,11 +193,11 @@ describe('SearchBarWithSuggestions', () => {
     await user.type(input, 'rag')
 
     await waitFor(() => {
-      expect(screen.getByText('Ragavan, Nimble Pilferer')).toBeInTheDocument()
+      expect(screen.getByText(/Ragavan, Nimble Pilferer/)).toBeInTheDocument()
     })
 
-    expect(screen.getByText('The One Ring')).toBeInTheDocument()
-    expect(screen.queryByText('Orcish Bowmasters')).not.toBeInTheDocument()
+    expect(screen.getByText(/The One Ring/)).toBeInTheDocument()
+    expect(screen.queryByText(/Orcish Bowmasters/)).not.toBeInTheDocument()
   })
 
   it('shows all suggestions when fewer than 3 are returned, regardless of score', async () => {
@@ -203,10 +219,10 @@ describe('SearchBarWithSuggestions', () => {
     await user.type(input, 'ra')
 
     await waitFor(() => {
-      expect(screen.getByText('Ragavan, Nimble Pilferer')).toBeInTheDocument()
+      expect(screen.getByText(/Ragavan, Nimble Pilferer/)).toBeInTheDocument()
     })
 
-    expect(screen.getByText('The One Ring')).toBeInTheDocument()
+    expect(screen.getByText(/The One Ring/)).toBeInTheDocument()
   })
 
   it('pressing Enter without arrow navigation goes to search results, not a card detail page', async () => {
@@ -217,7 +233,7 @@ describe('SearchBarWithSuggestions', () => {
     await user.type(input, 'rag')
 
     await waitFor(() => {
-      expect(screen.getByText('Ragavan, Nimble Pilferer')).toBeInTheDocument()
+      expect(screen.getByText(/Ragavan, Nimble Pilferer/)).toBeInTheDocument()
     })
 
     await user.keyboard('{Enter}')
