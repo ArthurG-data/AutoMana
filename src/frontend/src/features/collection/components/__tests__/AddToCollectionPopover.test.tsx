@@ -126,4 +126,34 @@ describe('AddToCollectionPopover', () => {
       finish: 'FOIL',
     })
   })
+
+  it('shows "You already have N" when existingCopies > 0', () => {
+    render(
+      <AddToCollectionPopover
+        cardVersionId="cv1"
+        cardName="Ragavan"
+        finish="non-foil"
+        collections={COLLECTIONS}
+        existingCopies={3}
+        onAdd={vi.fn()}
+        onClose={vi.fn()}
+      />
+    )
+    expect(screen.getByText(/You already have 3/)).toBeInTheDocument()
+  })
+
+  it('does not show existing copies text when existingCopies is 0', () => {
+    render(
+      <AddToCollectionPopover
+        cardVersionId="cv1"
+        cardName="Ragavan"
+        finish="non-foil"
+        collections={COLLECTIONS}
+        existingCopies={0}
+        onAdd={vi.fn()}
+        onClose={vi.fn()}
+      />
+    )
+    expect(screen.queryByText(/You already have/)).not.toBeInTheDocument()
+  })
 })
