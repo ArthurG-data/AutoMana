@@ -354,6 +354,9 @@ function CollectionPage() {
             collectionId={activeCollectionId ?? undefined}
           />
         )}
+
+        {isFetchingMore && <div className={styles.loadingMore}>Loading more…</div>}
+        {hasMore && !isFetchingMore && <div ref={sentinelRef} className={styles.sentinel} />}
       </div>
     </AppShell>
   )
