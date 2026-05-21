@@ -70,6 +70,12 @@ export function SearchResults({
     enabled: isAuthed,
   })
 
+  const firstCollectionId = collections[0]?.collection_id ?? ''
+  const { data: firstCollectionEntries = [] } = useQuery({
+    ...collectionEntriesQueryOptions(firstCollectionId),
+    enabled: Boolean(firstCollectionId) && isAuthed && Boolean(addTarget),
+  })
+
   async function handleAdd(params: {
     collectionId: string
     condition: 'NM' | 'LP' | 'MP' | 'HP' | 'DMG' | 'SP'
@@ -127,6 +133,9 @@ export function SearchResults({
   const renderCard = (card: CardSummary, i: number) => {
     const delta = card.price_change_1d ?? 0
     const isLastCard = card.card_version_id === lastCardId
+    const existingCopies = firstCollectionEntries.filter(
+      (e) => e.card_version_id === card.card_version_id
+    ).length
     return (
       <div key={card.card_version_id} className={styles.cardWrap}>
         <button
@@ -204,6 +213,7 @@ export function SearchResults({
             cardName={card.card_name}
             finish={card.finish}
             collections={collections as Collection[]}
+            existingCopies={existingCopies}
             onAdd={handleAdd}
             onClose={() => setAddTarget(null)}
           />

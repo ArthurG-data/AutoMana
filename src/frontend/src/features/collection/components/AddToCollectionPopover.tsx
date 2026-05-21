@@ -17,6 +17,7 @@ interface Props {
   cardName: string
   finish: string
   collections: Collection[]
+  existingCopies?: number
   onAdd: (params: { collectionId: string; condition: CollectionEntry['condition']; finish: FinishOut }) => void
   onClose: () => void
 }
@@ -27,6 +28,7 @@ export function AddToCollectionPopover({
   cardName,
   finish,
   collections,
+  existingCopies = 0,
   onAdd,
   onClose,
 }: Props) {
@@ -85,6 +87,12 @@ export function AddToCollectionPopover({
             ))}
           </select>
         </>
+      )}
+
+      {existingCopies > 0 && (
+        <p className={styles.label}>
+          {`You already have ${existingCopies} — add another?`}
+        </p>
       )}
 
       <div className={styles.actions}>
