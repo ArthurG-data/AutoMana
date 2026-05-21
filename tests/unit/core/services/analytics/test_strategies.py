@@ -293,7 +293,7 @@ class TestPricingStrategyManagerRecommendStrategy:
         )
 
         manager = PricingStrategyManager(
-            {"premium": mock_premium, "competitive": mock_competitive}
+            {"competitive": mock_competitive, "premium": mock_premium}
         )
         name, result = manager.recommend_strategy({}, _STATS, _PERCENTILES)
         assert name == "competitive"

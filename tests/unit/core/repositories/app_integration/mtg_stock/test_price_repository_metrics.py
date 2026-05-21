@@ -43,10 +43,13 @@ async def test_fetch_max_observation_age_days_no_rows_returns_none():
 
 @pytest.mark.asyncio
 async def test_fetch_per_source_lag_hours_returns_dict():
-    repo = _repo([
+    lag_rows = [
         {"source_code": "tcgplayer", "lag_hours": 2.5},
         {"source_code": "mtgstocks", "lag_hours": 26.0},
-    ])
+    ]
+    repo = PriceRepository.__new__(PriceRepository)
+    # First call: EXISTS check; second call: per-source lag query.
+    repo.execute_query = AsyncMock(side_effect=[[{"has_data": True}], lag_rows])
     out = await repo.fetch_per_source_lag_hours()
     assert out == {"tcgplayer": 2.5, "mtgstocks": 26.0}
 
@@ -117,7 +120,9 @@ async def test_fetch_stg_residual_count_no_rows_returns_zero():
 
 @pytest.mark.asyncio
 async def test_fetch_observation_pk_collision_count_returns_int():
-    repo = _repo([{"n": 0}])
+    repo = PriceRepository.__new__(PriceRepository)
+    # First call: EXISTS check returns data present; function then returns 0.
+    repo.execute_query = AsyncMock(return_value=[{"has_data": True}])
     assert await repo.fetch_observation_pk_collision_count() == 0
 
 

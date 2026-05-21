@@ -21,7 +21,13 @@ _CARD_ROW = {
 
 def _make_repo(cards_rows, count_rows, promo_facet_rows, rarity_facet_rows):
     repo = CardReferenceRepository.__new__(CardReferenceRepository)
-    repo.execute_query = AsyncMock(side_effect=[cards_rows, count_rows, promo_facet_rows, rarity_facet_rows])
+    # When cards_rows is non-empty, _fetch_prices_for_cards inserts an extra
+    # execute_query call (Redis miss → DB lookup returning []). When empty,
+    # the price lookup is short-circuited and that call is skipped.
+    price_call = [[]] if cards_rows else []
+    repo.execute_query = AsyncMock(
+        side_effect=[cards_rows, *price_call, count_rows, promo_facet_rows, rarity_facet_rows]
+    )
     return repo
 
 
@@ -60,6 +66,6 @@ async def test_rarity_facet_query_excludes_rarity_predicate():
     )
     await repo.search(rarity="mythic")
     main_sql = repo.execute_query.call_args_list[0][0][0]
-    rarity_facet_sql = repo.execute_query.call_args_list[3][0][0]
+    rarity_facet_sql = repo.execute_query.call_args_list[4][0][0]
     assert "v.rarity_name ILIKE" in main_sql          # rarity predicate in main WHERE
     assert "v.rarity_name ILIKE" not in rarity_facet_sql  # rarity predicate absent from facet WHERE

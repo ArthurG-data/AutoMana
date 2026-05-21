@@ -23,6 +23,17 @@ def _repos():
         "with_foil_price": 400,
     }
     price.fetch_total_observation_count.return_value = 50000
+    # Tier metrics (added after original tests were written)
+    price.fetch_tier2_row_count.return_value = 0
+    price.fetch_tier3_row_count.return_value = 0
+    price.fetch_tier_sync_diff.return_value = {"diff": 0, "tier1_rows": 0, "tier2_rows": 0}
+    price.fetch_archival_ready_row_count.return_value = {"archivable_rows": 0, "cutoff_date": "2021-01-01"}
+    price.fetch_watermark_lag_days.return_value = {
+        "daily_lag_days": 1,
+        "daily_last_date": "2026-05-20",
+        "weekly_lag_days": 1,
+        "weekly_last_date": "2026-05-20",
+    }
     ops = AsyncMock()
     return price, ops
 
@@ -32,7 +43,7 @@ async def test_pricing_report_runs_all_seven_metrics_with_no_filter():
     price, ops = _repos()
     out = await pricing_report(price_repository=price, ops_repository=ops)
     assert out["check_set"] == "pricing_report"
-    assert out["total_checks"] == 13
+    assert out["total_checks"] == 19
     paths = {r["check_name"] for r in out["rows"]}
     expected = {
         "pricing.freshness.price_observation_max_age_days",
@@ -48,6 +59,12 @@ async def test_pricing_report_runs_all_seven_metrics_with_no_filter():
         "pricing.card_coverage.card_versions_with_nonfoil_price",
         "pricing.card_coverage.card_versions_with_foil_price",
         "pricing.card_coverage.total_observation_rows",
+        "pricing.tier.tier2_row_count",
+        "pricing.tier.tier3_row_count",
+        "pricing.tier.sync_diff",
+        "pricing.tier.archival_ready_rows",
+        "pricing.tier.daily_watermark_lag_days",
+        "pricing.tier.weekly_watermark_lag_days",
     }
     assert paths == expected
 
@@ -68,4 +85,4 @@ async def test_pricing_report_one_failing_metric_does_not_kill_report():
     price.fetch_max_observation_age_days.side_effect = RuntimeError("db down")
     out = await pricing_report(price_repository=price, ops_repository=ops)
     assert out["error_count"] == 1
-    assert out["total_checks"] == 13
+    assert out["total_checks"] == 19

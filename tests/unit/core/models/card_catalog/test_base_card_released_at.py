@@ -1,4 +1,5 @@
 import pytest
+from datetime import date
 from automana.core.models.card_catalog.card import BaseCard
 
 pytestmark = pytest.mark.unit
@@ -15,7 +16,7 @@ def test_base_card_accepts_released_at():
         finish="non-foil",
         released_at="2021-06-18",
     )
-    assert card.released_at == "2021-06-18"
+    assert card.released_at == date(2021, 6, 18)
 
 def test_base_card_released_at_defaults_to_none():
     card = BaseCard(
