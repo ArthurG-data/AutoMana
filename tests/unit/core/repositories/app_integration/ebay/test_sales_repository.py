@@ -128,3 +128,41 @@ async def test_mark_promoted_calls_command(repo):
 async def test_mark_promoted_skips_empty_list(repo):
     await repo.mark_promoted([])
     repo.execute_command.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_list_local_sales_returns_rows_and_total(repo):
+    repo.execute_query.side_effect = [
+        [
+            {
+                "order_id": "ord-1",
+                "local_status": "sold",
+                "buyer_username": "bob",
+                "sold_at": datetime(2025, 1, 1, tzinfo=timezone.utc),
+                "currency": "AUD",
+                "total_price_cents": 1000,
+                "line_items": [],
+            }
+        ],
+        [{"total": 1}],
+    ]
+    rows, total = await repo.list_local_sales("my-app", limit=25, offset=0)
+    assert total == 1
+    assert rows[0]["order_id"] == "ord-1"
+    assert rows[0]["total_price_cents"] == 1000
+
+
+@pytest.mark.asyncio
+async def test_list_local_sales_empty_returns_zero_total(repo):
+    repo.execute_query.side_effect = [[], [{"total": 0}]]
+    rows, total = await repo.list_local_sales("my-app", limit=25, offset=0)
+    assert rows == []
+    assert total == 0
+
+
+@pytest.mark.asyncio
+async def test_list_local_sales_passes_correct_args(repo):
+    repo.execute_query.side_effect = [[], [{"total": 0}]]
+    await repo.list_local_sales("app-X", limit=10, offset=30)
+    first_call_args = repo.execute_query.call_args_list[0][0][1]
+    assert first_call_args == ("app-X", 10, 30)

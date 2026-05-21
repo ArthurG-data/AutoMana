@@ -15,18 +15,17 @@ const mockApiClient = vi.mocked(apiClient)
 beforeEach(() => { mockApiClient.mockReset() })
 
 describe('fetchSoldOrders', () => {
-  it('maps raw orders to SoldOrder array', async () => {
+  it('calls local-history endpoint and maps local DB orders to SoldOrder array', async () => {
     mockApiClient.mockResolvedValue({
       data: [
         {
-          orderId: 'ord-1',
-          orderFulfillmentStatus: 'NOT_STARTED',
-          orderPaymentStatus: 'FULLY_PAID',
-          creationDate: '2026-05-09T00:00:00Z',
-          buyer: { username: 'buyer_xyz', taxAddress: null, buyerRegistrationAddress: null },
-          pricingSummary: { total: { value: '42.00', currency: 'AUD' } },
-          lineItems: [],
-          local_status: null,
+          order_id: 'ord-1',
+          local_status: 'sold',
+          buyer_username: 'buyer_xyz',
+          sold_at: '2026-05-09T00:00:00Z',
+          currency: 'AUD',
+          total_price_cents: 4200,
+          line_items: [{ legacyItemId: 'item-1', title: 'Bolt', quantity: 1 }],
         },
       ],
       pagination: { has_next: false },
@@ -39,6 +38,9 @@ describe('fetchSoldOrders', () => {
     expect(result.orders[0].buyerUsername).toBe('buyer_xyz')
     expect(result.orders[0].totalAmount).toBe(42)
     expect(result.hasMore).toBe(false)
+    expect(mockApiClient).toHaveBeenCalledWith(
+      expect.stringContaining('/integrations/ebay/listing/local-history'),
+    )
   })
 })
 

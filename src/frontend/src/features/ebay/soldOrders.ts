@@ -103,3 +103,40 @@ export function mapRawToSoldOrder(
     netPayout: extractAmount(totalDueSeller),
   }
 }
+
+export function mapLocalOrderToSoldOrder(
+  raw: Record<string, unknown>,
+  appCode: string,
+  appName: string,
+): SoldOrder {
+  const priceCents = raw.total_price_cents as number | null
+  const totalAmount = priceCents != null ? priceCents / 100 : null
+  const localStatus = (raw.local_status as string | null) ?? null
+  const lineItems = (raw.line_items as Record<string, unknown>[] | null) ?? []
+
+  return {
+    orderId: (raw.order_id as string) ?? '',
+    legacyOrderId: null,
+    creationDate: (raw.sold_at as string | null) ?? null,
+    orderFulfillmentStatus: null,
+    orderPaymentStatus: null,
+    buyerUsername: (raw.buyer_username as string | null) ?? null,
+    totalAmount,
+    currency: (raw.currency as string | null) ?? null,
+    lineItems: lineItems.map((li) => ({
+      lineItemId: null,
+      legacyItemId: (li.legacyItemId as string | null) ?? null,
+      title: (li.title as string | null) ?? null,
+      quantity: (li.quantity as number | null) ?? null,
+      lineItemFulfillmentStatus: null,
+    })),
+    local_status: localStatus,
+    displayStatus: deriveDisplayStatus(null, localStatus),
+    appCode,
+    appName,
+    itemSubtotal: totalAmount,
+    shippingCollected: null,
+    ebayFee: null,
+    netPayout: null,
+  }
+}
