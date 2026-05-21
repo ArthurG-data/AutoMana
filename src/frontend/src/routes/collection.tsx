@@ -239,6 +239,14 @@ function CollectionPage() {
               aria-label="Search collection"
             />
           </div>
+          <button
+            className={cn(styles.filterBtn, filterPanelOpen && styles.filterBtnActive)}
+            onClick={() => setFilterPanelOpen((o) => !o)}
+            aria-expanded={filterPanelOpen}
+            aria-label="Toggle filters"
+          >
+            ⊞ Filters{hasActiveFilters ? ` (${finishFilter.size + statusFilter.size})` : ''}
+          </button>
           <div className={styles.toolbarRight}>
             <div className={styles.sortControl}>
               <select
@@ -282,6 +290,55 @@ function CollectionPage() {
             </div>
           </div>
         </div>
+
+        {filterPanelOpen && (
+          <div className={styles.filterPanel}>
+            <div className={styles.filterGroup}>
+              <div className={styles.filterGroupLabel}>Finish</div>
+              <div className={styles.filterGroupPills}>
+                {(['NONFOIL', 'FOIL', 'ETCHED'] as const).map((f) => (
+                  <button
+                    key={f}
+                    className={cn(styles.filterPill, finishFilter.has(f) && styles.filterPillActive)}
+                    onClick={() => toggleFinish(f)}
+                  >
+                    {f}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className={styles.filterGroup}>
+              <div className={styles.filterGroupLabel}>Status</div>
+              <div className={styles.filterGroupPills}>
+                {(['purchased', 'listed', 'stashed', 'sold'] as const).map((s) => (
+                  <button
+                    key={s}
+                    className={cn(styles.filterPill, statusFilter.has(s) && styles.filterPillActive)}
+                    onClick={() => toggleStatus(s)}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {hasActiveFilters && (
+          <div className={styles.filterRow}>
+            {[...finishFilter].map((f) => (
+              <button key={f} className={styles.filterPillDismiss} onClick={() => toggleFinish(f)}>
+                Finish: {f} ×
+              </button>
+            ))}
+            {[...statusFilter].map((s) => (
+              <button key={s} className={styles.filterPillDismiss} onClick={() => toggleStatus(s)}>
+                Status: {s} ×
+              </button>
+            ))}
+            <button className={styles.clearAll} onClick={clearFilters}>Clear all</button>
+          </div>
+        )}
 
         {isLoading ? (
           <div className={styles.loading}>Loading…</div>
