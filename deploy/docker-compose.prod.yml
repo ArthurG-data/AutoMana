@@ -5,6 +5,7 @@ services:
       dockerfile: Dockerfile
     #image: timescale-pgvector:pg17
     container_name: automana-postgres-prod
+    shm_size: '256m'
     env_file:
       - ../config/env/.env.prod
     volumes:
@@ -42,7 +43,7 @@ services:
       - |
         set -e
         apt-get update && apt-get install -y --no-install-recommends cron gzip ca-certificates curl unzip
-        curl -fsSL https://downloads.rclone.org/rclone-current-linux-amd64.zip -o /tmp/rclone.zip
+        curl -fsSL https://downloads.rclone.org/v1.68.2/rclone-v1.68.2-linux-amd64.zip -o /tmp/rclone.zip
         unzip -q /tmp/rclone.zip -d /tmp && mv /tmp/rclone-*/rclone /usr/local/bin/rclone && rm -rf /tmp/rclone*
         mkdir -p /backups
         cat > /usr/local/bin/pg_backup.sh << 'SCRIPT'
