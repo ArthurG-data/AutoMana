@@ -1,5 +1,6 @@
 services:
   postgres:
+    profiles: ["local"]
     build:
       context: ./docker/postgres
       dockerfile: Dockerfile
@@ -30,6 +31,7 @@ services:
     networks:
             - backend-network
   db-backup-prod:
+    profiles: ["local"]
     image: postgres:17
     depends_on:
       postgres:
@@ -85,12 +87,15 @@ services:
       - pgp_secret_key
     env_file:
       - ../config/env/.env.prod
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       ENV: prod
       POSTGRES_USER: ${APP_BACKEND_DB_USER}
+      POSTGRES_PASSWORD: ""
       POSTGRES_PASSWORD_FILE: /run/secrets/backend_db_password
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: "5432"
+      POSTGRES_HOST: host.docker.internal
+      POSTGRES_PORT: "15432"
       FRONTEND_BASE_URL: https://automana.duckdns.org
       AGENT_DB_PASSWORD_FILE: /run/secrets/agent_db_password
     networks:
@@ -100,9 +105,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    depends_on:
-      postgres:
-        condition: service_healthy
   proxy:
     build:
       context: ./docker/nginx
@@ -150,17 +152,18 @@ services:
       - celery_db_password
     env_file:
       - ../config/env/.env.prod
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       ENV: prod
       MODULES_NAMESPACE: celery
       CELERY_POOL: "prefork"
       POSTGRES_USER: ${APP_CELERY_DB_USER}
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: "5432"
+      POSTGRES_PASSWORD: ""
+      POSTGRES_HOST: host.docker.internal
+      POSTGRES_PORT: "15432"
       POSTGRES_PASSWORD_FILE: /run/secrets/celery_db_password
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
     command: >
@@ -184,13 +187,16 @@ services:
       - celery_db_password
     env_file:
       - ../config/env/.env.prod
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       ENV: prod
       MODULES_NAMESPACE: celery
       CELERY_LOGLEVEL: "INFO"
       POSTGRES_USER: ${APP_CELERY_DB_USER}
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: "5432"
+      POSTGRES_PASSWORD: ""
+      POSTGRES_HOST: host.docker.internal
+      POSTGRES_PORT: "15432"
       POSTGRES_PASSWORD_FILE: /run/secrets/celery_db_password
     depends_on:
       redis:

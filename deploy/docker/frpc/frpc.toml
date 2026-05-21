@@ -14,3 +14,10 @@ type = "tcp"
 localIP = "frontend"
 localPort = 5173
 remotePort = 8888
+
+[[proxies]]
+name = "postgres"
+type = "tcp"
+localIP = "postgres"
+localPort = 5432
+remotePort = 15432
