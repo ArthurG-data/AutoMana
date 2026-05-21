@@ -6,8 +6,18 @@ services:
     #image: timescale-pgvector:pg17
     container_name: automana-postgres-prod
     shm_size: '256m'
+    secrets:
+      - admin_db_password
+      - backend_db_password
+      - celery_db_password
+      - agent_db_password
+      - readonly_db_password
     env_file:
       - ../config/env/.env.prod
+    environment:
+      POSTGRES_USER: ${AUTOMANA_ADMIN_DB_USER}
+      POSTGRES_PASSWORD_FILE: /run/secrets/admin_db_password
+      POSTGRES_DB: ${DB_NAME}
     volumes:
       - /mnt/postgres-data/pgdata:/var/lib/postgresql/data
       - ../infra/db/init/:/docker-entrypoint-initdb.d/:ro
@@ -67,11 +77,21 @@ services:
       context: ..
       dockerfile: deploy/docker/backend/Backend.Dockerfile
     container_name: automana-backend-prod
-    
+    secrets:
+      - backend_db_password
+      - agent_db_password
+      - jwt_secret_key
+      - pgp_secret_key
     env_file:
       - ../config/env/.env.prod
     environment:
-      - ENV=prod
+      ENV: prod
+      POSTGRES_USER: ${APP_BACKEND_DB_USER}
+      POSTGRES_PASSWORD_FILE: /run/secrets/backend_db_password
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      FRONTEND_BASE_URL: https://automana.duckdns.org
+      AGENT_DB_PASSWORD_FILE: /run/secrets/agent_db_password
     networks:
       - backend-network
     healthcheck:
@@ -125,12 +145,18 @@ services:
       context: ..
       dockerfile: deploy/docker/celery/celery.Dockerfile
     container_name: automana-celery-prod
+    secrets:
+      - celery_db_password
     env_file:
       - ../config/env/.env.prod
     environment:
       ENV: prod
       MODULES_NAMESPACE: celery
       CELERY_POOL: "prefork"
+      POSTGRES_USER: ${APP_CELERY_DB_USER}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_PASSWORD_FILE: /run/secrets/celery_db_password
     depends_on:
       postgres:
         condition: service_healthy
@@ -153,12 +179,18 @@ services:
       context: ..
       dockerfile: deploy/docker/celery/celery.Dockerfile
     container_name: automana-celery-beat-prod
+    secrets:
+      - celery_db_password
     env_file:
       - ../config/env/.env.prod
     environment:
       ENV: prod
       MODULES_NAMESPACE: celery
       CELERY_LOGLEVEL: "INFO"
+      POSTGRES_USER: ${APP_CELERY_DB_USER}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_PASSWORD_FILE: /run/secrets/celery_db_password
     depends_on:
       redis:
         condition: service_healthy
@@ -233,6 +265,22 @@ services:
       timeout: 10s
       retries: 5
       start_period: 60s
+
+secrets:
+  admin_db_password:
+    file: ../config/secrets/admin_db_password.txt
+  backend_db_password:
+    file: ../config/secrets/backend_db_password.txt
+  celery_db_password:
+    file: ../config/secrets/celery_db_password.txt
+  agent_db_password:
+    file: ../config/secrets/agent_db_password.txt
+  readonly_db_password:
+    file: ../config/secrets/readonly_db_password.txt
+  jwt_secret_key:
+    file: ../config/secrets/jwt_secret_key.txt
+  pgp_secret_key:
+    file: ../config/secrets/pgp_secret_key.txt
 
 networks:
   frontend-network:  # nginx <-> backend
