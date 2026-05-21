@@ -101,3 +101,50 @@
   font-size: 14px;
   grid-column: 1 / -1;
 }
+
+.copyBadge {
+  position: absolute;
+  top: 0.35rem;
+  left: 0.35rem;
+  background: var(--hd-surface-2, #1f2937);
+  color: var(--hd-sub);
+  font-size: 9px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.expandBtn {
+  all: unset;
+  display: block;
+  width: 100%;
+  cursor: pointer;
+}
+
+.copyList {
+  list-style: none;
+  margin: 0.3rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.copyRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+}
+
+.copyPrice {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--hd-text);
+}

@@ -1,7 +1,8 @@
-// src/frontend/src/features/collection/components/CollectionGrid.tsx
+import { useState } from 'react'
 import { CardArt } from '../../../components/design-system/CardArt'
 import { formatUSD } from '../../../lib/format'
 import type { CollectionEntry } from '../api'
+import { groupEntries } from '../groupEntries'
 import styles from './CollectionGrid.module.css'
 
 interface CollectionGridProps {
@@ -15,7 +16,6 @@ function finishBadgeClass(finish: CollectionEntry['finish']): string {
   return styles.badge
 }
 
-/** Map backend finish enum to CardArt finish prop (lowercase, hyphenated) */
 function toCardArtFinish(finish: CollectionEntry['finish']): 'non-foil' | 'foil' | 'etched' {
   if (finish === 'NONFOIL') return 'non-foil'
   if (finish === 'FOIL') return 'foil'
@@ -23,7 +23,10 @@ function toCardArtFinish(finish: CollectionEntry['finish']): 'non-foil' | 'foil'
 }
 
 export function CollectionGrid({ entries, onRemove }: CollectionGridProps) {
-  if (entries.length === 0) {
+  const [expandedKey, setExpandedKey] = useState<string | null>(null)
+  const groups = groupEntries(entries)
+
+  if (groups.length === 0) {
     return (
       <div className={styles.grid}>
         <p className={styles.empty}>
@@ -35,30 +38,37 @@ export function CollectionGrid({ entries, onRemove }: CollectionGridProps) {
 
   return (
     <div className={styles.grid}>
-      {entries.map((entry, i) => {
+      {groups.map((group, i) => {
+        const { key, representative: entry, copies } = group
+        const isExpanded = expandedKey === key
         const pl =
-          entry.price != null
-            ? entry.price - Number(entry.purchase_price)
-            : null
-        const plLabel = pl != null ? `${pl >= 0 ? '+' : '-'}${formatUSD(Math.abs(pl))}` : null
+          entry.price != null ? entry.price - Number(entry.purchase_price) : null
+        const plLabel =
+          pl != null ? `${pl >= 0 ? '+' : '-'}${formatUSD(Math.abs(pl))}` : null
 
         return (
-          <div key={entry.item_id} className={styles.cardWrap}>
+          <div key={key} className={styles.cardWrap}>
+            {copies.length > 1 && (
+              <span className={styles.copyBadge}>×{copies.length}</span>
+            )}
             <button
-              className={styles.removeBtn}
-              onClick={() => onRemove(entry.item_id)}
-              aria-label={`Remove ${entry.card_name}`}
+              className={styles.expandBtn}
+              onClick={() => setExpandedKey(isExpanded ? null : key)}
+              aria-label={
+                isExpanded
+                  ? `Collapse ${entry.card_name} copies`
+                  : `Expand ${entry.card_name} copies`
+              }
             >
-              ×
+              <CardArt
+                name={entry.card_name}
+                w="100%"
+                hue={(i * 47) % 360}
+                label={false}
+                imageUrl={entry.image_normal ?? undefined}
+                finish={toCardArtFinish(entry.finish)}
+              />
             </button>
-            <CardArt
-              name={entry.card_name}
-              w="100%"
-              hue={(i * 47) % 360}
-              label={false}
-              imageUrl={entry.image_normal ?? undefined}
-              finish={toCardArtFinish(entry.finish)}
-            />
             <div className={styles.cardInfo}>
               <div className={styles.cardName}>{entry.card_name}</div>
               <div className={styles.badges}>
@@ -79,6 +89,26 @@ export function CollectionGrid({ entries, onRemove }: CollectionGridProps) {
                 )}
               </div>
             </div>
+            {isExpanded && (
+              <ul className={styles.copyList}>
+                {copies.map((copy) => (
+                  <li key={copy.item_id} className={styles.copyRow}>
+                    <span className={styles.badge}>{copy.condition}</span>
+                    <span className={styles.copyPrice}>
+                      {formatUSD(Number(copy.purchase_price))}
+                    </span>
+                    <span className={styles.badge}>{copy.status}</span>
+                    <button
+                      className={styles.removeBtn}
+                      onClick={() => onRemove(copy.item_id)}
+                      aria-label={`Remove copy of ${copy.card_name}`}
+                    >
+                      ×
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         )
       })}
