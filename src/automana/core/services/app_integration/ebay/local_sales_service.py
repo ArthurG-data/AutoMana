@@ -24,7 +24,6 @@ async def list_local_sales(
     offset: int = 0,
     **kwargs: Any,
 ) -> dict:
-    """Return paginated locally-persisted sold orders for an eBay app."""
     rows, total = await ebay_sales_repository.list_local_sales(
         app_code=app_code,
         limit=limit,
