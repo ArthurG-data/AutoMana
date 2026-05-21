@@ -509,3 +509,107 @@
   outline: none;
   width: 140px;
 }
+
+/* ── Filter panel ────────────────────────────────────────── */
+.filterBtn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--hd-border);
+  background: var(--hd-surface);
+  color: var(--hd-sub);
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 120ms ease;
+}
+.filterBtn:hover { border-color: var(--hd-accent); color: var(--hd-accent); }
+.filterBtnActive {
+  border-color: var(--hd-accent);
+  color: var(--hd-accent);
+  background: rgba(var(--hd-accent-rgb), 0.1);
+}
+
+.filterPanel {
+  margin-top: 6px;
+  padding: 12px 14px;
+  background: var(--hd-surface);
+  border: 1px solid var(--hd-border);
+  border-radius: 8px;
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.filterGroup { display: flex; flex-direction: column; gap: 6px; }
+.filterGroupLabel {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--hd-sub);
+}
+.filterGroupPills { display: flex; gap: 5px; flex-wrap: wrap; }
+
+.filterRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+  min-height: 26px;
+}
+
+.filterPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px;
+  border-radius: 20px;
+  border: 1px solid var(--hd-border);
+  background: var(--hd-surface);
+  color: var(--hd-sub);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 120ms ease;
+  white-space: nowrap;
+}
+.filterPill:hover { border-color: var(--hd-accent); color: var(--hd-text); }
+.filterPillActive {
+  border-color: var(--hd-accent);
+  background: rgba(var(--hd-accent-rgb), 0.12);
+  color: var(--hd-accent);
+}
+
+.filterPillDismiss {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px;
+  border-radius: 20px;
+  border: 1px solid rgba(var(--hd-accent-rgb), 0.4);
+  background: rgba(var(--hd-accent-rgb), 0.1);
+  color: var(--hd-accent);
+  font-size: 12px;
+  cursor: pointer;
+}
+.filterPillDismiss:hover { background: rgba(var(--hd-accent-rgb), 0.2); }
+
+.clearAll {
+  background: none;
+  border: none;
+  color: var(--hd-sub);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+.clearAll:hover { color: var(--hd-text); }
+
+/* ── Infinite scroll sentinel ────────────────────────────── */
+.sentinel { height: 1px; }
+.loadingMore {
+  text-align: center;
+  color: var(--hd-sub);
+  font-size: 12px;
+  padding: 12px 0;
+}

@@ -175,7 +175,13 @@ class CollectionRepository(AbstractRepository):
         rows = await self.execute_query(query, (item_id, collection_id, user_id))
         return dict(rows[0]) if rows else None
 
-    async def get_all_entries(self, collection_id: UUID, user_id: UUID) -> List[dict]:
+    async def get_all_entries(
+        self,
+        collection_id: UUID,
+        user_id: UUID,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> List[dict]:
         query = """
             SELECT ci.item_id,
                    ci.collection_id,
@@ -214,9 +220,11 @@ class CollectionRepository(AbstractRepository):
                 ON ps.card_version_id = ci.unique_card_id
             LEFT JOIN app_integration.ebay_active_listings eal
                 ON eal.item_id = ci.ebay_item_id
-            WHERE ci.collection_id = $1;
+            WHERE ci.collection_id = $1
+            ORDER BY ci.purchase_date DESC, ci.item_id
+            LIMIT $3 OFFSET $4;
         """
-        rows = await self.execute_query(query, (collection_id, user_id))
+        rows = await self.execute_query(query, (collection_id, user_id, limit, offset))
         return [dict(r) for r in rows]
 
     async def update_entry_status(
