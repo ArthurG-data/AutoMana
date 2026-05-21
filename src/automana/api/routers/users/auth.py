@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 from automana.api.dependancies.general import ipDep
 from fastapi.security import OAuth2PasswordRequestForm
 from automana.api.schemas.auth.token import Token, TokenResponse
+from automana.api.schemas.auth.password_reset import ForgotPasswordRequest, ResetPasswordRequest
 from automana.api.dependancies.service_deps import ServiceManagerDep
 from automana.api.schemas.StandardisedQueryResponse import ErrorResponse
 from automana.core.settings import get_settings
@@ -172,3 +173,52 @@ async def logout(
             )
     response.delete_cookie('session_id')
     return None
+
+
+@authentification_router.post(
+    '/forgot-password',
+    summary="Request a password reset link",
+    description=(
+        "Accepts an email address and sends a reset link if the email is registered. "
+        "Always returns 200 to prevent user enumeration."
+    ),
+    status_code=200,
+    operation_id="auth_forgot_password",
+    responses={**_AUTH_ERRORS},
+)
+async def forgot_password(
+    body: ForgotPasswordRequest,
+    service_manager: ServiceManagerDep,
+):
+    await service_manager.execute_service(
+        "auth.password.request_reset",
+        email=body.email,
+    )
+    return {"message": "If that email exists, a reset link has been sent."}
+
+
+@authentification_router.post(
+    '/reset-password',
+    summary="Reset password using a token from the reset email",
+    description=(
+        "Validates the one-time reset token, updates the user's password, "
+        "and invalidates all active sessions. Returns 400 if the token is "
+        "invalid, expired, or already used."
+    ),
+    status_code=200,
+    operation_id="auth_reset_password",
+    responses={
+        400: {"description": "Invalid, expired, or already-used reset token"},
+        **_AUTH_ERRORS,
+    },
+)
+async def reset_password_endpoint(
+    body: ResetPasswordRequest,
+    service_manager: ServiceManagerDep,
+):
+    await service_manager.execute_service(
+        "auth.password.reset_password",
+        token=body.token,
+        new_password=body.new_password,
+    )
+    return {"message": "Password updated successfully."}
