@@ -61,10 +61,10 @@ class EbayAppRepository(AbstractRepository):
     def update(self, values):
         raise NotImplementedError("Method 'update' is not implemented in EbayAccountRepository")
 
-    async def update_redirect_uri(self, app_code: str, redirect_uri: str) -> bool:
+    async def update_redirect_uri(self, user_id: str, app_code: str, redirect_uri: str) -> bool:
         result = await self.execute_query(
             app_queries.update_redirect_uri_query,
-            (redirect_uri, app_code)
+            (redirect_uri, app_code, user_id)
         )
         return bool(result)
     def delete(self, values):

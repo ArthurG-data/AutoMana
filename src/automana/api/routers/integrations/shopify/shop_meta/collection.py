@@ -1,6 +1,7 @@
-﻿from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from automana.core.models.shopify import shopify_theme
 from automana.api.dependancies.service_deps import ServiceManagerDep
+from automana.api.dependancies.auth.users import AdminUserDep
 
 collection_router = APIRouter(prefix="/collection", tags=["Collection"])
 
@@ -8,7 +9,8 @@ collection_router = APIRouter(prefix="/collection", tags=["Collection"])
 @collection_router.post("/")
 async def post_collection(
     values: shopify_theme.InsertCollection,
-    service_manager: ServiceManagerDep
+    _admin: AdminUserDep,
+    service_manager: ServiceManagerDep,
 ):
     """
     Insert a new collection into the database.
@@ -19,7 +21,8 @@ async def post_collection(
 @collection_router.post("/bulk")
 async def post_bulk_collections(
     values: list[shopify_theme.InsertCollection],
-    service_manager: ServiceManagerDep
+    _admin: AdminUserDep,
+    service_manager: ServiceManagerDep,
 ):
     """
     Insert multiple collections into the database.

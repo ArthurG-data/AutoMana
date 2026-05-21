@@ -4,7 +4,7 @@ from urllib.parse import quote
 from fastapi import Cookie, HTTPException, APIRouter, Query, Request, Depends, Response, status
 from fastapi.responses import RedirectResponse
 from automana.api.dependancies.service_deps import ServiceManagerDep
-from automana.api.dependancies.auth.users import CurrentUserDep
+from automana.api.dependancies.auth.users import CurrentUserDep, AdminUserDep
 from automana.core.models.ebay.auth import AppRegistrationRequest, CreateAppRequest
 from automana.api.schemas.StandardisedQueryResponse import ApiResponse
 from automana.core.settings import get_settings
@@ -56,10 +56,10 @@ async def get_app_rate_limits(
 @ebay_auth_router.post('/admin/apps'
                        , description='add an app to the database'
                        , status_code=status.HTTP_201_CREATED)
-async def regist_app( 
+async def regist_app(
     app_data: CreateAppRequest,
-    user: CurrentUserDep,  # Only admins!
-    service_manager: ServiceManagerDep
+    user: AdminUserDep,
+    service_manager: ServiceManagerDep,
 ):
     try:
         result =await service_manager.execute_service(
@@ -177,6 +177,7 @@ async def update_redirect_uri(
     try:
         await service_manager.execute_service(
             "integrations.ebay.update_app_redirect_uri",
+            user_id=str(user.unique_id),
             app_code=app_code,
             redirect_uri=body.redirect_uri,
         )

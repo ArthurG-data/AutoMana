@@ -59,6 +59,9 @@ UPDATE app_integration.app_info
 SET redirect_uri = $1,
     updated_at   = now()
 WHERE app_code = $2
+  AND app_id IN (
+      SELECT app_id FROM app_integration.app_user WHERE user_id = $3
+  )
 RETURNING app_code;
 """
 

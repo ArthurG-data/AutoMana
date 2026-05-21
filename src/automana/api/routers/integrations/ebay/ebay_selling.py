@@ -337,6 +337,7 @@ async def get_local_order_history(
     try:
         result = await service_manager.execute_service(
             "integrations.ebay.selling.local_sales.list",
+            user_id=str(user.unique_id),
             app_code=app_code,
             limit=limit,
             offset=offset,
