@@ -56,7 +56,6 @@ SERVICE_MODULES : dict[str, list[str]]= {
             "automana.core.services.app_integration.mtgjson.data_loader",
             "automana.core.services.app_integration.mtgjson.pipeline",
             "automana.core.services.app_integration.ebay.sales_sync_service",
-            "automana.core.services.app_integration.ebay.local_sales_service",
             "automana.core.services.app_integration.ebay.scrape_sold_service",
             "automana.core.services.app_integration.ebay.promote_sold_obs_service",
             "automana.core.services.app_integration.ebay.listing_actions_service",
