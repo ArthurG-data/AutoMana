@@ -133,8 +133,14 @@ export function SearchResults({
   const renderCard = (card: CardSummary, i: number) => {
     const delta = card.price_change_1d ?? 0
     const isLastCard = card.card_version_id === lastCardId
+    const normalizedFinish = (() => {
+      const f = card.finish.toLowerCase()
+      if (f === 'foil') return 'FOIL'
+      if (f === 'etched') return 'ETCHED'
+      return 'NONFOIL'
+    })()
     const existingCopies = firstCollectionEntries.filter(
-      (e) => e.card_version_id === card.card_version_id
+      (e) => e.card_version_id === card.card_version_id && e.finish === normalizedFinish
     ).length
     return (
       <div key={card.card_version_id} className={styles.cardWrap}>
