@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SearchRouteImport } from './routes/search'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ListingsRouteImport } from './routes/listings'
 import { Route as CollectionRouteImport } from './routes/collection'
@@ -26,6 +27,11 @@ import { Route as CardsIdRouteImport } from './routes/cards.$id'
 const SearchRoute = SearchRouteImport.update({
   id: '/search',
   path: '/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -94,6 +100,7 @@ export interface FileRoutesByFullPath {
   '/collection': typeof CollectionRoute
   '/listings': typeof ListingsRoute
   '/login': typeof LoginRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/search': typeof SearchRoute
   '/cards/$id': typeof CardsIdRoute
   '/ebay/connected': typeof EbayConnectedRoute
@@ -109,6 +116,7 @@ export interface FileRoutesByTo {
   '/collection': typeof CollectionRoute
   '/listings': typeof ListingsRoute
   '/login': typeof LoginRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/search': typeof SearchRoute
   '/cards/$id': typeof CardsIdRoute
   '/ebay/connected': typeof EbayConnectedRoute
@@ -125,6 +133,7 @@ export interface FileRoutesById {
   '/collection': typeof CollectionRoute
   '/listings': typeof ListingsRoute
   '/login': typeof LoginRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/search': typeof SearchRoute
   '/cards/$id': typeof CardsIdRoute
   '/ebay/connected': typeof EbayConnectedRoute
@@ -142,6 +151,7 @@ export interface FileRouteTypes {
     | '/collection'
     | '/listings'
     | '/login'
+    | '/reset-password'
     | '/search'
     | '/cards/$id'
     | '/ebay/connected'
@@ -157,6 +167,7 @@ export interface FileRouteTypes {
     | '/collection'
     | '/listings'
     | '/login'
+    | '/reset-password'
     | '/search'
     | '/cards/$id'
     | '/ebay/connected'
@@ -172,6 +183,7 @@ export interface FileRouteTypes {
     | '/collection'
     | '/listings'
     | '/login'
+    | '/reset-password'
     | '/search'
     | '/cards/$id'
     | '/ebay/connected'
@@ -188,6 +200,7 @@ export interface RootRouteChildren {
   CollectionRoute: typeof CollectionRoute
   ListingsRoute: typeof ListingsRoute
   LoginRoute: typeof LoginRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   SearchRoute: typeof SearchRoute
   CardsIdRoute: typeof CardsIdRoute
   EbayConnectedRoute: typeof EbayConnectedRoute
@@ -206,6 +219,13 @@ declare module '@tanstack/react-router' {
       path: '/search'
       fullPath: '/search'
       preLoaderRoute: typeof SearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -300,6 +320,7 @@ const rootRouteChildren: RootRouteChildren = {
   CollectionRoute: CollectionRoute,
   ListingsRoute: ListingsRoute,
   LoginRoute: LoginRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   SearchRoute: SearchRoute,
   CardsIdRoute: CardsIdRoute,
   EbayConnectedRoute: EbayConnectedRoute,
