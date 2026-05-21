@@ -48,9 +48,7 @@ export function CollectionGrid({ entries, onRemove }: CollectionGridProps) {
 
         return (
           <div key={key} className={styles.cardWrap}>
-            {copies.length > 1 && (
-              <span className={styles.copyBadge}>×{copies.length}</span>
-            )}
+            <span className={styles.copyBadge}>×{copies.length}</span>
             <button
               className={styles.expandBtn}
               onClick={() => setExpandedKey(isExpanded ? null : key)}
