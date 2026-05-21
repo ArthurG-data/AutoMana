@@ -8,7 +8,8 @@ services:
     volumes:
       - ./frps.toml:/etc/frp/frps.toml:ro
     ports:
-      - "7000:7000"   # frp tunnel control port (local frpc connects here)
+      - "7000:7000"    # frp tunnel control port (local frpc connects here)
+      - "15432:15432"  # postgres TCP tunnel (frpc proxies local postgres here)
     networks:
       - proxy-network
 
