@@ -24,7 +24,8 @@ _BASE_ROW = {
 
 def _make_repo(rows):
     repo = CardReferenceRepository.__new__(CardReferenceRepository)
-    repo.execute_query = AsyncMock(return_value=rows)
+    # Second call is the price lookup in _fetch_prices_for_cards (after Redis miss).
+    repo.execute_query = AsyncMock(side_effect=[rows, []])
     return repo
 
 
@@ -55,7 +56,7 @@ async def test_get_returns_none_when_card_not_found():
 async def test_get_query_lowercases_finish_codes():
     repo = _make_repo([{**_BASE_ROW, "available_finishes": []}])
     await repo.get(card_id=_CARD_ID)
-    sql = repo.execute_query.await_args.args[0]
+    sql = repo.execute_query.call_args_list[0][0][0]
     assert "LOWER(cf.code)" in sql
     assert "card_version_finish" in sql
     assert "card_catalog.card_finished" in sql

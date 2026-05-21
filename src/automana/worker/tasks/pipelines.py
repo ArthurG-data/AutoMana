@@ -6,7 +6,7 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-@shared_task(name="daily_scryfall_data_pipeline", bind=True)
+@shared_task(name="automana.worker.tasks.pipelines.daily_scryfall_data_pipeline", bind=True)
 def daily_scryfall_data_pipeline(self):
     set_task_id(self.request.id)
     run_key = f"scryfall_daily:{datetime.utcnow().date().isoformat()}"
@@ -25,6 +25,7 @@ def daily_scryfall_data_pipeline(self):
         run_service.s("card_catalog.set.process_large_sets_json"), 
         run_service.s("staging.scryfall.download_cards_bulk"),
         run_service.s("card_catalog.card.process_large_json"),
+        run_service.s("staging.scryfall.load_prices_from_bulk"),
         run_service.s("card_catalog.card_search.refresh"),
         run_service.s("card_catalog.card_search.invalidate"),
         # Migrations must land AFTER the card import: `new_scryfall_id` values
@@ -47,7 +48,7 @@ def daily_scryfall_data_pipeline(self):
     )
     return wf.apply_async().id
  
-@shared_task(name="mtgStock_download_pipeline", bind=True)
+@shared_task(name="automana.worker.tasks.pipelines.mtgStock_download_pipeline", bind=True)
 def mtgStock_download_pipeline(self):
     set_task_id(self.request.id)
     run_key = f"mtgStock_All:{datetime.utcnow().date().isoformat()}"
@@ -82,7 +83,7 @@ def mtgStock_download_pipeline(self):
     return wf.apply_async().id
 
 
-@shared_task(name="daily_mtgjson_data_pipeline", bind=True)
+@shared_task(name="automana.worker.tasks.pipelines.daily_mtgjson_data_pipeline", bind=True)
 def daily_mtgjson_data_pipeline(self):
     # NB: `datetime.utcnow()` is deprecated in 3.12+ and scheduled for removal.
     # Prefer `datetime.now(timezone.utc)` — keeping utcnow() here only because
@@ -113,10 +114,15 @@ def daily_mtgjson_data_pipeline(self):
                       source_name="mtgjson",
                       run_key=run_key,
                       celery_task_id=self.request.id),
-        run_service.s("mtgjson.data.download.today"),
-        # Sync UUID mappings so the promoter proc can resolve card_uuid → card_version_id.
+        # Download fresh AllIdentifiers.json so UUID→scryfallId mappings are
+        # current before prices are staged. Returns identifiers_filename for
+        # sync_uuid_mappings to consume via run_service context-merge.
+        run_service.s("mtgjson.data.download.all_identifiers"),
         # Idempotent: ON CONFLICT DO NOTHING skips duplicates on re-runs.
+        # Must run before download.today so the promoter can resolve every
+        # card_uuid staged in this run.
         run_service.s("staging.mtgjson.sync_uuid_mappings"),
+        run_service.s("mtgjson.data.download.today"),
         # Consumes `file_path_prices` from the download step. Streams the
         # compressed payload directly into `pricing.mtgjson_card_prices_staging`
         # via lzma + ijson + asyncpg COPY — no intermediate JSONB archive.
@@ -127,12 +133,35 @@ def daily_mtgjson_data_pipeline(self):
         # resolved rows from staging. No parameters — operates over the
         # whole staging table.
         run_service.s("staging.mtgjson.promote_to_price_observation"),
+        # Aggregate T1 price_observation → T2 print_price_daily for today.
+        # No date args: the proc reads tier_watermark.last_processed_date to
+        # pick up exactly where the previous run left off (up to yesterday).
+        run_service.s("pricing.refresh_daily_prices"),
         run_service.s("card_catalog.card_search.refresh"),
         run_service.s("card_catalog.card_search.invalidate"),
         # Sliding-window retention on the on-disk .xz archive. Runs inside
         # the tracked run so cleanup failures surface as a failed step
         # (rather than silently accumulating stale files).
         run_service.s("staging.mtgjson.cleanup_raw_files"),
+        run_service.s("ops.pipeline_services.finish_run", status="success"),
+    )
+    return wf.apply_async().id
+
+
+@shared_task(name="automana.worker.tasks.pipelines.open_tcg_pricing_pipeline", bind=True)
+def open_tcg_pricing_pipeline(self):
+    set_task_id(self.request.id)
+    run_key = f"opentcg_pricing:{datetime.utcnow().date().isoformat()}"
+    logger.info("Starting Open TCG pricing pipeline", extra={"run_key": run_key})
+    wf = chain(
+        run_service.s(
+            "ops.pipeline_services.start_run",
+            pipeline_name="opentcg_pricing",
+            source_name="tcgtracking",
+            run_key=run_key,
+            celery_task_id=self.request.id,
+        ),
+        run_service.s("pricing.opentcg.load_prices"),
         run_service.s("ops.pipeline_services.finish_run", status="success"),
     )
     return wf.apply_async().id

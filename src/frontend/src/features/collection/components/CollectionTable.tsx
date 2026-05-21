@@ -1,120 +1,138 @@
 // src/frontend/src/features/collection/components/CollectionTable.tsx
-import React from 'react'
-import { AIBadge } from '../../../components/design-system/AIBadge'
-import { Pip } from '../../../components/design-system/Pip'
-import { Icon } from '../../../components/design-system/Icon'
-import type { CollectionCard } from '../mockCollection'
-import { formatUSD } from '../mockCollection'
+import { useQueryClient } from '@tanstack/react-query'
+import { cn } from '../../../lib/cn'
+import { formatUSD } from '../../../lib/format'
+import { updateEntryStatus, collectionEntriesQueryOptions } from '../api'
+import type { CollectionEntry, EntryStatus } from '../api'
+import type { SortKey, SortDir } from '../../../routes/collection'
 import styles from './CollectionTable.module.css'
 
-interface CollectionTableProps {
-  cards: CollectionCard[]
-  onList?: (card: CollectionCard) => void
-  onMore?: (card: CollectionCard) => void
+const STATUS_CYCLE: EntryStatus[] = ['purchased', 'listed', 'stashed', 'sold']
+
+function nextStatus(current: EntryStatus): EntryStatus {
+  const i = STATUS_CYCLE.indexOf(current)
+  return STATUS_CYCLE[(i + 1) % STATUS_CYCLE.length]
 }
 
-export function CollectionTable({ cards, onList, onMore }: CollectionTableProps) {
+interface CollectionTableProps {
+  entries: CollectionEntry[]
+  onRemove?: (entryId: string) => void
+  sortBy?: SortKey
+  sortDir?: SortDir
+  onSort?: (key: SortKey) => void
+  collectionId?: string
+}
+
+function SortTh({
+  label, sortKey, current, dir, onSort, align = 'left',
+}: {
+  label: string
+  sortKey: SortKey
+  current?: SortKey
+  dir?: SortDir
+  onSort?: (k: SortKey) => void
+  align?: 'left' | 'right'
+}) {
+  const active = current === sortKey
+  return (
+    <th scope="col" className={align === 'right' ? styles.right : undefined}>
+      <button className={cn(styles.thBtn, active && styles.thBtnActive)} onClick={() => onSort?.(sortKey)}>
+        {label}
+        <span className={styles.sortArrow}>{active ? (dir === 'asc' ? '↑' : '↓') : '↕'}</span>
+      </button>
+    </th>
+  )
+}
+
+export function CollectionTable({ entries, onRemove, sortBy, sortDir, onSort, collectionId }: CollectionTableProps) {
+  const queryClient = useQueryClient()
+
+  async function handleStatusClick(entry: CollectionEntry) {
+    if (!collectionId) return
+    const next = nextStatus(entry.status)
+    await updateEntryStatus(collectionId, entry.item_id, next)
+    queryClient.invalidateQueries({ queryKey: collectionEntriesQueryOptions(collectionId).queryKey })
+  }
+
   return (
     <div className={styles.wrapper} role="region" aria-label="Collection table">
       <table className={styles.table}>
         <thead className={styles.thead}>
           <tr>
-            <th scope="col">Card name</th>
-            <th scope="col">Set</th>
-            <th scope="col" className={styles.center}>Qty</th>
-            <th scope="col" className={styles.right}>Market price</th>
-            <th scope="col" className={styles.right}>30d peak</th>
-            <th scope="col" className={styles.right}>P/L</th>
-            <th scope="col" className={styles.center}>Status</th>
+            <SortTh label="Card name" sortKey="name"     current={sortBy} dir={sortDir} onSort={onSort} />
+            <SortTh label="Set"       sortKey="set"      current={sortBy} dir={sortDir} onSort={onSort} />
+            <SortTh label="Finish"    sortKey="finish"   current={sortBy} dir={sortDir} onSort={onSort} />
+            <th scope="col">Condition</th>
+            <th scope="col">Status</th>
+            <SortTh label="Purchase"  sortKey="purchase" current={sortBy} dir={sortDir} onSort={onSort} align="right" />
+            <th scope="col" className={styles.right}>Market</th>
+            <SortTh label="P/L"       sortKey="pl"       current={sortBy} dir={sortDir} onSort={onSort} align="right" />
             <th scope="col" className={styles.right}>Actions</th>
           </tr>
         </thead>
         <tbody>
-          {cards.length === 0 && (
+          {entries.length === 0 && (
             <tr>
               <td colSpan={8} className={styles.empty}>
                 No cards match your filters
               </td>
             </tr>
           )}
-          {cards.map((card) => {
-            const pl = (card.marketPrice - card.costBasis) * card.qty
-            const isReady = card.aiStatus === 'ready'
+          {entries.map((entry) => {
+            const pl =
+              entry.price != null
+                ? entry.price - Number(entry.purchase_price)
+                : null
+            const plSign = pl != null && pl >= 0 ? '+' : '-'
 
             return (
-              <tr
-                key={card.id}
-                className={[
-                  styles.row,
-                  isReady ? styles.rowReady : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-              >
-                {/* Card name + pips */}
+              <tr key={entry.item_id} className={styles.row}>
                 <td>
-                  <div className={styles.nameCell}>
-                    <div className={styles.pips}>
-                      {card.colors.map((c) => (
-                        <Pip key={c} color={c} size={13} />
-                      ))}
-                    </div>
-                    <span className={styles.cardName}>{card.name}</span>
-                    {card.foil && <span className={styles.foilBadge}>foil</span>}
-                  </div>
+                  <span className={styles.cardName}>{entry.card_name}</span>
                 </td>
-
-                {/* Set */}
                 <td>
-                  <span className={styles.setCode}>{card.setCode}</span>
+                  <span className={styles.setCode}>{entry.set_code.toUpperCase()}</span>
                 </td>
-
-                {/* Qty */}
-                <td className={styles.center}>{card.qty}</td>
-
-                {/* Market price */}
-                <td className={styles.right}>
-                  {formatUSD(card.marketPrice)}
-                </td>
-
-                {/* 30d peak */}
-                <td className={styles.right}>
-                  <span className={styles.neutral}>{formatUSD(card.peak30d)}</span>
-                </td>
-
-                {/* P/L */}
-                <td className={styles.right}>
-                  <span className={pl >= 0 ? styles.positive : styles.negative}>
-                    {pl >= 0 ? '+' : ''}{formatUSD(pl)}
-                  </span>
-                </td>
-
-                {/* Status badge */}
-                <td className={styles.center}>
-                  <AIBadge status={card.aiStatus} showLabel size="sm" />
-                </td>
-
-                {/* Actions */}
                 <td>
-                  <div className={styles.actionsCell}>
-                    {isReady ? (
-                      <button
-                        className={styles.listBtn}
-                        onClick={() => onList?.(card)}
-                        aria-label={`List ${card.name} on eBay`}
-                      >
-                        <Icon kind="tag" size={11} color="currentColor" />
-                        List
-                      </button>
-                    ) : null}
+                  <span className={styles.finish}>{entry.finish.toLowerCase()}</span>
+                </td>
+                <td>
+                  <span className={styles.condition}>{entry.condition}</span>
+                </td>
+                <td>
+                  <button
+                    className={cn(styles.statusPill, styles[`status_${entry.status}`])}
+                    onClick={() => handleStatusClick(entry)}
+                    title="Click to cycle status"
+                  >
+                    {entry.status}
+                  </button>
+                </td>
+                <td className={styles.right}>
+                  {formatUSD(Number(entry.purchase_price))}
+                </td>
+                <td className={styles.right}>
+                  {formatUSD(entry.price ?? null)}
+                </td>
+                <td className={styles.right}>
+                  {pl != null ? (
+                    <span className={pl >= 0 ? styles.positive : styles.negative}>
+                      {plSign}{formatUSD(Math.abs(pl))}
+                    </span>
+                  ) : (
+                    <span className={styles.neutral}>—</span>
+                  )}
+                </td>
+                <td className={styles.right}>
+                  {onRemove && (
                     <button
-                      className={styles.moreBtn}
-                      onClick={() => onMore?.(card)}
-                      aria-label={`More options for ${card.name}`}
+                      className={styles.removeBtn}
+                      onClick={() => onRemove(entry.item_id)}
+                      aria-label={`Remove ${entry.card_name}`}
                     >
-                      <Icon kind="more" size={14} color="currentColor" />
+                      ×
                     </button>
-                  </div>
+                  )}
                 </td>
               </tr>
             )

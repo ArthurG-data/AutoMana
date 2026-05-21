@@ -2,7 +2,7 @@
 from automana.api.schemas.user_management.user import UserInDB
 from automana.core.models.collections.collection import (
     CreateCollection, PublicCollection, UpdateCollection, CollectionInDB,
-    AddCollectionEntryRequest, PublicCollectionEntry,
+    AddCollectionEntryRequest, PublicCollectionEntry, EntryStatus,
 )
 from automana.core.repositories.card_catalog.collection_repository import CollectionRepository
 from automana.core.repositories.card_catalog.card_repository import CardReferenceRepository
@@ -114,11 +114,7 @@ async def delete_collection(user_collection_repository: CollectionRepository
                             ) -> bool:
     try:
         await user_collection_repository.delete(collection_id, user.unique_id)
-
-        check = await user_collection_repository.get(collection_id, user.unique_id)
-        if check:
-            raise card_catalog_exceptions.CollectionDeleteError(f"Collection with ID {collection_id} was not deleted successfully")
-        return True     
+        return True
     except card_catalog_exceptions.CollectionNotFoundError:
         raise
     except Exception as e:
@@ -175,7 +171,8 @@ async def add_entry(
             f"Unknown finish: {request.finish}"
         )
 
-    # 4. Insert
+    # 4. Insert — ON CONFLICT DO NOTHING means row is None when the entry
+    # already exists; fetch existing rather than raising.
     row = await user_collection_repository.add_entry(
         collection_id=collection_id,
         user_id=user.unique_id,
@@ -186,14 +183,43 @@ async def add_entry(
         currency_code=request.currency_code,
         purchase_date=request.purchase_date,
         language_id=request.language_id,
+        status=request.status.value,
+        ebay_item_id=request.ebay_item_id,
     )
-    if not row:
-        raise card_catalog_exceptions.CollectionCreationError("Failed to insert entry")
+    if row:
+        item_id = row["item_id"]
+    else:
+        existing = await user_collection_repository.get_entry_by_key(
+            collection_id, card_version_id, finish_id, request.condition.value
+        )
+        if not existing:
+            raise card_catalog_exceptions.CollectionCreationError("Failed to insert entry")
+        item_id = existing["item_id"]
 
-    entry = await user_collection_repository.get_entry(
-        row["item_id"], collection_id, user.unique_id
-    )
+    entry = await user_collection_repository.get_entry(item_id, collection_id, user.unique_id)
     return PublicCollectionEntry.model_validate(entry)
+
+
+@ServiceRegistry.register(
+    "card_catalog.collection.update_entry_status",
+    db_repositories=["user_collection"]
+)
+async def update_entry_status(
+    user_collection_repository: CollectionRepository,
+    collection_id: UUID,
+    entry_id: UUID,
+    status: EntryStatus,
+    user: UserInDB,
+) -> PublicCollectionEntry:
+    updated = await user_collection_repository.update_entry_status(
+        entry_id, collection_id, user.unique_id, status.value
+    )
+    if not updated:
+        raise card_catalog_exceptions.CollectionNotFoundError(
+            f"Entry {entry_id} not found"
+        )
+    row = await user_collection_repository.get_entry(entry_id, collection_id, user.unique_id)
+    return PublicCollectionEntry.model_validate(row)
 
 
 @ServiceRegistry.register(
@@ -204,13 +230,17 @@ async def list_entries(
     user_collection_repository: CollectionRepository,
     collection_id: UUID,
     user: UserInDB,
+    limit: int = 50,
+    offset: int = 0,
 ) -> List[PublicCollectionEntry]:
     col = await user_collection_repository.get(collection_id, user.unique_id)
     if not col:
         raise card_catalog_exceptions.CollectionNotFoundError(
             f"Collection {collection_id} not found"
         )
-    rows = await user_collection_repository.get_all_entries(collection_id, user.unique_id)
+    rows = await user_collection_repository.get_all_entries(
+        collection_id, user.unique_id, limit=limit, offset=offset
+    )
     return [PublicCollectionEntry.model_validate(r) for r in rows]
 
 

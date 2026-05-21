@@ -1,0 +1,196 @@
+/* src/frontend/src/routes/ListingsMatch.module.css */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.split {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.sidebar {
+  padding: 20px;
+  border-right: 1px solid var(--hd-border, #1f2937);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.listingTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--hd-text);
+  line-height: 1.4;
+}
+
+.badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.badge {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--hd-sub);
+  background: var(--hd-surface-2, #1f2937);
+  border-radius: 3px;
+  padding: 2px 6px;
+}
+
+.label {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--hd-sub);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.pills {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.pill {
+  padding: 4px 9px;
+  border-radius: 4px;
+  border: 1px solid var(--hd-border, #1f2937);
+  background: transparent;
+  color: var(--hd-sub);
+  font-size: 10px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+.pill:hover {
+  border-color: var(--hd-accent);
+  color: var(--hd-accent);
+}
+.pillActive {
+  background: var(--hd-accent);
+  border-color: var(--hd-accent);
+  color: #fff;
+}
+
+.selectedCard {
+  padding: 10px;
+  background: var(--hd-surface-2, #1f2937);
+  border-radius: 6px;
+  border: 1px solid var(--hd-border, #2d3748);
+}
+
+.selectedCardName {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--hd-text);
+  margin-bottom: 3px;
+}
+
+.selectedCardSet {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--hd-sub);
+}
+
+.actionRow {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 8px;
+}
+
+.skipBtn {
+  padding: 7px 12px;
+  border-radius: 5px;
+  border: 1px solid var(--hd-border, #1f2937);
+  background: transparent;
+  color: var(--hd-sub);
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.skipBtn:hover {
+  background: var(--hd-surface-2, #1f2937);
+}
+
+.addBtn {
+  flex: 1;
+  padding: 7px 12px;
+  border-radius: 5px;
+  border: none;
+  background: var(--hd-accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.addBtn:hover {
+  opacity: 0.9;
+}
+.addBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pickerArea {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.progress {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--hd-sub);
+  padding: 4px 10px;
+  background: var(--hd-surface-2, #1f2937);
+  border-radius: 4px;
+}
+
+.empty,
+.complete {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 16px;
+  color: var(--hd-sub);
+  font-size: 13px;
+}
+
+.completeTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--hd-text);
+}
+
+.completeSub {
+  font-size: 13px;
+  color: var(--hd-sub);
+}
+
+.backBtn {
+  padding: 8px 16px;
+  border-radius: 5px;
+  border: 1px solid var(--hd-border, #1f2937);
+  background: transparent;
+  color: var(--hd-text);
+  font-size: 12px;
+  cursor: pointer;
+}
+.backBtn:hover {
+  background: var(--hd-surface-2, #1f2937);
+}

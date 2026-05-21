@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoMana — Grid Text Size Options</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #0d0f12; padding: 28px 24px 60px; font-family: 'Inter', sans-serif; }
+
+/* palette */
+:root {
+  --bg: #111318;
+  --surface: #1a1d24;
+  --surface-alt: #21252e;
+  --border: rgba(200,210,240,0.10);
+  --text: #e2e6f0;
+  --muted: #8890a6;
+  --sub: #4a5068;
+  --accent: #5b8def;
+  --accent-rgb: 91,141,239;
+  --blue-rgb: 91,141,239;
+  --red: #e05c6a;
+}
+
+.page-label {
+  color: #fff; font-size: 11px; font-weight: 600;
+  letter-spacing: 2px; text-transform: uppercase;
+  opacity: 0.35; margin-bottom: 6px;
+}
+.page-sub {
+  color: #fff; font-family: 'JetBrains Mono', monospace; font-size: 10px;
+  opacity: 0.2; margin-bottom: 32px; letter-spacing: 0.5px;
+}
+
+/* 3 columns */
+.row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 28px;
+  margin-bottom: 48px;
+}
+
+.col-label {
+  font-size: 11px; font-weight: 600; letter-spacing: 1.8px;
+  text-transform: uppercase; color: #fff; opacity: 0.25;
+  margin-bottom: 8px;
+}
+.col-sizes {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; color: #5b8def; opacity: 0.7;
+  margin-bottom: 14px; letter-spacing: 0.5px;
+}
+
+/* ── Search Results card grid ── */
+.grid-section {
+  background: var(--bg);
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.07);
+  padding: 16px;
+}
+
+.grid-meta {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--sub);
+  margin-bottom: 14px;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+/* Card tile — same structure as SearchResults */
+.card-tile {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+}
+.card-tile:hover .card-info { border-color: var(--accent); }
+
+.card-art {
+  width: 100%;
+  aspect-ratio: 63 / 88;
+  border-radius: 5px 5px 0 0;
+  background: linear-gradient(160deg, var(--surface) 0%, rgba(var(--blue-rgb),0.15) 100%);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--sub); font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  position: relative;
+  overflow: hidden;
+}
+.card-art-bg {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, transparent 40%, rgba(5,13,26,0.85) 100%);
+}
+.card-art-name {
+  position: absolute; bottom: 6px; left: 0; right: 0;
+  text-align: center; color: rgba(255,255,255,0.5);
+  font-size: 9px; font-family: 'JetBrains Mono', monospace;
+  padding: 0 4px;
+}
+
+.card-info {
+  padding: 7px 3px 4px;
+  border-top: 1px solid transparent;
+  transition: border-color 0.15s;
+}
+
+/* ── SIZE VARIANTS ── */
+
+/* SMALL — current */
+.sz-sm .card-info .name    { font-size: 12px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
+.sz-sm .card-info .row1   { display: flex; justify-content: space-between; align-items: center; gap: 4px; margin-bottom: 3px; overflow: hidden; }
+.sz-sm .card-info .rarity  { font-size: 10px; color: var(--sub); font-family: 'JetBrains Mono', monospace; text-transform: capitalize; flex-shrink: 0; }
+.sz-sm .card-info .set     { font-size: 10px; color: var(--sub); font-family: 'JetBrains Mono', monospace; }
+.sz-sm .card-info .price   { font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--accent); }
+
+/* MEDIUM */
+.sz-md .card-info .name    { font-size: 13px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
+.sz-md .card-info .row1   { display: flex; justify-content: space-between; align-items: center; gap: 4px; margin-bottom: 3px; overflow: hidden; }
+.sz-md .card-info .rarity  { font-size: 11px; color: var(--sub); font-family: 'JetBrains Mono', monospace; text-transform: capitalize; flex-shrink: 0; }
+.sz-md .card-info .set     { font-size: 11px; color: var(--sub); font-family: 'JetBrains Mono', monospace; }
+.sz-md .card-info .price   { font-size: 12px; font-family: 'JetBrains Mono', monospace; color: var(--accent); }
+
+/* LARGE */
+.sz-lg .card-info .name    { font-size: 14px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
+.sz-lg .card-info .row1   { display: flex; justify-content: space-between; align-items: center; gap: 4px; margin-bottom: 4px; overflow: hidden; }
+.sz-lg .card-info .rarity  { font-size: 12px; color: var(--sub); font-family: 'JetBrains Mono', monospace; text-transform: capitalize; flex-shrink: 0; }
+.sz-lg .card-info .set     { font-size: 12px; color: var(--sub); font-family: 'JetBrains Mono', monospace; }
+.sz-lg .card-info .price   { font-size: 13px; font-weight: 600; font-family: 'JetBrains Mono', monospace; color: var(--accent); }
+
+/* ── Set Browser card ── */
+.set-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 24px;
+}
+.set-section-label {
+  font-size: 10px; font-weight: 600; letter-spacing: 1.2px;
+  text-transform: uppercase; color: var(--sub);
+  margin-bottom: 10px; margin-top: 18px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.set-tile {
+  cursor: pointer;
+}
+.set-tile:hover .set-info { border-color: var(--accent); }
+
+.set-art {
+  width: 100%;
+  aspect-ratio: 63 / 88;
+  border-radius: 5px 5px 0 0;
+  background: linear-gradient(160deg, var(--surface) 0%, rgba(var(--blue-rgb),0.1) 100%);
+  display: flex; align-items: center; justify-content: center;
+}
+.set-art-icon {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: rgba(var(--accent-rgb), 0.15);
+  border: 1px solid rgba(var(--accent-rgb), 0.25);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; color: var(--accent);
+}
+
+.set-info {
+  padding: 7px 3px 4px;
+  border-top: 1px solid transparent;
+  transition: border-color 0.15s;
+}
+
+/* SMALL — current set card */
+.sz-sm .set-info .set-code  { font-size: 10px; font-weight: 600; color: var(--text); margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sz-sm .set-info .set-date  { font-size: 9px; color: var(--sub); font-family: 'JetBrains Mono', monospace; }
+.sz-sm .set-info .set-type  { font-size: 9px; color: var(--accent); background: rgba(var(--accent-rgb),0.1); padding: 1px 5px; border-radius: 3px; display: inline-block; margin-top: 2px; }
+.sz-sm .set-info .set-count { font-size: 9px; color: var(--sub); font-family: 'JetBrains Mono', monospace; float: right; }
+
+/* MEDIUM set card */
+.sz-md .set-info .set-code  { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sz-md .set-info .set-date  { font-size: 10px; color: var(--sub); font-family: 'JetBrains Mono', monospace; }
+.sz-md .set-info .set-type  { font-size: 10px; color: var(--accent); background: rgba(var(--accent-rgb),0.1); padding: 2px 6px; border-radius: 3px; display: inline-block; margin-top: 3px; }
+.sz-md .set-info .set-count { font-size: 10px; color: var(--sub); font-family: 'JetBrains Mono', monospace; float: right; }
+
+/* LARGE set card */
+.sz-lg .set-info .set-code  { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sz-lg .set-info .set-date  { font-size: 11px; color: var(--sub); font-family: 'JetBrains Mono', monospace; }
+.sz-lg .set-info .set-type  { font-size: 11px; color: var(--accent); background: rgba(var(--accent-rgb),0.1); padding: 2px 7px; border-radius: 3px; display: inline-block; margin-top: 3px; }
+.sz-lg .set-info .set-count { font-size: 11px; color: var(--sub); font-family: 'JetBrains Mono', monospace; float: right; }
+
+.up { color: var(--accent); }
+.down { color: var(--red); }
+</style>
+</head>
+<body>
+
+<p class="page-label">Grid text size options</p>
+<p class="page-sub">Same palette + Inter — only label sizes change</p>
+
+<div class="row">
+
+  <!-- ── SMALL (current) ── -->
+  <div>
+    <div class="col-label">Small — current</div>
+    <div class="col-sizes">card name 12px · rarity/set 10px · price 11px<br>set code 10px · date/type 9px</div>
+    <div class="grid-section sz-sm">
+      <div class="grid-meta" style="font-size:10px;">847 results · showing 6</div>
+      <div class="card-grid">
+
+        <div class="card-tile">
+          <div class="card-art"><div class="card-art-bg"></div><div class="card-art-name">Black Lotus</div></div>
+          <div class="card-info">
+            <div class="name">Black Lotus</div>
+            <div class="row1"><span class="rarity">Mythic</span><span class="set">LEA</span></div>
+            <span class="price">$4,200 <span class="up">▲2.4%</span></span>
+          </div>
+        </div>
+
+        <div class="card-tile">
+          <div class="card-art"><div class="card-art-bg"></div><div class="card-art-name">Mox Sapphire</div></div>
+          <div class="card-info">
+            <div class="name">Mox Sapphire</div>
+            <div class="row1"><span class="rarity">Mythic</span><span class="set">LEA</span></div>
+            <span class="price">$3,100 <span class="down">▼0.8%</span></span>
+          </div>
+        </div>
+
+        <div class="card-tile">
+          <div class="card-art"><div class="card-art-bg"></div><div class="card-art-name">Ancestral Recall</div></div>
+          <div class="card-info">
+            <div class="name">Ancestral Recall</div>
+            <div class="row1"><span class="rarity">Rare</span><span class="set">LEA</span></div>
+            <span class="price">$2,800 <span class="up">▲1.1%</span></span>
+          </div>
+        </div>
+
+        <div class="card-tile">
+          <div class="card-art"><div class="card-art-bg"></div><div class="card-art-name">Time Walk</div></div>
+          <div class="card-info">
+            <div class="name">Time Walk</div>
+            <div class="row1"><span class="rarity">Rare</span><span class="set">LEA</span></div>
+            <span class="price">$1,950 <span class="up">▲0.3%</span></span>
+          </div>
+        </div>
+
+        <div class="card-tile">
+          <div class="card-art"><div class="card-art-bg"></div><div class="card-art-name">Sheoldred</div></div>
+          <div class="card-info">
+            <div class="name">Sheoldred, the Apocalypse</div>
+            <div class="row1"><span class="rarity">Mythic</span><span class="set">DMU</span></div>
+            <span class="price">$42.00 <span class="up">▲0.5%</span></span>
+          </div>
+        </div>
+
+        <div class="card-tile">
+          <div class="card-art"><div class="card-art-bg"></div><div class="card-art-name">Ragavan</div></div>
+          <div class="card-info">
+            <div class="name">Ragavan, Nimble Pilferer</div>
+            <div class="row1"><span class="rarity">Mythic</span><span class="set">MH2</span></div>
+            <span class="price">$38.00 <span class="down">▼1.2%</span></span>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="set-section-label">Set Browser</div>
+      <div class="set-grid">
+        <div class="set-tile">
+          <div class="set-art"><div class="set-art-icon">⚡</div></div>
+          <div class="set-info">
+            <span class="set-count">306</span>
+            <div class="set-code">Limited Edition Alpha</div>
+            <div class="set-date">1993-08</div>
+            <div class="set-type">core</div>
+          </div>
+        </div>
+        <div class="set-tile">
+          <div class="set-art"><div class="set-art-icon">🌊</div></div>
+          <div class="set-info">
+            <span class="set-count">274</span>
+            <div class="set-code">Dominaria United</div>
+            <div class="set-date">2022-09</div>
+            <div class="set-type">expansion</div>
+          </div>
+        </div>
+        <div class="set-tile">
+          <div class="set-art"><div class="set-art-icon">🔥</div></div>
+          <div class="set-info">
+            <span class="set-count">261</span>
+            <div class="set-code">Modern Horizons 2</div>
+            <div class="set-date">2021-06</div>
+            <div class="set-type">masters</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MEDIUM ── -->
+  <div>
+    <div class="col-label">Medium — recommended</div>
+    <div class="col-sizes">card name 13px · rarity/set 11px · price 12px<br>set code 12px · date/type 10px</div>
+    <div class="grid-section sz-md">
+      <div class="grid-meta" style="font-size:11px;">847 results · showing 6</div>
+      <div class="card-grid">
+
+        <div class="card-tile">
+          <div class="card-art"><div class="card-art-bg"></div><div class="card-art-name">Black Lotus</div></div>
+          <div class="card-info">
+            <div class="name">Black Lotus</div>
+            <div class="row1"><span class="rarity">Mythic</span><span class="set">LEA</span></div>
+            <span class="price">$4,200 <span class="up">▲2.4%</span></span>
+          </div>
+        </div>
+
+        <div class="card-tile">
+          <div class="card-art"><div class="card-art-bg"></div><div class="card-art-name">Mox Sapphire</div></div>
+          <div class="card-info">
+            <div class="name">Mox Sapphire</div>
+            <div class="row1"><span class="rarity">Mythic</span><span class="set">LEA</span></div>
+            <span class="price">$3,100 <span class="down">▼0.8%</span></span>
+          </div>
+        </div>
+
+        <div class="card-tile">
+          <div class="card-art"><div class="card-art-bg"></div><div class="card-art-name">Ancestral Recall</div></div>
+          <div class="card-info">
+            <div class="name">Ancestral Recall</div>
+            <div class="row1"><span class="rarity">Rare</span><span class="set">LEA</span></div>
+            <span class="price">$2,800 <span class="up">▲1.1%</span></span>
+          </div>
+        </div>
+
+        <div class="card-tile">
+          <div class="card-art"><div class="card-art-bg"></div><div class="card-art-name">Time Walk</div></div>
+          <div class="card-info">
+            <div class="name">Time Walk</div>
+            <div class="row1"><span class="rarity">Rare</span><span class="set">LEA</span></div>
+            <span class="price">$1,950 <span class="up">▲0.3%</span></span>
+          </div>
+        </div>
+
+        <div class="card-tile">
+          <div class="card-art"><div class="card-art-bg"></div><div class="card-art-name">Sheoldred</div></div>
+          <div class="card-info">
+            <div class="name">Sheoldred, the Apocalypse</div>
+            <div class="row1"><span class="rarity">Mythic</span><span class="set">DMU</span></div>
+            <span class="price">$42.00 <span class="up">▲0.5%</span></span>
+          </div>
+        </div>
+
+        <div class="card-tile">
+          <div class="card-art"><div class="card-art-bg"></div><div class="card-art-name">Ragavan</div></div>
+          <div class="card-info">
+            <div class="name">Ragavan, Nimble Pilferer</div>
+            <div class="row1"><span class="rarity">Mythic</span><span class="set">MH2</span></div>
+            <span class="price">$38.00 <span class="down">▼1.2%</span></span>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="set-section-label">Set Browser</div>
+      <div class="set-grid">
+        <div class="set-tile">
+          <div class="set-art"><div class="set-art-icon">⚡</div></div>
+          <div class="set-info">
+            <span class="set-count">306</span>
+            <div class="set-code">Limited Edition Alpha</div>
+            <div class="set-date">1993-08</div>
+            <div class="set-type">core</div>
+          </div>
+        </div>
+        <div class="set-tile">
+          <div class="set-art"><div class="set-art-icon">🌊</div></div>
+          <div class="set-info">
+            <span class="set-count">274</span>
+            <div class="set-code">Dominaria United</div>
+            <div class="set-date">2022-09</div>
+            <div class="set-type">expansion</div>
+          </div>
+        </div>
+        <div class="set-tile">
+          <div class="set-art"><div class="set-art-icon">🔥</div></div>
+          <div class="set-info">
+            <span class="set-count">261</span>
+            <div class="set-code">Modern Horizons 2</div>
+            <div class="set-date">2021-06</div>
+            <div class="set-type">masters</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── LARGE ── -->
+  <div>
+    <div class="col-label">Large</div>
+    <div class="col-sizes">card name 14px · rarity/set 12px · price 13px<br>set code 13px · date/type 11px</div>
+    <div class="grid-section sz-lg">
+      <div class="grid-meta" style="font-size:12px;">847 results · showing 6</div>
+      <div class="card-grid">
+
+        <div class="card-tile">
+          <div class="card-art"><div class="card-art-bg"></div><div class="card-art-name">Black Lotus</div></div>
+          <div class="card-info">
+            <div class="name">Black Lotus</div>
+            <div class="row1"><span class="rarity">Mythic</span><span class="set">LEA</span></div>
+            <span class="price">$4,200 <span class="up">▲2.4%</span></span>
+          </div>
+        </div>
+
+        <div class="card-tile">
+          <div class="card-art"><div class="card-art-bg"></div><div class="card-art-name">Mox Sapphire</div></div>
+          <div class="card-info">
+            <div class="name">Mox Sapphire</div>
+            <div class="row1"><span class="rarity">Mythic</span><span class="set">LEA</span></div>
+            <span class="price">$3,100 <span class="down">▼0.8%</span></span>
+          </div>
+        </div>
+
+        <div class="card-tile">
+          <div class="card-art"><div class="card-art-bg"></div><div class="card-art-name">Ancestral Recall</div></div>
+          <div class="card-info">
+            <div class="name">Ancestral Recall</div>
+            <div class="row1"><span class="rarity">Rare</span><span class="set">LEA</span></div>
+            <span class="price">$2,800 <span class="up">▲1.1%</span></span>
+          </div>
+        </div>
+
+        <div class="card-tile">
+          <div class="card-art"><div class="card-art-bg"></div><div class="card-art-name">Time Walk</div></div>
+          <div class="card-info">
+            <div class="name">Time Walk</div>
+            <div class="row1"><span class="rarity">Rare</span><span class="set">LEA</span></div>
+            <span class="price">$1,950 <span class="up">▲0.3%</span></span>
+          </div>
+        </div>
+
+        <div class="card-tile">
+          <div class="card-art"><div class="card-art-bg"></div><div class="card-art-name">Sheoldred</div></div>
+          <div class="card-info">
+            <div class="name">Sheoldred, the Apocalypse</div>
+            <div class="row1"><span class="rarity">Mythic</span><span class="set">DMU</span></div>
+            <span class="price">$42.00 <span class="up">▲0.5%</span></span>
+          </div>
+        </div>
+
+        <div class="card-tile">
+          <div class="card-art"><div class="card-art-bg"></div><div class="card-art-name">Ragavan</div></div>
+          <div class="card-info">
+            <div class="name">Ragavan, Nimble Pilferer</div>
+            <div class="row1"><span class="rarity">Mythic</span><span class="set">MH2</span></div>
+            <span class="price">$38.00 <span class="down">▼1.2%</span></span>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="set-section-label">Set Browser</div>
+      <div class="set-grid">
+        <div class="set-tile">
+          <div class="set-art"><div class="set-art-icon">⚡</div></div>
+          <div class="set-info">
+            <span class="set-count">306</span>
+            <div class="set-code">Limited Edition Alpha</div>
+            <div class="set-date">1993-08</div>
+            <div class="set-type">core</div>
+          </div>
+        </div>
+        <div class="set-tile">
+          <div class="set-art"><div class="set-art-icon">🌊</div></div>
+          <div class="set-info">
+            <span class="set-count">274</span>
+            <div class="set-code">Dominaria United</div>
+            <div class="set-date">2022-09</div>
+            <div class="set-type">expansion</div>
+          </div>
+        </div>
+        <div class="set-tile">
+          <div class="set-art"><div class="set-art-icon">🔥</div></div>
+          <div class="set-info">
+            <span class="set-count">261</span>
+            <div class="set-code">Modern Horizons 2</div>
+            <div class="set-date">2021-06</div>
+            <div class="set-type">masters</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div style="color:#fff;opacity:0.15;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.5px;">
+  Small = current · Medium = +1px across the board · Large = +2px across the board
+</div>
+
+</body>
+</html>

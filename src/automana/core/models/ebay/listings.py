@@ -1,5 +1,6 @@
 from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional, List
+from uuid import UUID as _UUID
 
 class SellerInfoType(BaseModel):
     AllowPaymentEdit: Optional[bool] = Field(None, alias="allowPaymentEdit")
@@ -446,6 +447,9 @@ class ItemModel(BaseModel):
     VRM: Optional[str] = Field(None, alias="vrm")
     VRMLink: Optional[str] = Field(None, alias="vrmLink")
     WatchCount: Optional[int] = Field(None, alias="watchCount")
+    CatalogFinish: Optional[str] = Field(None, alias="catalogFinish")
+    CatalogCondition: Optional[str] = Field(None, alias="catalogCondition")
+    CardVersionId: Optional[_UUID] = Field(None, alias="cardVersionId")
 
     model_config = ConfigDict(populate_by_name=True, extra="allow")
 

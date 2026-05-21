@@ -12,6 +12,7 @@ import { ListingFormPanel, CONDITION_OPTIONS, type ListingFormValues } from '../
 import { MarketComparePanel } from '../features/ebay/components/MarketComparePanel'
 import {
   updateListing,
+  fetchRecommendation,
   userAppsQueryOptions,
   activeListingsPageQueryOptions,
   soldOrdersPageQueryOptions,
@@ -23,6 +24,7 @@ import type { SoldOrder, DisplayStatus } from '../features/ebay/soldOrders'
 import { enrichWithCatalog } from '../features/ebay/lib/catalogEnrich'
 import { useListingsStore } from '../store/listings'
 import type { EbayLiveListing } from '../features/ebay/mockListings'
+import { BackfillConfirmDialog } from '../features/collection/components/BackfillConfirmDialog'
 import styles from './Listings.module.css'
 
 const LIMIT = 25
@@ -64,6 +66,7 @@ export function ListingsPage() {
   const [hasSoldMore, setHasSoldMore] = useState(false)
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
   const [totalActive, setTotalActive] = useState<number | null>(null)
+  const [backfillOpen, setBackfillOpen] = useState(false)
   const storeSet = useListingsStore((s) => s.setListings)
   const selectedListing = useListingsStore((s) => s.getById(selectedId ?? ''))
   const storeUpdateListing = useListingsStore((s) => s.updateListing)
@@ -80,8 +83,33 @@ export function ListingsPage() {
   const isSoldLoadingMoreRef = useRef(false)
   const soldSentinelRef = useRef<HTMLDivElement | null>(null)
 
+  // Fire-and-forget: fetch a recommendation for each listing that doesn't already have one.
+  // Results update the ref and both the table state and the store, so the detail panel stays in sync.
+  const fetchRecommendationsForBatch = useCallback(
+    (batch: EbayLiveListing[], cancelledRef: { current: boolean }) => {
+      batch.forEach((listing) => {
+        if (listing.recommendation) return
+        fetchRecommendation(listing.appCode, listing)
+          .then((result) => {
+            if (cancelledRef.current) return
+            const { item_id: _item_id, ...rec } = result
+            const updated = listingsRef.current.map((l) =>
+              l.itemId === listing.itemId ? { ...l, recommendation: rec } : l
+            )
+            listingsRef.current = updated
+            setListings(updated)
+            storeUpdateListing(listing.itemId, { recommendation: rec })
+          })
+          .catch(() => {
+            // Silently ignore per-listing failures — badge stays absent
+          })
+      })
+    },
+    [storeUpdateListing]
+  )
+
   useEffect(() => {
-    let cancelled = false
+    const cancelledRef = { current: false }
     async function load() {
       setIsLoading(true)
       try {
@@ -104,7 +132,7 @@ export function ListingsPage() {
           )
         )
 
-        if (cancelled) return
+        if (cancelledRef.current) return
 
         const merged: EbayLiveListing[] = []
         const failed: string[] = []
@@ -131,23 +159,28 @@ export function ListingsPage() {
         // name lookups and caches results for 24h via cardSuggestQueryOptions.
         try {
           const enriched = await enrichWithCatalog(merged, queryClient)
-          if (!cancelled) {
+          if (!cancelledRef.current) {
             listingsRef.current = enriched
             setListings(enriched)
             storeSet(enriched)
+            // Fire-and-forget recommendation fetches after enrichment is stable
+            fetchRecommendationsForBatch(enriched, cancelledRef)
           }
         } catch {
-          // Keep title-parsed values
+          // Keep title-parsed values; still try recommendations on the unenriched batch
+          if (!cancelledRef.current) {
+            fetchRecommendationsForBatch(merged, cancelledRef)
+          }
         }
       } catch {
         // fetchUserApps failed — leave table empty
       } finally {
-        if (!cancelled) setIsLoading(false)
+        if (!cancelledRef.current) setIsLoading(false)
       }
     }
     load()
-    return () => { cancelled = true }
-  }, [queryClient, storeSet])
+    return () => { cancelledRef.current = true }
+  }, [queryClient, storeSet, fetchRecommendationsForBatch])
 
   const loadMore = useCallback(async () => {
     if (isLoadingMoreRef.current) return
@@ -181,6 +214,8 @@ export function ListingsPage() {
       setListings(merged)
       storeSet(merged)
 
+      // loadMore has no cancellation token — component is mounted while pagination runs
+      const loadMoreCancelledRef = { current: false }
       try {
         const enriched = await enrichWithCatalog(newItems, queryClient)
         const current = listingsRef.current
@@ -188,15 +223,17 @@ export function ListingsPage() {
         listingsRef.current = updated
         setListings(updated)
         storeSet(updated)
+        fetchRecommendationsForBatch(enriched, loadMoreCancelledRef)
       } catch {
-        // Keep title-parsed values for new batch
+        // Keep title-parsed values for new batch; still fetch recommendations
+        fetchRecommendationsForBatch(newItems, loadMoreCancelledRef)
       }
     }
 
     setHasMore(Object.values(hasMoreRef.current).some(Boolean))
     isLoadingMoreRef.current = false
     setIsLoadingMore(false)
-  }, [queryClient, storeSet])
+  }, [queryClient, storeSet, fetchRecommendationsForBatch])
 
   useEffect(() => {
     if (tab !== 'sold') return
@@ -344,6 +381,15 @@ export function ListingsPage() {
         actions={
           <div style={{ display: 'flex', gap: 8 }}>
             <Button variant="ghost" size="sm">Import</Button>
+            {tab === 'active' && listings.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setBackfillOpen(true)}
+              >
+                Add to Collection
+              </Button>
+            )}
             <Button
               variant="accent"
               size="sm"
@@ -507,6 +553,17 @@ export function ListingsPage() {
           </div>
         )}
       </div>
+
+      {backfillOpen && (
+        <BackfillConfirmDialog
+          listings={listings}
+          onClose={() => setBackfillOpen(false)}
+          onDone={(unmatched, collectionId) => {
+            setBackfillOpen(false)
+            navigate({ to: '/listings/match', state: { unmatched, collectionId } })
+          }}
+        />
+      )}
     </AppShell>
   )
 }

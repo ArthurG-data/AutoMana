@@ -31,9 +31,9 @@ async def test_get_price_history_returns_arrays():
     # Mock database response with asyncpg Record-like objects
     # Each "row" has ts_date, list_avg_price, sold_avg_price
     mock_rows = [
-        {"ts_date": start_date, "list_avg_price": 10.50, "sold_avg_price": 9.80},
-        {"ts_date": start_date + timedelta(days=1), "list_avg_price": 10.75, "sold_avg_price": 10.10},
-        {"ts_date": start_date + timedelta(days=2), "list_avg_price": 11.00, "sold_avg_price": 10.30},
+        {"price_date": start_date, "list_avg_price": 10.50, "sold_avg_price": 9.80},
+        {"price_date": start_date + timedelta(days=1), "list_avg_price": 10.75, "sold_avg_price": 10.10},
+        {"price_date": start_date + timedelta(days=2), "list_avg_price": 11.00, "sold_avg_price": 10.30},
     ]
 
     repository = _make_repo(mock_rows)
@@ -58,9 +58,9 @@ async def test_get_price_history_with_missing_dates():
 
     # Mock response: database returns all 3 dates, with NULL for missing April 5
     mock_rows = [
-        {"ts_date": start_date, "list_avg_price": 10.50, "sold_avg_price": 9.80},
-        {"ts_date": start_date + timedelta(days=1), "list_avg_price": None, "sold_avg_price": None},
-        {"ts_date": start_date + timedelta(days=2), "list_avg_price": 11.00, "sold_avg_price": 10.30},
+        {"price_date": start_date, "list_avg_price": 10.50, "sold_avg_price": 9.80},
+        {"price_date": start_date + timedelta(days=1), "list_avg_price": None, "sold_avg_price": None},
+        {"price_date": start_date + timedelta(days=2), "list_avg_price": 11.00, "sold_avg_price": 10.30},
     ]
 
     repository = _make_repo(mock_rows)

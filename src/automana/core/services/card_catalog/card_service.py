@@ -138,9 +138,11 @@ async def get_catalog_stats(
 )
 async def search_cards(card_repository: CardReferenceRepository
                    , name: Optional[str] = None
-                   , color: Optional[str] = None
+                   , colors: Optional[List[str]] = None
                    , rarity: Optional[str] = None
                    , card_id: Optional[UUID] = None
+                   , unique_card_id: Optional[UUID] = None
+                   , artist: Optional[str] = None
                    , released_after: Optional[datetime] = None
                    , released_before: Optional[datetime] = None
                    , set_name: Optional[str] = None
@@ -152,19 +154,24 @@ async def search_cards(card_repository: CardReferenceRepository
                    , format: Optional[str] = None
                    , layout: Optional[str] = None
                    , promo_type: Optional[List[str]] = None
+                   , finish: Optional[str] = None
+                   , frame_effects: Optional[List[str]] = None
+                   , collapse: bool = False
                    # Pagination
                    , limit: int = 100
                    , offset: int = 0
                    , sort_by: str = "name"
                    , sort_order: str = "asc"
                    ) -> CardSearchResult:
-    logger.info("Searching cards", extra={"card_name": name, "color": color, "rarity": rarity, "card_id": str(card_id) if card_id else None, "set_name": set_name, "mana_cost": mana_cost, "digital": digital})
+    logger.info("Searching cards", extra={"card_name": name, "colors": colors, "rarity": rarity, "card_id": str(card_id) if card_id else None, "set_name": set_name, "mana_cost": mana_cost, "digital": digital})
     try:
         params = {
             "name": name,
-            "color": color,
+            "colors": colors,
             "rarity": rarity,
             "card_id": str(card_id) if card_id else None,
+            "unique_card_id": str(unique_card_id) if unique_card_id else None,
+            "artist": artist,
             "released_after": str(released_after) if released_after else None,
             "released_before": str(released_before) if released_before else None,
             "set_name": set_name,
@@ -176,6 +183,9 @@ async def search_cards(card_repository: CardReferenceRepository
             "format": format,
             "layout": layout,
             "promo_type": promo_type,
+            "finish": finish,
+            "frame_effects": frame_effects,
+            "collapse": collapse,
             "limit": limit,
             "offset": offset,
             "sort_by": sort_by,
@@ -203,7 +213,7 @@ async def search_cards(card_repository: CardReferenceRepository
             result = CardSearchResult(cards=[BaseCard.model_validate(card)], total_count=1)
         else:
             raw = await card_repository.search(name=name,
-                                               color=color,
+                                               colors=colors,
                                                rarity=rarity,
                                                set_name=set_name,
                                                set_code=set_code,
@@ -212,14 +222,19 @@ async def search_cards(card_repository: CardReferenceRepository
                                                released_after=released_after,
                                                released_before=released_before,
                                                oracle_text=oracle_text,
+                                               artist=artist,
+                                               unique_card_id=unique_card_id,
                                                format=format,
                                                layout=layout,
+                                               collapse=collapse,
                                                limit=limit,
                                                offset=offset,
                                                sort_by=sort_by,
                                                card_type=card_type,
                                                sort_order=sort_order,
-                                               promo_type=promo_type)
+                                               promo_type=promo_type,
+                                               finish=finish,
+                                               frame_effects=frame_effects)
             cards = raw.get("cards", [])
             total_count = raw.get("total_count", 0)
             promo_type_facets = raw.get("promo_type_facets", [])
@@ -267,6 +282,29 @@ async def suggest_cards(
     suggestions = [CardSuggestion(**r) for r in rows]
     await set_to_cache(cache_key, [s.model_dump(mode="json") for s in suggestions], expiry_seconds=600)
     return CardSuggestionResponse(suggestions=suggestions)
+
+
+@ServiceRegistry.register(
+    "card_catalog.card.get_versions_in_set",
+    db_repositories=["card"]
+)
+async def get_versions_in_set(
+    card_repository: CardReferenceRepository,
+    unique_card_id: UUID,
+    set_code: str,
+) -> list[dict]:
+    return await card_repository.get_versions_in_set(unique_card_id=unique_card_id, set_code=set_code)
+
+
+@ServiceRegistry.register(
+    "card_catalog.card.get_other_sets",
+    db_repositories=["card"]
+)
+async def get_other_sets(
+    card_repository: CardReferenceRepository,
+    unique_card_id: UUID,
+) -> list[dict]:
+    return await card_repository.get_other_sets(unique_card_id=unique_card_id)
 
 
 @ServiceRegistry.register(
@@ -435,6 +473,31 @@ async def register_external_identifier(
             f"Failed to register external identifier "
             f"(card_version={card_version_id}, identifier={identifier_name}): {e}"
         )
+
+
+@ServiceRegistry.register(
+    "card_catalog.card.get_versions_in_set",
+    db_repositories=["card"]
+)
+async def get_versions_in_set(
+    card_repository: CardReferenceRepository,
+    unique_card_id: UUID,
+    set_code: str,
+    **kwargs,
+) -> list[dict]:
+    return await card_repository.get_versions_in_set(unique_card_id, set_code)
+
+
+@ServiceRegistry.register(
+    "card_catalog.card.get_other_sets",
+    db_repositories=["card"]
+)
+async def get_other_sets(
+    card_repository: CardReferenceRepository,
+    unique_card_id: UUID,
+    **kwargs,
+) -> list[dict]:
+    return await card_repository.get_other_sets(unique_card_id)
 
 
 @ServiceRegistry.register(

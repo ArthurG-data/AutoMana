@@ -1,136 +1,231 @@
 /* SetBrowser.module.css */
-.wrap { display: flex; flex-direction: column; padding: 24px 36px; }
 
-/* Hero header */
-.hero { text-align: center; padding: 16px 0 4px; }
-.heroTitle {
-  font-family: var(--font-serif, serif);
-  font-size: 28px;
-  font-weight: 400;
-  color: var(--hd-text);
-  margin: 0 0 6px;
-  letter-spacing: -0.5px;
-}
-.heroAccent {
-  display: inline-block;
-  width: 38px;
-  height: 2px;
-  background: var(--hd-accent);
-  border-radius: 1px;
-  margin: 6px auto 12px;
-}
-.heroSub { font-size: 13px; color: var(--hd-muted); margin: 0; }
-.heroSub strong { color: var(--hd-text); }
-
-/* Bigger filter input */
-.filterWrap { padding: 16px 0 8px; max-width: 640px; margin: 0 auto; width: 100%; }
-.filterField { position: relative; }
-.filterInput {
-  width: 100%;
-  box-sizing: border-box;
-  background: var(--hd-surface);
-  border: 1px solid var(--hd-border-hot, rgba(150, 200, 255, 0.28));
-  border-radius: 12px;
-  padding: 16px 18px 16px 48px;
-  font-size: 16px;
-  color: var(--hd-text);
-  outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s;
-}
-.filterInput::placeholder { color: var(--hd-muted); }
-.filterInput:focus {
-  border-color: rgba(var(--hd-accent-rgb), 0.55);
-  box-shadow: 0 0 0 4px rgba(var(--hd-accent-rgb), 0.08);
-}
-.filterIcon {
-  position: absolute;
-  left: 18px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--hd-muted);
-  pointer-events: none;
-}
-.filterHint {
-  font-size: 11px;
-  color: var(--hd-sub, var(--hd-muted));
-  text-align: center;
-  margin: 8px 0 16px;
-  font-family: var(--font-mono);
-}
-.filterHint code {
-  color: var(--hd-accent);
-  background: transparent;
-  font-family: var(--font-mono);
+/* Outer layout — mirrors .layout in Search.module.css */
+.layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 0;
+  min-height: calc(100vh - 120px);
+  margin: 0 -36px;
+  border-top: 1px solid var(--hd-border);
 }
 
-.list { display: flex; flex-direction: column; gap: 5px; max-width: 760px; margin: 0 auto; width: 100%; }
+/* Sidebar — mirrors SearchFilters.module.css .filters */
+.sidebar {
+  padding: 24px 22px;
+  border-right: 1px solid var(--hd-border);
+  overflow-y: auto;
+}
 
-.row {
+.searchRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
   background: var(--hd-surface);
   border: 1px solid var(--hd-border);
   border-radius: 8px;
-  padding: 9px 14px;
+  height: 44px;
+  margin-bottom: 20px;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.searchRow:focus-within {
+  border-color: var(--hd-accent);
+  box-shadow: 0 0 0 2px rgba(var(--hd-accent-rgb), 0.1);
+}
+
+.searchIcon { flex-shrink: 0; color: var(--hd-muted); }
+
+.searchInput {
+  flex: 1;
+  border: none;
+  background: none;
+  font-size: 14px;
+  color: var(--hd-text);
+  outline: none;
+  font-family: var(--font-sans);
+}
+
+.searchInput::placeholder { color: var(--hd-muted); }
+
+.searchClear {
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  color: var(--hd-sub);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+  transition: color 120ms ease;
+}
+
+.searchClear:hover { color: var(--hd-text); }
+
+.header {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 18px;
+}
+
+.title { font-family: var(--font-serif); font-size: 18px; font-weight: 500; }
+
+.clearBtn {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--hd-accent);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.filterGroup {
+  padding-top: 16px;
+  margin-top: 16px;
+  border-top: 1px solid var(--hd-border);
+}
+
+.filterLabel {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--hd-text);
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.btnGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.btn {
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  border: 1px solid var(--hd-border);
+  color: var(--hd-muted);
+  background: transparent;
   cursor: pointer;
   text-align: left;
-  width: 100%;
-  transition: border-color 0.15s, background 0.15s;
-}
-.row:hover {
-  border-color: rgba(var(--hd-accent-rgb), 0.4);
-  background: rgba(var(--hd-accent-rgb), 0.03);
-}
-
-.icon {
-  width: 28px; height: 28px; flex-shrink: 0;
-  background: rgba(var(--hd-blue-rgb), 0.12);
-  border-radius: 6px;
-  display: flex; align-items: center; justify-content: center;
-  overflow: hidden;
-}
-.icon img { width: 18px; height: 18px; object-fit: contain; }
-.iconFallback { width: 16px; height: 16px; opacity: 0.5; }
-
-.name {
-  flex: 1;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--hd-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  transition: border-color 120ms, color 120ms, background 120ms;
 }
 
-.meta { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.btn:hover { border-color: var(--hd-border-hot, var(--hd-accent)); color: var(--hd-text); }
 
-.code {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  text-transform: uppercase;
-  font-weight: 700;
-  background: rgba(var(--hd-blue-rgb), 0.15);
-  color: var(--hd-blue);
-  padding: 2px 6px;
-  border-radius: 4px;
-}
-
-.type {
-  font-size: 9px;
-  font-weight: 600;
-  background: rgba(var(--hd-accent-rgb), 0.1);
+.btnActive {
+  border-color: var(--hd-accent);
   color: var(--hd-accent);
-  padding: 2px 6px;
-  border-radius: 4px;
+  background: rgba(var(--hd-accent-rgb), 0.10);
 }
 
-.count {
+/* Content area — mirrors SearchResults.module.css .results */
+.content { padding: 24px 36px 36px; }
+
+.meta {
   font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--hd-muted);
-  min-width: 28px;
-  text-align: right;
+  font-size: 11px;
+  color: var(--hd-sub);
+  margin-bottom: 16px;
 }
 
-.empty { font-size: 13px; color: var(--hd-muted); padding: 16px 0; text-align: center; }
+/* Grid — one fewer column than card grid so set tiles are visually larger */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+@media (min-width: 980px)  { .grid { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 1460px) { .grid { grid-template-columns: repeat(4, 1fr); } }
+@media (min-width: 1700px) { .grid { grid-template-columns: repeat(5, 1fr); } }
+
+/* Group sections */
+.group { margin-bottom: 36px; }
+.group:last-child { margin-bottom: 0; }
+
+.groupHeader {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 18px 0 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--hd-border);
+}
+
+.groupTitle {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--hd-text);
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+}
+
+.groupCount { font-family: var(--font-mono); font-size: 11px; color: var(--hd-sub); }
+
+/* Parent-child grouping */
+.parentGroup { position: relative; z-index: 0; }
+
+/* On hover, lift this group above siblings so expanded flags paint over the adjacent card */
+.parentGroup:hover { z-index: 10; }
+
+/* Card sits above the flags so the flag peeks from behind its right edge */
+.cardWrapper { position: relative; z-index: 2; }
+
+/* Flags — anchored to the card's right edge, partially behind it, peeking out */
+.flags {
+  position: absolute;
+  top: 14px;
+  /* 4 px of each flag slides behind the card right edge */
+  left: calc(100% - 4px);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 1;
+  /* hittable so gaps between buttons don't fall through to adjacent cards */
+}
+
+.flag {
+  display: flex;
+  align-items: center;
+  background: rgba(var(--hd-accent-rgb), 0.12);
+  border: 1px solid rgba(var(--hd-accent-rgb), 0.55);
+  border-left: 5px solid var(--hd-accent);
+  border-radius: 0 6px 6px 0;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  /* Collapsed: accent stripe + tinted sliver */
+  max-width: 20px;
+  box-shadow: 2px 0 10px rgba(var(--hd-accent-rgb), 0.25);
+  transition:
+    max-width 0.26s cubic-bezier(0.4, 0, 0.2, 1),
+    background 0.15s,
+    border-color 0.15s;
+}
+
+/* JS-driven expansion — .expanded added by React state */
+.expanded .flag {
+  max-width: 240px;
+  background: rgba(var(--hd-accent-rgb), 0.20);
+  border-color: var(--hd-accent);
+}
+
+.flagName {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--hd-accent);
+  letter-spacing: 0.4px;
+  padding: 5px 10px 5px 5px;
+  flex-shrink: 0;
+}
+
+.empty { font-size: 13px; color: var(--hd-muted); padding: 40px; text-align: center; }

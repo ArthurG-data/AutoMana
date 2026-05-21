@@ -164,7 +164,17 @@ ServiceRegistry.register_db_repository(
     "EbayListingBuilderRepository",
 )
 ServiceRegistry.register_db_repository(
+    "listing_actions",
+    "automana.core.repositories.app_integration.ebay.listing_actions_repository",
+    "EbayListingActionsRepository",
+)
+ServiceRegistry.register_db_repository(
     "session", "automana.api.repositories.auth.session_repository", "SessionRepository"
+)
+ServiceRegistry.register_db_repository(
+    "password_reset",
+    "automana.api.repositories.auth.password_reset_repository",
+    "PasswordResetRepository",
 )
 ServiceRegistry.register_db_repository(
     "user", "automana.api.repositories.user_management.user_repository", "UserRepository"
@@ -198,6 +208,16 @@ ServiceRegistry.register_db_repository(
 # Integration repositories
 ServiceRegistry.register_db_repository(
     "app", "automana.core.repositories.app_integration.ebay.app_repository", "EbayAppRepository"
+)
+ServiceRegistry.register_db_repository(
+    "ebay_sales",
+    "automana.core.repositories.app_integration.ebay.sales_repository",
+    "EbaySalesRepository",
+)
+ServiceRegistry.register_db_repository(
+    "ebay_scrape",
+    "automana.core.repositories.app_integration.ebay.ebay_scrape_repository",
+    "EbayScrapeSoldRepository",
 )
 ServiceRegistry.register_db_repository(
     "price", "automana.core.repositories.app_integration.mtg_stock.price_repository", "PriceRepository"
@@ -256,6 +276,16 @@ ServiceRegistry.register_api_repository(
 
 ServiceRegistry.register_api_repository(
     "mtgjson", "automana.core.repositories.app_integration.mtgjson.Apimtgjson_repository", "ApimtgjsonRepository"
+)
+
+ServiceRegistry.register_api_repository(
+    "open_tcg", "automana.core.repositories.app_integration.open_tcg.ApiOpenTCG_repository", "OpenTCGAPIRepository"
+)
+
+ServiceRegistry.register_api_repository(
+    "ollama",
+    "automana.core.repositories.ai.ollama_repository",
+    "OllamaAPIRepository",
 )
 
 # Storage backends (type → class)

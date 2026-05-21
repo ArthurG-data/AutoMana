@@ -10,12 +10,14 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SearchRouteImport } from './routes/search'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ListingsRouteImport } from './routes/listings'
 import { Route as CollectionRouteImport } from './routes/collection'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as EbayIndexRouteImport } from './routes/ebay/index'
 import { Route as ListingsNewRouteImport } from './routes/listings_.new'
+import { Route as ListingsMatchRouteImport } from './routes/listings_.match'
 import { Route as ListingsIdRouteImport } from './routes/listings_.$id'
 import { Route as EbayShareRouteImport } from './routes/ebay/share'
 import { Route as EbaySetupRouteImport } from './routes/ebay/setup'
@@ -25,6 +27,11 @@ import { Route as CardsIdRouteImport } from './routes/cards.$id'
 const SearchRoute = SearchRouteImport.update({
   id: '/search',
   path: '/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -55,6 +62,11 @@ const EbayIndexRoute = EbayIndexRouteImport.update({
 const ListingsNewRoute = ListingsNewRouteImport.update({
   id: '/listings_/new',
   path: '/listings/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ListingsMatchRoute = ListingsMatchRouteImport.update({
+  id: '/listings_/match',
+  path: '/listings/match',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ListingsIdRoute = ListingsIdRouteImport.update({
@@ -88,12 +100,14 @@ export interface FileRoutesByFullPath {
   '/collection': typeof CollectionRoute
   '/listings': typeof ListingsRoute
   '/login': typeof LoginRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/search': typeof SearchRoute
   '/cards/$id': typeof CardsIdRoute
   '/ebay/connected': typeof EbayConnectedRoute
   '/ebay/setup': typeof EbaySetupRoute
   '/ebay/share': typeof EbayShareRoute
   '/listings/$id': typeof ListingsIdRoute
+  '/listings/match': typeof ListingsMatchRoute
   '/listings/new': typeof ListingsNewRoute
   '/ebay/': typeof EbayIndexRoute
 }
@@ -102,12 +116,14 @@ export interface FileRoutesByTo {
   '/collection': typeof CollectionRoute
   '/listings': typeof ListingsRoute
   '/login': typeof LoginRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/search': typeof SearchRoute
   '/cards/$id': typeof CardsIdRoute
   '/ebay/connected': typeof EbayConnectedRoute
   '/ebay/setup': typeof EbaySetupRoute
   '/ebay/share': typeof EbayShareRoute
   '/listings/$id': typeof ListingsIdRoute
+  '/listings/match': typeof ListingsMatchRoute
   '/listings/new': typeof ListingsNewRoute
   '/ebay': typeof EbayIndexRoute
 }
@@ -117,12 +133,14 @@ export interface FileRoutesById {
   '/collection': typeof CollectionRoute
   '/listings': typeof ListingsRoute
   '/login': typeof LoginRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/search': typeof SearchRoute
   '/cards/$id': typeof CardsIdRoute
   '/ebay/connected': typeof EbayConnectedRoute
   '/ebay/setup': typeof EbaySetupRoute
   '/ebay/share': typeof EbayShareRoute
   '/listings_/$id': typeof ListingsIdRoute
+  '/listings_/match': typeof ListingsMatchRoute
   '/listings_/new': typeof ListingsNewRoute
   '/ebay/': typeof EbayIndexRoute
 }
@@ -133,12 +151,14 @@ export interface FileRouteTypes {
     | '/collection'
     | '/listings'
     | '/login'
+    | '/reset-password'
     | '/search'
     | '/cards/$id'
     | '/ebay/connected'
     | '/ebay/setup'
     | '/ebay/share'
     | '/listings/$id'
+    | '/listings/match'
     | '/listings/new'
     | '/ebay/'
   fileRoutesByTo: FileRoutesByTo
@@ -147,12 +167,14 @@ export interface FileRouteTypes {
     | '/collection'
     | '/listings'
     | '/login'
+    | '/reset-password'
     | '/search'
     | '/cards/$id'
     | '/ebay/connected'
     | '/ebay/setup'
     | '/ebay/share'
     | '/listings/$id'
+    | '/listings/match'
     | '/listings/new'
     | '/ebay'
   id:
@@ -161,12 +183,14 @@ export interface FileRouteTypes {
     | '/collection'
     | '/listings'
     | '/login'
+    | '/reset-password'
     | '/search'
     | '/cards/$id'
     | '/ebay/connected'
     | '/ebay/setup'
     | '/ebay/share'
     | '/listings_/$id'
+    | '/listings_/match'
     | '/listings_/new'
     | '/ebay/'
   fileRoutesById: FileRoutesById
@@ -176,12 +200,14 @@ export interface RootRouteChildren {
   CollectionRoute: typeof CollectionRoute
   ListingsRoute: typeof ListingsRoute
   LoginRoute: typeof LoginRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   SearchRoute: typeof SearchRoute
   CardsIdRoute: typeof CardsIdRoute
   EbayConnectedRoute: typeof EbayConnectedRoute
   EbaySetupRoute: typeof EbaySetupRoute
   EbayShareRoute: typeof EbayShareRoute
   ListingsIdRoute: typeof ListingsIdRoute
+  ListingsMatchRoute: typeof ListingsMatchRoute
   ListingsNewRoute: typeof ListingsNewRoute
   EbayIndexRoute: typeof EbayIndexRoute
 }
@@ -193,6 +219,13 @@ declare module '@tanstack/react-router' {
       path: '/search'
       fullPath: '/search'
       preLoaderRoute: typeof SearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -235,6 +268,13 @@ declare module '@tanstack/react-router' {
       path: '/listings/new'
       fullPath: '/listings/new'
       preLoaderRoute: typeof ListingsNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/listings_/match': {
+      id: '/listings_/match'
+      path: '/listings/match'
+      fullPath: '/listings/match'
+      preLoaderRoute: typeof ListingsMatchRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/listings_/$id': {
@@ -280,12 +320,14 @@ const rootRouteChildren: RootRouteChildren = {
   CollectionRoute: CollectionRoute,
   ListingsRoute: ListingsRoute,
   LoginRoute: LoginRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   SearchRoute: SearchRoute,
   CardsIdRoute: CardsIdRoute,
   EbayConnectedRoute: EbayConnectedRoute,
   EbaySetupRoute: EbaySetupRoute,
   EbayShareRoute: EbayShareRoute,
   ListingsIdRoute: ListingsIdRoute,
+  ListingsMatchRoute: ListingsMatchRoute,
   ListingsNewRoute: ListingsNewRoute,
   EbayIndexRoute: EbayIndexRoute,
 }

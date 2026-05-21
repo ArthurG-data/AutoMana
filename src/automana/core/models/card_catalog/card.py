@@ -4,13 +4,14 @@ from uuid import UUID
 from typing import Any, Dict, Optional,  List, Union
 from automana.core.utils.type_parser import process_type_line
 from automana.core.utils.card_face_parser import parse_card_faces
-from datetime import datetime
+from datetime import datetime, date
 import json
 
 class BaseCard(BaseModel):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
     card_version_id: Optional[Union[UUID, str]] = Field(default=None, title="Unique card version identifier")
+    unique_card_id: Optional[UUID] = Field(default=None, title="Stable identity shared by all printings of this logical card")
     name: str = Field(alias="card_name", title="The name of the card")
     set_name: str = Field(title="The complete name of the set")
     set: str = Field(alias="set_code", title="The abbreviation of the set")
@@ -19,6 +20,16 @@ class BaseCard(BaseModel):
     oracle_text: Optional[str] = Field(default="", title="The text on the card")
     digital: bool = Field(title="Is the card released only on digital platform")
     image_normal: Optional[str] = Field(default=None, title="URL to normal-sized card image from Scryfall")
+    price: Optional[float] = Field(default=None, title="Current list average price in USD (NONFOIL NM, avg across sources)")
+    price_change_1d: float = Field(default=0.0, title="1-day price change percentage")
+    price_change_7d: float = Field(default=0.0, title="7-day price change percentage")
+    price_change_30d: float = Field(default=0.0, title="30-day price change percentage")
+    spark: List[float] = Field(default_factory=list, title="Recent price points for sparkline (ascending)")
+    released_at: Optional[date] = Field(default=None, title="Set release date (ISO 8601, e.g. '2024-02-09')")
+    finish: str = Field(default="non-foil", title="Card finish (non-foil, foil, etched)")
+    collector_number: Optional[str] = Field(default=None, title="Collector number within the set")
+    promo_types: List[str] = Field(default_factory=list, title="Promo treatment labels (e.g. showcase, borderless)")
+    version_count: int = Field(default=1, title="Number of distinct versions (treatments/finishes) in the same (unique_card_id, set_code) pair")
 
     @staticmethod
     def to_json_safe(data):
@@ -27,7 +38,7 @@ class BaseCard(BaseModel):
                 return {k: clean(v) for k, v in obj.items()}
             elif isinstance(obj, list):
                 return [clean(v) for v in obj]
-            elif isinstance(obj, UUID):
+            elif isinstance(obj, (UUID, date, datetime)):
                 return str(obj)
             else:
                 return obj
@@ -50,9 +61,37 @@ class CardDetail(BaseCard):
     mana_cost: Optional[str] = Field(default=None)
     type_line: Optional[str] = Field(default=None)
     artist: Optional[str] = Field(default=None)
-    collector_number: Optional[str] = Field(default=None)
-    promo_types: List[str] = Field(default_factory=list)
     legalities: Dict[str, str] = Field(default_factory=dict)
+
+
+class CardVersionRow(BaseModel):
+    """One row in the 'Versions in this set' table on the card detail page."""
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    card_version_id: UUID
+    unique_card_id: Optional[UUID] = None
+    card_name: str
+    set_code: str
+    set_name: str
+    collector_number: Optional[str] = None
+    promo_types: List[str] = Field(default_factory=list)
+    rarity_name: str
+    image_normal: Optional[str] = None
+    available_finishes: List[str] = Field(default_factory=list)
+    price: Optional[float] = None
+    price_change_1d: float = 0.0
+
+
+class OtherSetRow(BaseModel):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    card_version_id: UUID
+    set_code: str
+    set_name: str
+    released_at: Optional[date] = None
+    version_count: int = 1
+    price: Optional[float] = None
+    price_change_1d: float = 0.0
 
 class CardFace(BaseModel):
     name: str
@@ -139,6 +178,7 @@ class CreateCard(BaseCard):
     tcgplayer_etched_id: Optional[int]=None
     cardmarket_id: Optional[int]=None
     card_back_id: Optional[UUID] = None
+    purchase_uris: Optional[Dict[str, str]] = None
 
     @field_validator("artist", mode="after")
     @classmethod
@@ -259,6 +299,7 @@ class CreateCard(BaseCard):
             "tcgplayer_etched_id": data["tcgplayer_etched_id"],
             "cardmarket_id": data["cardmarket_id"],
             "card_back_id": data.get("card_back_id"),
+            "purchase_uris": data.get("purchase_uris"),
         }
    
     @model_validator(mode='before')

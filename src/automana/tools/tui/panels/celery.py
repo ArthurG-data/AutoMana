@@ -72,6 +72,8 @@ KNOWN_TASKS: list[CeleryTask] = [
         label="MTGJson daily pipeline",
         steps=[
             "ops.pipeline_services.start_run",
+            "mtgjson.data.download.all_identifiers",
+            "staging.mtgjson.sync_uuid_mappings",
             "mtgjson.data.download.today",
             "staging.mtgjson.stream_to_staging",
             "staging.mtgjson.promote_to_price_observation",

@@ -197,7 +197,8 @@ eBay OAuth scope notes:
 Listing endpoints (all require a user session and an `app_code` query parameter):
 
 - `POST /api/integrations/ebay/listing/` — create listing; requires `Idempotency-Key` header (400 if absent); uses Redis SETNX to short-circuit duplicate creates
-- `GET /api/integrations/ebay/listing/active` — paginated active listings (`limit`, `offset`); returns `PaginatedResponse`
+- `POST /api/integrations/ebay/listing/from-card` — build and create a listing from a card version; accepts `card_version_id`, `condition`, `quantity`, `price_aud`, `foil`, `lang`, `shipping_cost_aud`, `condition_note`, `description_mode`, `brand_config`, `marketplace_id` (optional, default `'15'`)
+- `GET /api/integrations/ebay/listing/active` — paginated active listings (`limit`, `offset`); returns `PaginatedResponse`. Active listings now include variant metadata (`product_id`, `condition_id`, `finish_id`, `language_id`, `marketplace_id`, `template_id`, `title`, `match_score`) which are nullable for backwards compatibility with pre-migration rows
 - `GET /api/integrations/ebay/listing/history` — paginated order fulfillment history (`limit`, `offset`); returns `PaginatedResponse`
 - `PUT /api/integrations/ebay/listing/{item_id}` — update an existing listing; body `ItemID` must match the URL `item_id`
 - `DELETE /api/integrations/ebay/listing/{item_id}` — end a listing; optional `ending_reason` query param (default `NotAvailable`)

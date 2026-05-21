@@ -39,8 +39,8 @@ class NewSet(BaseModel):
     digital : bool=Field(alias='digital', default=False)
     nonfoil_only : bool=Field(alias='nonfoil_only', default=False)
     foil_only : bool=Field(alias='foil_only', default=False)
-    parent_set : Optional[str]=Field(alias='parent_set', default=None)
-    #icon_svg_uri : Optional[str]=Field(alias='icon_svg_uri', default=None)
+    parent_set : Optional[str]=Field(alias='parent_set_code', default=None)
+    icon_svg_uri : Optional[str]=Field(alias='icon_svg_uri', default=None)
 
     class Config:
         populate_by_name = True  # Important for handling aliases
@@ -65,7 +65,8 @@ class NewSet(BaseModel):
             'digital': data['digital'],
             'nonfoil_only': data['nonfoil_only'],
             'foil_only': data['foil_only'],
-            'parent_set_code': data['parent_set'],
+            'parent_set_code': data['parent_set_code'],
+            'icon_svg_uri': data['icon_svg_uri'],
         }
 
 class UpdatedSet(BaseModel):
@@ -95,6 +96,8 @@ class SetBrowseItem(BaseModel):
     card_count: int = Field(title="Number of card versions in this set")
     released_at: datetime.date = Field(title="Official release date")
     icon_svg_uri: Optional[str] = Field(default=None, title="Scryfall SVG icon URL")
+    parent_set_code: Optional[str] = Field(default=None, title="Parent set code if this is a sub-set")
+    key_art_uri: Optional[str] = Field(default=None, title="Art-crop image URL of highest-value card in set")
 
     class Config:
         from_attributes = True

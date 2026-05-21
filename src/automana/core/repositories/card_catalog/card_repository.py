@@ -1,12 +1,20 @@
-﻿import io
+import io
 import json
+import logging
 from datetime import date
 from typing import Optional, Any, Dict, List
 from uuid import UUID
 from dataclasses import dataclass, field
 
+import orjson
+
 from automana.core.repositories.abstract_repositories.AbstractDBRepository import AbstractRepository
 from automana.core.repositories.card_catalog import card_queries as queries
+from automana.core.utils.redis_cache import get_redis_client
+
+logger = logging.getLogger(__name__)
+
+_PRICE_SPARK_TTL = 86400  # 24 h — prices update once per day
 
 class CardReferenceRepository(AbstractRepository[Any]):
     def __init__(self, connection, executor = None):
@@ -86,6 +94,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
         query = """
             SELECT
                 v.card_version_id,
+                v.unique_card_id,
                 v.card_name,
                 v.rarity_name,
                 v.set_name,
@@ -139,6 +148,8 @@ class CardReferenceRepository(AbstractRepository[Any]):
         row = dict(result[0])
         if isinstance(row.get("legalities"), str):
             row["legalities"] = json.loads(row["legalities"])
+        price_data = await self._fetch_prices_for_cards([card_id])
+        row.update(price_data.get(str(card_id), self._PRICE_DEFAULTS))
         return row
 
     async def suggest(self, query: str, limit: int = 10) -> list[dict]:
@@ -158,6 +169,13 @@ class CardReferenceRepository(AbstractRepository[Any]):
         """
         rows = await self.execute_query(sql, (query, limit))
         return [dict(r) for r in rows]
+
+    async def get_purchase_uris(self, card_version_id) -> dict | None:
+        sql = "SELECT purchase_uris FROM card_catalog.card_version WHERE card_version_id = $1"
+        rows = await self.execute_query(sql, (card_version_id,))
+        if not rows:
+            return None
+        return rows[0]["purchase_uris"]
 
     async def get_version_by_scryfall_id(self, scryfall_id: str) -> Optional[dict]:
         sql = """
@@ -182,22 +200,112 @@ class CardReferenceRepository(AbstractRepository[Any]):
         rows = await self.execute_query(sql, (set_code, collector_number))
         return dict(rows[0]) if rows else None
 
+    async def _fetch_prices_for_cards(self, card_ids: list) -> dict:
+        """
+        Fetch price analytics from tier 2 (print_price_daily) for a batch of cards.
+
+        Results are cached in Redis per card for 24 h (prices update once per day).
+        A single mget fetches all cached entries in one roundtrip; only cache-miss
+        IDs hit the database. Fresh results are written back via a Redis pipeline.
+
+        Tier 3 (print_price_latest / print_price_weekly) covers the ALL-time chart
+        via the existing get_price_history() — not touched here.
+        """
+        if not card_ids:
+            return {}
+
+        str_ids = [str(cid) for cid in card_ids]
+        cache_keys = [f"card_price_spark:{cid}" for cid in str_ids]
+
+        result: dict[str, dict] = {}
+        miss_ids: list[str] = []
+
+        # --- Redis: single mget roundtrip ---
+        try:
+            redis = await get_redis_client()
+            cached_values = await redis.mget(*cache_keys)
+            for cid, raw in zip(str_ids, cached_values):
+                if raw is not None:
+                    result[cid] = orjson.loads(raw)
+                else:
+                    miss_ids.append(cid)
+        except Exception as exc:
+            logger.warning("price_cache_read_error", extra={"error": str(exc)})
+            miss_ids = str_ids  # Redis unavailable — fall through to DB
+
+        if not miss_ids:
+            return result
+
+        # --- DB query for cache misses only ---
+        sql = """
+            SELECT
+                card_version_id,
+                price,
+                price_change_1d,
+                price_change_7d,
+                price_change_30d,
+                spark
+            FROM pricing.mv_card_price_spark
+            WHERE card_version_id = ANY($1::uuid[])
+        """
+        rows = await self.execute_query(sql, (miss_ids,))
+
+        fresh: dict[str, dict] = {}
+        for row in rows:
+            cid = str(row["card_version_id"])
+            fresh[cid] = {
+                "price": row["price"],
+                "price_change_1d": row["price_change_1d"],
+                "price_change_7d": row["price_change_7d"],
+                "price_change_30d": row["price_change_30d"],
+                "spark": list(row["spark"]) if row["spark"] else [],
+                "finish": "non-foil",
+            }
+
+        # --- Redis: write-back via pipeline (1 roundtrip) ---
+        if fresh:
+            try:
+                redis = await get_redis_client()
+                pipe = redis.pipeline()
+                for cid, data in fresh.items():
+                    pipe.setex(f"card_price_spark:{cid}", _PRICE_SPARK_TTL, orjson.dumps(data))
+                await pipe.execute()
+            except Exception as exc:
+                logger.warning("price_cache_write_error", extra={"error": str(exc)})
+
+        result.update(fresh)
+        return result
+
+    _PRICE_DEFAULTS = {
+        "price": None,
+        "price_change_1d": 0.0,
+        "price_change_7d": 0.0,
+        "price_change_30d": 0.0,
+        "spark": [],
+        "finish": "non-foil",
+    }
+
     async def search(
             self,
             name: Optional[str] = None,
-            color: Optional[str] = None,
+            colors: Optional[list[str]] = None,
             rarity: Optional[str] = None,
             set_name: Optional[str] = None,
             set_code: Optional[str] = None,
             mana_cost: Optional[int] = None,
             digital: Optional[bool] = None,
             card_type: Optional[str] = None,
+            finish: Optional[str] = None,
+            frame_effects: Optional[list[str]] = None,
             released_after: Optional[str] = None,
             released_before: Optional[str] = None,
             oracle_text: Optional[str] = None,
+            artist: Optional[str] = None,
+            unique_card_id: Optional[UUID] = None,
             format: Optional[str] = None,
             layout: Optional[str] = None,
             promo_type: Optional[List[str]] = None,
+            collapse: bool = False,
             limit: int = 100,
             offset: int = 0,
             sort_by: Optional[str] = "card_name",
@@ -210,9 +318,10 @@ class CardReferenceRepository(AbstractRepository[Any]):
         pair controls ordering.
 
         Notes:
-            - ``color`` matches against ``color_identity`` (text[]) stored as
-              proper-cased colour names (e.g. 'White', 'Blue'). Callers must
-              pass the value in that casing.
+            - ``colors`` matches against ``color_identity`` (text[]) stored as
+              proper-cased colour names (e.g. 'White', 'Blue'). Each entry adds
+              an AND condition — cards must contain ALL listed colours. Callers
+              must pass values in that casing.
             - ``card_type`` matches against the ``types`` array (e.g. 'Creature').
             - ``digital`` uses the per-card-version ``is_digital`` flag, not the
               legacy per-set ``sets.digital`` column.
@@ -244,14 +353,20 @@ class CardReferenceRepository(AbstractRepository[Any]):
             counter += 1
             rf_counter += 1
 
-        if color:
+        for c in (colors or []):
             # color_identity is text[]; caller must use canonical casing (e.g. 'White').
-            conditions.append(f"${counter} = ANY(v.color_identity)")
-            rf_conditions.append(f"${rf_counter} = ANY(v.color_identity)")
-            values.append(color)
-            rf_values.append(color)
-            counter += 1
-            rf_counter += 1
+            if c == 'Multi':
+                # Special value: cards with 2 or more colors in their identity.
+                conditions.append("array_length(v.color_identity, 1) > 1")
+                rf_conditions.append("array_length(v.color_identity, 1) > 1")
+                # No bind parameter added — do NOT increment counter/rf_counter.
+            else:
+                conditions.append(f"${counter} = ANY(v.color_identity)")
+                rf_conditions.append(f"${rf_counter} = ANY(v.color_identity)")
+                values.append(c)
+                rf_values.append(c)
+                counter += 1
+                rf_counter += 1
 
         if rarity:
             conditions.append(f"v.rarity_name ILIKE ${counter}")
@@ -272,6 +387,15 @@ class CardReferenceRepository(AbstractRepository[Any]):
             rf_conditions.append(f"v.set_code = ${rf_counter}")
             values.append(set_code)
             rf_values.append(set_code)
+            counter += 1
+            rf_counter += 1
+
+        if unique_card_id:
+            # Identity filter: all printings of the same logical card share unique_card_id.
+            conditions.append(f"v.unique_card_id = ${counter}")
+            rf_conditions.append(f"v.unique_card_id = ${rf_counter}")
+            values.append(unique_card_id)
+            rf_values.append(unique_card_id)
             counter += 1
             rf_counter += 1
 
@@ -317,12 +441,54 @@ class CardReferenceRepository(AbstractRepository[Any]):
             counter += 1
             rf_counter += 1
 
+        if finish:
+            conditions.append(
+                f"EXISTS (SELECT 1 FROM card_catalog.card_version_finish cvf "
+                f"JOIN card_catalog.card_finished cf ON cvf.finish_id = cf.finish_id "
+                f"WHERE cvf.card_version_id = v.card_version_id "
+                f"AND UPPER(cf.code) = ${counter})"
+            )
+            rf_conditions.append(
+                f"EXISTS (SELECT 1 FROM card_catalog.card_version_finish cvf "
+                f"JOIN card_catalog.card_finished cf ON cvf.finish_id = cf.finish_id "
+                f"WHERE cvf.card_version_id = v.card_version_id "
+                f"AND UPPER(cf.code) = ${rf_counter})"
+            )
+            values.append(finish.upper())
+            rf_values.append(finish.upper())
+            counter += 1
+            rf_counter += 1
+
+        for fe in (frame_effects or []):
+            conditions.append(f"${counter} = ANY(v.frame_effects)")
+            rf_conditions.append(f"${rf_counter} = ANY(v.frame_effects)")
+            values.append(fe)
+            rf_values.append(fe)
+            counter += 1
+            rf_counter += 1
+
         if oracle_text:
             conditions.append(f"v.search_vector @@ websearch_to_tsquery('english', ${counter})")
             rf_conditions.append(f"v.search_vector @@ websearch_to_tsquery('english', ${rf_counter})")
             values.append(oracle_text)
             rf_values.append(oracle_text)
             oracle_param_idx = counter
+            counter += 1
+            rf_counter += 1
+
+        if artist:
+            # Match any illustration on the card whose artist_name equals the input.
+            # Most cards have a single illustration; DFCs and split cards have multiple.
+            conditions.append(
+                f"EXISTS (SELECT 1 FROM jsonb_array_elements(v.illustrations) elem "
+                f"WHERE elem->>'artist_name' = ${counter})"
+            )
+            rf_conditions.append(
+                f"EXISTS (SELECT 1 FROM jsonb_array_elements(v.illustrations) elem "
+                f"WHERE elem->>'artist_name' = ${rf_counter})"
+            )
+            values.append(artist)
+            rf_values.append(artist)
             counter += 1
             rf_counter += 1
 
@@ -369,6 +535,8 @@ class CardReferenceRepository(AbstractRepository[Any]):
         rarity_facet_where = "WHERE " + " AND ".join(rf_conditions) if rf_conditions else ""
 
         # Dynamic ORDER BY: prefer relevance when text search params are present.
+        # collapse_order_clause mirrors order_clause but uses bare column names (no v./s.
+        # prefix) so it can be applied to the outer SELECT of the DISTINCT ON subquery.
         if name_param_idx and oracle_param_idx:
             order_clause = (
                 f"ORDER BY ("
@@ -376,52 +544,147 @@ class CardReferenceRepository(AbstractRepository[Any]):
                 f"ts_rank_cd(v.search_vector, websearch_to_tsquery('english', ${oracle_param_idx}))"
                 f") DESC"
             )
+            collapse_order_clause = (
+                f"ORDER BY ("
+                f"word_similarity(LOWER(${name_param_idx}), LOWER(card_name)) + "
+                f"ts_rank_cd(search_vector, websearch_to_tsquery('english', ${oracle_param_idx}))"
+                f") DESC"
+            )
         elif name_param_idx:
             order_clause = f"ORDER BY word_similarity(LOWER(${name_param_idx}), LOWER(v.card_name)) DESC"
+            collapse_order_clause = f"ORDER BY word_similarity(LOWER(${name_param_idx}), LOWER(card_name)) DESC"
         elif oracle_param_idx:
             order_clause = (
                 f"ORDER BY ts_rank_cd(v.search_vector, "
                 f"websearch_to_tsquery('english', ${oracle_param_idx})) DESC"
             )
+            collapse_order_clause = (
+                f"ORDER BY ts_rank_cd(search_vector, "
+                f"websearch_to_tsquery('english', ${oracle_param_idx})) DESC"
+            )
         else:
-            safe_sort_by = sort_by if sort_by in {
-                "card_name", "cmc", "rarity_name", "set_name", "set_code"
-            } else "card_name"
+            _set_cols = {"released_at"}
+            _price_cols = {"price"}
+            _view_cols = {"card_name", "cmc", "rarity_name", "set_name", "set_code"}
             safe_sort_order = "DESC" if (sort_order or "").upper() == "DESC" else "ASC"
-            order_clause = f"ORDER BY v.{safe_sort_by} {safe_sort_order}"
+            if sort_by in _set_cols:
+                order_clause = f"ORDER BY s.{sort_by} {safe_sort_order}"
+                collapse_order_clause = f"ORDER BY {sort_by} {safe_sort_order}"
+            elif sort_by in _price_cols:
+                order_clause = f"ORDER BY psp.price {safe_sort_order} NULLS LAST"
+                collapse_order_clause = f"ORDER BY sort_price {safe_sort_order} NULLS LAST"
+            else:
+                safe_sort_by = sort_by if sort_by in _view_cols else "card_name"
+                order_clause = f"ORDER BY v.{safe_sort_by} {safe_sort_order}"
+                collapse_order_clause = f"ORDER BY {safe_sort_by} {safe_sort_order}"
 
         # JOIN sets for released_at (not projected by the view) and to filter on date range.
         from_clause = (
             "FROM card_catalog.v_card_versions_complete v"
             " JOIN card_catalog.sets s ON s.set_id = v.set_id"
             " LEFT JOIN card_catalog.card_version_illustration cvi ON cvi.card_version_id = v.card_version_id"
+            " LEFT JOIN pricing.mv_card_price_spark psp ON psp.card_version_id = v.card_version_id"  # mv_card_price_spark is keyed on card_version_id (one row per version) — no fan-out risk
         )
 
-        query = f"""
-            SELECT
+        # Outer ORDER BY for collapse mode — references subquery columns (no table prefix).
+        if collapse:
+            if name_param_idx and oracle_param_idx:
+                outer_order = (
+                    f"ORDER BY ("
+                    f"word_similarity(LOWER(${name_param_idx}), LOWER(card_name)) + "
+                    f"ts_rank_cd(search_vector, websearch_to_tsquery('english', ${oracle_param_idx}))"
+                    f") DESC"
+                )
+            elif name_param_idx:
+                outer_order = f"ORDER BY word_similarity(LOWER(${name_param_idx}), LOWER(card_name)) DESC"
+            elif oracle_param_idx:
+                outer_order = (
+                    f"ORDER BY ts_rank_cd(search_vector, "
+                    f"websearch_to_tsquery('english', ${oracle_param_idx})) DESC"
+                )
+            else:
+                _set_cols = {"released_at"}
+                _price_cols = {"price"}
+                _view_cols = {"card_name", "cmc", "rarity_name", "set_name", "set_code"}
+                safe_sort_order = "DESC" if (sort_order or "").upper() == "DESC" else "ASC"
+                if sort_by in _set_cols:
+                    outer_order = f"ORDER BY released_at {safe_sort_order}"
+                elif sort_by in _price_cols:
+                    outer_order = f"ORDER BY sort_price {safe_sort_order} NULLS LAST"
+                else:
+                    safe_sort_by = sort_by if sort_by in _view_cols else "card_name"
+                    outer_order = f"ORDER BY {safe_sort_by} {safe_sort_order}"
+
+        # search_vector is only needed in collapsed outer ORDER BY when oracle_text is used.
+        sv_col = ", v.search_vector" if (collapse and oracle_param_idx) else ""
+
+        base_select = f"""
                 v.card_version_id,
+                v.unique_card_id,
                 v.card_name,
                 v.rarity_name,
                 v.set_name,
                 v.set_code,
                 v.cmc,
                 v.oracle_text,
+                v.promo_types,
+                v.collector_number,
                 v.is_digital AS digital,
+                v.collector_number,
+                v.promo_types,
                 s.released_at,
-                cvi.image_uris->>'normal' AS image_normal
-            {from_clause}
-            {where_clause}
-            {order_clause}
-            LIMIT ${counter} OFFSET ${counter + 1}
-        """
+                cvi.image_uris->>'normal' AS image_normal,
+                psp.price AS sort_price
+                {sv_col}"""
+
+        if collapse:
+            query = f"""
+                SELECT * FROM (
+                    SELECT DISTINCT ON (v.unique_card_id, v.set_code)
+                        {base_select},
+                        COUNT(*) OVER (PARTITION BY v.unique_card_id, v.set_code) AS version_count
+                    {from_clause}
+                    {where_clause}
+                    ORDER BY v.unique_card_id, v.set_code,
+                             cardinality(v.promo_types) ASC NULLS LAST,
+                             v.collector_number ASC NULLS LAST
+                ) _collapsed
+                {outer_order}
+                LIMIT ${counter} OFFSET ${counter + 1}
+            """
+        else:
+            query = f"""
+                SELECT
+                    {base_select}
+                {from_clause}
+                {where_clause}
+                {order_clause}
+                LIMIT ${counter} OFFSET ${counter + 1}
+            """
         values.extend([limit, offset])
         cards = await self.execute_query(query, tuple(values))
 
-        count_query = f"""
-            SELECT COUNT(*) AS total_count
-            {from_clause}
-            {where_clause}
-        """
+        card_ids = [row["card_version_id"] for row in cards]
+        price_data = await self._fetch_prices_for_cards(card_ids)
+        cards = [
+            {**dict(row), **price_data.get(str(row["card_version_id"]), self._PRICE_DEFAULTS)}
+            for row in cards
+        ]
+
+        if collapse:
+            count_query = f"""
+                SELECT COUNT(*) AS total_count FROM (
+                    SELECT DISTINCT v.unique_card_id, v.set_code
+                    {from_clause}
+                    {where_clause}
+                ) _c
+            """
+        else:
+            count_query = f"""
+                SELECT COUNT(*) AS total_count
+                {from_clause}
+                {where_clause}
+            """
         count_values = values[:-2]
         count_result = await self.execute_query(count_query, tuple(count_values))
         total_count = count_result[0]["total_count"] if count_result else 0
@@ -459,9 +722,73 @@ class CardReferenceRepository(AbstractRepository[Any]):
             "promo_type_facets": promo_type_facets,
             "rarity_facets": rarity_facets,
         }
-    async def list(self) -> dict[str, Any]:
-        raise NotImplementedError("Method not implemented")
+    async def get_versions_in_set(self, unique_card_id: UUID, set_code: str) -> list[dict]:
+        """All card_version rows for one (unique_card_id, set_code) pair — for the versions table."""
+        sql = """
+            SELECT
+                v.card_version_id,
+                v.unique_card_id,
+                v.card_name,
+                v.set_code,
+                v.set_name,
+                v.collector_number,
+                v.promo_types,
+                v.rarity_name,
+                cvi.image_uris->>'normal' AS image_normal,
+                ARRAY(
+                    SELECT LOWER(cf.code)
+                    FROM card_catalog.card_version_finish cvf
+                    JOIN card_catalog.card_finished cf ON cf.finish_id = cvf.finish_id
+                    WHERE cvf.card_version_id = v.card_version_id
+                ) AS available_finishes
+            FROM card_catalog.v_card_versions_complete v
+            JOIN card_catalog.sets s ON s.set_id = v.set_id
+            LEFT JOIN card_catalog.card_version_illustration cvi
+                ON cvi.card_version_id = v.card_version_id
+            WHERE v.unique_card_id = $1
+              AND v.set_code = $2
+            ORDER BY cardinality(v.promo_types) ASC NULLS LAST, v.collector_number ASC NULLS LAST
+        """
+        rows = await self.execute_query(sql, (unique_card_id, set_code))
+        card_ids = [row["card_version_id"] for row in rows]
+        price_data = await self._fetch_prices_for_cards(card_ids)
+        return [
+            {**dict(row), **price_data.get(str(row["card_version_id"]), self._PRICE_DEFAULTS)}
+            for row in rows
+        ]
 
+    async def get_other_sets(self, unique_card_id: UUID) -> list[dict]:
+        """One representative row per set for a given unique_card_id — for the Other Sets table."""
+        sql = """
+            SELECT * FROM (
+                SELECT DISTINCT ON (v.set_code)
+                    v.card_version_id,
+                    v.unique_card_id,
+                    v.card_name,
+                    v.set_code,
+                    v.set_name,
+                    s.released_at,
+                    cvi.image_uris->>'normal' AS image_normal,
+                    COUNT(*) OVER (PARTITION BY v.set_code) AS version_count
+                FROM card_catalog.v_card_versions_complete v
+                JOIN card_catalog.sets s ON s.set_id = v.set_id
+                LEFT JOIN card_catalog.card_version_illustration cvi
+                    ON cvi.card_version_id = v.card_version_id
+                WHERE v.unique_card_id = $1
+                  AND v.layout_name NOT IN ('token', 'double_faced_token')
+                ORDER BY v.set_code,
+                         cardinality(v.promo_types) ASC NULLS LAST,
+                         v.collector_number ASC NULLS LAST
+            ) _sets
+            ORDER BY released_at DESC NULLS LAST
+        """
+        rows = await self.execute_query(sql, (unique_card_id,))
+        card_ids = [row["card_version_id"] for row in rows]
+        price_data = await self._fetch_prices_for_cards(card_ids)
+        return [
+            {**dict(row), **price_data.get(str(row["card_version_id"]), self._PRICE_DEFAULTS)}
+            for row in rows
+        ]
 
     def bulk_update_mtg_stock_ids(self, ids: dict[str, str]):
         #not async anymore
@@ -770,6 +1097,37 @@ class CardReferenceRepository(AbstractRepository[Any]):
         rows = await self.execute_query(query, ())
         return dict(rows[0]) if rows else {"total_card_versions": 0, "total_unique_cards": 0}
 
+    async def update_purchase_uris_batch(
+        self, rows: List[dict]  # [{scryfall_id, purchase_uris}]
+    ) -> int:
+        """Bulk-update purchase_uris on card_version rows identified by scryfall_id.
+
+        Returns the number of rows updated.
+        """
+        if not rows:
+            return 0
+
+        scryfall_ids = [r["scryfall_id"] for r in rows]
+        uri_jsons = [json.dumps(r["purchase_uris"]) for r in rows]
+
+        sql = """
+UPDATE card_catalog.card_version cv
+SET
+    purchase_uris = v.uris::jsonb,
+    updated_at = now()
+FROM unnest($1::text[], $2::text[]) AS v(scryfall_id, uris)
+JOIN card_catalog.card_external_identifier ei ON ei.value = v.scryfall_id
+JOIN card_catalog.card_identifier_ref ir ON ir.card_identifier_ref_id = ei.card_identifier_ref_id
+    AND ir.identifier_name = 'scryfall_id'
+WHERE cv.card_version_id = ei.card_version_id
+"""
+        status = await self.connection.execute(sql, scryfall_ids, uri_jsons)
+        # status is like "UPDATE N"
+        try:
+            return int(status.split()[-1])
+        except (IndexError, ValueError):
+            return len(rows)
+
     async def fetch_orphan_unique_cards_count(self) -> int:
         """COUNT of unique_cards_ref rows with zero card_version children.
 
@@ -861,7 +1219,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
             tier2_prices AS (
                 SELECT
                     date_trunc('week', ppd.price_date)::date AS week_start,
-                    AVG(ppd.list_avg_cents)::float / 100 AS list_avg_price,
+                    COALESCE(AVG(ppd.list_avg_cents), AVG(ppd.sold_avg_cents))::float / 100 AS list_avg_price,
                     AVG(ppd.sold_avg_cents)::float / 100 AS sold_avg_price
                 FROM pricing.print_price_daily ppd
                 JOIN card_catalog.card_finished f ON f.finish_id = ppd.finish_id
@@ -874,7 +1232,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
             tier3_prices AS (
                 SELECT
                     ppw.price_week AS week_start,
-                    AVG(ppw.list_avg_cents)::float / 100 AS list_avg_price,
+                    COALESCE(AVG(ppw.list_avg_cents), AVG(ppw.sold_avg_cents))::float / 100 AS list_avg_price,
                     AVG(ppw.sold_avg_cents)::float / 100 AS sold_avg_price
                 FROM pricing.print_price_weekly ppw
                 JOIN card_catalog.card_finished f ON f.finish_id = ppw.finish_id
@@ -907,7 +1265,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
             daily_prices AS (
                 SELECT
                     ppd.price_date,
-                    AVG(ppd.list_avg_cents)::float / 100 AS list_avg_price,
+                    COALESCE(AVG(ppd.list_avg_cents), AVG(ppd.sold_avg_cents))::float / 100 AS list_avg_price,
                     AVG(ppd.sold_avg_cents)::float / 100 AS sold_avg_price
                 FROM pricing.print_price_daily ppd
                 JOIN card_catalog.card_finished f ON f.finish_id = ppd.finish_id
@@ -944,3 +1302,6 @@ class CardReferenceRepository(AbstractRepository[Any]):
             "sold_avg": sold_avg,
             "dates": dates
         }
+
+    async def list(self, *_: Any, **__: Any):
+        raise NotImplementedError

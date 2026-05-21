@@ -87,23 +87,48 @@ class CollectionRepository(AbstractRepository):
         currency_code: str,
         purchase_date,
         language_id,
+        status: str = 'purchased',
+        ebay_item_id: Optional[str] = None,
     ) -> Optional[dict]:
         query = """
             INSERT INTO user_collection.collection_items
                 (collection_id, unique_card_id, finish_id, condition,
-                 purchase_price, currency_code, purchase_date, language_id)
-            SELECT $1, $3, $4, $5, $6, $7, $8, $9
+                 purchase_price, currency_code, purchase_date, language_id,
+                 status, ebay_item_id)
+            SELECT $1, $3, $4, $5, $6, $7, $8, $9, $10, $11
             FROM user_collection.collections
             WHERE collection_id = $1 AND user_id = $2
+            ON CONFLICT (collection_id, unique_card_id, finish_id, condition) DO NOTHING
             RETURNING item_id, collection_id, unique_card_id AS card_version_id,
                       finish_id, condition, purchase_price, currency_code,
-                      purchase_date, language_id;
+                      purchase_date, language_id, status, ebay_item_id;
         """
         rows = await self.execute_query(
             query,
             (collection_id, user_id, card_version_id, finish_id, condition,
-             purchase_price, currency_code, purchase_date, language_id),
+             purchase_price, currency_code, purchase_date, language_id,
+             status, ebay_item_id),
         )
+        return dict(rows[0]) if rows else None
+
+    async def get_entry_by_key(
+        self,
+        collection_id: UUID,
+        card_version_id: UUID,
+        finish_id: int,
+        condition: str,
+    ) -> Optional[dict]:
+        query = """
+            SELECT item_id, collection_id, unique_card_id AS card_version_id,
+                   finish_id, condition, purchase_price, currency_code,
+                   purchase_date, language_id, status, ebay_item_id
+            FROM user_collection.collection_items
+            WHERE collection_id = $1
+              AND unique_card_id = $2
+              AND finish_id = $3
+              AND condition = $4;
+        """
+        rows = await self.execute_query(query, (collection_id, card_version_id, finish_id, condition))
         return dict(rows[0]) if rows else None
 
     async def get_entry(self, item_id: UUID, collection_id: UUID, user_id: UUID) -> Optional[dict]:
@@ -120,7 +145,18 @@ class CollectionRepository(AbstractRepository):
                    ci.purchase_price,
                    ci.currency_code,
                    ci.purchase_date,
-                   ci.language_id
+                   ci.language_id,
+                   cvi.image_uris->>'normal'  AS image_normal,
+                   ps.price                    AS price,
+                   ps.price_change_1d          AS price_change_1d,
+                   ci.ebay_item_id,
+                   CASE
+                       WHEN ci.ebay_item_id IS NOT NULL
+                            AND eal.item_id IS NOT NULL
+                            AND eal.ended_at IS NULL
+                       THEN 'listed'
+                       ELSE ci.status
+                   END AS status
             FROM user_collection.collection_items ci
             JOIN user_collection.collections col
                 ON col.collection_id = ci.collection_id AND col.user_id = $3
@@ -128,12 +164,24 @@ class CollectionRepository(AbstractRepository):
             JOIN card_catalog.unique_cards_ref uc ON uc.unique_card_id = cv.unique_card_id
             JOIN card_catalog.sets s ON s.set_id = cv.set_id
             JOIN card_catalog.card_finished cf ON cf.finish_id = ci.finish_id
+            LEFT JOIN card_catalog.card_version_illustration cvi
+                ON cvi.card_version_id = cv.card_version_id
+            LEFT JOIN pricing.mv_card_price_spark ps
+                ON ps.card_version_id = ci.unique_card_id
+            LEFT JOIN app_integration.ebay_active_listings eal
+                ON eal.item_id = ci.ebay_item_id
             WHERE ci.item_id = $1 AND ci.collection_id = $2;
         """
         rows = await self.execute_query(query, (item_id, collection_id, user_id))
         return dict(rows[0]) if rows else None
 
-    async def get_all_entries(self, collection_id: UUID, user_id: UUID) -> List[dict]:
+    async def get_all_entries(
+        self,
+        collection_id: UUID,
+        user_id: UUID,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> List[dict]:
         query = """
             SELECT ci.item_id,
                    ci.collection_id,
@@ -147,7 +195,18 @@ class CollectionRepository(AbstractRepository):
                    ci.purchase_price,
                    ci.currency_code,
                    ci.purchase_date,
-                   ci.language_id
+                   ci.language_id,
+                   cvi.image_uris->>'normal'  AS image_normal,
+                   ps.price                    AS price,
+                   ps.price_change_1d          AS price_change_1d,
+                   ci.ebay_item_id,
+                   CASE
+                       WHEN ci.ebay_item_id IS NOT NULL
+                            AND eal.item_id IS NOT NULL
+                            AND eal.ended_at IS NULL
+                       THEN 'listed'
+                       ELSE ci.status
+                   END AS status
             FROM user_collection.collection_items ci
             JOIN user_collection.collections col
                 ON col.collection_id = ci.collection_id AND col.user_id = $2
@@ -155,10 +214,37 @@ class CollectionRepository(AbstractRepository):
             JOIN card_catalog.unique_cards_ref uc ON uc.unique_card_id = cv.unique_card_id
             JOIN card_catalog.sets s ON s.set_id = cv.set_id
             JOIN card_catalog.card_finished cf ON cf.finish_id = ci.finish_id
-            WHERE ci.collection_id = $1;
+            LEFT JOIN card_catalog.card_version_illustration cvi
+                ON cvi.card_version_id = cv.card_version_id
+            LEFT JOIN pricing.mv_card_price_spark ps
+                ON ps.card_version_id = ci.unique_card_id
+            LEFT JOIN app_integration.ebay_active_listings eal
+                ON eal.item_id = ci.ebay_item_id
+            WHERE ci.collection_id = $1
+            ORDER BY ci.purchase_date DESC, ci.item_id
+            LIMIT $3 OFFSET $4;
         """
-        rows = await self.execute_query(query, (collection_id, user_id))
+        rows = await self.execute_query(query, (collection_id, user_id, limit, offset))
         return [dict(r) for r in rows]
+
+    async def update_entry_status(
+        self,
+        item_id: UUID,
+        collection_id: UUID,
+        user_id: UUID,
+        status: str,
+    ) -> bool:
+        query = """
+            UPDATE user_collection.collection_items ci
+            SET status = $4
+            FROM user_collection.collections col
+            WHERE ci.item_id = $1
+              AND ci.collection_id = $2
+              AND col.collection_id = ci.collection_id
+              AND col.user_id = $3;
+        """
+        result = await self.execute_command(query, (item_id, collection_id, user_id, status))
+        return result != "UPDATE 0"
 
     async def delete_entry(self, item_id: UUID, collection_id: UUID, user_id: UUID) -> bool:
         query = """

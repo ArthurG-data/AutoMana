@@ -226,6 +226,11 @@ class EnhancedSetImportService:
             if not await storage_service.file_exists(filename):
                 raise set_exception.SetInsertError(f"File not found in storage: {filename}")
 
+            # Insert all sets. parent_set links to sets that did not exist yet
+            # at the time of their child's insertion will be NULL on this run,
+            # but the next weekly Scryfall pipeline pass will backfill them
+            # idempotently via the `parent_set = EXCLUDED.parent_set` UPSERT
+            # in card_catalog.insert_batch_sets.
             await self._process_file_stream(storage_service, filename, resume_from_batch)
 
             self.stats.end_time = datetime.utcnow()
@@ -278,7 +283,7 @@ class EnhancedSetImportService:
                             await asyncio.sleep(0)
                         
                     except Exception as e:
-                        self.stats.processing_errors += 1   
+                        self.stats.processing_errors += 1
                         logger.error(f"âŒ Error processing set at position {self.stats.total_sets}: {str(e)}, {set}")
 
                         # Save failed set for analysis

@@ -40,6 +40,8 @@ imports = {
     "automana.worker.tasks.pipelines",
     "automana.worker.tasks.analytics",
     "automana.worker.tasks.pricing",
+    "automana.worker.tasks.ebay",
+    "automana.worker.tasks.ebay_actions",
 }
 
 
@@ -102,10 +104,38 @@ beat_schedule = {
     },
     # Pricing tier archival: move Tier 2 (daily) to Tier 3 (weekly) for data >5y.
     # Reduces storage usage and speeds up daily price queries.
-    # Runs monthly (1st of month at 03:00 AEST) to avoid peak hours.
     "pricing-archive-to-weekly": {
         "task": "archive_to_weekly_prices",
-        "schedule": crontab(day_of_month=1, hour=3, minute=0),  # 1st at 03:00 AEST
+        "schedule": crontab(day_of_week=0, hour=5, minute=45),  # Sunday 05:45 AEST
+    },
+    # eBay sold-price persistence — own sales (Fulfillment API, 90-day window).
+    "ebay-sync-own-sales-nightly": {
+        "task": "automana.worker.tasks.ebay.ebay_sync_own_sales_task",
+        "schedule": crontab(hour=7, minute=0),   # 07:00 AEST
+    },
+    # eBay sold-price persistence — external scrape (Finding API, per listed card).
+    "ebay-scrape-external-sold-nightly": {
+        "task": "automana.worker.tasks.ebay.ebay_scrape_external_sold_task",
+        "schedule": crontab(hour=7, minute=15),  # 07:15 AEST
+    },
+    # eBay sold-price promotion — aggregate both staging tables → price_observation.
+    # Runs after sync (07:00) and scrape (07:15) have completed.
+    "ebay-promote-sold-obs-nightly": {
+        "task": "run_service",
+        "schedule": crontab(hour=8, minute=0),   # 08:00 AEST
+        "kwargs": {"path": "integrations.ebay.promote_sold_obs"},
+    },
+    # Drain staging pricing actions → apply to eBay listings every 5 minutes.
+    "drain-listing-actions": {
+        "task": "automana.worker.tasks.ebay_actions.drain_listing_actions_task",
+        "schedule": crontab(minute="*/5"),
+    },
+    # Open TCG API pricing (tcgtracking.com): SKU-level TCGPlayer market+low prices.
+    # API refreshes at 08:00 EST (23:00 AEST). Run at 01:00 AEST — after the
+    # daily cache refresh but before the Scryfall pipeline at 02:00 AEST.
+    "open-tcg-pricing-daily": {
+        "task": "automana.worker.tasks.pipelines.open_tcg_pricing_pipeline",
+        "schedule": crontab(hour=1, minute=0),  # 01:00 AEST
     },
 }
 

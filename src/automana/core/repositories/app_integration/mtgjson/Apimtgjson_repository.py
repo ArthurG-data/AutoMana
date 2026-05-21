@@ -69,6 +69,10 @@ class ApimtgjsonRepository(BaseApiClient):
         """Stream the 90-day `AllPrices.json.xz` directly to `dest_path`."""
         return await self.stream_download("AllPrices.json.xz", dest_path)
 
+    async def fetch_all_identifiers_stream(self, dest_path: Path) -> Path:
+        """Stream `AllIdentifiers.json` directly to `dest_path`."""
+        return await self.stream_download("AllIdentifiers.json", dest_path)
+
     # --- Metadata ------------------------------------------------------------------
 
     async def fetch_meta(self) -> dict:

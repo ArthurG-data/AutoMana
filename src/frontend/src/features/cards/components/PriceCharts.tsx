@@ -44,7 +44,7 @@ function trimNulls(
 }
 
 export function PriceCharts({ card, finish }: PriceChartsProps) {
-  const [selectedRange, setSelectedRange] = useState<'1w' | '1m' | '3m' | '1y' | 'all'>('all')
+  const [selectedRange, setSelectedRange] = useState<'1w' | '1m' | '3m' | '1y' | 'all'>('1m')
 
   const { data: priceData, isLoading } = useQuery(
     cardPriceHistoryQueryOptions(card.card_version_id, selectedRange, finish)

@@ -1,0 +1,180 @@
+/* SetCard — portrait proportions matching SearchResults card layout */
+.card {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+  display: block;
+  width: 100%;
+}
+
+.card:hover .info {
+  border-color: var(--hd-accent);
+}
+
+/* Art area: same 63/88 aspect ratio as MTG cards in SearchResults */
+.art {
+  width: 100%;
+  aspect-ratio: 63 / 88;
+  overflow: hidden;
+  border-radius: 6px 6px 0 0;
+}
+
+.artInner {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  background: linear-gradient(160deg, var(--hd-surface) 0%, rgba(var(--hd-blue-rgb), 0.12) 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px;
+}
+
+.bgArt {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center 30%;
+  filter: blur(3px) brightness(0.35) saturate(1.2);
+  transform: scale(1.05);
+  z-index: 0;
+  transition: filter 0.2s;
+}
+
+.card:hover .bgArt {
+  filter: blur(3px) brightness(0.45) saturate(1.2);
+}
+
+.artInner::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 40%, rgba(5, 13, 26, 0.85) 100%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.iconMask {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 2;
+  background-color: var(--hd-sub);
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+}
+
+
+/* Info bar — mirrors .cardInfo in SearchResults.module.css */
+.info {
+  padding: 7px 4px 0;
+  border-top: 1px solid transparent;
+  transition: border-color 0.15s;
+}
+
+.codeRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 4px;
+  margin-bottom: 3px;
+  min-width: 0;
+}
+
+.nameCode {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--hd-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.date {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--hd-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 4px;
+}
+
+.type {
+  font-size: 11px;
+  color: var(--hd-accent);
+  background: rgba(var(--hd-accent-rgb), 0.1);
+  padding: 2px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 70%;
+}
+
+.count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--hd-muted);
+  flex-shrink: 0;
+}
+
+/* Upcoming set treatment */
+.upcoming {
+  outline: 1px solid #b8860b;
+  border-radius: 6px;
+}
+.artUpcoming {
+  background: linear-gradient(160deg, #2a2200 0%, rgba(184,134,11,0.15) 100%);
+}
+.upcomingBadge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: #b8860b;
+  color: #000;
+  font-size: 9px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+  z-index: 3;
+  pointer-events: none;
+}
+.dateUpcoming { color: #b8860b; }
+
+/* Child variant — same proportions, just slightly dimmed */
+.childCard {
+  opacity: 0.75;
+}
+
+.childCard:hover {
+  opacity: 1;
+}
+
+.childCard .artInner {
+  background: linear-gradient(160deg, var(--hd-surface) 0%, rgba(var(--hd-blue-rgb), 0.06) 100%);
+}
+
+.childCard .iconMask {
+  width: 32px;
+  height: 32px;
+}

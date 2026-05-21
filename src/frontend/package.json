@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@fontsource/fraunces": "^5.1.0",
+    "@fontsource/inter": "^5.2.8",
     "@fontsource/jetbrains-mono": "^5.1.0",
     "@fontsource/space-grotesk": "^5.1.0",
     "@tanstack/query-sync-storage-persister": "^5.56.2",
@@ -23,6 +24,7 @@
     "@tanstack/react-table": "^8.20.5",
     "@tanstack/react-virtual": "^3.10.7",
     "keyrune": "^3.19.0",
+    "mana-font": "^1.18.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "zod": "^3.23.8",

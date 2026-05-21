@@ -1,3 +1,5 @@
+import logging
+
 from automana.core.models.ebay import listings as listings_model
 from fastapi import APIRouter, HTTPException, Query, Header, UploadFile, File
 from pydantic import BaseModel
@@ -10,6 +12,8 @@ from automana.api.schemas.StandardisedQueryResponse import (
     PaginatedResponse,
     PaginationInfo,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class BuildListingRequest(BaseModel):
@@ -94,6 +98,35 @@ async def build_and_create_listing(
             marketplace_id=body.marketplace_id,
             idempotency_key=idempotency_key,
         )
+        # Best-effort: record the active listing so nightly sync can resolve it.
+        # eBay Trading API buries ItemID inside AddItemResponse.
+        ebay_item_id: Optional[str] = None
+        if isinstance(result, dict):
+            add_response = result.get("AddItemResponse", {})
+            if isinstance(add_response, dict):
+                ebay_item_id = add_response.get("ItemID")
+        if ebay_item_id:
+            try:
+                await service_manager.execute_service(
+                    "integrations.ebay.selling.listings.track_active_listing",
+                    user_id=user.unique_id,
+                    app_code=app_code,
+                    item_id=ebay_item_id,
+                    card_version_id=body.card_version_id,
+                    condition=body.condition,
+                    foil=body.foil,
+                    lang=body.lang,
+                    marketplace_id=body.marketplace_id,
+                )
+            except Exception as track_exc:
+                logger.warning(
+                    "ebay_active_listing_track_failed",
+                    extra={
+                        "app_code": app_code,
+                        "item_id": ebay_item_id,
+                        "error": str(track_exc),
+                    },
+                )
         return ApiResponse(data=result, message="Listing created successfully")
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))

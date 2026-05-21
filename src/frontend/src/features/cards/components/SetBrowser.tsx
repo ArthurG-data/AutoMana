@@ -1,97 +1,276 @@
 // src/frontend/src/features/cards/components/SetBrowser.tsx
-import { useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { setBrowseQueryOptions } from '../api'
 import type { SetBrowseItem } from '../types'
+import { SetCard } from './SetCard'
 import styles from './SetBrowser.module.css'
 
-const FALLBACK_ICON = (
-  <svg className={styles.iconFallback} viewBox="0 0 24 24" fill="currentColor">
-    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" strokeWidth="2" fill="none"/>
-  </svg>
-)
+type GroupBy = 'none' | 'type' | 'year'
 
-const SEARCH_ICON = (
-  <svg className={styles.filterIcon} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <circle cx="11" cy="11" r="7"/>
-    <path d="M21 21l-4.35-4.35"/>
-  </svg>
-)
+const SET_TYPE_LABELS: Record<string, string> = {
+  expansion: 'Expansion', core: 'Core', masters: 'Masters',
+  commander: 'Commander', draft_innovation: 'Draft Innovation',
+  alchemy: 'Alchemy', funny: 'Funny', promo: 'Promo',
+  starter: 'Starter', duel_deck: 'Duel Deck',
+  from_the_vault: 'From the Vault', premium_deck: 'Premium Deck',
+  spellbook: 'Spellbook', archenemy: 'Archenemy',
+  planechase: 'Planechase', vanguard: 'Vanguard',
+  treasure_chest: 'Treasure Chest', box: 'Box Set',
+  token: 'Token', memorabilia: 'Memorabilia',
+  jumpstart: 'Jumpstart', minigame: 'Minigame',
+}
 
-function SetRow({ set, onSelect }: { set: SetBrowseItem; onSelect: (code: string) => void }) {
-  return (
-    <button className={styles.row} onClick={() => onSelect(set.set_code)}>
-      <span className={styles.icon}>
-        {set.icon_svg_uri
-          ? <img src={set.icon_svg_uri} alt="" aria-hidden />
-          : FALLBACK_ICON}
-      </span>
-      <span className={styles.name}>{set.set_name}</span>
-      <span className={styles.meta}>
-        <span className={styles.code}>{set.set_code}</span>
-        <span className={styles.type}>{set.set_type}</span>
-      </span>
-      <span className={styles.count}>{set.card_count}</span>
-    </button>
-  )
+function prettyType(t: string): string {
+  return SET_TYPE_LABELS[t] ?? t.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+function yearOf(released?: string | null): string {
+  return released ? released.slice(0, 4) : 'Unknown'
+}
+
+interface SetGroup {
+  parent: SetBrowseItem
+  children: SetBrowseItem[]
+}
+
+function groupByParentChild(sets: SetBrowseItem[]): SetGroup[] {
+  const byCode = new Map(sets.map((s) => [s.set_code, s]))
+  const childrenOf = new Map<string, SetBrowseItem[]>()
+  const processedAsChild = new Set<string>()
+
+  for (const s of sets) {
+    if (s.parent_set_code && byCode.has(s.parent_set_code)) {
+      if (!childrenOf.has(s.parent_set_code)) childrenOf.set(s.parent_set_code, [])
+      childrenOf.get(s.parent_set_code)!.push(s)
+      processedAsChild.add(s.set_code)
+    }
+  }
+
+  const groups: SetGroup[] = []
+  for (const s of sets) {
+    if (processedAsChild.has(s.set_code)) continue
+    groups.push({ parent: s, children: childrenOf.get(s.set_code) ?? [] })
+  }
+  return groups
 }
 
 interface SetBrowserProps {
   onSelect: (setCode: string) => void
 }
 
-export function SetBrowser({ onSelect }: SetBrowserProps) {
-  const [filter, setFilter] = useState('')
-  const { data: sets = [], isError } = useQuery(setBrowseQueryOptions())
+const GROUP_BY_OPTIONS: { value: GroupBy; label: string }[] = [
+  { value: 'year', label: 'Year' },
+  { value: 'type', label: 'Type' },
+  { value: 'none', label: 'None' },
+]
 
-  const filtered = filter.trim()
-    ? sets.filter(s =>
-        s.set_name.toLowerCase().includes(filter.toLowerCase()) ||
-        s.set_code.toLowerCase().includes(filter.toLowerCase())
-      )
-    : sets
+export function SetBrowser({ onSelect }: SetBrowserProps) {
+  const { data: sets = [], isLoading, isError } = useQuery(setBrowseQueryOptions())
+  const [search, setSearch] = useState('')
+  const [selectedTypes, setSelectedTypes] = useState<Set<string>>(new Set(['expansion']))
+  const [groupBy, setGroupBy] = useState<GroupBy>('year')
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(null)
+  const collapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function clearCollapseTimer() {
+    if (collapseTimer.current !== null) {
+      clearTimeout(collapseTimer.current)
+      collapseTimer.current = null
+    }
+  }
+
+  function scheduleCollapse() {
+    clearCollapseTimer()
+    collapseTimer.current = setTimeout(() => setExpandedGroup(null), 350)
+  }
+
+  function expandGroup(code: string) {
+    clearCollapseTimer()
+    setExpandedGroup(code)
+  }
+
+  const availableTypes = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const s of sets) counts.set(s.set_type, (counts.get(s.set_type) ?? 0) + 1)
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([type, count]) => ({ type, count }))
+  }, [sets])
+
+  const visible = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return sets.filter((s) => {
+      // When no explicit type filter, hide token sheets by default
+      if (selectedTypes.size === 0 && s.set_type === 'token') return false
+      if (selectedTypes.size > 0 && !selectedTypes.has(s.set_type)) return false
+      if (q && !s.set_name.toLowerCase().includes(q) && !s.set_code.toLowerCase().includes(q)) return false
+      return true
+    })
+  }, [sets, selectedTypes, search])
+
+  const groups = useMemo(() => {
+    if (groupBy === 'none') return [{ key: '__all__', label: '', sets: visible }]
+    const buckets = new Map<string, SetBrowseItem[]>()
+    for (const s of visible) {
+      const key = groupBy === 'type' ? s.set_type : yearOf(s.released_at)
+      if (!buckets.has(key)) buckets.set(key, [])
+      buckets.get(key)!.push(s)
+    }
+    const sortedKeys = Array.from(buckets.keys()).sort((a, b) =>
+      groupBy === 'year' ? b.localeCompare(a) : a.localeCompare(b)
+    )
+    return sortedKeys.map((key) => ({
+      key,
+      label: groupBy === 'type' ? prettyType(key) : key,
+      sets: buckets.get(key)!,
+    }))
+  }, [visible, groupBy])
+
+  function toggleType(t: string) {
+    setSelectedTypes((prev) => {
+      const next = new Set(prev)
+      if (next.has(t)) next.delete(t)
+      else next.add(t)
+      return next
+    })
+  }
+
+  function clearFilters() {
+    setSearch('')
+    setSelectedTypes(new Set())
+  }
 
   if (isError) {
     return (
-      <div className={styles.wrap}>
+      <div className={styles.layout}>
         <p className={styles.empty}>Failed to load sets. Please refresh.</p>
       </div>
     )
   }
 
   return (
-    <div className={styles.wrap}>
-      <header className={styles.hero}>
-        <h1 className={styles.heroTitle}>Browse Magic Sets</h1>
-        <span className={styles.heroAccent} aria-hidden />
-        <p className={styles.heroSub}>
-          <strong>{sets.length.toLocaleString()} sets</strong> · sorted by release date · newest first
-        </p>
-      </header>
-
-      <div className={styles.filterWrap}>
-        <div className={styles.filterField}>
-          {SEARCH_ICON}
+    <div className={styles.layout}>
+      {/* Sidebar — same structure as SearchFilters */}
+      <aside className={styles.sidebar}>
+        <div className={styles.searchRow}>
+          <svg className={styles.searchIcon} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+            <circle cx="11" cy="11" r="7" /><path d="M21 21l-4.35-4.35" />
+          </svg>
           <input
-            className={styles.filterInput}
-            placeholder="Filter sets — type a name or code…"
-            value={filter}
-            onChange={e => setFilter(e.target.value)}
-            aria-label="Filter sets by name or code"
+            className={styles.searchInput}
+            placeholder="Search sets…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            aria-label="Search sets"
           />
+          {search && (
+            <button type="button" className={styles.searchClear} onClick={() => setSearch('')} aria-label="Clear">×</button>
+          )}
         </div>
-        <p className={styles.filterHint}>
-          e.g. <code>mkm</code>, <code>Karlov Manor</code>, <code>Eldraine</code>
-        </p>
-      </div>
 
-      <div className={styles.list}>
-        {filtered.length === 0
-          ? <p className={styles.empty}>No sets match "{filter}"</p>
-          : filtered.map(set => (
-              <SetRow key={set.set_code} set={set} onSelect={onSelect} />
-            ))
-        }
+        <div className={styles.header}>
+          <span className={styles.title}>Filters</span>
+          <button className={styles.clearBtn} onClick={clearFilters}>clear</button>
+        </div>
+
+        <section className={styles.filterGroup}>
+          <div className={styles.filterLabel}>Group by</div>
+          <div className={styles.btnGrid}>
+            {GROUP_BY_OPTIONS.map(({ value, label }) => (
+              <button
+                key={value}
+                type="button"
+                className={`${styles.btn} ${groupBy === value ? styles.btnActive : ''}`}
+                onClick={() => setGroupBy(value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className={styles.filterGroup}>
+          <div className={styles.filterLabel}>Type</div>
+          <div className={styles.btnGrid}>
+            <button
+              type="button"
+              className={`${styles.btn} ${selectedTypes.size === 0 ? styles.btnActive : ''}`}
+              onClick={() => setSelectedTypes(new Set())}
+            >
+              All
+            </button>
+            {availableTypes.map(({ type, count }) => (
+              <button
+                key={type}
+                type="button"
+                title={`${prettyType(type)} (${count})`}
+                className={`${styles.btn} ${selectedTypes.has(type) ? styles.btnActive : ''}`}
+                onClick={() => toggleType(type)}
+              >
+                {prettyType(type)}
+              </button>
+            ))}
+          </div>
+        </section>
+      </aside>
+
+      {/* Content — same structure as SearchResults */}
+      <div className={styles.content}>
+        <div className={styles.meta}>
+          {isLoading
+            ? 'Loading…'
+            : `${visible.length.toLocaleString()}${selectedTypes.size > 0 ? ` of ${sets.length.toLocaleString()}` : ''} sets`}
+        </div>
+
+        {visible.length === 0 ? (
+          <p className={styles.empty}>No sets match the current filters.</p>
+        ) : (
+          groups.map((g) => (
+            <section key={g.key} className={styles.group}>
+              {g.key !== '__all__' && (
+                <header className={styles.groupHeader}>
+                  <span className={styles.groupTitle}>{g.label}</span>
+                  <span className={styles.groupCount}>{g.sets.length}</span>
+                </header>
+              )}
+              <div className={styles.grid}>
+                {groupByParentChild(g.sets).map((group) => (
+                  <div
+                    key={group.parent.set_code}
+                    className={`${styles.parentGroup} ${expandedGroup === group.parent.set_code ? styles.expanded : ''}`}
+                  >
+                    <div
+                      className={styles.cardWrapper}
+                      onMouseEnter={() => group.children.length > 0 && expandGroup(group.parent.set_code)}
+                      onMouseLeave={() => group.children.length > 0 && scheduleCollapse()}
+                    >
+                      <SetCard set={group.parent} onSelect={onSelect} />
+                    </div>
+                    {group.children.length > 0 && (
+                      <div
+                        className={styles.flags}
+                        onMouseEnter={clearCollapseTimer}
+                        onMouseLeave={scheduleCollapse}
+                      >
+                        {group.children.map((child) => (
+                          <button
+                            key={child.set_code}
+                            className={styles.flag}
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); onSelect(child.set_code); }}
+                          >
+                            <span className={styles.flagName}>{child.set_name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </section>
+          ))
+        )}
       </div>
     </div>
   )

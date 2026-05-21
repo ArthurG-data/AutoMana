@@ -27,6 +27,9 @@ from automana.core.repositories.app_integration.ebay.auth_repository import (
 from automana.core.repositories.app_integration.ebay.ApiSelling_repository import (
     EbaySellingRepository,
 )
+from automana.core.repositories.app_integration.ebay.sales_repository import (
+    EbaySalesRepository,
+)
 from automana.core.service_registry import ServiceRegistry
 from automana.core.services.app_integration.ebay._auth_context import resolve_token
 from automana.core.utils.redis_cache import get_from_cache, set_to_cache
@@ -90,11 +93,12 @@ async def get_listing(
 
 @ServiceRegistry.register(
     path="integrations.ebay.selling.listings.active",
-    db_repositories=["auth"],
+    db_repositories=["auth", "ebay_sales"],
     api_repositories=["selling"],
 )
 async def get_active_listings(
     auth_repository: EbayAuthRepository,
+    ebay_sales_repository: EbaySalesRepository,
     selling_repository: EbaySellingRepository,
     user_id: UUID,
     app_code: str,
@@ -163,6 +167,23 @@ async def get_active_listings(
         for raw_item in raw_items:
             if isinstance(raw_item, dict):
                 items.append(listings_model.ItemModel.model_validate(raw_item))
+
+    if items:
+        item_ids = [item.ItemID for item in items if item.ItemID]
+        catalog_meta = await ebay_sales_repository.get_listing_meta_batch(item_ids, app_code)
+        enriched: List[listings_model.ItemModel] = []
+        for item in items:
+            meta = catalog_meta.get(item.ItemID or "")
+            if meta:
+                item = item.model_copy(
+                    update={
+                        "CatalogFinish": meta.get("finish_code"),
+                        "CatalogCondition": meta.get("condition_code"),
+                        "CardVersionId": meta.get("card_version_id"),
+                    }
+                )
+            enriched.append(item)
+        items = enriched
 
     raw_total: Optional[str] = (
         active_list.get("PaginationResult", {}) or {}

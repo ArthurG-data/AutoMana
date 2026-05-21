@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { Link } from '@tanstack/react-router'
 import { AIBadge } from '../../../components/design-system/AIBadge'
 import { Icon } from '../../../components/design-system/Icon'
+import { SignalBadge } from './SignalBadge'
 import type { EbayLiveListing } from '../mockListings'
 import styles from './ListingsTable.module.css'
 
@@ -12,11 +13,13 @@ interface ListingsTableProps {
   onRowClick?: (id: string) => void
 }
 
-type SortKey = 'cardName' | 'setCode' | 'appName' | 'conditionLabel' | 'finish' | 'style' | 'price' | 'daysListed' | 'watchCount'
+type SortKey = 'cardName' | 'setCode' | 'appName' | 'conditionLabel' | 'finish' | 'style' | 'price' | 'daysListed' | 'watchCount' | 'signal'
 type SortDir = 'asc' | 'desc'
 
+const SIGNAL_ORDER: Record<string, number> = { raise: 0, lower: 1, hold: 2, draft: 3 }
+
 const APP_PALETTE = ['#a78bfa', '#60a5fa', '#34d399', '#f59e0b']
-const COL_COUNT = 10
+const COL_COUNT = 11
 
 function SortIndicator({ active, dir }: { active: boolean; dir: SortDir }) {
   return (
@@ -53,6 +56,11 @@ export function ListingsTable({ listings, isLoading = false, selectedId, onRowCl
     if (!sortKey) return filtered
 
     return [...filtered].sort((a, b) => {
+      if (sortKey === 'signal') {
+        const ao = SIGNAL_ORDER[a.recommendation?.suggested_action ?? ''] ?? 99
+        const bo = SIGNAL_ORDER[b.recommendation?.suggested_action ?? ''] ?? 99
+        return sortDir === 'asc' ? ao - bo : bo - ao
+      }
       const av = a[sortKey]
       const bv = b[sortKey]
       if (typeof av === 'number' && typeof bv === 'number') {
@@ -107,6 +115,7 @@ export function ListingsTable({ listings, isLoading = false, selectedId, onRowCl
             <col className={styles.colDays} />
             <col className={styles.colWatchers} />
             <col className={styles.colStatus} />
+            <col className={styles.colSignal} />
           </colgroup>
           <thead className={styles.thead}>
             <tr>
@@ -138,6 +147,9 @@ export function ListingsTable({ listings, isLoading = false, selectedId, onRowCl
                 WATCH <SortIndicator active={sortKey === 'watchCount'} dir={sortDir} />
               </th>
               <th scope="col" className={styles.center}>STATUS</th>
+              <th scope="col" className={[styles.center, styles.sortable].join(' ')} onClick={() => handleSort('signal')}>
+                SIGNAL <SortIndicator active={sortKey === 'signal'} dir={sortDir} />
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -155,6 +167,7 @@ export function ListingsTable({ listings, isLoading = false, selectedId, onRowCl
                     <td><div className={styles.skeletonText} style={{ width: '50%', margin: '0 auto' }} /></td>
                     <td><div className={styles.skeletonText} style={{ width: '40%', margin: '0 auto' }} /></td>
                     <td><div className={styles.skeletonText} style={{ width: '50%', margin: '0 auto' }} /></td>
+                    <td><div className={styles.skeletonText} style={{ width: '60%', margin: '0 auto' }} /></td>
                   </tr>
                 ))}
               </>
@@ -286,6 +299,16 @@ export function ListingsTable({ listings, isLoading = false, selectedId, onRowCl
                   {/* Status */}
                   <td className={styles.center}>
                     <AIBadge status="ok" showLabel size="sm" />
+                  </td>
+
+                  {/* Signal */}
+                  <td className={styles.center}>
+                    <SignalBadge
+                      action={listing.recommendation?.suggested_action}
+                      confidence={listing.recommendation?.confidence}
+                      strategies={listing.recommendation?.all_strategies}
+                      currency={listing.currency}
+                    />
                   </td>
                 </tr>
               )

@@ -8,6 +8,7 @@ interface FlippableCardArtProps {
   backUrl: string | null
   w?: number | string
   h?: number | string
+  finish?: string
   style?: React.CSSProperties
 }
 
@@ -17,6 +18,7 @@ export function FlippableCardArt({
   backUrl,
   w = 200,
   h,
+  finish,
   style = {},
 }: FlippableCardArtProps) {
   const [faceUp, setFaceUp] = useState(true)
@@ -29,11 +31,11 @@ export function FlippableCardArt({
         className={`${styles.card} ${!faceUp ? styles.flipped : ''}`}
       >
         <div className={styles.front}>
-          <CardArt name={name} w={w} h={h} label={false} imageUrl={frontUrl} />
+          <CardArt name={name} w={w} h={h} label={false} imageUrl={frontUrl} finish={finish} />
         </div>
         {backUrl && (
           <div className={styles.back}>
-            <CardArt name={name} w={w} h={h} label={false} imageUrl={backUrl} />
+            <CardArt name={name} w={w} h={h} label={false} imageUrl={backUrl} finish={finish} />
           </div>
         )}
       </div>

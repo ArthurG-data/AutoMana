@@ -57,11 +57,49 @@ DECLARE
   v_deleted  bigint := 0;
   v_total_upserted bigint := 0;
   v_total_deleted  bigint := 0;
+  v_bootstrapped bigint := 0;
   v_is_ok boolean := false;
 BEGIN
   IF batch_days IS NULL OR batch_days <= 0 THEN
     RAISE EXCEPTION 'batch_days must be > 0 (got %)', batch_days;
   END IF;
+
+  -- Bootstrap: auto-create product_ref + mtg_card_products for any staged card
+  -- that has a mtgjson_id in the catalog but no product mapping yet.
+  -- This allows MTGJson to be the sole pricing source for cards not yet on MTGStock.
+  WITH unmapped AS (
+    SELECT DISTINCT cei.card_version_id
+    FROM pricing.mtgjson_card_prices_staging st
+    JOIN card_catalog.card_external_identifier cei
+      ON cei.value = st.card_uuid
+    JOIN card_catalog.card_identifier_ref cir
+      ON cir.card_identifier_ref_id = cei.card_identifier_ref_id
+     AND cir.identifier_name = 'mtgjson_id'
+    WHERE st.card_uuid IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM pricing.mtg_card_products mcp
+        WHERE mcp.card_version_id = cei.card_version_id
+      )
+  ),
+  new_mapping AS (
+    SELECT uuid_generate_v4() AS new_product_id, card_version_id
+    FROM unmapped
+  ),
+  ins_ref AS (
+    INSERT INTO pricing.product_ref (product_id, game_id)
+    SELECT new_product_id, 1
+    FROM new_mapping
+  )
+  INSERT INTO pricing.mtg_card_products (product_id, card_version_id)
+  SELECT new_product_id, card_version_id
+  FROM new_mapping
+  ON CONFLICT (card_version_id) DO NOTHING;
+
+  GET DIAGNOSTICS v_bootstrapped = ROW_COUNT;
+  IF v_bootstrapped > 0 THEN
+    RAISE NOTICE 'Bootstrapped % card(s) into mtg_card_products (MTGJson-only source)', v_bootstrapped;
+  END IF;
+  COMMIT;
 
   -- normalize finish: map 'normal'→'NONFOIL' first, then uppercase everything
   UPDATE pricing.mtgjson_card_prices_staging
@@ -243,24 +281,28 @@ BEGIN
             created_at,
             updated_at
           )
-          SELECT
+          SELECT DISTINCT ON (r.ts_date, r.source_product_id, r.price_type_id, r.finish_id, r.condition_id, r.language_id)
             r.ts_date,
             r.price_type_id,
             r.finish_id,
             r.condition_id,
             r.language_id,
             NULL::int,
-            NULL::int,
-            r.price_cents,     -- your choice: always sold_avg
-            NULL::int,
-            1,
+            -- sell (retail) → list_avg_cents; buy (buylist) → sold_avg_cents
+            CASE WHEN r.price_type_id = 1 THEN r.price_cents END::int,
+            CASE WHEN r.price_type_id = 2 THEN r.price_cents END::int,
+            CASE WHEN r.price_type_id = 1 THEN 1 END::int,
+            CASE WHEN r.price_type_id = 2 THEN 1 END::int,
             r.source_product_id,
             v_data_provider_id,
             now(), now(), now()
           FROM resolved r
+          ORDER BY r.ts_date, r.source_product_id, r.price_type_id, r.finish_id, r.condition_id, r.language_id
           ON CONFLICT (ts_date, source_product_id, price_type_id, finish_id, condition_id, language_id, data_provider_id)
           DO UPDATE SET
+            list_avg_cents = EXCLUDED.list_avg_cents,
             sold_avg_cents = EXCLUDED.sold_avg_cents,
+            list_count     = EXCLUDED.list_count,
             sold_count     = EXCLUDED.sold_count,
             scraped_at     = EXCLUDED.scraped_at,
             updated_at     = now()

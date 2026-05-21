@@ -58,105 +58,122 @@ async def process_prices_file(path, id_dict):
     runs_in_transaction=False,
     command_timeout=3600,
 )
-async def bulk_load(price_repository: PriceRepository
-                    , ops_repository: OpsRepository
-                    , root_folder
-                    , batch_size=2000
-                    , ingestion_run_id: int = None
-                    , market: str = "tcg"):
+async def bulk_load(price_repository: PriceRepository,
+                    ops_repository: OpsRepository,
+                    root_folder,
+                    batch_size: int = 2000,
+                    ingestion_run_id: int = None,
+                    market: str = "tcg",
+                    start_id: int | None = None,
+                    end_id: int | None = None,
+                    concurrency: int = 20):  # wired in Task 2: asyncio.Semaphore slot count
     """TODO: include scryfall_id, card_name, set_abbr, collector_number in the
     staging table to simplify dim/fact loads and avoid re-calling Scryfall API
     in the dimension load step."""
     step_name = "bulk_load"
-    price_rows = []
-    batch_start = 0
-    batch_end = 0
     batch_number = 1
-    folder_errors = 0
-    ids_master_dict = {}
-    # Cache listdir once — the directory can hold ~500k entries on a full load.
+
     folders = os.listdir(root_folder)
+    if start_id is not None or end_id is not None:
+        if start_id is not None and end_id is not None and start_id > end_id:
+            logger.warning(
+                "bulk_load: start_id > end_id, no folders will be processed",
+                extra={"start_id": start_id, "end_id": end_id},
+            )
+        folders = [
+            f for f in folders
+            if f.isdigit()
+            and (start_id is None or int(f) >= start_id)
+            and (end_id is None or int(f) <= end_id)
+        ]
+
     deleted = await price_repository.clear_raw_prices()
     logger.info("bulk_load: cleared stale rows from raw_mtg_stock_price", extra={"deleted": deleted})
-    async with track_step(ops_repository, ingestion_run_id, step_name):
-        for i, folder in tqdm(enumerate(folders, 1), desc="Processing MTG Stock folders", total=len(folders)):
 
+    sem = asyncio.Semaphore(concurrency)
+
+    async def _process_folder(folder: str):
+        async with sem:
             try:
-
-                batch_end +=1
-                pdir = os.path.join(root_folder,folder)
-                info_path = os.path.join(pdir, "info.json")
-                # Writer in data_loader.py uses `prices.{market}.parquet`; mirror it here.
-                price_path = os.path.join(pdir, f"prices.{market}.parquet")
-                id_dict = await process_info_file(info_path)
-                ids_master_dict[id_dict["mtgstock"]] = {k: v for k, v in id_dict.items() if k != "mtgstock"}
-                price_df = await process_prices_file(price_path, id_dict)
-                price_df["card_name"] = id_dict.get("card_name", None)
-                price_df["set_abbr"] = id_dict.get("set_abbr", None)
-                price_df["collector_number"] = id_dict.get("collector_number", None)
-                price_df["scryfall_id"] = id_dict.get("scryfallId", None)
-                price_df["tcg_id"] = id_dict.get("tcg_id", None)
-                price_df["cardtrader_id"] = id_dict.get("cardtrader_id", None)
-                price_rows.append(price_df)
-            except Exception as e:
-                folder_errors += 1
-                logger.warning("Error processing folder", extra={"folder": folder, "error": str(e)})
-            if i % batch_size == 0 and price_rows:
-                big_price_df = pd.concat(price_rows, ignore_index=True)
-                # Release the per-folder DFs immediately — keeping them alive
-                # alongside big_price_df and the CSV buffer triples peak memory.
-                price_rows.clear()
-                start = time.perf_counter()
-                if ingestion_run_id is not None:
-                    await ops_repository.update_run(ingestion_run_id=ingestion_run_id, current_step=step_name, status="running")
-                await price_repository.copy_prices_mtgstock(big_price_df)
-                if ingestion_run_id is not None:
-                    await ops_repository.update_ids_master_dict(ingestion_run_id=ingestion_run_id, ids_master_dict=ids_master_dict)
-                ids_master_dict = {}
-                batch_start = batch_end
-                elapsed = time.perf_counter() - start
-
-                batch_result = MTGStockBatchStep(
-                    ingestion_run_id=ingestion_run_id,
-                    step_name=step_name,
-                    batch_seq=batch_number,
-                    range_start=batch_start,
-                    range_end=batch_end,
-                    total_in_batch=len(big_price_df),
-                    items_ok=len(big_price_df),
-                    items_failed=folder_errors,
-                    status="success" if folder_errors == 0 else "partial",
-                    bytes_processed=int(big_price_df.memory_usage(deep=True).sum()),
-                    duration_ms=int(elapsed * 1000),
+                pdir = os.path.join(root_folder, folder)
+                id_dict = await process_info_file(os.path.join(pdir, "info.json"))
+                price_df = await process_prices_file(
+                    os.path.join(pdir, f"prices.{market}.parquet"), id_dict
                 )
-                await ops_repository.insert_batch_step(batch_result)
-                batch_number += 1
+                price_df["card_name"] = id_dict.get("card_name")
+                price_df["set_abbr"] = id_dict.get("set_abbr")
+                price_df["collector_number"] = id_dict.get("collector_number")
+                price_df["scryfall_id"] = id_dict.get("scryfallId")
+                price_df["tcg_id"] = id_dict.get("tcg_id")
+                price_df["cardtrader_id"] = id_dict.get("cardtrader_id")
+                return folder, price_df, id_dict, None
+            except Exception as exc:
+                return folder, None, None, exc
+
+    with tqdm(total=len(folders), desc="Processing MTG Stock folders") as pbar:
+        async with track_step(ops_repository, ingestion_run_id, step_name):
+            chunk_start_idx = 0
+            for chunk in (folders[i:i+batch_size] for i in range(0, len(folders), batch_size)):
+                price_rows: list = []
                 folder_errors = 0
-                logger.info("copy_prices batch complete", extra={"elapsed_s": round(elapsed, 3), "rows": len(big_price_df)})
-        # Leftover tail — flush anything remaining and record the final batch
-        # step so the ops audit reflects the full load.
-        if price_rows:
-            big_price_df = pd.concat(price_rows, ignore_index=True)
-            price_rows.clear()
-            start = time.perf_counter()
-            await price_repository.copy_prices_mtgstock(big_price_df)
-            if ingestion_run_id is not None:
-                await ops_repository.update_ids_master_dict(ingestion_run_id=ingestion_run_id, ids_master_dict=ids_master_dict)
-                elapsed = time.perf_counter() - start
-                await ops_repository.insert_batch_step(MTGStockBatchStep(
-                    ingestion_run_id=ingestion_run_id,
-                    step_name=step_name,
-                    batch_seq=batch_number,
-                    range_start=batch_start,
-                    range_end=batch_end,
-                    total_in_batch=len(big_price_df),
-                    items_ok=len(big_price_df),
-                    items_failed=folder_errors,
-                    status="success" if folder_errors == 0 else "partial",
-                    bytes_processed=int(big_price_df.memory_usage(deep=True).sum()),
-                    duration_ms=int(elapsed * 1000),
-                ))
-            ids_master_dict.clear()
+                ids_master_dict: dict = {}
+
+                tasks = [_process_folder(f) for f in chunk]
+                for coro in asyncio.as_completed(tasks):
+                    folder_name, price_df, id_dict, error = await coro
+                    if error is not None:
+                        folder_errors += 1
+                        logger.warning(
+                            "Error processing folder",
+                            extra={
+                                "folder": folder_name,
+                                "error": str(error),
+                                "error_type": type(error).__name__,
+                            },
+                        )
+                    else:
+                        price_rows.append(price_df)
+                        ids_master_dict[id_dict["mtgstock"]] = {
+                            k: v for k, v in id_dict.items() if k != "mtgstock"
+                        }
+                    pbar.update(1)
+
+                chunk_end_idx = chunk_start_idx + len(chunk)
+
+                if price_rows:
+                    big_price_df = pd.concat(price_rows, ignore_index=True)
+                    start = time.perf_counter()
+                    if ingestion_run_id is not None:
+                        await ops_repository.update_run(
+                            ingestion_run_id=ingestion_run_id, current_step=step_name, status="running"
+                        )
+                    await price_repository.copy_prices_mtgstock(big_price_df)
+                    if ingestion_run_id is not None:
+                        await ops_repository.update_ids_master_dict(
+                            ingestion_run_id=ingestion_run_id, ids_master_dict=ids_master_dict
+                        )
+                    elapsed = time.perf_counter() - start
+                    batch_result = MTGStockBatchStep(
+                        ingestion_run_id=ingestion_run_id,
+                        step_name=step_name,
+                        batch_seq=batch_number,
+                        range_start=chunk_start_idx,
+                        range_end=chunk_end_idx,
+                        total_in_batch=len(big_price_df),
+                        items_ok=len(price_rows),   # folder count; items_failed also counts folders
+                        items_failed=folder_errors,
+                        status="success" if folder_errors == 0 else "partial",
+                        bytes_processed=int(big_price_df.memory_usage(deep=True).sum()),
+                        duration_ms=int(elapsed * 1000),
+                    )
+                    await ops_repository.insert_batch_step(batch_result)
+                    batch_number += 1
+                    logger.info(
+                        "copy_prices batch complete",
+                        extra={"elapsed_s": round(elapsed, 3), "rows": len(big_price_df)},
+                    )
+
+                chunk_start_idx = chunk_end_idx
 
 @ServiceRegistry.register(
     path="mtg_stock.data_staging.from_raw_to_staging",

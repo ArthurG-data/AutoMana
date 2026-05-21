@@ -11,6 +11,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { kind: 'chart',    label: 'Dashboard',  id: 'dashboard'  },
+  { kind: 'search',   label: 'Search',     id: 'search'     },
   { kind: 'wallet',   label: 'Portfolio',  id: 'portfolio'  },
   { kind: 'cards',    label: 'Collection', id: 'collection' },
   { kind: 'bag',      label: 'Listings',   id: 'listings'   },

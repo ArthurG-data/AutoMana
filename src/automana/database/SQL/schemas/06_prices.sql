@@ -89,7 +89,92 @@ INSERT INTO pricing.mtgstock_art_set_map (mtgstocks_set_code, scryfall_set_code)
     ('AATDM', 'aatdm'),
     ('ASLD',  'asld'),
     ('APRE',  'apre'),
-    ('AMAT',  'amat')
+    ('AMAT',  'amat'),
+    ('AACR',  'aacr'),
+    ('AAFR',  'aafr'),
+    ('ABLB',  'ablb'),
+    ('ABRO',  'abro'),
+    ('ACLB',  'aclb'),
+    ('ACMM',  'acmm'),
+    ('ADMU',  'admu'),
+    ('ADSK',  'adsk'),
+    ('AECL',  'aecl'),
+    ('AFDN',  'afdn'),
+    ('AJMP',  'ajmp'),
+    ('AKHM',  'akhm'),
+    ('ALCI',  'alci'),
+    ('ALTC',  'altc'),
+    ('ALTR',  'altr'),
+    ('AMH1',  'amh1'),
+    ('AMH2',  'amh2'),
+    ('AMH3',  'amh3'),
+    ('AMID',  'amid'),
+    ('AMKM',  'amkm'),
+    ('AMOM',  'amom'),
+    ('ANEO',  'aneo'),
+    ('AONE',  'aone'),
+    ('AOTJ',  'aotj'),
+    ('ASNC',  'asnc'),
+    ('ASOS',  'asos'),
+    ('ASPM',  'aspm'),
+    ('ASTX',  'astx'),
+    ('ATDM',  'atdm'),
+    ('ATLA',  'atla'),
+    ('ATLE',  'atle'),
+    ('ATMT',  'atmt'),
+    ('AVOW',  'avow'),
+    ('AWOE',  'awoe'),
+    ('AZNR',  'aznr')
+ON CONFLICT (mtgstocks_set_code) DO NOTHING;
+
+INSERT INTO pricing.mtgstock_token_set_map (mtgstocks_set_code, token_set_code) VALUES
+    ('10E', 't10e'), ('2X2', 't2x2'), ('2XM', 't2xm'), ('30A', 't30a'),
+    ('40K', 't40k'), ('A25', 'ta25'), ('ACR', 'tacr'), ('AER', 'taer'),
+    ('AFC', 'tafc'), ('AFR', 'tafr'), ('AKH', 'takh'), ('ALA', 'tala'),
+    ('ARB', 'tarb'), ('AVR', 'tavr'), ('BBD', 'tbbd'), ('BFZ', 'tbfz'),
+    ('BIG', 'tbig'), ('BLB', 'tblb'), ('BLC', 'tblc'), ('BNG', 'tbng'),
+    ('BOT', 'tbot'), ('BRC', 'tbrc'), ('BRO', 'tbro'), ('C14', 'tc14'),
+    ('C15', 'tc15'), ('C16', 'tc16'), ('C17', 'tc17'), ('C18', 'tc18'),
+    ('C19', 'tc19'), ('C20', 'tc20'), ('C21', 'tc21'), ('CLB', 'tclb'),
+    ('CM2', 'tcm2'), ('CMA', 'tcma'), ('CMM', 'tcmm'), ('CMR', 'tcmr'),
+    ('CN2', 'tcn2'), ('CNS', 'tcns'), ('CON', 'tcon'), ('DD1', 'tdd1'),
+    ('DD2', 'tdd2'), ('DDC', 'tddc'), ('DDD', 'tddd'), ('DDE', 'tdde'),
+    ('DDF', 'tddf'), ('DDG', 'tddg'), ('DDH', 'tddh'), ('DDI', 'tddi'),
+    ('DDJ', 'tddj'), ('DDK', 'tddk'), ('DDL', 'tddl'), ('DDM', 'tddm'),
+    ('DDS', 'tdds'), ('DDT', 'tddt'), ('DDU', 'tddu'), ('DFT', 'tdft'),
+    ('DGM', 'tdgm'), ('DKA', 'tdka'), ('DMC', 'tdmc'), ('DMR', 'tdmr'),
+    ('DMU', 'tdmu'), ('DOM', 'tdom'), ('DRC', 'tdrc'), ('DSC', 'tdsc'),
+    ('DSK', 'tdsk'), ('DTK', 'tdtk'), ('DVD', 'tdvd'), ('E01', 'te01'),
+    ('ECC', 'tecc'), ('ECL', 'tecl'), ('ELD', 'teld'), ('EMA', 'tema'),
+    ('EMN', 'temn'), ('EOC', 'teoc'), ('EOE', 'teoe'), ('EVE', 'teve'),
+    ('EVG', 'tevg'), ('FDN', 'tfdn'), ('FIC', 'tfic'), ('FIN', 'tfin'),
+    ('FRF', 'tfrf'), ('GK1', 'tgk1'), ('GK2', 'tgk2'), ('GN2', 'tgn2'),
+    ('GN3', 'tgn3'), ('GRN', 'tgrn'), ('GTC', 'tgtc'), ('GVL', 'tgvl'),
+    ('HOB', 'thob'), ('HOU', 'thou'), ('IKO', 'tiko'), ('IMA', 'tima'),
+    ('INR', 'tinr'), ('ISD', 'tisd'), ('JOU', 'tjou'), ('JVC', 'tjvc'),
+    ('KHC', 'tkhc'), ('KHM', 'tkhm'), ('KLD', 'tkld'), ('KTK', 'tktk'),
+    ('LCC', 'tlcc'), ('LCI', 'tlci'), ('LRW', 'tlrw'), ('LTC', 'tltc'),
+    ('LTR', 'tltr'), ('M10', 'tm10'), ('M11', 'tm11'), ('M12', 'tm12'),
+    ('M13', 'tm13'), ('M14', 'tm14'), ('M15', 'tm15'), ('M19', 'tm19'),
+    ('M20', 'tm20'), ('M21', 'tm21'), ('M3C', 'tm3c'), ('MBS', 'tmbs'),
+    ('MD1', 'tmd1'), ('MED', 'tmed'), ('MH1', 'tmh1'), ('MH2', 'tmh2'),
+    ('MH3', 'tmh3'), ('MIC', 'tmic'), ('MID', 'tmid'), ('MKC', 'tmkc'),
+    ('MKM', 'tmkm'), ('MM2', 'tmm2'), ('MM3', 'tmm3'), ('MMA', 'tmma'),
+    ('MOC', 'tmoc'), ('MOM', 'tmom'), ('MOR', 'tmor'), ('MSH', 'tmsh'),
+    ('MUL', 'tmul'), ('NCC', 'tncc'), ('NEC', 'tnec'), ('NEO', 'tneo'),
+    ('NPH', 'tnph'), ('OGW', 'togw'), ('ONC', 'tonc'), ('ONE', 'tone'),
+    ('ORI', 'tori'), ('OTC', 'totc'), ('OTJ', 'totj'), ('OTP', 'totp'),
+    ('PCA', 'tpca'), ('PIP', 'tpip'), ('REX', 'trex'), ('RIX', 'trix'),
+    ('RNA', 'trna'), ('ROE', 'troe'), ('RTR', 'trtr'), ('RVR', 'trvr'),
+    ('SCD', 'tscd'), ('SHM', 'tshm'), ('SNC', 'tsnc'), ('SOC', 'tsoc'),
+    ('SOI', 'tsoi'), ('SOM', 'tsom'), ('SOS', 'tsos'), ('SPM', 'tspm'),
+    ('STX', 'tstx'), ('TDC', 'ttdc'), ('TDM', 'ttdm'), ('THB', 'tthb'),
+    ('THS', 'tths'), ('TLA', 'ttla'), ('TLE', 'ttle'), ('TMC', 'ttmc'),
+    ('TMT', 'ttmt'), ('TSR', 'ttsr'), ('UGL', 'tugl'), ('UMA', 'tuma'),
+    ('UND', 'tund'), ('UNF', 'tunf'), ('UST', 'tust'), ('VOC', 'tvoc'),
+    ('VOW', 'tvow'), ('WAR', 'twar'), ('WHO', 'twho'), ('WOC', 'twoc'),
+    ('WOE', 'twoe'), ('WWK', 'twwk'), ('XLN', 'txln'), ('ZEN', 'tzen'),
+    ('ZNC', 'tznc'), ('ZNR', 'tznr')
 ON CONFLICT (mtgstocks_set_code) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS pricing.card_game (
@@ -484,10 +569,10 @@ BEGIN
         v_ok  := FALSE;
 
         BEGIN
-            SET LOCAL work_mem                        = '512MB';
-            SET LOCAL maintenance_work_mem            = '1GB';
+            SET LOCAL work_mem                        = '64MB';
+            SET LOCAL maintenance_work_mem            = '128MB';
             SET LOCAL synchronous_commit              = off;
-            SET LOCAL max_parallel_workers_per_gather = 4;
+            SET LOCAL max_parallel_workers_per_gather = 0;
 
             -- Build the daily aggregate from tier 1 for this batch window.
             -- JOIN path: price_observation → source_product → mtg_card_products
@@ -1141,6 +1226,48 @@ BEGIN
         OR lower(u.card_name) LIKE (lower(uc.card_name) || ' (%')
     );
 
+  -- (4) art card resolution: lookup via mtgstock_art_set_map, match by collector_number only
+  DROP TABLE IF EXISTS tmp_map_art;
+  CREATE TEMP TABLE tmp_map_art ON COMMIT DROP AS
+  SELECT DISTINCT
+    u.print_id,
+    cv.card_version_id
+  FROM tmp_raw_batch u
+  JOIN pricing.mtgstock_art_set_map asm
+    ON asm.mtgstocks_set_code = UPPER(u.set_abbr)
+  JOIN card_catalog.sets s
+    ON s.set_code = asm.scryfall_set_code
+  JOIN card_catalog.card_version cv
+    ON cv.set_id = s.set_id
+   AND cv.collector_number::text = u.collector_number
+  WHERE u.set_abbr IS NOT NULL
+    AND u.collector_number IS NOT NULL;
+
+  -- (5) token resolution: strip Token suffix, split double-sided faces, match by name
+  DROP TABLE IF EXISTS tmp_map_tok;
+  CREATE TEMP TABLE tmp_map_tok ON COMMIT DROP AS
+  SELECT DISTINCT ON (u.print_id)
+    u.print_id,
+    cv.card_version_id
+  FROM tmp_raw_batch u
+  JOIN pricing.mtgstock_token_set_map tsm
+    ON tsm.mtgstocks_set_code = UPPER(u.set_abbr)
+  JOIN card_catalog.sets s
+    ON s.set_code = tsm.token_set_code
+  JOIN card_catalog.card_version cv
+    ON cv.set_id = s.set_id
+  WHERE u.set_abbr IS NOT NULL
+    AND u.collector_number IS NULL
+    AND u.card_name IS NOT NULL
+    AND (
+      cv.name ILIKE SPLIT_PART(REGEXP_REPLACE(u.card_name, '\s*(Token|Double-Sided Token)$', '', 'i'), ' // ', 1)
+      OR (
+        SPLIT_PART(REGEXP_REPLACE(u.card_name, '\s*(Token|Double-Sided Token)$', '', 'i'), ' // ', 2) <> ''
+        AND cv.name ILIKE SPLIT_PART(REGEXP_REPLACE(u.card_name, '\s*(Token|Double-Sided Token)$', '', 'i'), ' // ', 2)
+      )
+    )
+  ORDER BY u.print_id, cv.card_version_id;
+
   -- 3d) Final resolved rows — built from tmp_batch_foil_split so that each row
   --     already carries the foil-split price columns (list_low_cents, list_avg_cents,
   --     sold_avg_cents, is_foil, value) needed by the reject insert and the staging
@@ -1151,11 +1278,13 @@ BEGIN
   CREATE TEMP TABLE tmp_resolved ON COMMIT DROP AS
   SELECT
     u.*,
-    COALESCE(mp.card_version_id, me.card_version_id, mf.card_version_id) AS card_version_id,
+    COALESCE(mp.card_version_id, me.card_version_id, mf.card_version_id, ma.card_version_id, mt.card_version_id) AS card_version_id,
     CASE
       WHEN mp.card_version_id IS NOT NULL THEN 'PRINT_ID'
       WHEN me.card_version_id IS NOT NULL THEN 'EXTERNAL_ID'
       WHEN mf.card_version_id IS NOT NULL THEN 'SET_COLLECTOR'
+      WHEN ma.card_version_id IS NOT NULL THEN 'ART_CARD'
+      WHEN mt.card_version_id IS NOT NULL THEN 'TOKEN_NAME'
       ELSE 'UNRESOLVED'
     END AS resolution_method
   FROM tmp_batch_foil_split u
@@ -1165,7 +1294,11 @@ BEGIN
     ON me.print_id = u.print_id
   LEFT JOIN tmp_map_fallback mf
     ON mf.set_abbr = u.set_abbr
-  AND mf.collector_number = u.collector_number;
+   AND mf.collector_number = u.collector_number
+  LEFT JOIN tmp_map_art ma
+    ON ma.print_id = u.print_id
+  LEFT JOIN tmp_map_tok mt
+    ON mt.print_id = u.print_id;
 
   -- -------------------------------------------------------------------------
   -- 3e) Backfill mtgstock_id mapping into identifier tables (if missing)
@@ -1726,6 +1859,8 @@ DECLARE
   v_print_id        bigint := 0;
   v_external_id     bigint := 0;
   v_set_collector   bigint := 0;
+  v_art_card        bigint := 0;
+  v_token_name      bigint := 0;
   v_unresolved      bigint := 0;
   v_terminal_scry   bigint := 0;
 BEGIN
@@ -1831,30 +1966,71 @@ BEGIN
           OR lower(uc.card_name) = lower(r.card_name)
           OR lower(r.card_name) LIKE (lower(uc.card_name) || ' (%')
       )
+  ),
+  map_art AS (
+    SELECT DISTINCT r.print_id, cv.card_version_id
+    FROM tmp_rejects r
+    JOIN pricing.mtgstock_art_set_map asm
+      ON asm.mtgstocks_set_code = UPPER(r.set_abbr)
+    JOIN card_catalog.sets s
+      ON s.set_code = asm.scryfall_set_code
+    JOIN card_catalog.card_version cv
+      ON cv.set_id = s.set_id
+     AND cv.collector_number::text = r.collector_number
+    WHERE r.set_abbr IS NOT NULL
+      AND r.collector_number IS NOT NULL
+  ),
+  map_tok AS (
+    SELECT DISTINCT ON (r.print_id)
+      r.print_id, cv.card_version_id
+    FROM tmp_rejects r
+    JOIN pricing.mtgstock_token_set_map tsm
+      ON tsm.mtgstocks_set_code = UPPER(r.set_abbr)
+    JOIN card_catalog.sets s
+      ON s.set_code = tsm.token_set_code
+    JOIN card_catalog.card_version cv
+      ON cv.set_id = s.set_id
+    WHERE r.set_abbr IS NOT NULL
+      AND r.collector_number IS NULL
+      AND r.card_name IS NOT NULL
+      AND (
+        cv.name ILIKE SPLIT_PART(REGEXP_REPLACE(r.card_name, '\s*(Token|Double-Sided Token)$', '', 'i'), ' // ', 1)
+        OR (
+          SPLIT_PART(REGEXP_REPLACE(r.card_name, '\s*(Token|Double-Sided Token)$', '', 'i'), ' // ', 2) <> ''
+          AND cv.name ILIKE SPLIT_PART(REGEXP_REPLACE(r.card_name, '\s*(Token|Double-Sided Token)$', '', 'i'), ' // ', 2)
+        )
+      )
+    ORDER BY r.print_id, cv.card_version_id
   )
   SELECT
     r.*,
-    COALESCE(mp.card_version_id, me.card_version_id, mf.card_version_id) AS card_version_id,
+    COALESCE(mp.card_version_id, me.card_version_id, mf.card_version_id, ma.card_version_id, mt.card_version_id) AS card_version_id,
     CASE
       WHEN mp.card_version_id IS NOT NULL THEN 'PRINT_ID'
       WHEN me.card_version_id IS NOT NULL THEN 'EXTERNAL_ID'
       WHEN mf.card_version_id IS NOT NULL THEN 'SET_COLLECTOR'
+      WHEN ma.card_version_id IS NOT NULL THEN 'ART_CARD'
+      WHEN mt.card_version_id IS NOT NULL THEN 'TOKEN_NAME'
       ELSE 'UNRESOLVED'
     END AS resolution_method
   FROM tmp_rejects r
   LEFT JOIN map_print mp ON mp.print_id = r.print_id
   LEFT JOIN map_ext   me ON me.print_id = r.print_id
-  LEFT JOIN map_fb    mf ON mf.set_abbr = r.set_abbr AND mf.collector_number = r.collector_number;
+  LEFT JOIN map_fb    mf ON mf.set_abbr = r.set_abbr AND mf.collector_number = r.collector_number
+  LEFT JOIN map_art   ma ON ma.print_id = r.print_id
+  LEFT JOIN map_tok   mt ON mt.print_id = r.print_id;
 
   SELECT
     COUNT(*) FILTER (WHERE resolution_method = 'PRINT_ID'),
     COUNT(*) FILTER (WHERE resolution_method = 'EXTERNAL_ID'),
     COUNT(*) FILTER (WHERE resolution_method = 'SET_COLLECTOR'),
+    COUNT(*) FILTER (WHERE resolution_method = 'ART_CARD'),
+    COUNT(*) FILTER (WHERE resolution_method = 'TOKEN_NAME'),
     COUNT(*) FILTER (WHERE resolution_method = 'UNRESOLVED')
-  INTO v_print_id, v_external_id, v_set_collector, v_unresolved
+  INTO v_print_id, v_external_id, v_set_collector, v_art_card, v_token_name, v_unresolved
   FROM tmp_resolved;
-  RAISE NOTICE 'resolve_price_rejects: PRINT_ID=% EXTERNAL_ID=% SET_COLLECTOR=% UNRESOLVED=%',
-    v_print_id, v_external_id, v_set_collector, v_unresolved;
+  RAISE NOTICE 'resolve_price_rejects: PRINT_ID=% EXTERNAL_ID=% SET_COLLECTOR=% ART_CARD=% TOKEN_NAME=% UNRESOLVED=%',
+    v_print_id, v_external_id, v_set_collector, v_art_card, v_token_name, v_unresolved;
 
   -- 1b) Back-fill mtgstock_id mapping for rows resolved via EXTERNAL_ID or
   --     SET_COLLECTOR (PRINT_ID rows are already in card_external_identifier).
@@ -2030,3 +2206,109 @@ BEGIN
   RETURN v_inserted;
 END;
 $$;
+
+-- ===========================================================================
+-- Materialized view: card price spark (added in migration_36)
+--
+-- Pre-computes per-card-version current price, 1d/7d/30d % changes, and a
+-- 7-point sparkline for the standard TCGPlayer NM English Non-Foil market
+-- (transaction_type_id=1, condition_id=1, language_id=1, finish_id=1).
+-- Refreshed once per day via CALL pricing.refresh_card_price_spark().
+-- ===========================================================================
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS pricing.mv_card_price_spark AS
+WITH daily AS (
+    SELECT
+        ppd.card_version_id,
+        ppd.price_date,
+        -- Prefer NONFOIL (finish_id=1) list→sold, then fall back to any finish.
+        -- This lets foil-only cards (headliners, serialized) appear in the spark
+        -- instead of being silently excluded.
+        COALESCE(
+            AVG(ppd.list_avg_cents)  FILTER (WHERE ppd.finish_id = 1),
+            AVG(ppd.sold_avg_cents)  FILTER (WHERE ppd.finish_id = 1),
+            AVG(ppd.list_avg_cents),
+            AVG(ppd.sold_avg_cents)
+        ) / 100.0 AS avg_price
+    FROM pricing.print_price_daily ppd
+    WHERE ppd.transaction_type_id = 1
+      AND ppd.condition_id        = 1
+      AND ppd.language_id         = 1
+      AND ppd.price_date          > CURRENT_DATE - 365  -- exclusive: mirrors original runtime query
+    GROUP BY ppd.card_version_id, ppd.price_date
+    HAVING COALESCE(
+        AVG(ppd.list_avg_cents)  FILTER (WHERE ppd.finish_id = 1),
+        AVG(ppd.sold_avg_cents)  FILTER (WHERE ppd.finish_id = 1),
+        AVG(ppd.list_avg_cents),
+        AVG(ppd.sold_avg_cents)
+    ) IS NOT NULL
+),
+ranked AS (
+    SELECT
+        card_version_id,
+        price_date,
+        avg_price,
+        ROW_NUMBER() OVER (PARTITION BY card_version_id ORDER BY price_date DESC) AS rn
+    FROM daily
+),
+current_prices AS (
+    SELECT card_version_id, price_date AS latest_price_date, avg_price AS current_price
+    FROM ranked
+    WHERE rn = 1
+),
+spark_rows AS (
+    SELECT
+        card_version_id,
+        ARRAY_AGG(avg_price ORDER BY price_date ASC) AS spark
+    FROM ranked
+    WHERE rn <= 7
+    GROUP BY card_version_id
+)
+SELECT
+    cp.card_version_id,
+    cp.current_price                                                              AS price,
+    CASE
+        WHEN d1.avg_price IS NULL OR d1.avg_price = 0 THEN 0.0
+        ELSE ROUND(((cp.current_price - d1.avg_price) / d1.avg_price * 100)::numeric, 2)::float
+    END                                                                           AS price_change_1d,
+    CASE
+        WHEN d7.avg_price IS NULL OR d7.avg_price = 0 THEN 0.0
+        ELSE ROUND(((cp.current_price - d7.avg_price) / d7.avg_price * 100)::numeric, 2)::float
+    END                                                                           AS price_change_7d,
+    CASE
+        WHEN d30.avg_price IS NULL OR d30.avg_price = 0 THEN 0.0
+        ELSE ROUND(((cp.current_price - d30.avg_price) / d30.avg_price * 100)::numeric, 2)::float
+    END                                                                           AS price_change_30d,
+    COALESCE(sr.spark, ARRAY[cp.current_price])                                  AS spark
+FROM current_prices cp
+LEFT JOIN daily d1
+    ON d1.card_version_id = cp.card_version_id
+   AND d1.price_date      = cp.latest_price_date - INTERVAL '1 day'
+LEFT JOIN daily d7
+    ON d7.card_version_id = cp.card_version_id
+   AND d7.price_date      = cp.latest_price_date - INTERVAL '7 days'
+LEFT JOIN daily d30
+    ON d30.card_version_id = cp.card_version_id
+   AND d30.price_date      = cp.latest_price_date - INTERVAL '30 days'
+LEFT JOIN spark_rows sr ON sr.card_version_id = cp.card_version_id
+WITH DATA;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_card_price_spark_cv
+    ON pricing.mv_card_price_spark (card_version_id);
+
+CREATE OR REPLACE PROCEDURE pricing.refresh_card_price_spark()
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pricing, pg_catalog
+AS $$
+BEGIN
+    REFRESH MATERIALIZED VIEW CONCURRENTLY pricing.mv_card_price_spark;
+    RAISE NOTICE 'pricing.mv_card_price_spark refreshed at %', now();
+END;
+$$;
+
+GRANT EXECUTE ON PROCEDURE pricing.refresh_card_price_spark()
+    TO app_celery, app_rw, app_admin;
+
+GRANT SELECT ON pricing.mv_card_price_spark
+    TO app_celery, app_rw, app_admin, app_ro;

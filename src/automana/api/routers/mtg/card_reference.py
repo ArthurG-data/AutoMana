@@ -4,8 +4,8 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from uuid import UUID
 from automana.api.schemas.StandardisedQueryResponse import ApiResponse, PaginatedResponse, PaginationInfo, ErrorResponse
-from automana.core.models.card_catalog.card import BaseCard, CardDetail, CardSuggestionResponse, CreateCard, CreateCards, CatalogStats
-from automana.core.models.card_catalog.price_history import PriceHistoryResponse
+from automana.core.models.card_catalog.card import BaseCard, CardDetail, CardSuggestionResponse, CreateCard, CreateCards, CatalogStats, CardVersionRow, OtherSetRow
+from automana.core.models.card_catalog.price_history import CardPricesResponse, PriceHistoryResponse
 from automana.api.dependancies.service_deps import ServiceManagerDep
 from automana.api.dependancies.query_deps import (
     sort_params,
@@ -91,6 +91,68 @@ async def get_catalog_stats(
 
 
 @card_reference_router.get(
+    '/versions-in-set',
+    summary="All versions of a card in a set",
+    description=(
+        "Returns every card_version row sharing the given unique_card_id and set_code, "
+        "with their promo_types, available_finishes, and current price. "
+        "Used to populate the 'Versions in this set' table on the card detail page."
+    ),
+    response_model=ApiResponse[List[CardVersionRow]],
+    operation_id="cards_versions_in_set",
+    responses={**_CARD_ERRORS},
+)
+async def get_versions_in_set(
+    service_manager: ServiceManagerDep,
+    unique_card_id: UUID = Query(..., description="Stable unique card identity"),
+    set_code: str = Query(..., description="Set code (e.g. 'dmu')"),
+) -> ApiResponse[List[CardVersionRow]]:
+    try:
+        rows = await service_manager.execute_service(
+            "card_catalog.card.get_versions_in_set",
+            unique_card_id=unique_card_id,
+            set_code=set_code,
+        )
+        versions = [CardVersionRow.model_validate(r) for r in rows]
+        return ApiResponse(data=versions, message="Versions retrieved successfully")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error fetching versions in set", extra={"unique_card_id": str(unique_card_id), "set_code": set_code, "error": str(e)})
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
+
+@card_reference_router.get(
+    '/other-sets',
+    summary="All sets containing a unique card",
+    description=(
+        "Returns one representative card_version per set for the given unique_card_id, "
+        "sorted by release date descending. Used to populate the 'Other Sets' table "
+        "on the card detail page."
+    ),
+    response_model=ApiResponse[List[OtherSetRow]],
+    operation_id="cards_other_sets",
+    responses={**_CARD_ERRORS},
+)
+async def get_other_sets(
+    service_manager: ServiceManagerDep,
+    unique_card_id: UUID = Query(..., description="Stable unique card identity"),
+) -> ApiResponse[List[OtherSetRow]]:
+    try:
+        rows = await service_manager.execute_service(
+            "card_catalog.card.get_other_sets",
+            unique_card_id=unique_card_id,
+        )
+        sets = [OtherSetRow.model_validate(r) for r in rows]
+        return ApiResponse(data=sets, message="Other sets retrieved successfully")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error fetching other sets", extra={"unique_card_id": str(unique_card_id), "error": str(e)})
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
+
+@card_reference_router.get(
     '/{card_id}',
     summary="Get a card by its UUID",
     description=(
@@ -143,12 +205,10 @@ async def get_card(
 async def get_card_price_history(
     card_id: UUID,
     service_manager: ServiceManagerDep,
-    price_range: str = Query('1m', regex='^(1w|1m|3m|1y|all)$', description="Time range: 1w, 1m, 3m, 1y, or all"),
-    finish: Optional[str] = Query(None, regex='^(nonfoil|foil|etched|surge_foil|ripple_foil|rainbow_foil)$', description="Finish type (nonfoil, foil, etched, etc.). Omit to aggregate all finishes."),
+    price_range: str = Query('1m', pattern='^(1w|1m|3m|1y|all)$', description="Time range: 1w, 1m, 3m, 1y, or all"),
+    finish: Optional[str] = Query(None, pattern='^(nonfoil|foil|etched|surge_foil|ripple_foil|rainbow_foil)$', description="Finish type (nonfoil, foil, etched, etc.). Omit to aggregate all finishes."),
 ) -> ApiResponse[PriceHistoryResponse]:
-    """Get price history for a card in the specified time range."""
     try:
-        # Map price_range to days_back and aggregation
         range_map = {
             '1w': (7, 'daily'),
             '1m': (30, 'daily'),
@@ -174,6 +234,38 @@ async def get_card_price_history(
         raise
     except Exception as e:
         logger.error("Error fetching price history", extra={"card_id": str(card_id), "error": str(e)})
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
+
+@card_reference_router.get(
+    '/{card_id}/prices',
+    summary="Get current prices and buy links for a card",
+    description=(
+        "Returns live market prices from all integrated sources (TCGPlayer via Scryfall bulk, "
+        "Open TCG API) plus marketplace buy links (purchase_uris). "
+        "Prices are sourced from `pricing.print_price_latest` — populated after each daily pipeline run."
+    ),
+    response_model=ApiResponse[CardPricesResponse],
+    operation_id="cards_get_prices",
+    responses={
+        404: {"description": "Card not found"},
+        **_CARD_ERRORS,
+    },
+)
+async def get_card_prices(
+    card_id: UUID,
+    service_manager: ServiceManagerDep,
+) -> ApiResponse[CardPricesResponse]:
+    try:
+        result = await service_manager.execute_service(
+            "pricing.card.get_prices",
+            card_version_id=card_id,
+        )
+        return ApiResponse(data=result, message="Prices retrieved successfully")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error fetching card prices", extra={"card_id": str(card_id), "error": str(e)})
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
@@ -260,7 +352,8 @@ async def insert_card(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to insert card: {str(e)}")
+        logger.error("Failed to insert card", extra={"error": str(e)})
+        raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
 @card_reference_router.post(
@@ -284,22 +377,19 @@ async def bulk_insert_cards(
     cards: List[CreateCard],
     service_manager: ServiceManagerDep,
 ):
+    if len(cards) == 0:
+        raise HTTPException(status_code=400, detail="No cards provided for bulk insert")
+    if len(cards) > BULK_INSERT_LIMIT:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Bulk insert limited to {BULK_INSERT_LIMIT} cards. "
+                f"You provided {len(cards)} cards. "
+                "Use the file upload endpoint for larger batches."
+            ),
+        )
     validated_cards: CreateCards = CreateCards(items=cards)
     try:
-        if len(cards) > BULK_INSERT_LIMIT:
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    f"Bulk insert limited to {BULK_INSERT_LIMIT} cards. "
-                    f"You provided {len(cards)} cards. "
-                    "Use the file upload endpoint for larger batches."
-                ),
-            )
-        if len(cards) == 0:
-            raise HTTPException(
-                status_code=400,
-                detail="No cards provided for bulk insert",
-            )
         result = await service_manager.execute_service(
             "card_catalog.card.create_many",
             cards=validated_cards,
@@ -317,7 +407,8 @@ async def bulk_insert_cards(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to insert cards: {str(e)}")
+        logger.error("Failed to bulk insert cards", extra={"error": str(e)})
+        raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
 @card_reference_router.delete(
@@ -345,7 +436,8 @@ async def delete_card(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to delete card: {str(e)}")
+        logger.error("Failed to delete card", extra={"card_id": str(card_id), "error": str(e)})
+        raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
 @card_reference_router.post(
@@ -369,8 +461,6 @@ async def test_service(
     service_manager: ServiceManagerDep,
 ):
     try:
-        if not os.path.exists(file_path):
-            raise HTTPException(status_code=400, detail=f"File not found: {file_path}")
         result = await service_manager.execute_service(
             "card_catalog.card.process_large_json",
             file_path=file_path,
@@ -382,4 +472,5 @@ async def test_service(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Service test failed: {str(e)}")
+        logger.error("Service test failed", extra={"file_path": file_path, "error": str(e)})
+        raise HTTPException(status_code=500, detail="Internal Server Error")

@@ -78,6 +78,7 @@ celerybeat.pid
 .ipynb_checkpoints/
 *.ipynb
 !notebooks/*.ipynb
+notebooks/data/
 
 # staging
 
@@ -97,12 +98,22 @@ CLAUDE.md
 .claude/
 plans/
 !docs/superpowers/plans/
+!docs/superpowers/specs/
 
 # rebuild_dev_db.sh per-stage logs
 logs/
+rebuild_*.log
 
 config/nginx/htpasswd
 
 # VPS frp secrets
 deploy/vps/.env.vps
 .superpowers/
+
+# Root-level node_modules (frontend deps live under src/frontend/)
+node_modules/
+
+# Local dev artifacts
+backups/
+.claire/
+.vite/

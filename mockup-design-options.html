@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoMana — Design Options</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,500;1,400&family=Space+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;600&family=DM+Serif+Display:ital@0;1&family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #111; font-family: sans-serif; padding: 32px 24px; }
+
+h1.page-label {
+  color: #fff;
+  font-family: Inter, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 32px;
+  opacity: 0.5;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-bottom: 48px;
+}
+
+.label {
+  color: #fff;
+  font-family: Inter, sans-serif;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  opacity: 0.4;
+  margin-bottom: 10px;
+}
+
+/* ─────────────────────────────────────────────
+   OPTION A: Deep Sea (current) polished
+   Fraunces heading → DM Serif Display
+   Space Grotesk body, title scaled to 24px
+   ───────────────────────────────────────────── */
+.optA {
+  --bg: #080f1e;
+  --surface: #0f1830;
+  --surface-alt: #152040;
+  --border: rgba(150,200,255,0.14);
+  --text: #e8efff;
+  --muted: #8e9fc4;
+  --sub: #4d5b80;
+  --accent: #3de8d2;
+  --blue: #7aa6ff;
+  --red: #e35e6c;
+  --amber: #e0a96a;
+  --font-head: 'DM Serif Display', serif;
+  --font-body: 'Space Grotesk', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --title-size: 24px;
+}
+
+/* ─────────────────────────────────────────────
+   OPTION B: Cooler / neutral dark
+   Pure Inter everywhere, no serif
+   Accent: desaturated slate-blue
+   ───────────────────────────────────────────── */
+.optB {
+  --bg: #111318;
+  --surface: #1a1d24;
+  --surface-alt: #21252e;
+  --border: rgba(200,210,240,0.10);
+  --text: #e2e6f0;
+  --muted: #8890a6;
+  --sub: #4a5068;
+  --accent: #5b8def;
+  --blue: #5b8def;
+  --red: #e05c6a;
+  --amber: #d4943a;
+  --font-head: 'Inter', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --title-size: 22px;
+}
+
+/* ─────────────────────────────────────────────
+   OPTION C: Richer dark — MTG artifact
+   Instrument Serif headings, Inter body
+   Purple-navy bg, warm gold accent
+   ───────────────────────────────────────────── */
+.optC {
+  --bg: #0d0b1a;
+  --surface: #14112a;
+  --surface-alt: #1c1838;
+  --border: rgba(200,180,255,0.13);
+  --text: #ede8ff;
+  --muted: #9b93c2;
+  --sub: #4e4872;
+  --accent: #d4a841;
+  --blue: #8b7fff;
+  --red: #e05c6a;
+  --amber: #d4a841;
+  --font-head: 'Instrument Serif', serif;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --title-size: 24px;
+}
+
+/* ─────────────────────────────────────────────
+   Shared shell styles
+   ───────────────────────────────────────────── */
+.shell {
+  background: var(--bg);
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.07);
+}
+
+/* App chrome */
+.app-layout {
+  display: flex;
+  height: 520px;
+}
+
+.sidebar {
+  width: 56px;
+  background: var(--bg);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 0;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--blue), var(--accent));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-head);
+  font-size: 14px;
+  color: var(--bg);
+  margin-bottom: 12px;
+}
+
+.nav-dot {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--surface-alt);
+  opacity: 0.5;
+}
+.nav-dot.active {
+  opacity: 1;
+  background: var(--accent);
+  opacity: 0.15;
+  border: 1px solid var(--accent);
+}
+
+.main-content {
+  flex: 1;
+  padding: 20px 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Top bar */
+.topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.topbar-left { display: flex; flex-direction: column; gap: 3px; }
+
+.breadcrumb {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--sub);
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+
+.page-title {
+  font-family: var(--font-head);
+  font-size: var(--title-size);
+  font-weight: 500;
+  color: var(--text);
+  letter-spacing: -0.3px;
+  line-height: 1.1;
+}
+
+.topbar-right { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--bg);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* Search bar */
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+.search-bar input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--text);
+}
+.search-bar input::placeholder { color: var(--sub); }
+.search-icon { color: var(--sub); font-size: 13px; }
+
+/* Results list */
+.results-list { display: flex; flex-direction: column; gap: 2px; }
+
+.result-row {
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 7px;
+  background: var(--surface);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: border-color 0.1s;
+}
+.result-row:hover { border-color: var(--border); }
+.result-row.selected { border-color: var(--accent); background: var(--surface-alt); }
+
+.card-thumb {
+  width: 40px;
+  height: 28px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, var(--surface-alt), var(--sub));
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  color: var(--muted);
+  font-family: var(--font-mono);
+}
+
+.card-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+.card-name {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.card-set {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--sub);
+  letter-spacing: 0.5px;
+}
+
+.price-col { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.price-val {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.price-trend {
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+.up { color: var(--accent); }
+.down { color: var(--red); }
+
+/* Price table */
+.section-head {
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--sub);
+  margin-bottom: 6px;
+}
+
+.price-table { width: 100%; border-collapse: collapse; }
+.price-table th {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--sub);
+  text-align: left;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.price-table td {
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--muted);
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.price-table td.mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text);
+}
+.price-table td.up { font-family: var(--font-mono); font-size: 11px; color: var(--accent); }
+.price-table td.down { font-family: var(--font-mono); font-size: 11px; color: var(--red); }
+.price-table tr:last-child td { border-bottom: none; }
+
+.table-wrap {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 2px 0;
+  overflow: hidden;
+}
+</style>
+</head>
+<body>
+<p class="page-label">AutoMana — Design Options (open in browser to compare)</p>
+
+<div class="row">
+  <!-- OPTION LABELS -->
+  <div><div class="label">Option A — Deep Sea + DM Serif Display<br><span style="opacity:0.6">24px heading · Space Grotesk body · teal accent</span></div></div>
+  <div><div class="label">Option B — Neutral Dark + Inter only<br><span style="opacity:0.6">22px heading · Inter everywhere · slate-blue accent</span></div></div>
+  <div><div class="label">Option C — MTG Artifact + Instrument Serif<br><span style="opacity:0.6">24px heading · Inter body · warm gold accent</span></div></div>
+</div>
+
+<div class="row">
+
+  <!-- ═══════════════════════════════════════
+       OPTION A
+       ═══════════════════════════════════════ -->
+  <div class="shell optA">
+    <div class="app-layout">
+      <div class="sidebar">
+        <div class="logo">A</div>
+        <div class="nav-dot active"></div>
+        <div class="nav-dot"></div>
+        <div class="nav-dot"></div>
+        <div class="nav-dot"></div>
+      </div>
+      <div class="main-content">
+
+        <div class="topbar">
+          <div class="topbar-left">
+            <span class="breadcrumb">Cards / Search</span>
+            <span class="page-title">Card Search</span>
+          </div>
+          <div class="topbar-right">
+            <span class="chip">↑ 847 results</span>
+          </div>
+        </div>
+
+        <div class="search-bar">
+          <span class="search-icon">⌕</span>
+          <input type="text" placeholder="Search cards, sets, artists…" value="Black Lotus">
+        </div>
+
+        <div class="results-list">
+          <div class="result-row selected">
+            <div class="card-thumb">ART</div>
+            <div class="card-meta">
+              <span class="card-name">Black Lotus</span>
+              <span class="card-set">LEA · Limited Edition Alpha · Mythic</span>
+            </div>
+            <div class="price-col">
+              <span class="price-val">$4,200</span>
+              <span class="price-trend up">▲ +2.4%</span>
+            </div>
+          </div>
+          <div class="result-row">
+            <div class="card-thumb">ART</div>
+            <div class="card-meta">
+              <span class="card-name">Mox Sapphire</span>
+              <span class="card-set">LEA · Limited Edition Alpha · Mythic</span>
+            </div>
+            <div class="price-col">
+              <span class="price-val">$3,100</span>
+              <span class="price-trend down">▼ −0.8%</span>
+            </div>
+          </div>
+          <div class="result-row">
+            <div class="card-thumb">ART</div>
+            <div class="card-meta">
+              <span class="card-name">Ancestral Recall</span>
+              <span class="card-set">LEA · Limited Edition Alpha · Rare</span>
+            </div>
+            <div class="price-col">
+              <span class="price-val">$2,800</span>
+              <span class="price-trend up">▲ +1.1%</span>
+            </div>
+          </div>
+          <div class="result-row">
+            <div class="card-thumb">ART</div>
+            <div class="card-meta">
+              <span class="card-name">Time Walk</span>
+              <span class="card-set">LEA · Limited Edition Alpha · Rare</span>
+            </div>
+            <div class="price-col">
+              <span class="price-val">$1,950</span>
+              <span class="price-trend up">▲ +0.3%</span>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="section-head">Price History — Black Lotus</div>
+          <div class="table-wrap">
+            <table class="price-table">
+              <thead>
+                <tr>
+                  <th>Set</th><th>Finish</th><th>Market</th><th>7d Trend</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>LEA</td>
+                  <td>Non-foil</td>
+                  <td class="mono">$4,200.00</td>
+                  <td class="up">▲ +2.4%</td>
+                </tr>
+                <tr>
+                  <td>LEB</td>
+                  <td>Non-foil</td>
+                  <td class="mono">$3,800.00</td>
+                  <td class="up">▲ +1.1%</td>
+                </tr>
+                <tr>
+                  <td>2ED</td>
+                  <td>Non-foil</td>
+                  <td class="mono">$1,200.00</td>
+                  <td class="down">▼ −0.5%</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       OPTION B
+       ═══════════════════════════════════════ -->
+  <div class="shell optB">
+    <div class="app-layout">
+      <div class="sidebar">
+        <div class="logo">A</div>
+        <div class="nav-dot active"></div>
+        <div class="nav-dot"></div>
+        <div class="nav-dot"></div>
+        <div class="nav-dot"></div>
+      </div>
+      <div class="main-content">
+
+        <div class="topbar">
+          <div class="topbar-left">
+            <span class="breadcrumb">Cards / Search</span>
+            <span class="page-title">Card Search</span>
+          </div>
+          <div class="topbar-right">
+            <span class="chip">↑ 847 results</span>
+          </div>
+        </div>
+
+        <div class="search-bar">
+          <span class="search-icon">⌕</span>
+          <input type="text" placeholder="Search cards, sets, artists…" value="Black Lotus">
+        </div>
+
+        <div class="results-list">
+          <div class="result-row selected">
+            <div class="card-thumb">ART</div>
+            <div class="card-meta">
+              <span class="card-name">Black Lotus</span>
+              <span class="card-set">LEA · Limited Edition Alpha · Mythic</span>
+            </div>
+            <div class="price-col">
+              <span class="price-val">$4,200</span>
+              <span class="price-trend up">▲ +2.4%</span>
+            </div>
+          </div>
+          <div class="result-row">
+            <div class="card-thumb">ART</div>
+            <div class="card-meta">
+              <span class="card-name">Mox Sapphire</span>
+              <span class="card-set">LEA · Limited Edition Alpha · Mythic</span>
+            </div>
+            <div class="price-col">
+              <span class="price-val">$3,100</span>
+              <span class="price-trend down">▼ −0.8%</span>
+            </div>
+          </div>
+          <div class="result-row">
+            <div class="card-thumb">ART</div>
+            <div class="card-meta">
+              <span class="card-name">Ancestral Recall</span>
+              <span class="card-set">LEA · Limited Edition Alpha · Rare</span>
+            </div>
+            <div class="price-col">
+              <span class="price-val">$2,800</span>
+              <span class="price-trend up">▲ +1.1%</span>
+            </div>
+          </div>
+          <div class="result-row">
+            <div class="card-thumb">ART</div>
+            <div class="card-meta">
+              <span class="card-name">Time Walk</span>
+              <span class="card-set">LEA · Limited Edition Alpha · Rare</span>
+            </div>
+            <div class="price-col">
+              <span class="price-val">$1,950</span>
+              <span class="price-trend up">▲ +0.3%</span>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="section-head">Price History — Black Lotus</div>
+          <div class="table-wrap">
+            <table class="price-table">
+              <thead>
+                <tr>
+                  <th>Set</th><th>Finish</th><th>Market</th><th>7d Trend</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>LEA</td>
+                  <td>Non-foil</td>
+                  <td class="mono">$4,200.00</td>
+                  <td class="up">▲ +2.4%</td>
+                </tr>
+                <tr>
+                  <td>LEB</td>
+                  <td>Non-foil</td>
+                  <td class="mono">$3,800.00</td>
+                  <td class="up">▲ +1.1%</td>
+                </tr>
+                <tr>
+                  <td>2ED</td>
+                  <td>Non-foil</td>
+                  <td class="mono">$1,200.00</td>
+                  <td class="down">▼ −0.5%</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       OPTION C
+       ═══════════════════════════════════════ -->
+  <div class="shell optC">
+    <div class="app-layout">
+      <div class="sidebar">
+        <div class="logo">A</div>
+        <div class="nav-dot active"></div>
+        <div class="nav-dot"></div>
+        <div class="nav-dot"></div>
+        <div class="nav-dot"></div>
+      </div>
+      <div class="main-content">
+
+        <div class="topbar">
+          <div class="topbar-left">
+            <span class="breadcrumb">Cards / Search</span>
+            <span class="page-title">Card Search</span>
+          </div>
+          <div class="topbar-right">
+            <span class="chip">↑ 847 results</span>
+          </div>
+        </div>
+
+        <div class="search-bar">
+          <span class="search-icon">⌕</span>
+          <input type="text" placeholder="Search cards, sets, artists…" value="Black Lotus">
+        </div>
+
+        <div class="results-list">
+          <div class="result-row selected">
+            <div class="card-thumb">ART</div>
+            <div class="card-meta">
+              <span class="card-name">Black Lotus</span>
+              <span class="card-set">LEA · Limited Edition Alpha · Mythic</span>
+            </div>
+            <div class="price-col">
+              <span class="price-val">$4,200</span>
+              <span class="price-trend up">▲ +2.4%</span>
+            </div>
+          </div>
+          <div class="result-row">
+            <div class="card-thumb">ART</div>
+            <div class="card-meta">
+              <span class="card-name">Mox Sapphire</span>
+              <span class="card-set">LEA · Limited Edition Alpha · Mythic</span>
+            </div>
+            <div class="price-col">
+              <span class="price-val">$3,100</span>
+              <span class="price-trend down">▼ −0.8%</span>
+            </div>
+          </div>
+          <div class="result-row">
+            <div class="card-thumb">ART</div>
+            <div class="card-meta">
+              <span class="card-name">Ancestral Recall</span>
+              <span class="card-set">LEA · Limited Edition Alpha · Rare</span>
+            </div>
+            <div class="price-col">
+              <span class="price-val">$2,800</span>
+              <span class="price-trend up">▲ +1.1%</span>
+            </div>
+          </div>
+          <div class="result-row">
+            <div class="card-thumb">ART</div>
+            <div class="card-meta">
+              <span class="card-name">Time Walk</span>
+              <span class="card-set">LEA · Limited Edition Alpha · Rare</span>
+            </div>
+            <div class="price-col">
+              <span class="price-val">$1,950</span>
+              <span class="price-trend up">▲ +0.3%</span>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="section-head">Price History — Black Lotus</div>
+          <div class="table-wrap">
+            <table class="price-table">
+              <thead>
+                <tr>
+                  <th>Set</th><th>Finish</th><th>Market</th><th>7d Trend</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>LEA</td>
+                  <td>Non-foil</td>
+                  <td class="mono">$4,200.00</td>
+                  <td class="up">▲ +2.4%</td>
+                </tr>
+                <tr>
+                  <td>LEB</td>
+                  <td>Non-foil</td>
+                  <td class="mono">$3,800.00</td>
+                  <td class="up">▲ +1.1%</td>
+                </tr>
+                <tr>
+                  <td>2ED</td>
+                  <td>Non-foil</td>
+                  <td class="mono">$1,200.00</td>
+                  <td class="down">▼ −0.5%</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ─── LIGHT MODE ROW ──────────────────────────────────────────── -->
+<p class="page-label" style="margin-top:16px;">Same options — Light mode</p>
+
+<div class="row">
+
+  <!-- OPTION A LIGHT -->
+  <div class="shell optA" style="--bg:#eef4f8;--surface:#ffffff;--surface-alt:#f0f5f9;--border:rgba(20,50,80,0.12);--text:#0c1a25;--muted:#506576;--sub:#8898a6;--accent:#00b380;--blue:#2b80c8;--red:#c0392b;--amber:#b07d2a;">
+    <div class="app-layout">
+      <div class="sidebar">
+        <div class="logo">A</div>
+        <div class="nav-dot active"></div>
+        <div class="nav-dot"></div>
+        <div class="nav-dot"></div>
+      </div>
+      <div class="main-content">
+        <div class="topbar">
+          <div class="topbar-left">
+            <span class="breadcrumb">Cards / Search</span>
+            <span class="page-title">Card Search</span>
+          </div>
+          <div class="topbar-right"><span class="chip">↑ 847 results</span></div>
+        </div>
+        <div class="search-bar">
+          <span class="search-icon">⌕</span>
+          <input type="text" value="Black Lotus">
+        </div>
+        <div class="results-list">
+          <div class="result-row selected">
+            <div class="card-thumb">ART</div>
+            <div class="card-meta">
+              <span class="card-name">Black Lotus</span>
+              <span class="card-set">LEA · Mythic</span>
+            </div>
+            <div class="price-col">
+              <span class="price-val">$4,200</span>
+              <span class="price-trend up">▲ +2.4%</span>
+            </div>
+          </div>
+          <div class="result-row">
+            <div class="card-thumb">ART</div>
+            <div class="card-meta">
+              <span class="card-name">Mox Sapphire</span>
+              <span class="card-set">LEA · Mythic</span>
+            </div>
+            <div class="price-col">
+              <span class="price-val">$3,100</span>
+              <span class="price-trend down">▼ −0.8%</span>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="section-head">Price History</div>
+          <div class="table-wrap">
+            <table class="price-table">
+              <thead><tr><th>Set</th><th>Finish</th><th>Market</th><th>7d</th></tr></thead>
+              <tbody>
+                <tr><td>LEA</td><td>Non-foil</td><td class="mono">$4,200.00</td><td class="up">▲ +2.4%</td></tr>
+                <tr><td>LEB</td><td>Non-foil</td><td class="mono">$3,800.00</td><td class="up">▲ +1.1%</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OPTION B LIGHT -->
+  <div class="shell optB" style="--bg:#f5f6f8;--surface:#ffffff;--surface-alt:#edf0f5;--border:rgba(20,30,60,0.10);--text:#111827;--muted:#4b5563;--sub:#9ca3af;--accent:#3b70d4;--blue:#3b70d4;--red:#dc2626;--amber:#d97706;">
+    <div class="app-layout">
+      <div class="sidebar">
+        <div class="logo">A</div>
+        <div class="nav-dot active"></div>
+        <div class="nav-dot"></div>
+        <div class="nav-dot"></div>
+      </div>
+      <div class="main-content">
+        <div class="topbar">
+          <div class="topbar-left">
+            <span class="breadcrumb">Cards / Search</span>
+            <span class="page-title">Card Search</span>
+          </div>
+          <div class="topbar-right"><span class="chip">↑ 847 results</span></div>
+        </div>
+        <div class="search-bar">
+          <span class="search-icon">⌕</span>
+          <input type="text" value="Black Lotus">
+        </div>
+        <div class="results-list">
+          <div class="result-row selected">
+            <div class="card-thumb">ART</div>
+            <div class="card-meta">
+              <span class="card-name">Black Lotus</span>
+              <span class="card-set">LEA · Mythic</span>
+            </div>
+            <div class="price-col">
+              <span class="price-val">$4,200</span>
+              <span class="price-trend up">▲ +2.4%</span>
+            </div>
+          </div>
+          <div class="result-row">
+            <div class="card-thumb">ART</div>
+            <div class="card-meta">
+              <span class="card-name">Mox Sapphire</span>
+              <span class="card-set">LEA · Mythic</span>
+            </div>
+            <div class="price-col">
+              <span class="price-val">$3,100</span>
+              <span class="price-trend down">▼ −0.8%</span>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="section-head">Price History</div>
+          <div class="table-wrap">
+            <table class="price-table">
+              <thead><tr><th>Set</th><th>Finish</th><th>Market</th><th>7d</th></tr></thead>
+              <tbody>
+                <tr><td>LEA</td><td>Non-foil</td><td class="mono">$4,200.00</td><td class="up">▲ +2.4%</td></tr>
+                <tr><td>LEB</td><td>Non-foil</td><td class="mono">$3,800.00</td><td class="up">▲ +1.1%</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OPTION C LIGHT -->
+  <div class="shell optC" style="--bg:#f7f5ff;--surface:#ffffff;--surface-alt:#eeecfb;--border:rgba(80,60,160,0.12);--text:#1a1535;--muted:#4e4872;--sub:#9490b8;--accent:#b07d10;--blue:#5b4fd4;--red:#c0392b;--amber:#b07d10;">
+    <div class="app-layout">
+      <div class="sidebar">
+        <div class="logo">A</div>
+        <div class="nav-dot active"></div>
+        <div class="nav-dot"></div>
+        <div class="nav-dot"></div>
+      </div>
+      <div class="main-content">
+        <div class="topbar">
+          <div class="topbar-left">
+            <span class="breadcrumb">Cards / Search</span>
+            <span class="page-title">Card Search</span>
+          </div>
+          <div class="topbar-right"><span class="chip">↑ 847 results</span></div>
+        </div>
+        <div class="search-bar">
+          <span class="search-icon">⌕</span>
+          <input type="text" value="Black Lotus">
+        </div>
+        <div class="results-list">
+          <div class="result-row selected">
+            <div class="card-thumb">ART</div>
+            <div class="card-meta">
+              <span class="card-name">Black Lotus</span>
+              <span class="card-set">LEA · Mythic</span>
+            </div>
+            <div class="price-col">
+              <span class="price-val">$4,200</span>
+              <span class="price-trend up">▲ +2.4%</span>
+            </div>
+          </div>
+          <div class="result-row">
+            <div class="card-thumb">ART</div>
+            <div class="card-meta">
+              <span class="card-name">Mox Sapphire</span>
+              <span class="card-set">LEA · Mythic</span>
+            </div>
+            <div class="price-col">
+              <span class="price-val">$3,100</span>
+              <span class="price-trend down">▼ −0.8%</span>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="section-head">Price History</div>
+          <div class="table-wrap">
+            <table class="price-table">
+              <thead><tr><th>Set</th><th>Finish</th><th>Market</th><th>7d</th></tr></thead>
+              <tbody>
+                <tr><td>LEA</td><td>Non-foil</td><td class="mono">$4,200.00</td><td class="up">▲ +2.4%</td></tr>
+                <tr><td>LEB</td><td>Non-foil</td><td class="mono">$3,800.00</td><td class="up">▲ +1.1%</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div style="color:#fff;opacity:0.3;font-family:monospace;font-size:11px;margin-top:8px;">
+  A: DM Serif Display 24px + Space Grotesk + teal &nbsp;|&nbsp;
+  B: Inter everywhere 22px + slate-blue &nbsp;|&nbsp;
+  C: Instrument Serif 24px + Inter + warm gold
+</div>
+
+</body>
+</html>

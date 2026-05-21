@@ -32,6 +32,11 @@ def refresh_daily_prices_task(self):
             "Pricing tier 2 refresh completed",
             extra={"result": result, "date": yesterday.isoformat()},
         )
+        spark_result = run_service("pricing.mv_card_price_spark.refresh")
+        logger.info(
+            "mv_card_price_spark refresh completed",
+            extra={"result": spark_result},
+        )
         return {"status": "success", "date": yesterday.isoformat()}
     except Exception as e:
         logger.error(

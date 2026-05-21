@@ -11,19 +11,39 @@
   position: relative;
   background: linear-gradient(160deg, var(--hd-surface-alt), var(--hd-surface) 60%, var(--hd-surface-alt));
   display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding-top: 36px;
+  flex-direction: column;
+  align-items: center;
+  padding: 36px 20px 28px;
+  gap: 20px;
 }
 
 .imageFade {
   position: absolute;
   top: 0;
   right: 0;
-  width: 40%;
-  height: 100%;
+  width: 35%;
+  height: 540px;
   background: linear-gradient(to right, transparent 0%, var(--hd-bg) 100%);
   pointer-events: none;
+}
+
+.actions {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.secondaryActions {
+  display: flex;
+  gap: 8px;
+}
+
+.secondaryActions > * {
+  flex: 1;
 }
 
 .dataPanel {
@@ -36,18 +56,53 @@
   gap: 20px;
 }
 
-.topRow {
+.topGrid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
-  gap: 16px;
+  grid-template-columns: minmax(0, 400px) minmax(220px, 1fr) minmax(220px, 1fr);
+  grid-template-rows: auto auto;
+  gap: 16px 20px;
   align-items: start;
+  justify-content: start;
 }
 
-.actions { display: flex; gap: 10px; padding-top: 4px; }
+.gameInfoSlot {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+}
+
+.marketSlot {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.aiSlot {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+.chartSlot {
+  grid-column: 2 / span 2;
+  grid-row: 2;
+  min-width: 0;
+}
+
+@media (max-width: 1300px) {
+  .topGrid {
+    grid-template-columns: minmax(0, 400px) minmax(0, 1fr);
+  }
+  .marketSlot { grid-column: 2; grid-row: 1; }
+  .aiSlot     { grid-column: 2; grid-row: 2; }
+  .chartSlot  { grid-column: 2; grid-row: 3; }
+}
 
 @media (max-width: 1100px) {
-  .topRow {
+  .topGrid {
     grid-template-columns: 1fr;
+    grid-template-rows: auto;
+  }
+  .gameInfoSlot, .marketSlot, .aiSlot, .chartSlot {
+    grid-column: 1;
+    grid-row: auto;
   }
 }
 

@@ -44,6 +44,13 @@ class UpdateCollection(BaseModel):
     )
     is_active : bool | None=None
 
+class EntryStatus(str, Enum):
+    PURCHASED = 'purchased'
+    LISTED    = 'listed'
+    STASHED   = 'stashed'
+    SOLD      = 'sold'
+
+
 class Conditions(str, Enum):
     NM = 'NM'
     LP = 'LP'
@@ -77,6 +84,8 @@ class AddCollectionEntryRequest(BaseModel):
     currency_code: str = Field(default='USD', max_length=3)
     purchase_date: date = Field(default_factory=date.today)
     language_id: Optional[int] = Field(default=None)
+    status: EntryStatus = Field(default=EntryStatus.PURCHASED)
+    ebay_item_id: Optional[str] = Field(default=None, max_length=30)
 
     @model_validator(mode='after')
     def check_identifier(self) -> 'AddCollectionEntryRequest':
@@ -102,6 +111,11 @@ class PublicCollectionEntry(BaseModel):
     condition: Conditions
     currency_code: str
     language_id: Optional[int] = None
+    image_normal: Optional[str] = None
+    price: Optional[float] = None
+    price_change_1d: float = 0.0
+    status: EntryStatus = EntryStatus.PURCHASED
+    ebay_item_id: Optional[str] = None
 
 
 class UpdateCollectionEntry(BaseModel):

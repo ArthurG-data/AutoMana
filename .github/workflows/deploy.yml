@@ -1,0 +1,57 @@
+# .github/workflows/deploy.yml
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+          enable-cache: true
+      - name: Install dependencies
+        run: uv sync --frozen --extra dev
+      - name: Run unit tests
+        env:
+          POSTGRES_PASSWORD: ci-dummy
+        run: uv run pytest -v --tb=short
+
+  deploy:
+    name: deploy
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to VPS via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          envs: PROD_DOMAIN
+          script: |
+            set -e
+            cd /opt/automana
+            git fetch origin
+            git checkout -B main origin/main
+            docker compose -f deploy/docker-compose.prod.yml up -d --build
+            echo "Waiting for app to be healthy (up to 120s)..."
+            for i in $(seq 1 24); do
+              if curl -fsS "https://${PROD_DOMAIN}/health" >/dev/null 2>&1; then
+                echo "Health check passed"
+                break
+              fi
+              if [ "$i" -eq 24 ]; then
+                echo "Health check timed out after 120s" >&2
+                exit 1
+              fi
+              sleep 5
+            done
+        env:
+          PROD_DOMAIN: ${{ secrets.PROD_DOMAIN }}

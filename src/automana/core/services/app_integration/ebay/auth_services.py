@@ -297,7 +297,7 @@ async def register_app(
         input_data = (
             app_data.ebay_app_id,
             app_data.app_name,
-            app_data.redirect_uri,
+            app_data.ru_name,
             app_data.response_type,
             app_data.client_secret,
             app_data.environment.value,

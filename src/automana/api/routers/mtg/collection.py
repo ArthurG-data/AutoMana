@@ -1,6 +1,9 @@
+import logging
 from fastapi import APIRouter, HTTPException, Depends, status, Query
 from typing import List, Optional
 from uuid import UUID
+
+logger = logging.getLogger(__name__)
 from automana.core.exceptions.service_layer_exceptions.card_catalogue.card_catalog_exceptions import (
     CollectionNotFoundError,
     CollectionAccessDeniedError,
@@ -12,7 +15,12 @@ from automana.core.models.collections.collection import (
     PublicCollectionEntry,
     UpdateCollectionEntry,
     AddCollectionEntryRequest,
+    EntryStatus,
 )
+from pydantic import BaseModel
+
+class UpdateEntryStatusRequest(BaseModel):
+    status: EntryStatus
 from automana.api.dependancies.service_deps import ServiceManagerDep
 from automana.api.schemas.StandardisedQueryResponse import (
     ApiResponse,
@@ -22,21 +30,15 @@ from automana.api.schemas.StandardisedQueryResponse import (
 )
 from automana.api.dependancies.auth.users import CurrentUserDep, get_current_active_user
 
-_COLLECTION_ERRORS = {
-    401: {"description": "Not authenticated — valid session_id cookie required", "model": ErrorResponse},
-    403: {"description": "Forbidden — collection belongs to a different user", "model": ErrorResponse},
-    422: {"description": "Validation error — malformed or missing fields"},
-    500: {"description": "Internal server error", "model": ErrorResponse},
-}
-
 router = APIRouter(
     prefix='/collection',
     tags=["Collections"],
     dependencies=[Depends(get_current_active_user)],
     responses={
-        401: {"description": "Unauthorized", "model": ErrorResponse},
-        403: {"description": "Forbidden", "model": ErrorResponse},
+        401: {"description": "Not authenticated — valid session_id cookie required", "model": ErrorResponse},
+        403: {"description": "Forbidden — collection belongs to a different user", "model": ErrorResponse},
         404: {"description": "Not found", "model": ErrorResponse},
+        422: {"description": "Validation error — malformed or missing fields"},
         500: {"description": "Internal server error", "model": ErrorResponse},
     },
 )
@@ -55,7 +57,6 @@ router = APIRouter(
     operation_id="collections_create",
     responses={
         409: {"description": "A collection with this name already exists for this user"},
-        **_COLLECTION_ERRORS,
     },
 )
 async def create_collection(
@@ -83,7 +84,6 @@ async def create_collection(
     operation_id="collections_get_by_id",
     responses={
         404: {"description": "Collection not found or does not belong to this user"},
-        **_COLLECTION_ERRORS,
     },
 )
 async def get_collection(
@@ -114,7 +114,6 @@ async def get_collection(
     ),
     response_model=PaginatedResponse,
     operation_id="collections_list",
-    responses=_COLLECTION_ERRORS,
 )
 async def list_collections(
     current_user: CurrentUserDep,
@@ -132,39 +131,23 @@ async def list_collections(
                 user_id=current_user.unique_id,
                 collection_id=collection_ids,
             )
-            return PaginatedResponse(
-                success=True,
-                data=result,
-                pagination=PaginationInfo(
-                    limit=len(result),
-                    offset=0,
-                    total_count=len(result),
-                    has_next=False,
-                    has_previous=False,
-                ),
-                message=f"Retrieved {len(result)} specific collections",
-            )
+            pagination = PaginationInfo(limit=len(result), offset=0, total_count=len(result), has_next=False, has_previous=False)
+            message = f"Retrieved {len(result)} specific collections"
         else:
             result = await service_manager.execute_service(
                 "card_catalog.collection.get_all",
                 user_id=current_user.unique_id,
             )
-            return PaginatedResponse(
-                success=True,
-                data=result,
-                pagination=PaginationInfo(
-                    limit=limit,
-                    offset=offset,
-                    total_count=len(result),
-                    has_next=False,
-                    has_previous=offset > 0,
-                ),
-                message="Collections retrieved successfully",
-            )
+            pagination = PaginationInfo(limit=limit, offset=offset, total_count=len(result), has_next=False, has_previous=offset > 0)
+            message = "Collections retrieved successfully"
+        return PaginatedResponse(success=True, data=result, pagination=pagination, message=message)
+    except CollectionNotFoundError:
+        raise HTTPException(status_code=404, detail="Collection not found")
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Failed to list collections", extra={"error": str(e)})
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.put(
@@ -180,7 +163,6 @@ async def list_collections(
     operation_id="collections_update",
     responses={
         404: {"description": "Collection not found or does not belong to this user"},
-        **_COLLECTION_ERRORS,
     },
 )
 async def update_collection(
@@ -209,7 +191,6 @@ async def update_collection(
     operation_id="collections_delete",
     responses={
         404: {"description": "Collection not found or does not belong to this user"},
-        **_COLLECTION_ERRORS,
     },
 )
 async def delete_collection(
@@ -240,7 +221,6 @@ async def delete_collection(
     operation_id="collection_entries_add",
     responses={
         404: {"description": "Collection or card not found"},
-        **_COLLECTION_ERRORS,
     },
 )
 async def add_entry(
@@ -264,24 +244,27 @@ async def add_entry(
 @router.get(
     '/{collection_id}/entries',
     summary="List all entries in a collection",
-    description="Returns all cards in the specified collection owned by the authenticated user.",
+    description="Returns cards in the specified collection. Supports limit/offset pagination.",
     response_model=ApiResponse,
     operation_id="collection_entries_list",
     responses={
         404: {"description": "Collection not found"},
-        **_COLLECTION_ERRORS,
     },
 )
 async def list_entries(
     collection_id: UUID,
     current_user: CurrentUserDep,
     service_manager: ServiceManagerDep,
+    limit: int = Query(50, ge=1, le=200, description="Page size"),
+    offset: int = Query(0, ge=0, description="Number of entries to skip"),
 ):
     try:
         result = await service_manager.execute_service(
             "card_catalog.collection.list_entries",
             collection_id=collection_id,
             user=current_user,
+            limit=limit,
+            offset=offset,
         )
         return ApiResponse(data=result)
     except CollectionNotFoundError:
@@ -295,7 +278,6 @@ async def list_entries(
     operation_id="collection_entries_get",
     responses={
         404: {"description": "Entry not found"},
-        **_COLLECTION_ERRORS,
     },
 )
 async def get_entry(
@@ -316,6 +298,35 @@ async def get_entry(
         raise HTTPException(status_code=404, detail="Entry not found")
 
 
+@router.patch(
+    '/{collection_id}/entries/{entry_id}/status',
+    summary="Update the status of a collection entry",
+    response_model=ApiResponse,
+    operation_id="collection_entries_update_status",
+    responses={
+        404: {"description": "Entry not found"},
+    },
+)
+async def update_entry_status(
+    collection_id: UUID,
+    entry_id: UUID,
+    body: UpdateEntryStatusRequest,
+    current_user: CurrentUserDep,
+    service_manager: ServiceManagerDep,
+):
+    try:
+        result = await service_manager.execute_service(
+            "card_catalog.collection.update_entry_status",
+            collection_id=collection_id,
+            entry_id=entry_id,
+            status=body.status,
+            user=current_user,
+        )
+        return ApiResponse(data=result)
+    except CollectionNotFoundError:
+        raise HTTPException(status_code=404, detail="Entry not found")
+
+
 @router.delete(
     '/{collection_id}/entries/{entry_id}',
     summary="Remove a card from a collection",
@@ -323,7 +334,6 @@ async def get_entry(
     operation_id="collection_entries_delete",
     responses={
         404: {"description": "Entry not found"},
-        **_COLLECTION_ERRORS,
     },
 )
 async def delete_entry(

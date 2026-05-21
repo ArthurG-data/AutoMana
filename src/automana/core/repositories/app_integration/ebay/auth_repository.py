@@ -135,6 +135,11 @@ class EbayAuthRepository(AbstractRepository):
         rows = await self.execute_query(auth_queries.list_user_apps_query, (user_id,))
         return [dict(r) for r in rows] if rows else []
 
+    async def get_active_app_code_users(self) -> list[dict]:
+        """Return all (user_id, app_code) pairs with a non-expired refresh token."""
+        rows = await self.execute_query(auth_queries.GET_ACTIVE_APP_CODE_USERS, ())
+        return [dict(r) for r in rows]
+
     async def get_environment(self, app_code: str, user_id: Optional[UUID] = None) -> Optional[str]:
         query = "SELECT environment FROM app_integration.app_info WHERE app_code = $1"
         rows = await self.execute_query(query, (app_code,))

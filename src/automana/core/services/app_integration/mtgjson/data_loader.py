@@ -72,6 +72,29 @@ async def stage_mtgjson_data(
 
 
 @ServiceRegistry.register(
+    "mtgjson.data.download.all_identifiers",
+    api_repositories=["mtgjson"],
+    storage_services=["mtgjson"],
+)
+async def download_all_identifiers(
+    mtgjson_repository: ApimtgjsonRepository,
+    storage_service: StorageService,
+) -> dict:
+    """Stream AllIdentifiers.json from the MTGJson API to a fixed path on disk.
+
+    Returns `identifiers_filename` so the downstream `sync_uuid_mappings` step
+    picks up the refreshed file via the run_service context-merge mechanism.
+    Fixed filename (no timestamp) — sync_uuid_mappings reads it by name and
+    the file is always current after this step runs.
+    """
+    dest_path = storage_service.build_path("AllIdentifiers.json")
+    logger.info("Starting MTGJson AllIdentifiers download")
+    await mtgjson_repository.fetch_all_identifiers_stream(dest_path)
+    logger.info("Streamed AllIdentifiers.json to disk", extra={"file": str(dest_path)})
+    return {"identifiers_filename": "AllIdentifiers.json"}
+
+
+@ServiceRegistry.register(
     "staging.mtgjson.sync_uuid_mappings",
     db_repositories=["mtgjson"],
     storage_services=["mtgjson"],
@@ -104,6 +127,15 @@ async def sync_uuid_mappings(
         scryfall_id = card_data.get("identifiers", {}).get("scryfallId")
         if scryfall_id:
             pairs.append((mtgjson_uuid, scryfall_id))
+        # foreignData carries separate MTGJson UUIDs for non-English prints,
+        # each with their own scryfallId. Without this loop, Japanese/French/etc.
+        # prints imported from Scryfall never get an mtgjson_id and therefore
+        # never get priced.
+        for fd in card_data.get("foreignData", []):
+            fd_uuid = fd.get("uuid")
+            fd_scryfall = fd.get("identifiers", {}).get("scryfallId")
+            if fd_uuid and fd_scryfall:
+                pairs.append((fd_uuid, fd_scryfall))
 
     logger.info(
         "MTGJson UUID pairs extracted",
@@ -221,10 +253,9 @@ async def stream_to_staging(
     # forbids when CALL is invoked from an atomic block. Running without
     # an outer transaction lets the proc's own checkpointing do its job.
     runs_in_transaction=False,
-    # A fresh 90-day staging load runs for several minutes (normalisation
-    # passes + per-batch upserts across millions of rows). 1h is a loose
-    # safety net — far above observed durations, well below "hung forever".
-    command_timeout=3600,
+    # A fresh 90-day staging load runs for up to several hours (normalisation
+    # passes + per-batch upserts across millions of rows). 4h safety net.
+    command_timeout=14400,
 )
 async def promote_to_price_observation(
     mtgjson_repository: MtgjsonRepository,

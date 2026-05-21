@@ -1,161 +1,211 @@
 // src/frontend/src/routes/collection.tsx
-import React, { useDeferredValue, useMemo, useState } from 'react'
+import React, { useDeferredValue, useMemo, useState, useCallback } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { AppShell } from '../components/layout/AppShell'
 import { TopBar } from '../components/layout/TopBar'
 import { Button } from '../components/ui/Button'
-import { AIBadge, type AIStatus } from '../components/design-system/AIBadge'
 import { Icon } from '../components/design-system/Icon'
-import { Pip, type ManaColor } from '../components/design-system/Pip'
 import { CollectionTable } from '../features/collection/components/CollectionTable'
+import { CollectionGrid } from '../features/collection/components/CollectionGrid'
 import {
-  MOCK_COLLECTION,
-  computeMetrics,
-  formatUSD,
-  type StatusFilter,
-  type ColorFilter,
-} from '../features/collection/mockCollection'
+  collectionsQueryOptions,
+  createCollection,
+  deleteCollectionEntry,
+} from '../features/collection/api'
+import { cn } from '../lib/cn'
+import { useInfiniteEntries } from '../features/collection/hooks/useInfiniteEntries'
+import { formatUSD } from '../lib/format'
 import styles from './Collection.module.css'
 
 export const Route = createFileRoute('/collection')({
   component: CollectionPage,
 })
 
-// ── Status filter config ────────────────────────────────────────
-const STATUS_FILTERS: { label: string; value: StatusFilter }[] = [
-  { label: 'All', value: 'all' },
-  { label: 'Listed', value: 'listed' },
-  { label: 'Ready', value: 'ready' },
-  { label: 'Watching', value: 'watching' },
-  { label: 'Vault', value: 'vault' },
-]
-
-const MANA_COLORS: { color: ManaColor; label: string }[] = [
-  { color: 'W', label: 'White' },
-  { color: 'U', label: 'Blue' },
-  { color: 'B', label: 'Black' },
-  { color: 'R', label: 'Red' },
-  { color: 'G', label: 'Green' },
-  { color: 'C', label: 'Colorless' },
-]
-
-// Color split bar fills
-const COLOR_FILL: Record<ManaColor, string> = {
-  W: '#fffbe6',
-  U: '#cfe7f5',
-  B: '#cbc2bf',
-  R: '#f5b9a4',
-  G: '#bce3c5',
-  C: '#dcd6cb',
-}
-
 type ViewMode = 'list' | 'grid'
+export type SortKey = 'name' | 'set' | 'finish' | 'purchase' | 'pl'
+export type SortDir = 'asc' | 'desc'
+
+const FINISH_ORDER: Record<string, number> = { NONFOIL: 0, FOIL: 1, ETCHED: 2 }
+
+const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+  { value: 'name',     label: 'Name' },
+  { value: 'set',      label: 'Set' },
+  { value: 'finish',   label: 'Finish' },
+  { value: 'purchase', label: 'Purchase' },
+  { value: 'pl',       label: 'P/L' },
+]
 
 function CollectionPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [query, setQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
-  const [colorFilter, setColorFilter] = useState<ColorFilter>('all')
-  // TODO: implement grid view card display; only list view is built
-  const [viewMode, setViewMode] = useState<ViewMode>('list')
+  const [viewMode, setViewMode] = useState<ViewMode>('grid')
+  const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null)
+  const [newCollectionName, setNewCollectionName] = useState('')
+  const [creatingNew, setCreatingNew] = useState(false)
+  const [sortBy, setSortBy] = useState<SortKey>('name')
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
+  const [finishFilter, setFinishFilter] = useState<Set<string>>(new Set())
+  const [statusFilter, setStatusFilter] = useState<Set<string>>(new Set())
+  const [filterPanelOpen, setFilterPanelOpen] = useState(false)
 
-  // Defer expensive re-filter on each keystroke
   const deferredQuery = useDeferredValue(query)
 
-  const filtered = useMemo(() => {
-    let cards = MOCK_COLLECTION
+  const { data: collections = [] } = useQuery(collectionsQueryOptions())
 
-    if (statusFilter !== 'all') {
-      cards = cards.filter((c) => c.aiStatus === statusFilter)
-    }
-    if (colorFilter !== 'all') {
-      cards = cards.filter((c) => c.colors.includes(colorFilter as ManaColor))
-    }
+  const activeCollectionId = selectedCollectionId ?? collections[0]?.collection_id ?? null
+
+  const {
+    allEntries: entries,
+    isFetchingMore,
+    hasMore,
+    sentinelRef,
+  } = useInfiniteEntries(activeCollectionId)
+  const isLoading = entries.length === 0 && isFetchingMore
+
+  const filtered = useMemo(() => {
+    let result = entries
     if (deferredQuery.trim()) {
       const q = deferredQuery.toLowerCase()
-      cards = cards.filter(
-        (c) =>
-          c.name.toLowerCase().includes(q) ||
-          c.setCode.toLowerCase().includes(q) ||
-          c.set.toLowerCase().includes(q)
+      result = result.filter(
+        (e) => e.card_name.toLowerCase().includes(q) || e.set_code.toLowerCase().includes(q),
       )
     }
+    if (finishFilter.size > 0)
+      result = result.filter((e) => finishFilter.has(e.finish))
+    if (statusFilter.size > 0)
+      result = result.filter((e) => statusFilter.has(e.status))
+    return result
+  }, [entries, deferredQuery, finishFilter, statusFilter])
 
-    return cards
-  }, [deferredQuery, statusFilter, colorFilter])
+  function handleSort(key: SortKey) {
+    if (key === sortBy) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortBy(key); setSortDir('asc') }
+  }
 
-  const metrics = useMemo(() => computeMetrics(MOCK_COLLECTION), [])
-  const readyCards = useMemo(
-    () => MOCK_COLLECTION.filter((c) => c.aiStatus === 'ready'),
-    []
-  )
-
-  // Color split calculation
-  const colorSplit = useMemo(() => {
-    const counts: Record<ManaColor, number> = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 }
-    for (const card of MOCK_COLLECTION) {
-      for (const color of card.colors) {
-        counts[color] += card.qty
-      }
-    }
-    const total = Object.values(counts).reduce((a, b) => a + b, 0) || 1
-    return MANA_COLORS.map(({ color, label }) => ({
-      color,
-      label,
-      pct: Math.round((counts[color] / total) * 100),
-    }))
+  const toggleFinish = useCallback((value: string) => {
+    setFinishFilter((prev) => {
+      const next = new Set(prev)
+      next.has(value) ? next.delete(value) : next.add(value)
+      return next
+    })
   }, [])
 
-  function handleList(_card: { name: string }) {
-    navigate({ to: '/listings' })
+  const toggleStatus = useCallback((value: string) => {
+    setStatusFilter((prev) => {
+      const next = new Set(prev)
+      next.has(value) ? next.delete(value) : next.add(value)
+      return next
+    })
+  }, [])
+
+  const clearFilters = useCallback(() => {
+    setFinishFilter(new Set())
+    setStatusFilter(new Set())
+  }, [])
+
+  const hasActiveFilters = finishFilter.size > 0 || statusFilter.size > 0
+
+  const sorted = useMemo(() => {
+    return [...filtered].sort((a, b) => {
+      let cmp = 0
+      switch (sortBy) {
+        case 'name':     cmp = a.card_name.localeCompare(b.card_name); break
+        case 'set':      cmp = a.set_code.localeCompare(b.set_code); break
+        case 'finish':   cmp = (FINISH_ORDER[a.finish] ?? 0) - (FINISH_ORDER[b.finish] ?? 0); break
+        case 'purchase': cmp = Number(a.purchase_price) - Number(b.purchase_price); break
+        case 'pl': {
+          const plA = (a.price ?? 0) - Number(a.purchase_price)
+          const plB = (b.price ?? 0) - Number(b.purchase_price)
+          cmp = plA - plB; break
+        }
+      }
+      return sortDir === 'asc' ? cmp : -cmp
+    })
+  }, [filtered, sortBy, sortDir])
+
+  const metrics = useMemo(() => {
+    const totalValue = entries.reduce((s, e) => s + (e.price ?? 0), 0)
+    const costBasis = entries.reduce((s, e) => s + Number(e.purchase_price), 0)
+    return { totalValue, costBasis, pl: totalValue - costBasis, count: entries.length }
+  }, [entries])
+
+  async function handleRemove(itemId: string) {
+    if (!activeCollectionId) return
+    await deleteCollectionEntry(activeCollectionId, itemId)
+    window.location.reload()
   }
 
-  function handleMore(_card: unknown) {
-    // TODO: open card context menu / drawer
+  async function handleCreateCollection() {
+    if (!newCollectionName.trim()) return
+    const col = await createCollection(newCollectionName.trim())
+    queryClient.invalidateQueries({ queryKey: collectionsQueryOptions().queryKey })
+    setSelectedCollectionId(col.collection_id)
+    setCreatingNew(false)
+    setNewCollectionName('')
   }
 
-  function handleBulkList() {
-    navigate({ to: '/listings' })
-  }
-
-  const plSign = metrics.unrealizedPL >= 0 ? '+' : ''
+  const plSign = metrics.pl >= 0 ? '+' : '-'
 
   return (
     <AppShell active="collection">
       <TopBar title="Collection" />
 
       <div className={styles.page}>
-        {/* ── Header ──────────────────────────────── */}
         <header className={styles.header}>
           <div className={styles.titleBlock}>
             <div className={styles.eyebrow}>automana / collection</div>
             <h1 className={styles.title}>Your vault</h1>
           </div>
           <div className={styles.headerActions}>
-            <Button variant="ghost" size="sm">
-              Import CSV
-            </Button>
-            <Button variant="ghost" size="sm" icon={<Icon kind="plus" size={13} color="currentColor" />}>
-              Add cards
-            </Button>
             <Button
               variant="accent"
               size="sm"
               icon={<Icon kind="tag" size={13} color="currentColor" />}
-              onClick={handleBulkList}
+              onClick={() => navigate({ to: '/listings' })}
             >
               Bulk list
             </Button>
           </div>
         </header>
 
-        {/* ── Metrics strip ─────────────────────── */}
+        <div className={styles.tabRow}>
+          {collections.map((col) => (
+            <button
+              key={col.collection_id}
+              className={cn(styles.tab, col.collection_id === activeCollectionId && styles.tabActive)}
+              onClick={() => setSelectedCollectionId(col.collection_id)}
+            >
+              {col.collection_name}
+            </button>
+          ))}
+          {creatingNew ? (
+            <input
+              className={styles.newCollectionInput}
+              autoFocus
+              placeholder="Collection name…"
+              value={newCollectionName}
+              onChange={(e) => setNewCollectionName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleCreateCollection()
+                if (e.key === 'Escape') setCreatingNew(false)
+              }}
+              onBlur={() => { if (!newCollectionName.trim()) setCreatingNew(false) }}
+            />
+          ) : (
+            <button className={styles.tabNew} onClick={() => setCreatingNew(true)}>
+              + New
+            </button>
+          )}
+        </div>
+
         <section aria-label="Portfolio metrics">
           <div className={styles.metricsStrip}>
             <div className={styles.metricCard}>
               <div className={styles.metricLabel}>Total value</div>
               <div className={styles.metricValue}>{formatUSD(metrics.totalValue)}</div>
-              <div className={styles.metricSub}>across {metrics.cardsOwned} cards</div>
+              <div className={styles.metricSub}>across {metrics.count} cards</div>
             </div>
             <div className={styles.metricCard}>
               <div className={styles.metricLabel}>Cost basis</div>
@@ -164,246 +214,149 @@ function CollectionPage() {
             </div>
             <div className={styles.metricCard}>
               <div className={styles.metricLabel}>Unrealized P/L</div>
-              <div
-                className={[
-                  styles.metricValue,
-                  metrics.unrealizedPL >= 0 ? styles.positive : styles.negative,
-                ].join(' ')}
-              >
-                {plSign}{formatUSD(metrics.unrealizedPL)}
+              <div className={cn(styles.metricValue, metrics.pl >= 0 ? styles.positive : styles.negative)}>
+                {plSign}{formatUSD(Math.abs(metrics.pl))}
               </div>
               <div className={styles.metricSub}>vs cost basis</div>
             </div>
             <div className={styles.metricCard}>
               <div className={styles.metricLabel}>Cards owned</div>
-              <div className={styles.metricValue}>{metrics.cardsOwned}</div>
-              <div className={styles.metricSub}>unique printings</div>
+              <div className={styles.metricValue}>{metrics.count}</div>
+              <div className={styles.metricSub}>unique entries</div>
             </div>
-            <button
-              className={[styles.metricCard, styles.metricCardLink].join(' ')}
-              onClick={() => navigate({ to: '/listings' })}
-              aria-label="View eBay listings"
-            >
-              <div className={styles.metricLabel}>Listed on eBay</div>
-              <div className={styles.metricValue}>{metrics.listedOnEbay}</div>
-              <div className={styles.metricSub}>active listings</div>
-            </button>
           </div>
         </section>
 
-        {/* ── AI banner ─────────────────────────── */}
-        {readyCards.length > 0 && (
-          <section aria-label="AI listing recommendations">
-            <div className={styles.aiBanner}>
-              <div className={styles.aiBannerLeft}>
-                <div className={styles.aiBannerIcon}>
-                  <Icon kind="sparkle" size={18} color="var(--hd-accent)" />
-                </div>
-                <div className={styles.aiBannerText}>
-                  <div className={styles.aiBannerHeadline}>
-                    {readyCards.length} card{readyCards.length !== 1 ? 's' : ''} ready to list
-                  </div>
-                  <div className={styles.aiBannerSub}>
-                    Price strategy met — list now to lock in gains
-                  </div>
-                </div>
-              </div>
-              <div className={styles.aiBannerActions}>
-                <Button variant="ghost" size="sm" onClick={() => setStatusFilter('ready')}>
-                  Review
-                </Button>
-                <Button
-                  variant="accent"
-                  size="sm"
-                  icon={<Icon kind="tag" size={12} color="currentColor" />}
-                  onClick={handleBulkList}
-                >
-                  List all {readyCards.length}
-                </Button>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* ── Main content grid ─────────────────── */}
-        <div className={styles.contentGrid}>
-          {/* Left: table */}
-          <div>
-            {/* Toolbar */}
-            <div className={styles.toolbar} role="toolbar" aria-label="Collection filters">
-              {/* Search */}
-              <div className={styles.searchBox}>
-                <Icon kind="search" size={14} color="var(--hd-sub)" />
-                <input
-                  className={styles.searchInput}
-                  type="search"
-                  placeholder="Search cards, sets…"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  aria-label="Search collection"
-                />
-              </div>
-
-              {/* Status chips */}
-              <div className={styles.filterChips} role="group" aria-label="Filter by status">
-                {STATUS_FILTERS.map(({ label, value }) => (
-                  <button
-                    key={value}
-                    className={[
-                      styles.filterChip,
-                      statusFilter === value ? styles.filterChipActive : '',
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                    onClick={() => setStatusFilter(value)}
-                    aria-pressed={statusFilter === value}
-                  >
-                    {value !== 'all' && (
-                      <AIBadge status={value as AIStatus} showLabel={false} />
-                    )}
-                    {label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Color pip filter */}
-              <div className={styles.colorFilters} role="group" aria-label="Filter by color">
-                {MANA_COLORS.map(({ color, label }) => (
-                  <button
-                    key={color}
-                    className={[
-                      styles.colorFilterBtn,
-                      colorFilter === color ? styles.colorFilterBtnActive : '',
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                    onClick={() =>
-                      setColorFilter((prev) => (prev === color ? 'all' : color))
-                    }
-                    aria-pressed={colorFilter === color}
-                    aria-label={`Filter by ${label}`}
-                    title={label}
-                  >
-                    <Pip color={color} size={20} />
-                  </button>
-                ))}
-              </div>
-
-              {/* View toggle */}
-              <div className={styles.toolbarRight}>
-                <div
-                  className={styles.viewToggle}
-                  role="group"
-                  aria-label="View mode"
-                >
-                  <button
-                    className={[
-                      styles.viewBtn,
-                      viewMode === 'list' ? styles.viewBtnActive : '',
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                    onClick={() => setViewMode('list')}
-                    aria-pressed={viewMode === 'list'}
-                    aria-label="List view"
-                    title="List view"
-                  >
-                    <Icon kind="list" size={14} color="currentColor" />
-                  </button>
-                  <button
-                    className={[
-                      styles.viewBtn,
-                      viewMode === 'grid' ? styles.viewBtnActive : '',
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                    onClick={() => setViewMode('grid')}
-                    aria-pressed={viewMode === 'grid'}
-                    aria-label="Grid view"
-                    title="Grid view (coming soon)"
-                  >
-                    <Icon kind="grid" size={14} color="currentColor" />
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Collection table */}
-            <CollectionTable
-              cards={filtered}
-              onList={handleList}
-              onMore={handleMore}
+        <div className={styles.toolbar} role="toolbar" aria-label="Collection filters">
+          <div className={styles.searchBox}>
+            <Icon kind="search" size={14} color="var(--hd-sub)" />
+            <input
+              className={styles.searchInput}
+              type="search"
+              placeholder="Search cards, sets…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              aria-label="Search collection"
             />
           </div>
-
-          {/* Right: sidebar */}
-          <aside className={styles.sidebar} aria-label="Collection sidebar">
-            {/* Listing status legend */}
-            <div className={styles.sidePanel}>
-              <div className={styles.sidePanelTitle}>Listing status</div>
-              {(
-                [
-                  { status: 'listed', desc: 'Currently on eBay' },
-                  { status: 'ready', desc: 'Price meets strategy' },
-                  { status: 'watching', desc: 'Bot watching for peak' },
-                  { status: 'vault', desc: 'No automation' },
-                ] as { status: AIStatus; desc: string }[]
-              ).map(({ status, desc }) => (
-                <div key={status} className={styles.legendRow}>
-                  <AIBadge status={status} showLabel />
-                  <span style={{ fontSize: 11, color: 'var(--hd-sub)', marginLeft: 8 }}>
-                    {desc}
-                  </span>
-                </div>
-              ))}
+          <button
+            className={cn(styles.filterBtn, filterPanelOpen && styles.filterBtnActive)}
+            onClick={() => setFilterPanelOpen((o) => !o)}
+            aria-expanded={filterPanelOpen}
+            aria-label="Toggle filters"
+          >
+            ⊞ Filters{hasActiveFilters ? ` (${finishFilter.size + statusFilter.size})` : ''}
+          </button>
+          <div className={styles.toolbarRight}>
+            <div className={styles.sortControl}>
+              <select
+                className={styles.sortSelect}
+                value={sortBy}
+                onChange={(e) => handleSort(e.target.value as SortKey)}
+                aria-label="Sort by"
+              >
+                {SORT_OPTIONS.map(o => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+              <button
+                className={styles.sortDirBtn}
+                onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')}
+                aria-label={sortDir === 'asc' ? 'Sort ascending' : 'Sort descending'}
+                title={sortDir === 'asc' ? 'Ascending' : 'Descending'}
+              >
+                {sortDir === 'asc' ? '↑' : '↓'}
+              </button>
             </div>
+            <div className={styles.viewToggle} role="group" aria-label="View mode">
+              <button
+                className={cn(styles.viewBtn, viewMode === 'grid' && styles.viewBtnActive)}
+                onClick={() => setViewMode('grid')}
+                aria-pressed={viewMode === 'grid'}
+                aria-label="Grid view"
+                title="Grid view"
+              >
+                <Icon kind="grid" size={14} color="currentColor" />
+              </button>
+              <button
+                className={cn(styles.viewBtn, viewMode === 'list' && styles.viewBtnActive)}
+                onClick={() => setViewMode('list')}
+                aria-pressed={viewMode === 'list'}
+                aria-label="List view"
+                title="List view"
+              >
+                <Icon kind="list" size={14} color="currentColor" />
+              </button>
+            </div>
+          </div>
+        </div>
 
-            {/* Ready to list */}
-            {readyCards.length > 0 && (
-              <div className={styles.sidePanel}>
-                <div className={styles.sidePanelTitle}>
-                  Ready to list ({readyCards.length})
-                </div>
-                {readyCards.map((card) => (
-                  <div key={card.id} className={styles.readyCard}>
-                    <div className={styles.readyCardName}>{card.name}</div>
-                    <div className={styles.readyCardPrice}>
-                      {formatUSD(card.marketPrice)}
-                    </div>
-                  </div>
+        {filterPanelOpen && (
+          <div className={styles.filterPanel}>
+            <div className={styles.filterGroup}>
+              <div className={styles.filterGroupLabel}>Finish</div>
+              <div className={styles.filterGroupPills}>
+                {(['NONFOIL', 'FOIL', 'ETCHED'] as const).map((f) => (
+                  <button
+                    key={f}
+                    className={cn(styles.filterPill, finishFilter.has(f) && styles.filterPillActive)}
+                    onClick={() => toggleFinish(f)}
+                  >
+                    {f}
+                  </button>
                 ))}
               </div>
-            )}
-
-            {/* Color split */}
-            <div className={styles.sidePanel}>
-              <div className={styles.sidePanelTitle}>Color split</div>
-              {colorSplit
-                .filter(({ pct }) => pct > 0)
-                .map(({ color, label, pct }) => (
-                  <div key={color} className={styles.colorSplitRow}>
-                    <Pip color={color} size={13} />
-                    <span className={styles.colorSplitLabel}>{label}</span>
-                    <div className={styles.colorSplitBar}>
-                      <div
-                        className={styles.colorSplitFill}
-                        style={{
-                          width: `${pct}%`,
-                          background: COLOR_FILL[color],
-                        }}
-                        role="progressbar"
-                        aria-valuenow={pct}
-                        aria-valuemin={0}
-                        aria-valuemax={100}
-                        aria-label={`${label} ${pct}%`}
-                      />
-                    </div>
-                    <span className={styles.colorSplitValue}>{pct}%</span>
-                  </div>
-                ))}
             </div>
-          </aside>
-        </div>
+            <div className={styles.filterGroup}>
+              <div className={styles.filterGroupLabel}>Status</div>
+              <div className={styles.filterGroupPills}>
+                {(['purchased', 'listed', 'stashed', 'sold'] as const).map((s) => (
+                  <button
+                    key={s}
+                    className={cn(styles.filterPill, statusFilter.has(s) && styles.filterPillActive)}
+                    onClick={() => toggleStatus(s)}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {hasActiveFilters && (
+          <div className={styles.filterRow}>
+            {[...finishFilter].map((f) => (
+              <button key={f} className={styles.filterPillDismiss} onClick={() => toggleFinish(f)}>
+                Finish: {f} ×
+              </button>
+            ))}
+            {[...statusFilter].map((s) => (
+              <button key={s} className={styles.filterPillDismiss} onClick={() => toggleStatus(s)}>
+                Status: {s} ×
+              </button>
+            ))}
+            <button className={styles.clearAll} onClick={clearFilters}>Clear all</button>
+          </div>
+        )}
+
+        {isLoading ? (
+          <div className={styles.loading}>Loading…</div>
+        ) : viewMode === 'grid' ? (
+          <CollectionGrid entries={sorted} onRemove={handleRemove} />
+        ) : (
+          <CollectionTable
+            entries={sorted}
+            onRemove={handleRemove}
+            sortBy={sortBy}
+            sortDir={sortDir}
+            onSort={handleSort}
+            collectionId={activeCollectionId ?? undefined}
+          />
+        )}
+
+        {isFetchingMore && <div className={styles.loadingMore}>Loading more…</div>}
+        {hasMore && !isFetchingMore && <div ref={sentinelRef} className={styles.sentinel} />}
       </div>
     </AppShell>
   )

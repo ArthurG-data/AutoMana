@@ -1,10 +1,19 @@
 // src/frontend/src/features/cards/components/__tests__/GameInfoCard.test.tsx
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { GameInfoCard } from '../GameInfoCard'
 
-vi.mock('../../../../components/design-system/Pip', () => ({
-  Pip: () => <span data-testid="pip" />,
+const navigateSpy = vi.fn()
+vi.mock('@tanstack/react-router', () => ({
+  useNavigate: () => navigateSpy,
+}))
+vi.mock('../../../../components/design-system/ManaSymbol', () => ({
+  ManaSymbol: ({ symbol }: { symbol: string }) => (
+    <span data-testid="mana-symbol" data-symbol={symbol} />
+  ),
+  renderSymbolsInText: (text: string) => [
+    <span key="rendered" data-testid="oracle-line">{text}</span>,
+  ],
 }))
 vi.mock('../LegalityGrid', () => ({
   LegalityGrid: ({ legalities }: { legalities: Record<string, string> }) => (
@@ -53,20 +62,28 @@ describe('GameInfoCard', () => {
     expect(screen.queryByText(/^#/)).toBeNull()
   })
 
-  it('renders one badge per promo type', () => {
+  it('renders one badge per promo type with formatted labels', () => {
     render(<GameInfoCard {...BASE} promoTypes={['boosterfun', 'showcase']} />)
-    expect(screen.getByText(/boosterfun/)).toBeTruthy()
-    expect(screen.getByText(/showcase/)).toBeTruthy()
+    expect(screen.getByText(/Booster Fun/)).toBeTruthy()
+    expect(screen.getByText(/Showcase/)).toBeTruthy()
   })
 
-  it('renders mana cost text when provided', () => {
-    render(<GameInfoCard {...BASE} manaCost="{R}{W}" />)
-    expect(screen.getByText('{R}{W}')).toBeTruthy()
+  it('falls back to capitalized raw value for unknown promo types', () => {
+    render(<GameInfoCard {...BASE} promoTypes={['weirdthing']} />)
+    expect(screen.getByText(/Weirdthing/)).toBeTruthy()
   })
 
-  it('renders one pip per colored symbol in mana cost', () => {
-    render(<GameInfoCard {...BASE} manaCost="{R}{W}" />)
-    expect(screen.getAllByTestId('pip').length).toBe(2)
+  it('renders one ManaSymbol per token in the mana cost', () => {
+    render(<GameInfoCard {...BASE} manaCost="{2}{R}{W}" />)
+    const symbols = screen.getAllByTestId('mana-symbol')
+    expect(symbols.length).toBe(3)
+    expect(symbols.map((s) => s.dataset.symbol)).toEqual(['2', 'R', 'W'])
+  })
+
+  it('renders hybrid mana tokens correctly (W/U)', () => {
+    render(<GameInfoCard {...BASE} manaCost="{W/U}{B/G}" />)
+    const symbols = screen.getAllByTestId('mana-symbol')
+    expect(symbols.map((s) => s.dataset.symbol)).toEqual(['W/U', 'B/G'])
   })
 
   it('renders type line when provided', () => {
@@ -83,7 +100,14 @@ describe('GameInfoCard', () => {
 
   it('renders artist in footer when provided', () => {
     render(<GameInfoCard {...BASE} artist="Kev Walker" />)
-    expect(screen.getByText(/Illus. Kev Walker/)).toBeTruthy()
+    expect(screen.getByText('Kev Walker')).toBeTruthy()
+  })
+
+  it('clicking the artist name navigates to /search filtered by artist', () => {
+    navigateSpy.mockClear()
+    render(<GameInfoCard {...BASE} artist="Kev Walker" />)
+    fireEvent.click(screen.getByText('Kev Walker'))
+    expect(navigateSpy).toHaveBeenCalledWith({ to: '/search', search: { artist: 'Kev Walker' } })
   })
 
   it('omits footer when artist missing', () => {
@@ -119,5 +143,28 @@ describe('GameInfoCard', () => {
 
     rerender(<GameInfoCard {...BASE} rarityName="common" />)
     expect(container.firstChild?.className).toMatch(/rarityCommon/)
+  })
+
+  it('clicking the set name navigates to /search filtered by that set', () => {
+    navigateSpy.mockClear()
+    render(<GameInfoCard {...BASE} />)
+    fireEvent.click(screen.getByText('Ravnica Remastered'))
+    expect(navigateSpy).toHaveBeenCalledWith({ to: '/search', search: { set: 'rvr' } })
+  })
+
+  it('clicking the set icon button navigates to /search filtered by that set', () => {
+    navigateSpy.mockClear()
+    const { container } = render(<GameInfoCard {...BASE} />)
+    const iconBtn = container.querySelector('button[aria-label*="Search"]') as HTMLButtonElement
+    fireEvent.click(iconBtn)
+    expect(navigateSpy).toHaveBeenCalledWith({ to: '/search', search: { set: 'rvr' } })
+  })
+
+  it('does not navigate when setCode is undefined', () => {
+    navigateSpy.mockClear()
+    render(<GameInfoCard cardName="Mystery" />)
+    const allButtons = document.querySelectorAll('button')
+    allButtons.forEach((b) => fireEvent.click(b))
+    expect(navigateSpy).not.toHaveBeenCalled()
   })
 })

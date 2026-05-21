@@ -21,7 +21,7 @@ export interface RegisterEbayAppRequest {
   environment: 'SANDBOX' | 'PRODUCTION'
   ebay_app_id: string
   client_secret: string
-  redirect_uri: string
+  ru_name: string
   allowed_scopes: string[]
 }
 
@@ -39,7 +39,7 @@ export async function registerEbayApp(data: RegisterEbayAppRequest): Promise<Reg
       environment: data.environment,
       ebay_app_id: data.ebay_app_id,
       client_secret: data.client_secret,
-      redirect_uri: data.redirect_uri,
+      ru_name: data.ru_name,
       allowed_scopes: data.allowed_scopes,
       // Fixed per backend contract: app_code auto-generated, OAuth2 auth-code flow, premium tier only
       app_code: '',
@@ -118,6 +118,33 @@ interface RawEbayItem {
       | Array<{ Name: string; Value: string | string[] }>
       | { Name: string; Value: string | string[] }
   } | null
+  catalogFinish?: string | null
+  catalogCondition?: string | null
+  cardVersionId?: string | null
+}
+
+function catalogFinishToLabel(code: string | null | undefined): string {
+  switch (code?.toUpperCase()) {
+    case 'NONFOIL':     return 'Regular'
+    case 'FOIL':        return 'Foil'
+    case 'ETCHED':      return 'Etched Foil'
+    case 'SURGE_FOIL':  return 'Surge Foil'
+    case 'RIPPLE_FOIL': return 'Ripple Foil'
+    case 'RAINBOW_FOIL':return 'Rainbow Foil'
+    default:            return ''
+  }
+}
+
+function catalogConditionToLabel(code: string | null | undefined): string {
+  switch (code?.toUpperCase()) {
+    case 'NM':  return 'Near Mint'
+    case 'LP':  return 'Lightly Played'
+    case 'SP':  return 'Slightly Played'
+    case 'MP':  return 'Moderately Played'
+    case 'HP':  return 'Heavily Played'
+    case 'DMG': return 'Damaged'
+    default:    return ''
+  }
 }
 
 // Generic eBay condition ID → label fallback for when ConditionDisplayName is absent.
@@ -198,19 +225,23 @@ function mapToLiveListing(raw: RawEbayItem): Omit<EbayLiveListing, 'appCode' | '
     price: Number(priceObj?.value ?? 0),
     currency: priceObj?.currency ?? 'AUD',
     conditionLabel:
-      raw.conditionDisplayName ??
-      raw.conditionDescription ??
+      catalogConditionToLabel(raw.catalogCondition) ||
+      raw.conditionDisplayName ||
+      raw.conditionDescription ||
       ebayConditionLabel(raw.conditionID),
     conditionId: raw.conditionID ?? undefined,
     quantity: raw.quantity ?? undefined,
-    // ItemSpecifics is the primary source; fall back to title-extracted value.
-    finish: getFinish(raw.itemSpecifics) || titleFinish || 'Regular',
+    // Prefer catalog-resolved finish (from ebay_active_listings FK); fall back to ItemSpecifics then title.
+    finish: catalogFinishToLabel(raw.catalogFinish) || getFinish(raw.itemSpecifics) || titleFinish || 'Regular',
     style: getStyle(raw.itemSpecifics) || titleStyle,
     daysListed: calcDaysListed(raw.listingDetails?.startTime),
     watchCount: raw.watchCount ?? 0,
     viewItemUrl:
       raw.listingDetails?.viewItemUrl ?? `https://www.ebay.com.au/itm/${itemId}`,
     imageUrl: getImageUrl(raw.pictureDetails),
+    cardVersionId: raw.cardVersionId ?? null,
+    catalogConditionCode: raw.catalogCondition ?? null,
+    catalogFinishCode: raw.catalogFinish ?? null,
   }
 }
 
@@ -423,6 +454,78 @@ export async function updateOrderLocalStatus(
       body: JSON.stringify({ app_code: appCode, local_status: localStatus }),
     },
   )
+}
+
+// ── Strategy recommendations ───────────────────────────────────────────────
+
+export interface ListingRecommendation {
+  item_id: string
+  suggested_action: 'raise' | 'lower' | 'hold' | 'draft'
+  strategy_kind: string
+  suggested_price: number | null
+  confidence: number
+  signals_used: 'behavioral' | 'market'
+  all_strategies: Record<string, { price: number; description: string; confidence: number }>
+}
+
+export interface StageActionResponse {
+  action_id: string
+  created: boolean
+}
+
+export interface PendingAction {
+  id: string
+  item_id: string
+  action_type: 'raise' | 'lower' | 'hold' | 'draft'
+  strategy_kind: string
+  suggested_price: number | null
+  status: 'pending' | 'processing'
+}
+
+export async function fetchRecommendation(
+  appCode: string,
+  item: EbayLiveListing,
+): Promise<ListingRecommendation> {
+  return apiClient<ListingRecommendation>(
+    `/integrations/ebay/recommendations/${encodeURIComponent(item.itemId)}?app_code=${encodeURIComponent(appCode)}`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        days_listed: item.daysListed,
+        watch_count: item.watchCount,
+        price: item.price,
+        currency: item.currency,
+      }),
+    }
+  )
+}
+
+export async function stageAction(
+  appCode: string,
+  itemId: string,
+  payload: {
+    action_type: 'raise' | 'lower' | 'hold' | 'draft'
+    strategy_kind: string
+    suggested_price?: number | null
+  },
+): Promise<StageActionResponse> {
+  return apiClient<StageActionResponse>(
+    `/integrations/ebay/recommendations/${encodeURIComponent(itemId)}/stage?app_code=${encodeURIComponent(appCode)}`,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }
+  )
+}
+
+export async function fetchPendingAction(
+  itemId: string,
+): Promise<PendingAction | null> {
+  const result = await apiClient<PendingAction | { pending: null }>(
+    `/integrations/ebay/recommendations/${encodeURIComponent(itemId)}/pending`,
+  )
+  if (!result || 'pending' in result) return null
+  return result as PendingAction
 }
 
 // ── Market price research ──────────────────────────────────────────────────

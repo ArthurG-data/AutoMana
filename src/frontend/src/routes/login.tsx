@@ -3,7 +3,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useState, useId } from 'react'
 import { CardArt } from '../components/design-system/CardArt'
 import { useAuthStore } from '../store/auth'
-import { postLogin, postSignup, getMe } from '../features/auth/api'
+import { postLogin, postSignup, getMe, postForgotPassword } from '../features/auth/api'
 import styles from './Login.module.css'
 
 export const Route = createFileRoute('/login')({
@@ -12,7 +12,7 @@ export const Route = createFileRoute('/login')({
 
 const CARD_NAMES = ['Ragavan', 'Mox Diamond', 'Sheoldred', 'One Ring']
 
-type Mode = 'login' | 'signup'
+type Mode = 'login' | 'signup' | 'forgot'
 
 function LoginPage() {
   const [mode, setMode] = useState<Mode>('login')
@@ -21,6 +21,7 @@ function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [resetSent, setResetSent] = useState(false)
 
   const navigate = useNavigate()
   const login = useAuthStore((s) => s.login)
@@ -32,6 +33,7 @@ function LoginPage() {
     setEmail('')
     setUsername('')
     setPassword('')
+    setResetSent(false)
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -40,20 +42,19 @@ function LoginPage() {
     setSubmitting(true)
 
     try {
+      if (mode === 'forgot') {
+        await postForgotPassword(email)
+        setResetSent(true)
+        return
+      }
+
       if (mode === 'signup') {
         await postSignup({ username, email, password })
       }
 
-      // Login (both for login mode and auto-login after signup)
       const tokens = await postLogin(email, password)
-
-      // Hydrate username from /me (UserPublic does not expose email; we already have it from the form)
       const me = await getMe(tokens.access_token)
-      login(tokens.access_token, {
-        username: me.username,
-        email,
-      })
-
+      login(tokens.access_token, { username: me.username, email })
       navigate({ to: '/' })
     } catch (err: unknown) {
       const e = err as { status?: number; message?: string }
@@ -61,7 +62,7 @@ function LoginPage() {
         setError('An account with that email or username already exists.')
       } else if (mode === 'signup' && e.status === 422) {
         setError('Please fill in all required fields correctly.')
-      } else if (e.status === 401) {
+      } else if (mode === 'login' && e.status === 401) {
         setError('Invalid email or password.')
       } else {
         setError(e.message ?? 'Something went wrong. Please try again.')
@@ -72,6 +73,21 @@ function LoginPage() {
   }
 
   const isLogin = mode === 'login'
+  const isForgot = mode === 'forgot'
+
+  const leftEyebrow = isLogin ? '● welcome back' : isForgot ? '● account recovery' : '● get started'
+  const leftHeadline = isLogin ? (
+    <>The market<br /><span className={styles.leftHeadlineAccent}>moves while you sleep.</span></>
+  ) : isForgot ? (
+    <>Reset your<br /><span className={styles.leftHeadlineAccent}>password.</span></>
+  ) : (
+    <>Track every card,<br /><span className={styles.leftHeadlineAccent}>every price move.</span></>
+  )
+  const leftSub = isLogin
+    ? 'Sign in to see what your collection did overnight, manage active eBay listings, and catch every price swing.'
+    : isForgot
+    ? "Enter your email and we'll send you a link to reset your password."
+    : 'Create your account and start tracking your MTG collection with real-time pricing and eBay integration.'
 
   return (
     <div className={styles.page}>
@@ -85,27 +101,9 @@ function LoginPage() {
           </span>
         </div>
         <div className={styles.leftContent}>
-          <div className={styles.leftEyebrow}>
-            {isLogin ? '● welcome back' : '● get started'}
-          </div>
-          <h1 className={styles.leftHeadline}>
-            {isLogin ? (
-              <>
-                The market<br />
-                <span className={styles.leftHeadlineAccent}>moves while you sleep.</span>
-              </>
-            ) : (
-              <>
-                Track every card,<br />
-                <span className={styles.leftHeadlineAccent}>every price move.</span>
-              </>
-            )}
-          </h1>
-          <p className={styles.leftSub}>
-            {isLogin
-              ? 'Sign in to see what your collection did overnight, manage active eBay listings, and catch every price swing.'
-              : 'Create your account and start tracking your MTG collection with real-time pricing and eBay integration.'}
-          </p>
+          <div className={styles.leftEyebrow}>{leftEyebrow}</div>
+          <h1 className={styles.leftHeadline}>{leftHeadline}</h1>
+          <p className={styles.leftSub}>{leftSub}</p>
         </div>
         <div className={styles.cardStack}>
           {CARD_NAMES.map((name, i) => (
@@ -124,119 +122,190 @@ function LoginPage() {
 
       {/* ── Right panel ── */}
       <div className={styles.right}>
-        <div className={styles.formTitle}>{isLogin ? 'Log in' : 'Create account'}</div>
-        <div className={styles.formSub}>
-          {isLogin ? (
+        {isForgot ? (
+          resetSent ? (
             <>
-              Don't have an account?{' '}
-              <button
-                type="button"
-                className={styles.formSubLink}
-                onClick={() => switchMode('signup')}
-              >
-                Create one
-              </button>
+              <div className={styles.formTitle}>Check your inbox</div>
+              <div className={styles.formSub}>
+                A reset link is on its way. It expires in 30 minutes.
+              </div>
+              <div style={{ marginTop: 24 }}>
+                <button
+                  type="button"
+                  className={styles.formSubLink}
+                  onClick={() => switchMode('login')}
+                >
+                  ← Back to log in
+                </button>
+              </div>
             </>
           ) : (
             <>
-              Already have an account?{' '}
-              <button
-                type="button"
-                className={styles.formSubLink}
-                onClick={() => switchMode('login')}
-              >
-                Log in
-              </button>
+              <div className={styles.formTitle}>Reset password</div>
+              <div className={styles.formSub}>
+                Remembered it?{' '}
+                <button
+                  type="button"
+                  className={styles.formSubLink}
+                  onClick={() => switchMode('login')}
+                >
+                  Log in
+                </button>
+              </div>
+              <form id={formId} onSubmit={handleSubmit} className={styles.fields} noValidate>
+                <div>
+                  <label htmlFor={`${formId}-email`} className={styles.fieldLabel}>
+                    Email
+                  </label>
+                  <input
+                    id={`${formId}-email`}
+                    className={styles.input}
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    autoComplete="email"
+                    required
+                  />
+                </div>
+                {error && (
+                  <div className={styles.errorBanner} role="alert">
+                    {error}
+                  </div>
+                )}
+                <button
+                  type="submit"
+                  className={styles.submitBtn}
+                  disabled={submitting}
+                  aria-busy={submitting}
+                >
+                  {submitting ? 'Sending...' : 'Send reset link →'}
+                </button>
+              </form>
             </>
-          )}
-        </div>
-
-        <form
-          id={formId}
-          onSubmit={handleSubmit}
-          className={styles.fields}
-          noValidate
-        >
-          {/* Username — signup only */}
-          {!isLogin && (
-            <div>
-              <label htmlFor={`${formId}-username`} className={styles.fieldLabel}>
-                Username
-              </label>
-              <input
-                id={`${formId}-username`}
-                className={styles.input}
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="yourname"
-                autoComplete="username"
-                required
-                minLength={3}
-                maxLength={50}
-              />
-            </div>
-          )}
-
-          <div>
-            <label htmlFor={`${formId}-email`} className={styles.fieldLabel}>
-              Email
-            </label>
-            <input
-              id={`${formId}-email`}
-              className={styles.input}
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              autoComplete="email"
-              required
-            />
-          </div>
-
-          <div>
-            <div className={styles.fieldHeader}>
-              <label htmlFor={`${formId}-password`} className={styles.fieldLabel}>
-                Password
-              </label>
-              {isLogin && (
-                <span className={styles.forgotLink}>Forgot?</span>
+          )
+        ) : (
+          <>
+            <div className={styles.formTitle}>{isLogin ? 'Log in' : 'Create account'}</div>
+            <div className={styles.formSub}>
+              {isLogin ? (
+                <>
+                  Don't have an account?{' '}
+                  <button
+                    type="button"
+                    className={styles.formSubLink}
+                    onClick={() => switchMode('signup')}
+                  >
+                    Create one
+                  </button>
+                </>
+              ) : (
+                <>
+                  Already have an account?{' '}
+                  <button
+                    type="button"
+                    className={styles.formSubLink}
+                    onClick={() => switchMode('login')}
+                  >
+                    Log in
+                  </button>
+                </>
               )}
             </div>
-            <input
-              id={`${formId}-password`}
-              className={styles.input}
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              autoComplete={isLogin ? 'current-password' : 'new-password'}
-              required
-              minLength={8}
-            />
-          </div>
 
-          {error && (
-            <div className={styles.errorBanner} role="alert">
-              {error}
+            <form
+              id={formId}
+              onSubmit={handleSubmit}
+              className={styles.fields}
+              noValidate
+            >
+              {!isLogin && (
+                <div>
+                  <label htmlFor={`${formId}-username`} className={styles.fieldLabel}>
+                    Username
+                  </label>
+                  <input
+                    id={`${formId}-username`}
+                    className={styles.input}
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="yourname"
+                    autoComplete="username"
+                    required
+                    minLength={3}
+                    maxLength={50}
+                  />
+                </div>
+              )}
+
+              <div>
+                <label htmlFor={`${formId}-email`} className={styles.fieldLabel}>
+                  Email
+                </label>
+                <input
+                  id={`${formId}-email`}
+                  className={styles.input}
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  autoComplete="email"
+                  required
+                />
+              </div>
+
+              <div>
+                <div className={styles.fieldHeader}>
+                  <label htmlFor={`${formId}-password`} className={styles.fieldLabel}>
+                    Password
+                  </label>
+                  {isLogin && (
+                    <button
+                      type="button"
+                      className={styles.forgotLink}
+                      onClick={() => switchMode('forgot')}
+                    >
+                      Forgot?
+                    </button>
+                  )}
+                </div>
+                <input
+                  id={`${formId}-password`}
+                  className={styles.input}
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  autoComplete={isLogin ? 'current-password' : 'new-password'}
+                  required
+                  minLength={8}
+                />
+              </div>
+
+              {error && (
+                <div className={styles.errorBanner} role="alert">
+                  {error}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                className={styles.submitBtn}
+                disabled={submitting}
+                aria-busy={submitting}
+              >
+                {submitting
+                  ? isLogin ? 'Logging in...' : 'Creating account...'
+                  : isLogin ? 'Log in →' : 'Create account →'}
+              </button>
+            </form>
+
+            <div className={styles.terms}>
+              By continuing you agree to the Terms · Privacy
             </div>
-          )}
-
-          <button
-            type="submit"
-            className={styles.submitBtn}
-            disabled={submitting}
-            aria-busy={submitting}
-          >
-            {submitting
-              ? isLogin ? 'Logging in...' : 'Creating account...'
-              : isLogin ? 'Log in →' : 'Create account →'}
-          </button>
-        </form>
-
-        <div className={styles.terms}>
-          By continuing you agree to the Terms · Privacy
-        </div>
+          </>
+        )}
       </div>
     </div>
   )

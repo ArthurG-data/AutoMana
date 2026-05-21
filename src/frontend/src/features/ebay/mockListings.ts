@@ -351,6 +351,26 @@ export interface EbayLiveListing {
   imageUrl: string | null
   appCode: string
   appName: string
+  // Catalog-resolved card identity — present only when the listing is matched in ebay_active_listings
+  cardVersionId?: string | null
+  catalogConditionCode?: string | null  // raw code: NM / LP / MP / HP / DMG
+  catalogFinishCode?: string | null     // raw code: NONFOIL / FOIL / ETCHED / SURGE_FOIL / …
+  // Recommendation signals (optional — populated after a recommendations fetch)
+  recommendation?: {
+    suggested_action: 'raise' | 'lower' | 'hold' | 'draft'
+    strategy_kind: string
+    suggested_price: number | null
+    confidence: number
+    signals_used: 'behavioral' | 'market'
+    all_strategies: Record<string, { price: number; description: string; confidence: number }>
+  } | null
+  pendingAction?: {
+    action_id: string
+    action_type: 'raise' | 'lower' | 'hold' | 'draft'
+    strategy_kind: string
+    suggested_price: number | null
+    status: 'pending' | 'processing'
+  } | null
 }
 
 // ── Title parsing ──────────────────────────────────────────────────────────

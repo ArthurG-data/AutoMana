@@ -28,6 +28,7 @@ services:
       - /data/postgres:/var/lib/postgresql/data
       - /data/pg_restore:/restore:ro
       - ../infra/db/init/:/docker-entrypoint-initdb.d/:ro
+    shm_size: 256m
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${AUTOMANA_ADMIN_DB_USER} -d ${DB_NAME}"]
       interval: 5s
@@ -42,10 +43,11 @@ services:
       dockerfile: deploy/docker/backend/Backend.Dockerfile
     secrets:
         - backend_db_password
+        - agent_db_password
         - readonly_db_password
         - encryption_key
         - jwt_secret_key
-        - pgp_secret_key 
+        - pgp_secret_key
     container_name: automana-backend-dev
     ports:
       - "8000:8000"
@@ -62,6 +64,7 @@ services:
       MODULES_NAMESPACE: backend
       REDIS_CACHE_URL: redis://redis:6379/1
       FRONTEND_BASE_URL: https://automana.duckdns.org
+      AGENT_DB_PASSWORD_FILE: /run/secrets/agent_db_password
     networks:
       - backend-network
     healthcheck:
@@ -164,6 +167,7 @@ services:
       POSTGRES_PASSWORD_FILE: /run/secrets/celery_db_password
       CELERY_POOL: "prefork"
       MODULES_NAMESPACE: celery
+      REDIS_CACHE_URL: redis://redis:6379/1
     depends_on:
       postgres:
           condition: service_healthy
@@ -288,6 +292,31 @@ services:
      
     networks:
       - backend-network
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: automana-ollama-dev
+    restart: unless-stopped
+    volumes:
+      - /data/ollama:/root/.ollama
+    networks:
+      - backend-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    entrypoint: >
+      sh -c "ollama serve & sleep 5 && ollama pull qwen3:30b-a3b && wait"
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
 secrets:
   backend_db_password:
     file: ../config/secrets/backend_db_password.txt
@@ -299,16 +328,12 @@ secrets:
     file: ../config/secrets/readonly_db_password.txt
   admin_db_password:
     file: ../config/secrets/admin_db_password.txt
-  openai_api_key:
-    file: ../config/secrets/openai_api_key.txt
   jwt_secret_key:
     file: ../config/secrets/jwt_secret_key.txt
   encryption_key:
     file: ../config/secrets/encryption_key.txt
   pgp_secret_key:
     file: ../config/secrets/pgp_secret_key.txt
-  tavily_api_key:
-    file: ../config/secrets/tavily_api_key.txt
 
 networks:
   backend-network:

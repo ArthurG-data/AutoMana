@@ -1,0 +1,140 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dialog {
+  background: var(--hd-surface, #111827);
+  border: 1px solid var(--hd-border, #1f2937);
+  border-radius: 10px;
+  padding: 20px 24px;
+  width: 340px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7);
+}
+
+.title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--hd-text);
+  margin-bottom: 16px;
+}
+
+.sub {
+  font-size: 12px;
+  color: var(--hd-sub);
+}
+
+.counts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 12px;
+  background: var(--hd-surface-2, #1f2937);
+  border-radius: 6px;
+}
+
+.countRow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.countNum {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--hd-text);
+  font-family: var(--font-mono);
+  min-width: 32px;
+}
+
+.countLabel {
+  font-size: 11px;
+  color: var(--hd-sub);
+}
+
+.label {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--hd-sub);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+
+.select {
+  width: 100%;
+  background: var(--hd-surface-2, #1f2937);
+  border: 1px solid var(--hd-border, #2d3748);
+  border-radius: 4px;
+  color: var(--hd-text);
+  font-size: 12px;
+  padding: 7px 10px;
+  margin-bottom: 16px;
+  cursor: pointer;
+}
+
+.unmatchedNote {
+  font-size: 11px;
+  color: var(--hd-sub);
+  margin-bottom: 16px;
+  padding: 8px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--hd-border, #1f2937);
+}
+
+.summary {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.summaryGood {
+  color: var(--hd-green, #34d399);
+}
+
+.summaryBad {
+  color: var(--hd-red, #f87171);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.btnCancel {
+  padding: 7px 14px;
+  border-radius: 5px;
+  border: 1px solid var(--hd-border, #1f2937);
+  background: transparent;
+  color: var(--hd-sub);
+  font-size: 12px;
+  cursor: pointer;
+}
+.btnCancel:hover {
+  background: var(--hd-surface-2, #1f2937);
+}
+
+.btnPrimary {
+  padding: 7px 14px;
+  border-radius: 5px;
+  border: none;
+  background: var(--hd-accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btnPrimary:hover {
+  opacity: 0.9;
+}
+.btnPrimary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
