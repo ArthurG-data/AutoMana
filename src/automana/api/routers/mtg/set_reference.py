@@ -4,6 +4,7 @@ from typing import List, Optional
 from uuid import UUID
 
 from automana.api.dependancies.service_deps import ServiceManagerDep
+from automana.api.dependancies.auth.users import AdminUserDep
 from automana.api.schemas.StandardisedQueryResponse import (
     ApiResponse,
     PaginatedResponse,
@@ -151,6 +152,7 @@ async def list_sets(
 )
 async def insert_set(
     new_set: NewSet,
+    _admin: AdminUserDep,
     service_manager: ServiceManagerDep,
 ):
     try:
@@ -182,6 +184,7 @@ async def insert_set(
 )
 async def bulk_insert_sets(
     sets: NewSets,
+    _admin: AdminUserDep,
     service_manager: ServiceManagerDep,
 ):
     try:
@@ -213,6 +216,7 @@ async def bulk_insert_sets(
 async def update_set(
     set_id: UUID,
     update_set: UpdatedSet,
+    _admin: AdminUserDep,
     service_manager: ServiceManagerDep,
 ):
     try:
@@ -244,6 +248,7 @@ async def update_set(
 )
 async def delete_set(
     set_id: UUID,
+    _admin: AdminUserDep,
     service_manager: ServiceManagerDep,
 ):
     try:

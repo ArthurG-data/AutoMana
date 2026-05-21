@@ -7,6 +7,7 @@ from automana.api.schemas.StandardisedQueryResponse import ApiResponse, Paginate
 from automana.core.models.card_catalog.card import BaseCard, CardDetail, CardSuggestionResponse, CreateCard, CreateCards, CatalogStats, CardVersionRow, OtherSetRow
 from automana.core.models.card_catalog.price_history import CardPricesResponse, PriceHistoryResponse
 from automana.api.dependancies.service_deps import ServiceManagerDep
+from automana.api.dependancies.auth.users import AdminUserDep
 from automana.api.dependancies.query_deps import (
     sort_params,
     card_search_params,
@@ -339,6 +340,7 @@ async def list_cards(
 )
 async def insert_card(
     card: CreateCard,
+    _admin: AdminUserDep,
     service_manager: ServiceManagerDep,
 ):
     try:
@@ -375,6 +377,7 @@ async def insert_card(
 )
 async def bulk_insert_cards(
     cards: List[CreateCard],
+    _admin: AdminUserDep,
     service_manager: ServiceManagerDep,
 ):
     if len(cards) == 0:
@@ -428,6 +431,7 @@ async def bulk_insert_cards(
 )
 async def delete_card(
     card_id: UUID,
+    _admin: AdminUserDep,
     service_manager: ServiceManagerDep,
 ):
     try:
@@ -458,6 +462,7 @@ async def delete_card(
 )
 async def test_service(
     file_path: str,
+    _admin: AdminUserDep,
     service_manager: ServiceManagerDep,
 ):
     try:

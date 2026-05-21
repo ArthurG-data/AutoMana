@@ -110,6 +110,19 @@ SET promoted_to_obs = true
 WHERE ebay_osp_id = ANY($1::bigint[]);
 """
 
+LIST_LOCAL_SALES = """
+SELECT osp.order_id, osp.item_id, osp.title, osp.quantity,
+       osp.sold_price_cents, osp.currency, osp.buyer_username,
+       osp.marketplace_id, osp.sold_at,
+       COUNT(*) OVER () AS total_count
+  FROM app_integration.ebay_order_source_product osp
+  JOIN app_integration.app_info ai ON ai.app_code = osp.app_code
+  JOIN app_integration.app_user au ON au.app_id = ai.app_id
+ WHERE au.user_id = $1 AND osp.app_code = $2
+ ORDER BY osp.sold_at DESC
+ LIMIT $3 OFFSET $4;
+"""
+
 UPSERT_PRICE_OBSERVATION = """
 INSERT INTO pricing.price_observation
     (ts_date, source_product_id, price_type_id, finish_id, condition_id,

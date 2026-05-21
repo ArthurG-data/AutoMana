@@ -19,12 +19,14 @@ logger = logging.getLogger(__name__)
 )
 async def list_local_sales(
     ebay_sales_repository: EbaySalesRepository,
+    user_id: str,
     app_code: str,
     limit: int = 25,
     offset: int = 0,
     **kwargs: Any,
 ) -> dict:
     rows, total = await ebay_sales_repository.list_local_sales(
+        user_id=user_id,
         app_code=app_code,
         limit=limit,
         offset=offset,
