@@ -24,7 +24,7 @@ describe('groupEntries', () => {
     expect(groupEntries([])).toEqual([])
   })
 
-  it('groups entries with identical card_version_id, finish, and condition', () => {
+  it('groups entries with identical card_version_id regardless of finish or condition', () => {
     const entries = [
       makeEntry({ item_id: 'item-1' }),
       makeEntry({ item_id: 'item-2' }),
@@ -35,20 +35,22 @@ describe('groupEntries', () => {
     expect(groups[0].copies).toHaveLength(3)
   })
 
-  it('creates separate groups for different conditions', () => {
+  it('groups copies with different conditions into one tile', () => {
     const entries = [
       makeEntry({ item_id: 'item-1', condition: 'NM' }),
       makeEntry({ item_id: 'item-2', condition: 'LP' }),
     ]
-    expect(groupEntries(entries)).toHaveLength(2)
+    expect(groupEntries(entries)).toHaveLength(1)
+    expect(groupEntries(entries)[0].copies).toHaveLength(2)
   })
 
-  it('creates separate groups for different finishes', () => {
+  it('groups copies with different finishes into one tile', () => {
     const entries = [
       makeEntry({ item_id: 'item-1', finish: 'NONFOIL' }),
       makeEntry({ item_id: 'item-2', finish: 'FOIL' }),
     ]
-    expect(groupEntries(entries)).toHaveLength(2)
+    expect(groupEntries(entries)).toHaveLength(1)
+    expect(groupEntries(entries)[0].copies).toHaveLength(2)
   })
 
   it('creates separate groups for different card_version_ids', () => {
@@ -76,8 +78,8 @@ describe('groupEntries', () => {
     expect(groups[1].copies.map((c) => c.item_id)).toEqual(['item-2'])
   })
 
-  it('builds key as card_version_id:finish:condition', () => {
+  it('builds key as card_version_id only', () => {
     const entries = [makeEntry({ card_version_id: 'card-x', finish: 'FOIL', condition: 'LP' })]
-    expect(groupEntries(entries)[0].key).toBe('card-x:FOIL:LP')
+    expect(groupEntries(entries)[0].key).toBe('card-x')
   })
 })

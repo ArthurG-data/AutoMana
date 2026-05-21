@@ -54,11 +54,6 @@ export function CollectionGrid({ entries, onRemove }: CollectionGridProps) {
               <div className={styles.cardName}>{entry.card_name}</div>
               <div className={styles.badges}>
                 <span className={styles.badge}>{entry.set_code.toUpperCase()}</span>
-                {entry.finish !== 'NONFOIL' && (
-                  <span className={finishBadgeClass(entry.finish)}>
-                    {entry.finish.toLowerCase()}
-                  </span>
-                )}
               </div>
               <ul className={styles.copyList}>
                 {copies.map((copy) => {
@@ -67,6 +62,11 @@ export function CollectionGrid({ entries, onRemove }: CollectionGridProps) {
                   return (
                     <li key={copy.item_id} className={styles.copyRow}>
                       <span className={styles.badge}>{copy.condition}</span>
+                      {copy.finish !== 'NONFOIL' && (
+                        <span className={finishBadgeClass(copy.finish)}>
+                          {copy.finish.toLowerCase()}
+                        </span>
+                      )}
                       <span className={styles.copyPrice}>{formatUSD(copy.price)}</span>
                       {plLabel != null && (
                         <span className={`${styles.pl} ${pl! >= 0 ? styles.plUp : styles.plDown}`}>
