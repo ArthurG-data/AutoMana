@@ -1,4 +1,18 @@
 services:
+  frontend:
+    build:
+      context: ..
+      dockerfile: deploy/docker/frontend/Frontend.Dockerfile
+    container_name: automana-frontend-prod
+    networks:
+      - frontend-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/ > /dev/null || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+
   backend:
     build:
       context: ..
@@ -52,6 +66,7 @@ services:
       - frontend-network
     depends_on:
       - backend
+      - frontend
   redis:
     image: redis:7.0-alpine
     container_name: automana-redis-prod
