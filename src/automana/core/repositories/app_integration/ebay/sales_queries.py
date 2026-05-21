@@ -150,3 +150,31 @@ JOIN pricing.card_condition       cc ON cc.condition_id = COALESCE(eal.condition
 WHERE eal.item_id  = $1
   AND eal.app_code = $2
 """
+
+GET_LOCAL_SALES_PAGINATED = """
+SELECT
+    osp.order_id,
+    eos.local_status,
+    MAX(osp.buyer_username)        AS buyer_username,
+    MAX(osp.sold_at)               AS sold_at,
+    MAX(osp.currency)              AS currency,
+    SUM(osp.sold_price_cents)::INT AS total_price_cents,
+    json_agg(json_build_object(
+        'legacyItemId', osp.item_id,
+        'title',        osp.title,
+        'quantity',     osp.quantity
+    ) ORDER BY osp.ebay_osp_id)    AS line_items
+FROM app_integration.ebay_order_source_product osp
+JOIN app_integration.ebay_order_status eos
+    ON eos.order_id = osp.order_id AND eos.app_code = osp.app_code
+WHERE osp.app_code = $1
+GROUP BY osp.order_id, eos.local_status
+ORDER BY MAX(osp.sold_at) DESC
+LIMIT $2 OFFSET $3;
+"""
+
+COUNT_LOCAL_SALES = """
+SELECT COUNT(DISTINCT order_id) AS total
+FROM app_integration.ebay_order_source_product
+WHERE app_code = $1;
+"""
