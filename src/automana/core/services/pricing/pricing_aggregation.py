@@ -66,6 +66,10 @@ async def archive_to_weekly(
     "pricing.mv_card_price_spark.refresh",
     db_repositories=["pricing"],
     runs_in_transaction=False,
+    # REFRESH MATERIALIZED VIEW CONCURRENTLY on print_price_daily (365-day window,
+    # ~10k card versions) routinely exceeds the pool's 60s default. 3600s matches
+    # the ceiling used by other daily aggregation services in this module.
+    command_timeout=3600,
 )
 async def refresh_card_price_spark(
     pricing_repository: PricingTierRepository,
