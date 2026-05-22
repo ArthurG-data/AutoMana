@@ -41,7 +41,7 @@ WHERE t.is_active = true
       JOIN pricing.price_observation po ON po.source_product_id = sp.source_product_id
       WHERE cv.card_version_id = t.card_version_id
         AND (cv.rarity_name IN ('mythic', 'rare', 'special') OR cv.is_promo = true)
-        AND po.sell_avg_cents >= $1
+        AND po.sold_avg_cents >= $1
         AND po.ts_date >= now() - interval '7 days'
   );
 """
@@ -54,7 +54,7 @@ JOIN pricing.mtg_card_products mcp ON mcp.card_version_id = cv.card_version_id
 JOIN pricing.source_product sp ON sp.product_id = mcp.product_id
 JOIN pricing.price_observation po ON po.source_product_id = sp.source_product_id
 WHERE (cv.rarity_name IN ('mythic', 'rare', 'special') OR cv.is_promo = true)
-  AND po.sell_avg_cents >= $1
+  AND po.sold_avg_cents >= $1
   AND po.ts_date >= now() - interval '7 days'
 ON CONFLICT (card_version_id) DO UPDATE SET is_active = true;
 """
