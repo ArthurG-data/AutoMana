@@ -27,4 +27,4 @@ jobs:
       - name: Run unit tests
         env:
           POSTGRES_PASSWORD: ci-dummy
-        run: uv run pytest -v --tb=short
+        run: uv run pytest -v --tb=short --cov=automana --cov-report=term-missing --cov-fail-under=55
