@@ -204,3 +204,32 @@ def pipeline_health_alert_task(self):
     next scheduled invocation the recovery path.
     """
     return run_service("ops.health.alert_check")
+
+
+@shared_task(name="automana.worker.tasks.pipelines.shopify_weekly_pipeline", bind=True)
+def shopify_weekly_pipeline(self):
+    """Weekly Celery Beat job: fetch /products.json from every registered Shopify
+    storefront, process to parquet, stage into pricing.shopify_staging_raw, and
+    promote into pricing.price_observation.
+
+    Per project rules this task does NOT use ``autoretry_for``; retry policy
+    lives at the run_service layer.
+    """
+    set_task_id(self.request.id)
+    run_key = f"shopify_weekly:{datetime.utcnow().date().isoformat()}"
+    logger.info("Starting Shopify weekly pipeline", extra={"run_key": run_key})
+    wf = chain(
+        run_service.s(
+            "ops.pipeline_services.start_run",
+            pipeline_name="shopify_weekly",
+            source_name="shopify",
+            run_key=run_key,
+            celery_task_id=self.request.id,
+        ),
+        run_service.s("shopify.pipeline.fetch_all_markets"),
+        run_service.s("shopify.pipeline.process_to_parquet"),
+        run_service.s("shopify.pipeline.stage_raw"),
+        run_service.s("shopify.pipeline.promote_observations"),
+        run_service.s("ops.pipeline_services.finish_run", status="success"),
+    )
+    return wf.apply_async().id
