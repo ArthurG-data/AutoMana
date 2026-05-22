@@ -273,11 +273,11 @@ class CardReferenceRepository(AbstractRepository[Any]):
         for row in rows:
             cid = str(row["card_version_id"])
             fresh[cid] = {
-                "price": row["price"],
-                "price_change_1d": row["price_change_1d"],
-                "price_change_7d": row["price_change_7d"],
-                "price_change_30d": row["price_change_30d"],
-                "spark": list(row["spark"]) if row["spark"] else [],
+                "price": float(row["price"]) if row["price"] is not None else None,
+                "price_change_1d": float(row["price_change_1d"]) if row["price_change_1d"] is not None else 0.0,
+                "price_change_7d": float(row["price_change_7d"]) if row["price_change_7d"] is not None else 0.0,
+                "price_change_30d": float(row["price_change_30d"]) if row["price_change_30d"] is not None else 0.0,
+                "spark": [float(v) for v in row["spark"]] if row["spark"] else [],
                 "finish": "non-foil",
             }
 
