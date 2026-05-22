@@ -82,6 +82,14 @@ async def scrape_global_market(
             )
             continue
 
+        product_id = await ebay_sales_repository.ensure_product(card_version_id)
+        if not product_id:
+            logger.warning(
+                "scrape_global_market_ensure_product_failed",
+                extra={"card_version_id": str(card_version_id)},
+            )
+            continue
+
         source_product_id = await ebay_sales_repository.ensure_source_product(
             card_version_id, _EBAY_SOURCE_ID
         )

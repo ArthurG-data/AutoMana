@@ -133,3 +133,49 @@ async def test_scrape_one_card_skips_frame_conflict():
 
     assert count == 0
     scrape_repo.insert_scraped_sold.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_scrape_global_market_calls_ensure_product_before_source_product():
+    """ensure_product must be called before ensure_source_product — critical order."""
+    from automana.core.services.app_integration.ebay.scrape_global_market_service import scrape_global_market
+    from unittest.mock import patch, AsyncMock, MagicMock
+    from uuid import uuid4
+
+    card_id = uuid4()
+    mock_sales = AsyncMock()
+    mock_sales.ensure_product = AsyncMock(return_value=uuid4())
+    mock_sales.ensure_source_product = AsyncMock(return_value=99)
+    mock_scrape = AsyncMock()
+    mock_scrape.get_scrape_targets = AsyncMock(return_value=[card_id])
+    mock_scrape.update_target_last_scraped = AsyncMock()
+    mock_card = AsyncMock()
+    mock_card.get_scrape_metadata = AsyncMock(return_value={
+        "card_name": "Sheoldred, the Apocalypse",
+        "set_code": "mh2",
+        "frame_effects": [],
+        "is_promo": False,
+        "promo_types": [],
+        "border_color_name": "black",
+        "full_art": False,
+    })
+    mock_finding = AsyncMock()
+    mock_finding.find_completed_items = AsyncMock(return_value=[])
+
+    with patch(
+        "automana.core.services.app_integration.ebay.scrape_global_market_service.get_settings",
+        return_value=type("S", (), {"ebay_app_id": "FAKE-APP-ID"})(),
+    ):
+        await scrape_global_market(
+            ebay_sales_repository=mock_sales,
+            ebay_scrape_repository=mock_scrape,
+            card_repository=mock_card,
+            ebay_finding_repository=mock_finding,
+        )
+
+    mock_sales.ensure_product.assert_called_once_with(card_id)
+    mock_sales.ensure_source_product.assert_called_once()
+    # ensure_product must be called before ensure_source_product
+    ensure_product_call_idx = [c[0] for c in mock_sales.method_calls].index("ensure_product")
+    ensure_source_product_call_idx = [c[0] for c in mock_sales.method_calls].index("ensure_source_product")
+    assert ensure_product_call_idx < ensure_source_product_call_idx
