@@ -5,6 +5,9 @@ all active sellers internally; promote uses run_service.
 """
 import logging
 
+import automana.core.services.app_integration.ebay.refresh_scrape_targets_service  # noqa: F401
+import automana.core.services.app_integration.ebay.scrape_global_market_service  # noqa: F401
+
 from automana.worker.main import app
 from automana.worker.ressources import get_state, init_backend_runtime
 from automana.core.service_manager import ServiceManager
