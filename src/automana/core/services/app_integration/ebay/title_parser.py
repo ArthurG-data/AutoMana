@@ -128,16 +128,16 @@ def parse_frame_variant(title: str) -> dict:
 
     for pattern, effect in _FRAME_EFFECT_PATTERNS:
         if pattern.startswith(r"\b"):
-            if re.search(pattern, lower):
+            if re.search(pattern, lower) and effect not in frame_effects:
                 frame_effects.append(effect)
-        elif pattern in lower:
+        elif pattern in lower and effect not in frame_effects:
             frame_effects.append(effect)
 
     for pattern, ptype in _PROMO_PATTERNS:
         if pattern.startswith(r"\b"):
-            if re.search(pattern, lower):
+            if re.search(pattern, lower) and ptype not in promo_types:
                 promo_types.append(ptype)
-        elif pattern in lower:
+        elif pattern in lower and ptype not in promo_types:
             promo_types.append(ptype)
 
     return {

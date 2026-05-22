@@ -80,6 +80,7 @@ from automana.core.services.app_integration.ebay.title_parser import (
     ("Sheoldred Prerelease NM MH2",      "promo_types",    ["prerelease"]),
     ("Sheoldred Buy a Box NM MH2",       "promo_types",    ["buyabox"]),
     ("Sheoldred NM MH2 MTG",            "frame_effects",  []),  # no signals
+    ("Sheoldred Retro Old Border NM MH2", "frame_effects", ["retro"]),  # dedup: two synonyms → one entry
 ])
 def test_parse_frame_variant(title, expected_key, expected_val):
     result = parse_frame_variant(title)
