@@ -16,13 +16,21 @@ from automana.core.service_registry import ServiceRegistry
 )
 async def assign_role(role_repository: RoleRepository
                       , user_id : UUID
-                      ,  role : AssignRoleRequest):
+                      , role : AssignRoleRequest
+                      , assigned_by: UUID):
     """Assign a role to a user."""
     try:
         existing_role = await role_repository.get_role_by_name(role.role.value)
         if not existing_role:
             raise role_exceptions.RoleNotFoundError(f"Role '{role.role.value}' not found")
-        result = await role_repository.assign_role(user_id, role.role.value, role.expires_at, role.effective_from)
+        result = await role_repository.assign_role(
+            user_id,
+            role.role.value,
+            None,
+            assigned_by,
+            expires_at=role.expires_at,
+            effective_from=role.effective_from,
+        )
         return result
     except role_exceptions.RoleNotFoundError as e:
         raise

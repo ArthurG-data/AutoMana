@@ -171,8 +171,7 @@ class UserRepository(AbstractRepository):
         query = """
         UPDATE users SET deleted_at = NOW(), disabled = TRUE WHERE unique_id = $1;
         """
-        result = self.execute_command(query, (user_id,))
-        return result
+        await self.execute_command(query, (user_id,))
 
     async def delete_many(self, user_ids: list[UUID]):
         # Implementation of delete_users method
