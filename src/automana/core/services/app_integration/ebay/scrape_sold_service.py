@@ -181,6 +181,7 @@ async def _scrape_one_card(
             source_product_id=source_product_id,
             price_cents=price_cents,
             currency=currency,
+            marketplace_id="EBAY-US",
             condition_id=None,
             finish_id=1,
             language_id=1,

@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime
 from typing import Optional
+from uuid import UUID
 
 from automana.core.repositories.abstract_repositories.AbstractDBRepository import (
     AbstractRepository,
@@ -43,7 +44,8 @@ class EbayScrapeSoldRepository(AbstractRepository):
         source_product_id: Optional[int],
         price_cents: int,
         currency: str,
-        condition_id: Optional[int],
+        marketplace_id: str,
+        condition_id: int,
         finish_id: int,
         language_id: int,
         sold_at: datetime,
@@ -56,6 +58,7 @@ class EbayScrapeSoldRepository(AbstractRepository):
                 source_product_id,
                 price_cents,
                 currency,
+                marketplace_id,
                 condition_id,
                 finish_id,
                 language_id,
@@ -75,4 +78,18 @@ class EbayScrapeSoldRepository(AbstractRepository):
         await self.execute_command(
             ebay_scrape_queries.MARK_SCRAPED_PROMOTED,
             (scrape_ids,),
+        )
+
+    async def get_scrape_targets(self) -> list[UUID]:
+        rows = await self.execute_query(ebay_scrape_queries.GET_SCRAPE_TARGETS, ())
+        return [UUID(str(r["card_version_id"])) for r in rows]
+
+    async def refresh_scrape_targets(self, min_cents: int) -> None:
+        await self.execute_command(
+            ebay_scrape_queries.REFRESH_SCRAPE_TARGETS, (min_cents,)
+        )
+
+    async def update_target_last_scraped(self, card_version_id: UUID) -> None:
+        await self.execute_command(
+            ebay_scrape_queries.UPDATE_TARGET_LAST_SCRAPED, (str(card_version_id),)
         )
