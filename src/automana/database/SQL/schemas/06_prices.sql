@@ -1243,7 +1243,9 @@ BEGIN
   WHERE u.set_abbr IS NOT NULL
     AND u.collector_number IS NOT NULL;
 
-  -- (5) token resolution: strip Token suffix, split double-sided faces, match by name
+  -- (5) token resolution: strip Token suffix, split double-sided faces, match by name.
+  -- card_catalog.card_version has no name column — the card name lives on
+  -- unique_cards_ref (ucr.card_name). Always join ucr to resolve by name.
   DROP TABLE IF EXISTS tmp_map_tok;
   CREATE TEMP TABLE tmp_map_tok ON COMMIT DROP AS
   SELECT DISTINCT ON (u.print_id)
@@ -1256,14 +1258,16 @@ BEGIN
     ON s.set_code = tsm.token_set_code
   JOIN card_catalog.card_version cv
     ON cv.set_id = s.set_id
+  JOIN card_catalog.unique_cards_ref ucr
+    ON ucr.unique_card_id = cv.unique_card_id
   WHERE u.set_abbr IS NOT NULL
     AND u.collector_number IS NULL
     AND u.card_name IS NOT NULL
     AND (
-      cv.name ILIKE SPLIT_PART(REGEXP_REPLACE(u.card_name, '\s*(Token|Double-Sided Token)$', '', 'i'), ' // ', 1)
+      ucr.card_name ILIKE SPLIT_PART(REGEXP_REPLACE(u.card_name, '\s*(Token|Double-Sided Token)$', '', 'i'), ' // ', 1)
       OR (
         SPLIT_PART(REGEXP_REPLACE(u.card_name, '\s*(Token|Double-Sided Token)$', '', 'i'), ' // ', 2) <> ''
-        AND cv.name ILIKE SPLIT_PART(REGEXP_REPLACE(u.card_name, '\s*(Token|Double-Sided Token)$', '', 'i'), ' // ', 2)
+        AND ucr.card_name ILIKE SPLIT_PART(REGEXP_REPLACE(u.card_name, '\s*(Token|Double-Sided Token)$', '', 'i'), ' // ', 2)
       )
     )
   ORDER BY u.print_id, cv.card_version_id;
@@ -1981,6 +1985,8 @@ BEGIN
       AND r.collector_number IS NOT NULL
   ),
   map_tok AS (
+    -- card_catalog.card_version has no name column — the card name lives on
+    -- unique_cards_ref (ucr.card_name). Always join ucr to resolve by name.
     SELECT DISTINCT ON (r.print_id)
       r.print_id, cv.card_version_id
     FROM tmp_rejects r
@@ -1990,14 +1996,16 @@ BEGIN
       ON s.set_code = tsm.token_set_code
     JOIN card_catalog.card_version cv
       ON cv.set_id = s.set_id
+    JOIN card_catalog.unique_cards_ref ucr
+      ON ucr.unique_card_id = cv.unique_card_id
     WHERE r.set_abbr IS NOT NULL
       AND r.collector_number IS NULL
       AND r.card_name IS NOT NULL
       AND (
-        cv.name ILIKE SPLIT_PART(REGEXP_REPLACE(r.card_name, '\s*(Token|Double-Sided Token)$', '', 'i'), ' // ', 1)
+        ucr.card_name ILIKE SPLIT_PART(REGEXP_REPLACE(r.card_name, '\s*(Token|Double-Sided Token)$', '', 'i'), ' // ', 1)
         OR (
           SPLIT_PART(REGEXP_REPLACE(r.card_name, '\s*(Token|Double-Sided Token)$', '', 'i'), ' // ', 2) <> ''
-          AND cv.name ILIKE SPLIT_PART(REGEXP_REPLACE(r.card_name, '\s*(Token|Double-Sided Token)$', '', 'i'), ' // ', 2)
+          AND ucr.card_name ILIKE SPLIT_PART(REGEXP_REPLACE(r.card_name, '\s*(Token|Double-Sided Token)$', '', 'i'), ' // ', 2)
         )
       )
     ORDER BY r.print_id, cv.card_version_id

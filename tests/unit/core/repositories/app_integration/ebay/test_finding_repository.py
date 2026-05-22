@@ -115,3 +115,48 @@ async def test_find_completed_items_builds_correct_params():
     assert captured_params.get("keywords") == "Sheoldred DMR MTG"
     assert captured_params.get("RESPONSE-DATA-FORMAT") == "JSON"
     assert "paginationInput.entriesPerPage" in captured_params
+
+
+@pytest.mark.asyncio
+async def test_find_completed_items_passes_global_id_to_params():
+    repo = EbayFindingAPIRepository(environment="sandbox")
+    fake_response = {
+        "findCompletedItemsResponse": [{
+            "ack": ["Success"],
+            "searchResult": [{"item": [], "@count": "0"}],
+        }]
+    }
+    with patch.object(repo, "send", new_callable=AsyncMock) as mock_send, \
+         patch.object(repo, "_parse_response", return_value=fake_response), \
+         patch.object(repo, "__aenter__", return_value=repo), \
+         patch.object(repo, "__aexit__", return_value=False):
+        mock_send.return_value = MagicMock()
+        await repo.find_completed_items(
+            keywords="Sheoldred MH2 MTG",
+            app_id="TestApp-123",
+            global_id="EBAY-AU",
+        )
+    call_params = mock_send.call_args[1]["params"]
+    assert call_params.get("GLOBAL-ID") == "EBAY-AU"
+
+
+@pytest.mark.asyncio
+async def test_find_completed_items_defaults_global_id_to_us():
+    repo = EbayFindingAPIRepository(environment="sandbox")
+    fake_response = {
+        "findCompletedItemsResponse": [{
+            "ack": ["Success"],
+            "searchResult": [{"item": [], "@count": "0"}],
+        }]
+    }
+    with patch.object(repo, "send", new_callable=AsyncMock) as mock_send, \
+         patch.object(repo, "_parse_response", return_value=fake_response), \
+         patch.object(repo, "__aenter__", return_value=repo), \
+         patch.object(repo, "__aexit__", return_value=False):
+        mock_send.return_value = MagicMock()
+        await repo.find_completed_items(
+            keywords="Sheoldred MH2 MTG",
+            app_id="TestApp-123",
+        )
+    call_params = mock_send.call_args[1]["params"]
+    assert call_params.get("GLOBAL-ID") == "EBAY-US"

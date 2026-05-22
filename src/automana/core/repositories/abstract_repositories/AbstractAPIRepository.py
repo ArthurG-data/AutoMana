@@ -78,7 +78,11 @@ class BaseApiClient(ABC):
             return self._clean_xml_dict(parsed)
         if any(ext in content_type for ext in ["xz", "gzip", "zip", "octet-stream"]):
             return response.content
-        return response.text
+        # Some APIs (e.g. eBay Finding API) send JSON with text/plain content-type
+        try:
+            return response.json()
+        except Exception:
+            return response.text
     
     def _clean_xml_dict(self, obj: Any) -> Any:
         if isinstance(obj, dict):

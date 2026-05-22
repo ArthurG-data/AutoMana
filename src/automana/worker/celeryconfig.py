@@ -125,6 +125,32 @@ beat_schedule = {
         "schedule": crontab(hour=8, minute=0),   # 08:00 AEST
         "kwargs": {"path": "integrations.ebay.promote_sold_obs"},
     },
+    # FX rates: fetch AUD→USD and CAD→USD from frankfurter.app before market scrape.
+    "pricing-fetch-fx-rates-nightly": {
+        "task": "run_service",
+        "schedule": crontab(hour=6, minute=45),   # 06:45 AEST
+        "kwargs": {"path": "integrations.pricing.fetch_fx_rates"},
+    },
+    # eBay global market: refresh rare/mythic/promo watchlist.
+    # Runs after promote_sold_obs (08:00) so price_observation has fresh data for
+    # the sell_avg_cents >= threshold filter.
+    "ebay-refresh-scrape-targets-nightly": {
+        "task": "run_service",
+        "schedule": crontab(hour=8, minute=30),   # 08:30 AEST — after promote_sold_obs
+        "kwargs": {"path": "integrations.ebay.refresh_scrape_targets"},
+    },
+    # eBay global market: scrape sold prices across EBAY-US, EBAY-AU, EBAY-ENCA.
+    "ebay-scrape-global-market-nightly": {
+        "task": "run_service",
+        "schedule": crontab(hour=8, minute=45),   # 08:45 AEST — after targets refreshed
+        "kwargs": {
+            "path": "integrations.ebay.scrape_global_market",
+            "days_back": 30,
+            "score_threshold": 0.7,
+            "limit_per_card": 50,
+            "environment": "production",
+        },
+    },
     # Drain staging pricing actions → apply to eBay listings every 5 minutes.
     "drain-listing-actions": {
         "task": "automana.worker.tasks.ebay_actions.drain_listing_actions_task",

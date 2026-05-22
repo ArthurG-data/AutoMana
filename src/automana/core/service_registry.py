@@ -227,6 +227,11 @@ ServiceRegistry.register_db_repository(
 ServiceRegistry.register_db_repository(
     "pricing", "automana.core.repositories.pricing.price_repository", "PricingTierRepository"
 )
+ServiceRegistry.register_db_repository(
+    "fx_rates",
+    "automana.core.repositories.pricing.fx_rates_repository",
+    "FxRatesRepository",
+)
 
 # Ops repositories
 ServiceRegistry.register_db_repository(
