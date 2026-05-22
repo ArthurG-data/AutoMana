@@ -1,4 +1,4 @@
--- migration_45_shopify_market_pipeline.sql
+-- migration_46_shopify_market_pipeline.sql
 BEGIN;
 
 -- 1. Link each market store to a price_source row
