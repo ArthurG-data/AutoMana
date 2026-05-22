@@ -428,6 +428,7 @@ async def process_json_dir_to_parquet(market_repository, path_to_json: str, mark
                                 "product_id": pid,
                                 "shop_id": market_id,
                                 "title": item.get("title"),
+                                "handle": item.get("handle"),
                                 "vendor": item.get("vendor"),
                                 "product_type": item.get("product_type"),
                                 "card_id": meta_data.get("card_id"),

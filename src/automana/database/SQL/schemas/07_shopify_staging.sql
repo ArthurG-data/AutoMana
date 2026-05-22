@@ -120,93 +120,11 @@ $$;
 CREATE OR REPLACE PROCEDURE pricing.stage_to_price_observation()
 LANGUAGE plpgsql
 AS $$
-DECLARE
-    v_count           bigint;
-    v_not_found_count bigint;
-    v_start_time      timestamp := clock_timestamp();
-    v_step_time       timestamp;
 BEGIN
-    ------------------------------------------------------------------
-    -- 1) Insert price observations
-    ------------------------------------------------------------------
-    v_step_time := clock_timestamp();
-
-    -- BROKEN — NEEDS REDESIGN.
-    --
-    -- The previous body inserted into pricing.price_observation with the
-    -- columns (ts_date, game_id, print_id, source_id, metric_id, value,
-    -- scraped_at, condition_id, finish_id). None of `game_id`, `print_id`,
-    -- `source_id`, `metric_id`, `value` exist on the current
-    -- pricing.price_observation schema (see 06_prices.sql:165 — it uses
-    -- price_type_id, finish_id, condition_id, language_id, *_cents,
-    -- source_product_id, data_provider_id).
-    --
-    -- Rewriting correctly requires mapping:
-    --   price_observation_stage.(game_id, print_id, source_id, metric_id)
-    --     → pricing.price_observation.(source_product_id, price_type_id, data_provider_id)
-    -- which is a non-trivial join with pricing.source_product and is
-    -- left for a follow-up that can decide the canonical mapping.
-    RAISE EXCEPTION
-        'pricing.stage_to_price_observation needs to be rewritten against the current price_observation schema (see 07_shopify_staging.sql for context).';
-
-    GET DIAGNOSTICS v_count = ROW_COUNT;
-    RAISE INFO 'Inserted % rows into price_observation in %',
-               v_count, clock_timestamp() - v_step_time;
-
-    ------------------------------------------------------------------
-    -- 2) Insert external identifiers (gg_brisbane_id)
-    ------------------------------------------------------------------
-    v_step_time := clock_timestamp();
-
-    -- Explicit PK conflict target. Note the JOIN to card_external_identifier on
-    -- tcgplayer_id can now return multiple card_version_ids per shared
-    -- tcgplayer_id (foil + nonfoil pairs share IDs — see
-    -- 02_card_schema.sql comments). That's intentional: each card_version
-    -- gets its own gg_brisbane_id row pointing at the same Shopify product.
-    INSERT INTO card_catalog.card_external_identifier
-        (card_identifier_ref_id, card_version_id, value)
-    SELECT
-        cir2.card_identifier_ref_id,
-        cce1.card_version_id,
-        ssr.product_id::TEXT
-    FROM pricing.shopify_staging_raw ssr
-    JOIN card_catalog.card_identifier_ref cir1
-         ON cir1.identifier_name = 'tcgplayer_id'
-    JOIN card_catalog.card_external_identifier cce1
-         ON cce1.card_identifier_ref_id = cir1.card_identifier_ref_id
-        AND cce1.value::bigint = ssr.tcg_id
-    JOIN card_catalog.card_identifier_ref cir2
-         ON cir2.identifier_name = 'gg_brisbane_id'
-    ON CONFLICT (card_version_id, card_identifier_ref_id) DO NOTHING;
-
-    GET DIAGNOSTICS v_count = ROW_COUNT;
-    RAISE INFO 'Inserted % rows into card_external_identifier in %',
-               v_count, clock_timestamp() - v_step_time;
-
-    ------------------------------------------------------------------
-    -- 3) Count tcg_ids with no mapping (not found)
-    ------------------------------------------------------------------
-    v_step_time := clock_timestamp();
-
-    SELECT COUNT(*)
-    INTO v_not_found_count
-    FROM pricing.shopify_staging_raw ssr
-    WHERE NOT EXISTS (
-        SELECT 1
-        FROM card_catalog.card_identifier_ref cir1
-        JOIN card_catalog.card_external_identifier cce1
-          ON cce1.card_identifier_ref_id = cir1.card_identifier_ref_id
-         AND cce1.value::bigint = ssr.tcg_id
-        WHERE cir1.identifier_name = 'tcgplayer_id'
-    );
-
-    RAISE INFO 'tcg_ids not found in card_external_identifier: % (checked in %)',
-               v_not_found_count, clock_timestamp() - v_step_time;
-
-    ------------------------------------------------------------------
-    -- 4) Total time
-    ------------------------------------------------------------------
-    RAISE INFO 'Total procedure time: %', clock_timestamp() - v_start_time;
+    RAISE NOTICE
+        'pricing.stage_to_price_observation is intentionally a no-op. '
+        'Shopify observations are promoted in Python by the '
+        'shopify.pipeline.promote_observations service step.';
 END;
 $$;
 COMMIT;
