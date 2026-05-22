@@ -84,6 +84,11 @@ class EbayScrapeSoldRepository(AbstractRepository):
         rows = await self.execute_query(ebay_scrape_queries.GET_SCRAPE_TARGETS, ())
         return [UUID(str(r["card_version_id"])) for r in rows]
 
+    async def deactivate_stale_targets(self, min_cents: int) -> None:
+        await self.execute_command(
+            ebay_scrape_queries.DEACTIVATE_STALE_TARGETS, (min_cents,)
+        )
+
     async def refresh_scrape_targets(self, min_cents: int) -> None:
         await self.execute_command(
             ebay_scrape_queries.REFRESH_SCRAPE_TARGETS, (min_cents,)

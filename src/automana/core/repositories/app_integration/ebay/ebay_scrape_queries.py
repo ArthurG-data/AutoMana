@@ -25,7 +25,25 @@ GET_SCRAPE_TARGETS = """
 SELECT card_version_id
 FROM pricing.ebay_scrape_targets
 WHERE is_active = true
-ORDER BY last_scraped_at NULLS FIRST;
+ORDER BY last_scraped_at NULLS FIRST
+LIMIT 500;
+"""
+
+DEACTIVATE_STALE_TARGETS = """
+UPDATE pricing.ebay_scrape_targets t
+SET is_active = false
+WHERE t.is_active = true
+  AND NOT EXISTS (
+      SELECT 1
+      FROM card_catalog.v_card_versions_complete cv
+      JOIN pricing.mtg_card_products mcp ON mcp.card_version_id = cv.card_version_id
+      JOIN pricing.source_product sp ON sp.product_id = mcp.product_id
+      JOIN pricing.price_observation po ON po.source_product_id = sp.source_product_id
+      WHERE cv.card_version_id = t.card_version_id
+        AND (cv.rarity_name IN ('mythic', 'rare', 'special') OR cv.is_promo = true)
+        AND po.sell_avg_cents >= $1
+        AND po.ts_date >= now() - interval '7 days'
+  );
 """
 
 REFRESH_SCRAPE_TARGETS = """

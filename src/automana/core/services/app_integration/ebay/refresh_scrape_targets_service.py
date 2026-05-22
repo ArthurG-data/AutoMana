@@ -28,6 +28,7 @@ async def refresh_scrape_targets(
     settings = get_settings()
     min_cents = getattr(settings, "ebay_scrape_target_min_cents", _DEFAULT_MIN_CENTS)
 
+    await ebay_scrape_repository.deactivate_stale_targets(min_cents=min_cents)
     await ebay_scrape_repository.refresh_scrape_targets(min_cents=min_cents)
     logger.info("ebay_refresh_scrape_targets_complete", extra={"min_cents": min_cents})
     return {"status": "ok", "min_cents": min_cents}
