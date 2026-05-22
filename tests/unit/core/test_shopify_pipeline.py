@@ -42,6 +42,7 @@ def test_price_to_cents_rounds_correctly():
     assert _price_to_cents(Decimal("10.00")) == 1000
     assert _price_to_cents(Decimal("0.50")) == 50
     assert _price_to_cents(None) is None
+    assert _price_to_cents(Decimal("4.995")) == 500  # rounds up, not truncates
 
 
 def test_build_obs_dataframe_excludes_unmapped_rows():

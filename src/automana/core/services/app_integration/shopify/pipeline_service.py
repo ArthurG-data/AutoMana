@@ -2,7 +2,7 @@ import glob
 import json
 import logging
 import os
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional
 
 import aiohttp
@@ -26,7 +26,7 @@ _SHOPIFY_DATA_ROOT = os.getenv("SHOPIFY_DATA_ROOT", "/data/automana_data/shopify
 def _price_to_cents(price) -> Optional[int]:
     if price is None:
         return None
-    return int(Decimal(str(price)) * 100)
+    return int((Decimal(str(price)) * 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
 
 def _build_obs_dataframe(

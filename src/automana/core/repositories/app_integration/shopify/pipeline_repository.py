@@ -1,4 +1,3 @@
-import io
 import logging
 from typing import Optional
 import pandas as pd
@@ -83,42 +82,47 @@ class ShopifyPipelineRepository(AbstractRepository):
         self, card_version_ids: list[str], source_id: int
     ) -> dict[str, int]:
         """Ensure product_ref + mtg_card_products + source_product rows exist for each
-        card_version_id/source_id pair. Returns {card_version_id: source_product_id}."""
+        card_version_id/source_id pair. Returns {card_version_id: source_product_id}.
+
+        Uses a CTE so the generated UUID is shared between the product_ref and
+        mtg_card_products inserts in one statement — avoids the broken-join problem
+        where a second statement can't find the product_id it just created.
+        """
         if not card_version_ids:
             return {}
 
-        # Create missing product_ref rows (only for cards with no product mapping yet)
+        # Create product_ref + mtg_card_products in one statement via shared CTE UUID.
+        # Matches the canonical pattern in 06_prices.sql:2083-2104.
         await self.connection.execute(
             """
-            INSERT INTO pricing.product_ref (product_id, game_id)
-            SELECT uuid_generate_v4(), cg.game_id
-            FROM unnest($1::UUID[]) AS cv(card_version_id)
-            JOIN pricing.card_game cg ON cg.code = 'mtg'
-            WHERE NOT EXISTS (
-                SELECT 1 FROM pricing.mtg_card_products mcp
-                WHERE mcp.card_version_id = cv.card_version_id
+            WITH need AS (
+                SELECT cv.card_version_id
+                FROM unnest($1::UUID[]) AS cv(card_version_id)
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM pricing.mtg_card_products mcp
+                    WHERE mcp.card_version_id = cv.card_version_id
+                )
+            ),
+            gen AS (
+                SELECT card_version_id, uuid_generate_v4() AS product_id
+                FROM need
+            ),
+            ins_prod AS (
+                INSERT INTO pricing.product_ref (product_id, game_id)
+                SELECT g.product_id, cg.game_id
+                FROM gen g
+                JOIN pricing.card_game cg ON cg.code = 'mtg'
+                ON CONFLICT (product_id) DO NOTHING
             )
-            """,
-            card_version_ids,
-        )
-
-        # Create missing mtg_card_products rows
-        await self.connection.execute(
-            """
             INSERT INTO pricing.mtg_card_products (product_id, card_version_id)
-            SELECT pr.product_id, cv.card_version_id
-            FROM unnest($1::UUID[]) AS cv(card_version_id)
-            JOIN pricing.product_ref pr ON pr.product_id = (
-                SELECT mcp2.product_id FROM pricing.mtg_card_products mcp2
-                WHERE mcp2.card_version_id = cv.card_version_id
-                LIMIT 1
-            )
+            SELECT product_id, card_version_id
+            FROM gen
             ON CONFLICT (card_version_id) DO NOTHING
             """,
             card_version_ids,
         )
 
-        # Create missing source_product rows
+        # Ensure source_product rows for this source_id
         await self.connection.execute(
             """
             INSERT INTO pricing.source_product (product_id, source_id)
@@ -131,7 +135,6 @@ class ShopifyPipelineRepository(AbstractRepository):
             source_id,
         )
 
-        # Fetch source_product_id for each card_version_id
         rows = await self.connection.fetch(
             """
             SELECT mcp.card_version_id::TEXT, sp.source_product_id
@@ -146,18 +149,31 @@ class ShopifyPipelineRepository(AbstractRepository):
         return {r["card_version_id"]: r["source_product_id"] for r in rows}
 
     async def bulk_copy_observations(self, df: pd.DataFrame) -> int:
-        """COPY DataFrame into pricing.price_observation. Returns row count inserted."""
+        """Insert DataFrame rows into pricing.price_observation idempotently.
+        Uses ON CONFLICT DO NOTHING so re-runs on the same ts_date are safe.
+        Returns row count attempted (some may be skipped as duplicates).
+        """
         if df.empty:
             return 0
-        buf = io.BytesIO()
-        df.to_csv(buf, index=False, header=True, encoding="utf-8")
-        buf.seek(0)
-        await self.connection.copy_to_table(
-            "price_observation",
-            source=buf,
-            schema_name="pricing",
-            format="csv",
-            header=True,
+        records = [
+            (
+                r["ts_date"], r["price_type_id"], r["finish_id"], r["condition_id"],
+                r["language_id"], r["list_low_cents"], r["list_avg_cents"],
+                r["sold_avg_cents"], r["list_count"], r["sold_count"],
+                r["source_product_id"], r["data_provider_id"], r["scraped_at"],
+            )
+            for r in df.to_dict("records")
+        ]
+        await self.connection.executemany(
+            """
+            INSERT INTO pricing.price_observation
+                (ts_date, price_type_id, finish_id, condition_id, language_id,
+                 list_low_cents, list_avg_cents, sold_avg_cents, list_count, sold_count,
+                 source_product_id, data_provider_id, scraped_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            ON CONFLICT DO NOTHING
+            """,
+            records,
         )
         return len(df)
 
