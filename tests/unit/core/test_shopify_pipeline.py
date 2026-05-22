@@ -9,6 +9,8 @@ from automana.core.repositories.app_integration.shopify.pipeline_repository impo
     ("Near Mint Foil",        "NM",  "foil"),
     ("Lightly Played",        "LP",  "nonfoil"),
     ("Lightly Played Foil",   "LP",  "foil"),
+    ("Slightly Played",       "LP",  "nonfoil"),
+    ("Slightly Played Foil",  "LP",  "foil"),
     ("Moderately Played",     "MP",  "nonfoil"),
     ("Moderately Played Foil","MP",  "foil"),
     ("Heavily Played",        "HP",  "nonfoil"),
