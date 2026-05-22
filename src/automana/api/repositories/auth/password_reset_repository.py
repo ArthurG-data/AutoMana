@@ -43,5 +43,17 @@ class PasswordResetRepository(AbstractRepository):
         """
         await self.execute_command(query, (user_id,))
 
+    async def add(self, item):
+        raise NotImplementedError("Use create() to insert a password reset token")
+
+    async def get(self, id):
+        raise NotImplementedError("Use get_by_token_hash() to look up a reset token")
+
+    async def update(self, item):
+        raise NotImplementedError("Use mark_used() or invalidate_for_user()")
+
+    async def delete(self, id):
+        raise NotImplementedError("Use invalidate_for_user() to remove tokens")
+
     async def list(self):
         raise NotImplementedError

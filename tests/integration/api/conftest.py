@@ -4,14 +4,10 @@ Fixtures for API integration tests.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta, timezone
-from typing import AsyncGenerator
+from datetime import timedelta
 
 import pytest
 import pytest_asyncio
-
-from automana.api.services.auth.auth import create_access_token
-from automana.core.settings import get_settings
 
 
 @pytest_asyncio.fixture
@@ -19,7 +15,7 @@ async def test_user_data():
     """Provides test user credentials."""
     return {
         "username": f"test_user_{uuid.uuid4().hex[:8]}",
-        "email": f"test_{uuid.uuid4().hex[:8]}@test.local",
+        "email": f"test_{uuid.uuid4().hex[:8]}@example.com",
         "password": "TestPassword123!",
     }
 
@@ -27,9 +23,8 @@ async def test_user_data():
 @pytest_asyncio.fixture
 async def created_user(client, test_user_data):
     """Creates a test user via the API and returns the user object."""
-    # Register the user
     response = await client.post(
-        "/api/users/auth/register",
+        "/api/users/",
         json={
             "username": test_user_data["username"],
             "email": test_user_data["email"],
@@ -44,10 +39,10 @@ async def created_user(client, test_user_data):
 
 @pytest_asyncio.fixture
 async def auth_headers(created_user, test_user_data):
-    """
-    Generates a Bearer token for the test user.
-    Uses the same JWT settings as the app.
-    """
+    """Generates a Bearer token for the test user using the same JWT settings as the app."""
+    from automana.api.services.auth.auth import create_access_token
+    from automana.core.settings import get_settings
+
     settings = get_settings()
     token = create_access_token(
         data={"sub": created_user["username"]},
