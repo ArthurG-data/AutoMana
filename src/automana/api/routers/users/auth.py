@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 from automana.api.dependancies.general import ipDep
 from fastapi.security import OAuth2PasswordRequestForm
 from automana.api.schemas.auth.token import Token, TokenResponse
+from automana.core.exceptions.session_exceptions import SessionNotFoundError, SessionError
 from automana.api.schemas.auth.password_reset import ForgotPasswordRequest, ResetPasswordRequest
 from automana.api.dependancies.service_deps import ServiceManagerDep
 from automana.api.schemas.StandardisedQueryResponse import ErrorResponse
@@ -113,12 +114,15 @@ async def refresh_token(
     if not session_id:
         raise HTTPException(status_code=401, detail="No session cookie")
     user_agent = request.headers.get("User-Agent", "")
-    result = await service_manager.execute_service(
-        "auth.session.refresh",
-        session_id=session_id,
-        ip_address=ip_address,
-        user_agent=user_agent,
-    )
+    try:
+        result = await service_manager.execute_service(
+            "auth.session.refresh",
+            session_id=session_id,
+            ip_address=ip_address,
+            user_agent=user_agent,
+        )
+    except (SessionNotFoundError, SessionError):
+        raise HTTPException(status_code=401, detail="Session invalid or expired")
     token_response = TokenResponse(
         access_token=result["access_token"],
         refresh_token=result["refresh_token"],

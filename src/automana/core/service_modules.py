@@ -2,7 +2,7 @@ SERVICE_MODULES : dict[str, list[str]]= {
     "backend": [
             "automana.api.services.auth.auth_service",
             "automana.api.services.auth.session_service",
-            "automana.api.services.auth.cookie_utils",
+            "automana.api.services.auth.password_reset_service",
             "automana.api.services.user_management.user_service",
             "automana.api.services.user_management.role_service",
             "automana.core.services.card_catalog.card_service",
@@ -75,7 +75,7 @@ SERVICE_MODULES : dict[str, list[str]]= {
     "all" : [
             "automana.api.services.auth.auth_service",
             "automana.api.services.auth.session_service",
-            "automana.api.services.auth.cookie_utils",
+            "automana.api.services.auth.password_reset_service",
             "automana.api.services.user_management.user_service",
             "automana.api.services.user_management.role_service",
             "automana.core.services.card_catalog.card_service",
