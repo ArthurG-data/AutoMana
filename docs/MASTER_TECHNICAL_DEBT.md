@@ -401,7 +401,7 @@ Two code-quality issues in Browse API callers:
 
 ### Scryfall Pipeline
 
-**P6 — Scryfall integrity: 1,031 sets with no icon, sets with zero card versions**
+**P13 — Scryfall integrity: 1,031 sets with no icon, sets with zero card versions**
 
 Ongoing integrity warnings from post-pipeline sanity checks.
 
