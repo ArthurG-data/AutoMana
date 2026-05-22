@@ -155,6 +155,7 @@ services:
       - /data:/data
     secrets:
       - celery_db_password
+      - pgp_secret_key
     container_name: automana-celery-dev
     restart: unless-stopped
     env_file:
@@ -195,6 +196,7 @@ services:
       - ../config/env/.env.dev
     secrets:
       - celery_db_password
+      - pgp_secret_key
     environment:
       CELERY_CONCURRENCY: "4"
       CELERY_LOGLEVEL: "INFO"

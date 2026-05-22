@@ -162,9 +162,10 @@ class EbaySellingRepository(EbayApiClient):
         now = datetime.now(timezone.utc)
         # eBay Fulfillment API getOrders: maximum lookback is 90 days.
         # Requesting beyond 90 days returns a 400 error, not an empty result set.
+        # Sandbox and production both require millisecond precision (.000Z).
         ninety_days_ago = now - timedelta(days=90)
         params = {
-            "filter": f"creationdate:[{ninety_days_ago.strftime('%Y-%m-%dT%H:%M:%SZ')}..{now.strftime('%Y-%m-%dT%H:%M:%SZ')}]",
+            "filter": f"creationdate:[{ninety_days_ago.strftime('%Y-%m-%dT%H:%M:%S.000Z')}..{now.strftime('%Y-%m-%dT%H:%M:%S.000Z')}]",
             "limit": payload.get("limit", 10),
             "offset": payload.get("offset", 0),
         }

@@ -39,7 +39,8 @@ logger = logging.getLogger(__name__)
 _EBAY_SOURCE_ID = 5
 _DEFAULT_LANGUAGE_ID = 1
 _MARKETPLACES = ("EBAY-US", "EBAY-AU", "EBAY-ENCA")
-_INTER_MARKETPLACE_DELAY = 0.3
+_INTER_MARKETPLACE_DELAY = 1.0   # 1 req/s per marketplace — stays well below burst throttle
+_INTER_CARD_DELAY = 0.5          # breathing room between cards
 
 
 @ServiceRegistry.register(
@@ -55,7 +56,7 @@ async def scrape_global_market(
     ebay_finding_repository: EbayFindingAPIRepository,
     days_back: int = 30,
     score_threshold: float = 0.7,
-    limit_per_card: int = 50,
+    limit_per_card: int = 100,
     **kwargs: Any,
 ) -> dict:
     """Scrape sold prices for watchlist cards across EBAY-US, EBAY-AU, EBAY-ENCA."""
@@ -133,6 +134,8 @@ async def scrape_global_market(
                 "scrape_global_market_update_last_scraped_failed",
                 extra={"card_version_id": str(card_version_id)},
             )
+
+        await asyncio.sleep(_INTER_CARD_DELAY)
 
     logger.info(
         "scrape_global_market_complete",
