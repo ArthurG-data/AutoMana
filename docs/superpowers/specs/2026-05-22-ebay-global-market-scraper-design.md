@@ -178,8 +178,8 @@ for marketplace in [EBAY-US, EBAY-AU, EBAY-ENCA]:
         parsed_frame = parse_frame_variant(item.title)
         if conflicts_with_expected(parsed_frame, card):
             continue                     # hard conflict only (e.g. title=showcase, card=regular)
-        finish_id    = parse_finish(item.title)
-        condition_id = parse_condition(item.ebay_condition, item.title)
+        finish_id    = parse_finish(item.title)           # defaults to NONFOIL
+        condition_id = parse_condition(item.ebay_condition, item.title)  # defaults to NM
 
         INSERT INTO pricing.ebay_scraped_sold (
             item_id, title, source_product_id,
@@ -232,9 +232,8 @@ Tries eBay's `conditionDisplayName` field first (more reliable), falls back to t
 | `Heavily Played` / `Good` / `HP`, `G`, `PLD` | `HP` |
 | `Damaged` / `Poor` / `DMG` | `DMG` |
 
-Returns `None` if neither source yields a confident match. Rows with `condition_id = NULL`
-are still inserted into `ebay_scraped_sold` but are not promoted to `price_observation`
-until resolved.
+Returns `default_condition_id()` (NM) if neither source yields a confident match.
+Condition is never stored as NULL — unknown titles default to Near Mint.
 
 ### `parse_frame_variant(title: str) → dict`
 
@@ -397,7 +396,7 @@ Three new entries in `celeryconfig.py`:
 | `ensure_product` returns None | Log warning, skip card, continue |
 | `ensure_source_product` returns None | Log warning, skip card, continue |
 | Finding API 429 throttle | Catch, log, stop that marketplace for the run; already-inserted rows are safe |
-| Title parse ambiguous (finish/condition) | Store defaults (`default_finish_id()`, `condition_id=NULL`); row inserted but not promoted until condition resolved |
+| Title parse ambiguous (finish/condition) | Store defaults: `default_finish_id()` (NONFOIL), `default_condition_id()` (NM); row inserted and promoted normally |
 | `conflicts_with_expected` hard conflict | Drop item silently (debug log only) |
 | FX rate fetch fails | Log error, skip upsert; analytics degrade to native price via `LEFT JOIN` |
 | Any card-level exception | Log exception, continue to next card |
