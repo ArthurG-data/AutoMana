@@ -31,6 +31,7 @@ _FINISH_PATTERNS: list[tuple[str, str]] = [
     ("rainbow foil", "RAINBOW_FOIL"),
     ("etched foil",  "ETCHED"),
     ("foil etched",  "ETCHED"),
+    ("etched",       "ETCHED"),    # bare "etched" without "foil" word
 ]
 
 _FOIL_RE = re.compile(r"\bfoil\b", re.IGNORECASE)

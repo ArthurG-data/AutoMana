@@ -15,6 +15,7 @@ from automana.core.services.app_integration.ebay.title_parser import (
     ("Sheoldred Rainbow Foil NM MH2", "RAINBOW_FOIL"),
     ("Sheoldred Etched Foil NM MH2", "ETCHED"),
     ("Sheoldred Foil Etched NM MH2", "ETCHED"),
+    ("Sheoldred Etched NM MH2", "ETCHED"),     # bare etched without foil word
     ("Sheoldred Foil NM MH2 MTG", "FOIL"),
     ("Sheoldred NM MH2 MTG", "NONFOIL"),
     ("Sheoldred Non-Foil NM MH2 MTG", "NONFOIL"),
