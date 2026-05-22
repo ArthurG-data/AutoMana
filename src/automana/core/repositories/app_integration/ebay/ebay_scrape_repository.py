@@ -45,7 +45,7 @@ class EbayScrapeSoldRepository(AbstractRepository):
         price_cents: int,
         currency: str,
         marketplace_id: str,
-        condition_id: int,
+        condition_id: Optional[int],
         finish_id: int,
         language_id: int,
         sold_at: datetime,
