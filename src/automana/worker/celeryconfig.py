@@ -132,15 +132,17 @@ beat_schedule = {
         "kwargs": {"path": "integrations.pricing.fetch_fx_rates"},
     },
     # eBay global market: refresh rare/mythic/promo watchlist.
+    # Runs after promote_sold_obs (08:00) so price_observation has fresh data for
+    # the sell_avg_cents >= threshold filter.
     "ebay-refresh-scrape-targets-nightly": {
         "task": "run_service",
-        "schedule": crontab(hour=7, minute=0),    # 07:00 AEST
+        "schedule": crontab(hour=8, minute=30),   # 08:30 AEST — after promote_sold_obs
         "kwargs": {"path": "integrations.ebay.refresh_scrape_targets"},
     },
     # eBay global market: scrape sold prices across EBAY-US, EBAY-AU, EBAY-ENCA.
     "ebay-scrape-global-market-nightly": {
         "task": "run_service",
-        "schedule": crontab(hour=7, minute=15),   # 07:15 AEST — after targets refreshed
+        "schedule": crontab(hour=8, minute=45),   # 08:45 AEST — after targets refreshed
         "kwargs": {
             "path": "integrations.ebay.scrape_global_market",
             "days_back": 30,
