@@ -148,6 +148,7 @@ beat_schedule = {
             "days_back": 30,
             "score_threshold": 0.7,
             "limit_per_card": 50,
+            "environment": "production",
         },
     },
     # Drain staging pricing actions → apply to eBay listings every 5 minutes.
