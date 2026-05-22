@@ -27,6 +27,7 @@ import pytest_asyncio
 
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[2]
 EXTENSIONS_SQL = PROJECT_ROOT / "infra" / "db" / "init" / "00-extensions.sql"
+TEST_ROLES_SQL = PROJECT_ROOT / "infra" / "db" / "init" / "00-test-roles.sql"
 SCHEMAS_DIR = PROJECT_ROOT / "src" / "automana" / "database" / "SQL" / "schemas"
 ANALYTICS_DIR = PROJECT_ROOT / "src" / "automana" / "database" / "SQL" / "analytics"
 MIGRATIONS_DIR = PROJECT_ROOT / "infra" / "db" / "init" / "migrations"
@@ -121,6 +122,8 @@ def _collect_sql_files() -> list[pathlib.Path]:
     files: list[pathlib.Path] = []
     if EXTENSIONS_SQL.exists():
         files.append(EXTENSIONS_SQL)
+    if TEST_ROLES_SQL.exists():
+        files.append(TEST_ROLES_SQL)
     files.extend(sorted(SCHEMAS_DIR.glob("[0-9]*_*.sql")))
     integrity = SCHEMAS_DIR / "integrity_checks.sql"
     if integrity.exists():
