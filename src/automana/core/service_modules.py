@@ -22,6 +22,8 @@ SERVICE_MODULES : dict[str, list[str]]= {
             "automana.core.services.app_integration.ebay.local_sales_service",
             "automana.core.services.app_integration.ebay.scrape_sold_service",
             "automana.core.services.app_integration.ebay.promote_sold_obs_service",
+            "automana.core.services.app_integration.ebay.refresh_scrape_targets_service",
+            "automana.core.services.app_integration.ebay.scrape_global_market_service",
             "automana.core.services.ops.pipeline_services",
             "automana.core.services.ops.metrics_service",
             "automana.core.services.app_integration.scryfall.data_loader",
@@ -41,6 +43,7 @@ SERVICE_MODULES : dict[str, list[str]]= {
             "automana.core.services.ops.scryfall_identifier_audit",
             "automana.core.services.pricing.pricing_aggregation",
             "automana.core.services.pricing.card_prices_service",
+            "automana.core.services.pricing.fetch_fx_rates_service",
         ],
 
     "celery": [
@@ -58,9 +61,10 @@ SERVICE_MODULES : dict[str, list[str]]= {
             "automana.core.services.app_integration.mtgjson.pipeline",
             "automana.core.services.app_integration.shopify.pipeline_service",
             "automana.core.services.app_integration.ebay.sales_sync_service",
-            "automana.core.services.app_integration.ebay.local_sales_service",
             "automana.core.services.app_integration.ebay.scrape_sold_service",
             "automana.core.services.app_integration.ebay.promote_sold_obs_service",
+            "automana.core.services.app_integration.ebay.refresh_scrape_targets_service",
+            "automana.core.services.app_integration.ebay.scrape_global_market_service",
             "automana.core.services.app_integration.ebay.listing_actions_service",
             "automana.core.services.ops.integrity_checks",
             "automana.core.services.ops.mtgstock_report",
@@ -95,6 +99,8 @@ SERVICE_MODULES : dict[str, list[str]]= {
             "automana.core.services.app_integration.ebay.local_sales_service",
             "automana.core.services.app_integration.ebay.scrape_sold_service",
             "automana.core.services.app_integration.ebay.promote_sold_obs_service",
+            "automana.core.services.app_integration.ebay.refresh_scrape_targets_service",
+            "automana.core.services.app_integration.ebay.scrape_global_market_service",
             "automana.core.services.ops.pipeline_services",
             "automana.core.services.ops.metrics_service",
             "automana.core.services.app_integration.scryfall.data_loader",
@@ -115,5 +121,6 @@ SERVICE_MODULES : dict[str, list[str]]= {
             "automana.core.services.ops.scryfall_identifier_audit",
             "automana.core.services.pricing.pricing_aggregation",
             "automana.core.services.pricing.card_prices_service",
+            "automana.core.services.pricing.fetch_fx_rates_service",
     ]
 }

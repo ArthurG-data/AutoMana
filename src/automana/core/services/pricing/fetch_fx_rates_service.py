@@ -12,12 +12,12 @@ from automana.core.service_registry import ServiceRegistry
 
 logger = logging.getLogger(__name__)
 
-_FRANKFURTER_URL = "https://api.frankfurter.app/latest"
+_FRANKFURTER_URL = "https://api.frankfurter.dev/v1/latest"
 _TARGET_CURRENCIES = ("AUD", "CAD")
 
 
 async def _fetch_rates_from_api() -> dict:
-    async with httpx.AsyncClient(timeout=15) as client:
+    async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
         resp = await client.get(
             _FRANKFURTER_URL,
             params={"from": "USD", "to": ",".join(_TARGET_CURRENCIES)},
