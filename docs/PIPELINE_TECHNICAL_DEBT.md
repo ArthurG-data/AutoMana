@@ -404,3 +404,43 @@ DEBT_METADATA_END -->
 - **Status**: resolved
 <!-- DEBT_ITEM_END -->
 
+---
+
+## Shopify Pipeline — Open Items (added 2026-05-22)
+
+<!-- DEBT_ITEM_START key="shopify_pipeline::fetch_no_retry" -->
+### fetch_no_retry · shopify_pipeline
+- **Severity**: warning
+- **First seen**: 2026-05-22
+- **Details**: `_fetch_all_pages` in `pipeline_service.py` calls `resp.raise_for_status()` with no retry or backoff. A single 429 or 5xx mid-pagination aborts the entire store's fetch. The project retry policy operates at whole-step granularity (re-fetches all stores from page 0) — it does not help within a paginated crawl. Shopify enforces a 2 req/s rate limit per storefront.
+- **Fix**: Add per-request exponential backoff with `Retry-After` header support inside `_fetch_all_pages`. A `tenacity` decorator or a simple `asyncio.sleep` + retry loop would suffice. Respect the `Retry-After` header value on 429 responses.
+- **Status**: open
+<!-- DEBT_ITEM_END -->
+
+<!-- DEBT_ITEM_START key="shopify_pipeline::fx_conversion_missing" -->
+### fx_conversion_missing · shopify_pipeline
+- **Severity**: warning
+- **First seen**: 2026-05-22
+- **Details**: Prices are stored in the store's local currency (AUD, CAD, etc.) as cents without conversion to USD. The `list_avg_cents` column in `pricing.price_observation` is treated as USD by downstream analytics. Non-AUD stores (e.g. Face2Face Canada) will produce systematically incorrect price comparisons until FX conversion is wired in.
+- **Fix**: In `promote_observations`, fetch the daily `AUD→USD` (or `CAD→USD`) rate using the existing `fetch_fx_rate` utility and apply it before writing `list_avg_cents`. The `markets.market_ref.country_code` column identifies the store's currency. Australian stores added to date are AUD — this is low urgency until the first non-AUD store is onboarded.
+- **Status**: open
+<!-- DEBT_ITEM_END -->
+
+<!-- DEBT_ITEM_START key="shopify_pipeline::raw_to_stage_dead_code" -->
+### raw_to_stage_dead_code · shopify_pipeline
+- **Severity**: warning
+- **First seen**: 2026-05-22
+- **Details**: `pricing.raw_to_stage()` in `07_shopify_staging.sql` (line 34) is dead code — it is never called by the pipeline. Worse, it hardcodes `ps.code = 'gg_brisbane'` in the JOIN (line 68), so if it were ever called for another store it would attribute all rows to gg_brisbane. The Python `promote_observations` step handles promotion correctly.
+- **Fix**: Either delete `pricing.raw_to_stage()` in a follow-up migration, or add a `/* DEAD CODE — do not call */` header comment so it is not confused with the active promotion path.
+- **Status**: open
+<!-- DEBT_ITEM_END -->
+
+<!-- DEBT_ITEM_START key="shopify_pipeline::info_json_write_once" -->
+### info_json_write_once · shopify_pipeline
+- **Severity**: minor
+- **First seen**: 2026-05-22
+- **Details**: `process_json_dir_to_parquet` only writes `info.json` if the file is absent (`if not os.path.exists(info_fp)`). Parquet directories created before migration 46 (which added the `handle` column) will have `info.json` files without a `handle` key. Re-running the pipeline on existing directories will not regenerate `info.json`, so `markets.product_ref.handle` will remain NULL for those products. New parquet directories (written after this fix) correctly include `handle`.
+- **Fix**: To backfill handles for existing parquet directories, delete `{SHOPIFY_DATA_ROOT}/parquet/*/*/info.json` and re-run the `shopify.pipeline.process_to_parquet` step. Alternatively, change the `if not os.path.exists` guard to always rewrite `info.json`.
+- **Status**: open
+<!-- DEBT_ITEM_END -->
+
