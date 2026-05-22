@@ -108,6 +108,10 @@ beat_schedule = {
         "task": "archive_to_weekly_prices",
         "schedule": crontab(day_of_week=0, hour=5, minute=45),  # Sunday 05:45 AEST
     },
+    "shopify-ingest-weekly": {
+        "task": "automana.worker.tasks.pipelines.shopify_weekly_pipeline",
+        "schedule": crontab(day_of_week=0, hour=6, minute=0),  # Sunday 06:00 AEST
+    },
     # eBay sold-price persistence — own sales (Fulfillment API, 90-day window).
     "ebay-sync-own-sales-nightly": {
         "task": "automana.worker.tasks.ebay.ebay_sync_own_sales_task",
