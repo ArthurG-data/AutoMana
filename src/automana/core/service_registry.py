@@ -204,6 +204,9 @@ ServiceRegistry.register_db_repository(
 ServiceRegistry.register_db_repository(
     "collection", "automana.core.repositories.app_integration.shopify.collection_repository", "CollectionRepository"
 )
+ServiceRegistry.register_db_repository(
+    "shopify_pipeline", "automana.core.repositories.app_integration.shopify.pipeline_repository", "ShopifyPipelineRepository"
+)
 
 # Integration repositories
 ServiceRegistry.register_db_repository(

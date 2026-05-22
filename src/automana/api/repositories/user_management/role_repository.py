@@ -25,10 +25,8 @@ class RoleRepository(AbstractRepository):
             VALUES ($1, (
             SELECT unique_id FROM roles WHERE role = $2), $3, $4)
          """
-        set_user_query = f"SET LOCAL app.current_user_id = '{assigned_by}';"
-        set_reason_query = f"SET LOCAL app.role_change_reason = '{reason}';"
-        await self.execute_command(set_user_query)
-        await self.execute_command(set_reason_query)
+        await self.execute_command("SELECT set_config('app.current_user_id', $1, true)", (str(assigned_by),))
+        await self.execute_command("SELECT set_config('app.role_change_reason', $1, true)", (reason or "",))
         await self.execute_command(query, (user_id, role_name, expires_at, effective_from))
 
     async def revoke_role(self
@@ -38,8 +36,7 @@ class RoleRepository(AbstractRepository):
         query = """DELETE FROM user_roles WHERE user_id = $1 AND role_id = (
             SELECT unique_id FROM roles WHERE role = $2
         )"""
-        set_user_query = f"SET LOCAL app.current_user_id = '{revoked_by}';"
-        await self.execute_command(set_user_query)
+        await self.execute_command("SELECT set_config('app.current_user_id', $1, true)", (str(revoked_by),))
         await self.execute_command(query, (user_id, role_name))
 
     async def get_role_by_name(self, role_name: Role):
@@ -52,7 +49,7 @@ class RoleRepository(AbstractRepository):
             FROM user_roles_permission_view 
             WHERE permission = $1 AND unique_id = $2
         )"""
-        return await self.execute_query(query, (user_id, role_name))
+        return await self.execute_query(query, (role_name, user_id))
     
     async def user_has_role(self, user_id: UUID, role_name: Role) -> dict[str, bool]:
         query = """SELECT EXISTS (
