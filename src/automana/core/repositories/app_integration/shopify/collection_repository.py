@@ -14,7 +14,7 @@ class ShopifyCollectionRepository(AbstractRepository[shopify_theme.CollectionMod
     async def add(self, values: shopify_theme.InsertCollection):
         await self.execute_command(
             """
-            INSERT INTO collection_handles (market_id, name)
+            INSERT INTO markets.collection_handles (market_id, name)
             VALUES ($1, $2)
             ON CONFLICT (name, market_id) DO NOTHING;
             """,
@@ -26,7 +26,7 @@ class ShopifyCollectionRepository(AbstractRepository[shopify_theme.CollectionMod
             return
         await self.connection.executemany(
             """
-            INSERT INTO collection_handles (name, market_id)
+            INSERT INTO markets.collection_handles (name, market_id)
             VALUES ($1, $2)
             ON CONFLICT (name, market_id) DO NOTHING;
             """,
@@ -35,7 +35,7 @@ class ShopifyCollectionRepository(AbstractRepository[shopify_theme.CollectionMod
 
     async def get(self, name: str, market_id: int) -> Any | None:
         result = await self.execute_query(
-            "SELECT * FROM collection_handles WHERE name = $1 AND market_id = $2;",
+            "SELECT * FROM markets.collection_handles WHERE name = $1 AND market_id = $2;",
             (name, market_id),
         )
         return result[0] if result else None
@@ -43,11 +43,11 @@ class ShopifyCollectionRepository(AbstractRepository[shopify_theme.CollectionMod
     async def link_collection_theme(self, values: shopify_theme.InsertCollectionTheme) -> Any:
         result = await self.execute_query(
             """
-            INSERT INTO handles_theme (handle_id, theme_id)
-            SELECT ch.handle_id, tr.theme_id
-            FROM collection_handles AS ch
-            JOIN theme_ref AS tr ON TRUE
-            WHERE ch.name = $1 AND tr.code = $2
+            INSERT INTO markets.handles_theme (handle_id, theme_id)
+            SELECT ch.handle_id, cg.game_id
+            FROM markets.collection_handles AS ch
+            JOIN pricing.card_game AS cg ON cg.code = $2
+            WHERE ch.name = $1
             ON CONFLICT (handle_id, theme_id) DO NOTHING
             RETURNING *;
             """,
@@ -56,13 +56,13 @@ class ShopifyCollectionRepository(AbstractRepository[shopify_theme.CollectionMod
         return result[0] if result else None
 
     async def list(self) -> List[Any]:
-        rows = await self.connection.fetch("SELECT * FROM collection_handles")
+        rows = await self.connection.fetch("SELECT * FROM markets.collection_handles")
         return [dict(row) for row in rows] if rows else []
 
     async def add_theme(self, values: shopify_theme.InsertTheme):
         await self.execute_command(
             """
-            INSERT INTO theme_ref (code, name)
+            INSERT INTO pricing.card_game (code, name)
             VALUES ($1, $2)
             ON CONFLICT (code) DO NOTHING;
             """,
