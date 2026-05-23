@@ -182,3 +182,138 @@ async def test_scrape_global_market_calls_ensure_product_before_source_product()
     ensure_product_call_idx = [c[0] for c in mock_sales.method_calls].index("ensure_product")
     ensure_source_product_call_idx = [c[0] for c in mock_sales.method_calls].index("ensure_source_product")
     assert ensure_product_call_idx < ensure_source_product_call_idx
+
+
+@pytest.mark.asyncio
+async def test_scrape_global_market_stops_at_budget():
+    """When api_calls reaches _API_DAILY_BUDGET, the outer loop breaks."""
+    from automana.core.services.app_integration.ebay.scrape_global_market_service import scrape_global_market
+    from unittest.mock import patch, AsyncMock
+    from uuid import uuid4
+
+    card_ids = [uuid4(), uuid4()]
+    mock_sales = AsyncMock()
+    mock_sales.ensure_product = AsyncMock(return_value=uuid4())
+    mock_sales.ensure_source_product = AsyncMock(return_value=99)
+    mock_scrape = AsyncMock()
+    mock_scrape.get_scrape_targets = AsyncMock(return_value=card_ids)
+    mock_scrape.update_target_last_scraped = AsyncMock()
+    mock_card = AsyncMock()
+    mock_card.get_scrape_metadata = AsyncMock(return_value={
+        "card_name": "Sheoldred, the Apocalypse",
+        "set_code": "mh2",
+        "frame_effects": [],
+        "is_promo": False,
+        "promo_types": [],
+        "border_color_name": "black",
+        "full_art": False,
+    })
+    mock_finding = AsyncMock()
+    mock_finding.find_completed_items = AsyncMock(return_value=[])
+
+    with patch(
+        "automana.core.services.app_integration.ebay.scrape_global_market_service.get_settings",
+        return_value=type("S", (), {"ebay_app_id": "FAKE-APP-ID"})(),
+    ), patch(
+        "automana.core.services.app_integration.ebay.scrape_global_market_service._API_DAILY_BUDGET",
+        3,
+    ):
+        result = await scrape_global_market(
+            ebay_sales_repository=mock_sales,
+            ebay_scrape_repository=mock_scrape,
+            card_repository=mock_card,
+            ebay_finding_repository=mock_finding,
+        )
+
+    assert mock_finding.find_completed_items.call_count == 3
+    assert result["api_calls"] == 3
+
+
+@pytest.mark.asyncio
+async def test_scrape_global_market_warns_at_threshold(caplog):
+    """A warning is logged when api_calls reaches the warn threshold."""
+    import logging
+    from automana.core.services.app_integration.ebay.scrape_global_market_service import scrape_global_market
+    from unittest.mock import patch, AsyncMock
+    from uuid import uuid4
+
+    card_ids = [uuid4()]
+    mock_sales = AsyncMock()
+    mock_sales.ensure_product = AsyncMock(return_value=uuid4())
+    mock_sales.ensure_source_product = AsyncMock(return_value=99)
+    mock_scrape = AsyncMock()
+    mock_scrape.get_scrape_targets = AsyncMock(return_value=card_ids)
+    mock_scrape.update_target_last_scraped = AsyncMock()
+    mock_card = AsyncMock()
+    mock_card.get_scrape_metadata = AsyncMock(return_value={
+        "card_name": "Sheoldred, the Apocalypse",
+        "set_code": "mh2",
+        "frame_effects": [],
+        "is_promo": False,
+        "promo_types": [],
+        "border_color_name": "black",
+        "full_art": False,
+    })
+    mock_finding = AsyncMock()
+    mock_finding.find_completed_items = AsyncMock(return_value=[])
+
+    # budget=4, threshold=0.75 → warn_at = round(4*0.75) = 3 → triggered on 3rd call (1 card × 3 marketplaces)
+    with patch(
+        "automana.core.services.app_integration.ebay.scrape_global_market_service.get_settings",
+        return_value=type("S", (), {"ebay_app_id": "FAKE-APP-ID"})(),
+    ), patch(
+        "automana.core.services.app_integration.ebay.scrape_global_market_service._API_DAILY_BUDGET",
+        4,
+    ), patch(
+        "automana.core.services.app_integration.ebay.scrape_global_market_service._API_WARN_THRESHOLD",
+        0.75,
+    ), caplog.at_level(logging.WARNING, logger="automana.core.services.app_integration.ebay.scrape_global_market_service"):
+        await scrape_global_market(
+            ebay_sales_repository=mock_sales,
+            ebay_scrape_repository=mock_scrape,
+            card_repository=mock_card,
+            ebay_finding_repository=mock_finding,
+        )
+
+    assert any("scrape_global_market_api_budget_warning" in r.message for r in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_scrape_global_market_result_includes_api_calls():
+    """The return dict includes api_calls."""
+    from automana.core.services.app_integration.ebay.scrape_global_market_service import scrape_global_market
+    from unittest.mock import patch, AsyncMock
+    from uuid import uuid4
+
+    mock_sales = AsyncMock()
+    mock_sales.ensure_product = AsyncMock(return_value=uuid4())
+    mock_sales.ensure_source_product = AsyncMock(return_value=99)
+    mock_scrape = AsyncMock()
+    mock_scrape.get_scrape_targets = AsyncMock(return_value=[uuid4()])
+    mock_scrape.update_target_last_scraped = AsyncMock()
+    mock_card = AsyncMock()
+    mock_card.get_scrape_metadata = AsyncMock(return_value={
+        "card_name": "Sheoldred, the Apocalypse",
+        "set_code": "mh2",
+        "frame_effects": [],
+        "is_promo": False,
+        "promo_types": [],
+        "border_color_name": "black",
+        "full_art": False,
+    })
+    mock_finding = AsyncMock()
+    mock_finding.find_completed_items = AsyncMock(return_value=[])
+
+    with patch(
+        "automana.core.services.app_integration.ebay.scrape_global_market_service.get_settings",
+        return_value=type("S", (), {"ebay_app_id": "FAKE-APP-ID"})(),
+    ):
+        result = await scrape_global_market(
+            ebay_sales_repository=mock_sales,
+            ebay_scrape_repository=mock_scrape,
+            card_repository=mock_card,
+            ebay_finding_repository=mock_finding,
+        )
+
+    assert "api_calls" in result
+    assert result["api_calls"] == 3  # 1 card × 3 marketplaces
