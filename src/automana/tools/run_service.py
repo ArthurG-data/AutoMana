@@ -80,7 +80,7 @@ def cli(service_path, extra_args, raw, db_user, db_password, list_users):
 
 
 async def _main(service_path, extra_args, raw, db_user, db_password, list_users):
-    from automana.core.logging_config import configure_logging
+    from automana.core.log.logging_config import configure_logging
     configure_logging()
 
     # ── list users mode ────────────────────────────────────────────────────

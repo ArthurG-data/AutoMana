@@ -18,7 +18,7 @@ Call `configure_logging()` once per process at startup. The function is idempote
 **FastAPI entrypoint** (`src/automana/api/main.py`):
 
 ```python
-from automana.core.logging_config import configure_logging
+from automana.core.log.logging_config import configure_logging
 configure_logging()
 logger = logging.getLogger(__name__)
 logger.info("Application startup initiated")
@@ -27,7 +27,7 @@ logger.info("Application startup initiated")
 **Celery worker entrypoint** (e.g., `src/automana/worker/__main__.py`):
 
 ```python
-from automana.core.logging_config import configure_logging
+from automana.core.log.logging_config import configure_logging
 configure_logging()
 logger = logging.getLogger(__name__)
 ```
@@ -470,8 +470,8 @@ Context variables are O(1) — reading them is a simple dict lookup and carries 
 ```python
 import logging
 from fastapi import FastAPI
-from automana.core.logging_config import configure_logging
-from automana.core.logging_context import set_request_id, get_request_id
+from automana.core.log.logging_config import configure_logging
+from automana.core.log.logging_context import set_request_id, get_request_id
 
 configure_logging()
 logger = logging.getLogger(__name__)
@@ -505,7 +505,7 @@ async def get_card(card_id: int):
 ```python
 import logging
 from celery import shared_task
-from automana.core.logging_context import get_task_id
+from automana.core.log.logging_context import get_task_id
 
 logger = logging.getLogger(__name__)
 
@@ -549,7 +549,7 @@ def process_card_batch(batch_id: int):
 
 ```python
 import logging
-from automana.core.logging_context import get_service_path
+from automana.core.log.logging_context import get_service_path
 
 logger = logging.getLogger(__name__)
 

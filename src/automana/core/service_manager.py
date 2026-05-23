@@ -6,7 +6,7 @@ from automana.core.service_modules import SERVICE_MODULES
 from automana.core.service_registry import ServiceRegistry
 from automana.core.storage import StorageService
 
-from automana.core.logging_context import set_service_path
+from automana.core.log.logging_context import set_service_path
 
 logger = logging.getLogger(__name__)
 

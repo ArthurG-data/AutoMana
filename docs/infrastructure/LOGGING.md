@@ -15,7 +15,7 @@ Configuration lives in two files:
 Call `configure_logging()` once at process startup — in the FastAPI lifespan and in the Celery worker entrypoint. The function is **idempotent** (guarded by a `_automana_configured` flag on the root logger), so calling it more than once is safe.
 
 ```python
-from automana.core.logging_config import configure_logging
+from automana.core.log.logging_config import configure_logging
 configure_logging()
 ```
 

@@ -10,8 +10,8 @@ from fastapi import HTTPException
 from fastapi.responses import FileResponse, RedirectResponse
 from automana.api.dependancies.auth.users import BrowserAuthRequired, LOGIN_URL
 
-from automana.core.logging_config import configure_logging
-from automana.core.logging_context import set_request_id, set_service_path
+from automana.core.log.logging_config import configure_logging
+from automana.core.log.logging_context import set_request_id, set_service_path
 from automana.api.middleware.metrics_middleware import MetricsMiddleware
 
 

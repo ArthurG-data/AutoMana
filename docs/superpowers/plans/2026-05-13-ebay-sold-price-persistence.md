@@ -1812,7 +1812,7 @@ from datetime import datetime
 from celery import shared_task
 
 from automana.worker.main import run_service
-from automana.core.logging_context import set_task_id
+from automana.core.log.logging_context import set_task_id
 
 logger = logging.getLogger(__name__)
 
