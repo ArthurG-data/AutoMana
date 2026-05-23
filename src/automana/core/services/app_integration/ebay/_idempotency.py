@@ -180,7 +180,7 @@ def get_idempotency_store() -> IdempotencyStore:
             # don't touch idempotency. Uses a dedicated sync Redis client
             # because RedisIdempotencyStore explicitly requires sync .get()/.set().
             import redis as _redis_lib
-            from automana.core.settings import get_settings as _get_settings
+            from automana.core.config.settings import get_settings as _get_settings
 
             _settings = _get_settings()
             _sync_client = _redis_lib.Redis.from_url(

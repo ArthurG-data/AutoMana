@@ -33,7 +33,7 @@ class ServiceManager:
        
     def _discover_services(self):
         """Import all service modules to register them"""
-        from automana.core.settings import get_settings
+        from automana.core.config.settings import get_settings
         from automana.core.data_loader import load_services
         settings = get_settings()
         module_namespace = getattr(settings, "modules_namespace")
@@ -132,7 +132,7 @@ class ServiceManager:
         the backend type and its config, then instantiates accordingly.
         """
         from automana.core.storage import StorageService
-        from automana.core.settings import get_settings
+        from automana.core.config.settings import get_settings
         from pathlib import Path
         import importlib
 

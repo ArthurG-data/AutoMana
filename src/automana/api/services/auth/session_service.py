@@ -6,7 +6,7 @@ from automana.api.services.auth.auth import create_access_token, decode_access_t
 from datetime import timedelta, datetime, timezone
 from automana.core.exceptions import session_exceptions
 from automana.api.schemas.user_management.user import UserInDB
-from automana.core.settings import get_settings as get_general_settings
+from automana.core.config.settings import get_settings as get_general_settings
 import logging 
 from typing import Dict, Any
 from automana.core.service_registry import ServiceRegistry

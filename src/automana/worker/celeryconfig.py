@@ -1,7 +1,7 @@
 import os
 from celery.schedules import crontab
 from dotenv import load_dotenv
-from automana.core.settings import env_file_path
+from automana.core.config.settings import env_file_path
 from urllib.parse import urlsplit, urlunsplit
 
 # Load the same env file strategy used by the backend app.

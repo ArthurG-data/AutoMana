@@ -9,7 +9,7 @@ from automana.core.exceptions.session_exceptions import SessionNotFoundError, Se
 from automana.api.schemas.auth.password_reset import ForgotPasswordRequest, ResetPasswordRequest
 from automana.api.dependancies.service_deps import ServiceManagerDep
 from automana.api.schemas.StandardisedQueryResponse import ErrorResponse
-from automana.core.settings import get_settings
+from automana.core.config.settings import get_settings
 import logging
 
 logger = logging.getLogger(__name__)

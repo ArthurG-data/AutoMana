@@ -3,7 +3,7 @@ import time, logging, uuid
 #from backend.modules.ebay import routers as ebay_router
 #from backend import api
 from contextlib import asynccontextmanager
-from automana.core.settings import get_settings
+from automana.core.config.settings import get_settings
 #for fasvicon
 from pathlib import Path
 from fastapi import HTTPException

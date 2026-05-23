@@ -31,7 +31,7 @@ from automana.core.services.app_integration.ebay.market_price_scorer import (
     build_query_string,
     score_title,
 )
-from automana.core.settings import get_settings
+from automana.core.config.settings import get_settings
 
 logger = logging.getLogger(__name__)
 

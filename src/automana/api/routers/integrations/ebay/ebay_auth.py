@@ -7,7 +7,7 @@ from automana.api.dependancies.service_deps import ServiceManagerDep
 from automana.api.dependancies.auth.users import CurrentUserDep, AdminUserDep
 from automana.core.models.ebay.auth import AppRegistrationRequest, CreateAppRequest
 from automana.api.schemas.StandardisedQueryResponse import ApiResponse
-from automana.core.settings import get_settings
+from automana.core.config.settings import get_settings
 from pydantic import BaseModel
 
 settings = get_settings()

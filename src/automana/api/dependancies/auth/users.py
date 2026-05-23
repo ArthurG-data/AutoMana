@@ -8,7 +8,7 @@ from automana.api.dependancies.service_deps import ServiceManagerDep
 from automana.api.schemas.user_management.user import UserInDB
 from automana.api.services.auth.auth import decode_access_token
 from automana.core.exceptions import session_exceptions
-from automana.core.settings import get_settings
+from automana.core.config.settings import get_settings
 
 import logging
 

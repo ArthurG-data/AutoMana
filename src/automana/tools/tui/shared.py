@@ -26,7 +26,7 @@ async def bootstrap(db_user: str | None = None, db_password: str | None = None) 
     from automana.core.database import init_async_pool
     from automana.core.QueryExecutor import AsyncQueryExecutor
     from automana.core.service_manager import ServiceManager
-    from automana.core.settings import get_settings
+    from automana.core.config.settings import get_settings
 
     if db_user:
         os.environ["APP_BACKEND_DB_USER"] = db_user

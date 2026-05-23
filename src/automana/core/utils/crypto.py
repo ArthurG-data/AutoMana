@@ -1,4 +1,4 @@
-from automana.core.settings import get_settings
+from automana.core.config.settings import get_settings
 
 
 def get_pgp_key() -> str:

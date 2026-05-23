@@ -2,7 +2,7 @@ import asyncio, logging ,os, asyncpg
 from psycopg2.extras import RealDictCursor, register_uuid, register_uuid
 from psycopg2 import pool
 
-from automana.core.settings import Settings, read_db_password
+from automana.core.config.settings import Settings, read_db_password
 
 logger = logging.getLogger(__name__)
 register_uuid()
