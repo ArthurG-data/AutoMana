@@ -17,7 +17,7 @@ class PriceRepository(AbstractRepository):
         Roll back the current transaction.
         """
         try:
-            await self.connection.execute("ROLLBACK;")
+            await self.execute_command("ROLLBACK;")
             logger.info("Transaction rolled back successfully.")
         except Exception as e:
             logger.error("Error rolling back transaction", extra={"error": str(e)})
@@ -37,13 +37,7 @@ class PriceRepository(AbstractRepository):
         buf = await asyncio.to_thread(_to_csv)
         # No explicit timeout: inherits conn._config.command_timeout, which
         # ServiceManager overrides per-service (3 600 s for bulk_load).
-        await self.connection.copy_to_table(
-            table_name=table_name,
-            schema_name=schema_name,
-            source=buf,
-            format='csv',
-            header=True,
-        )
+        await self.execute_copy_to_table(table_name, buf, schema_name=schema_name, format='csv', header=True)
 
     async def call_load_stage_from_raw(
         self, source_name: str = "mtgstocks", batch_days: int = 30,
@@ -60,18 +54,16 @@ class PriceRepository(AbstractRepository):
         # check for conflicts; the default limit (100 000 tuples) is exceeded on
         # every 30-day batch of historical data. Disable the guard for this
         # session-scoped bulk load, then reset so the pooled connection is clean.
-        await self.connection.execute(
+        await self.execute_command(
             "SET timescaledb.max_tuples_decompressed_per_dml_transaction = 0"
         )
         try:
-            await self.connection.execute(
+            await self.execute_command(
                 "CALL pricing.load_staging_prices_batched($1::varchar, $2::int, $3::int);",
-                source_name,
-                batch_days,
-                ingestion_run_id,
+                (source_name, batch_days, ingestion_run_id),
             )
         finally:
-            await self.connection.execute(
+            await self.execute_command(
                 "RESET timescaledb.max_tuples_decompressed_per_dml_transaction"
             )
 
@@ -85,10 +77,9 @@ class PriceRepository(AbstractRepository):
         Note: `resolve_price_rejects` is a FUNCTION (returns bigint), not a
         procedure — invoke with SELECT. Returns the number of reject rows
         it was able to resolve and re-feed into staging."""
-        row = await self.connection.fetchrow(
+        row = await self.execute_fetchrow(
             "SELECT pricing.resolve_price_rejects($1::int, $2::boolean) AS rows_resolved;",
-            limit,
-            only_unresolved,
+            (limit, only_unresolved),
         )
         return int(row["rows_resolved"] or 0) if row else 0
 
@@ -103,15 +94,15 @@ class PriceRepository(AbstractRepository):
             logger.info("DB notify", extra={"channel": channel, "payload": payload})
 
         try:
-            await self.connection.add_listener('staging_log', _on_notify)
-            await self.connection.execute(
+            await self.add_listener('staging_log', _on_notify)
+            await self.execute_command(
                 "CALL pricing.load_prices_from_staged_batched($1::int);",
-                batch_days,
+                (batch_days,),
             )
             logger.info("Called load_prices_from_staged_batched()")
         finally:
             try:
-                await self.connection.remove_listener('staging_log', _on_notify)
+                await self.remove_listener('staging_log', _on_notify)
             except Exception:
                 pass
 
