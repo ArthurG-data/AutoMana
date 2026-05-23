@@ -38,7 +38,7 @@ async def test_bulk_copy_prices_uses_pricing_schema():
 
     await repo.bulk_copy_prices(df)
 
-    table_arg = mock_conn.copy_to_table.call_args[0][0]
+    table_arg = mock_conn.copy_to_table.call_args.kwargs["table_name"]
     assert table_arg == "pricing.shopify_staging_raw", (
         f"Expected 'pricing.shopify_staging_raw', got: {table_arg!r}"
     )
