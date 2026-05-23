@@ -5,8 +5,8 @@ Configuration lives in two files:
 
 | File | Responsibility |
 |---|---|
-| [`src/automana/core/logging_context.py`](../src/automana/core/logging_context.py) | Per-coroutine context variables (`request_id`, `task_id`, `service_path`) |
-| [`src/automana/core/logging_config.py`](../src/automana/core/logging_config.py) | Root logger setup, JSON formatter, context filter |
+| [`src/automana/core/log/logging_context.py`](../src/automana/core/log/logging_context.py) | Per-coroutine context variables (`request_id`, `task_id`, `service_path`) |
+| [`src/automana/core/log/logging_config.py`](../src/automana/core/log/logging_config.py) | Root logger setup, JSON formatter, context filter |
 
 ---
 

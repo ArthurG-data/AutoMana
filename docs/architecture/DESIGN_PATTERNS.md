@@ -312,7 +312,7 @@ async def transaction(self):
 ## 18. Idempotent Guard
 
 **Where:**
-- Logging: [`src/automana/core/logging_config.py`](../src/automana/core/logging_config.py), `configure_logging` function (lines 52--70) -- uses `_automana_configured` flag
+- Logging: [`src/automana/core/log/logging_config.py`](../src/automana/core/log/logging_config.py), `configure_logging` function (lines 52--70) -- uses `_automana_configured` flag
 - Pipeline runs: [`src/automana/core/repositories/ops/ops_repository.py`](../src/automana/core/repositories/ops/ops_repository.py), `start_run` method (lines 43--140) -- uses `ON CONFLICT` with CTE guard `already_started_successfully`
 
 **Implementation:** `configure_logging()` checks a custom flag on the root logger (`_automana_configured`) and returns immediately if already set. This allows it to be called safely from both module-level code and signal handlers. The `start_run` SQL uses a CTE that checks whether a run with the same `(pipeline_name, source_id, run_key)` has already completed its start step; if so, the INSERT is skipped entirely.

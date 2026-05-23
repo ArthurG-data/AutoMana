@@ -3,8 +3,8 @@
 AutoMana uses structured, context-aware logging built on Python's standard `logging` module. This design ensures that all logs are machine-readable, traceable across async operations, and queryable by request or task ID.
 
 **Related files:**
-- `src/automana/core/logging_context.py` — Context variable management
-- `src/automana/core/logging_config.py` — Root logger setup, formatters, filters
+- `src/automana/core/log/logging_context.py` — Context variable management
+- `src/automana/core/log/logging_config.py` — Root logger setup, formatters, filters
 - `docs/LOGGING.md` — Quick reference
 
 ---
@@ -184,7 +184,7 @@ logger.critical("Redis unreachable; caching disabled", extra={"redis_url": "..."
 
 Context is stored in `contextvars.ContextVar` — each asyncio coroutine (HTTP request or Celery task) gets its own isolated copy. This ensures concurrent requests never bleed context into each other.
 
-**Defined in** `src/automana/core/logging_context.py`:
+**Defined in** `src/automana/core/log/logging_context.py`:
 
 ### request_id
 
