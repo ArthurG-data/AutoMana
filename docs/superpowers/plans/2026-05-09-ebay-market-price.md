@@ -19,7 +19,7 @@
 | Create | `src/automana/core/models/ebay/market_price.py` | PricePoint, PriceAggregates (with factory), CardMarketData |
 | Create | `src/automana/core/services/app_integration/ebay/market_price_scorer.py` | Pure functions: build_query_string, score_title, REJECT_KEYWORDS |
 | Create | `src/automana/core/repositories/app_integration/ebay/ApiFinding_repository.py` | EbayFindingAPIRepository — Finding API client |
-| Modify | `src/automana/core/service_registry.py` | Register "ebay_finding" API repository |
+| Modify | `src/automana/core/framework/registry.py` | Register "ebay_finding" API repository |
 | Create | `src/automana/core/services/app_integration/ebay/market_price_service.py` | fetch_card_market_price registered service |
 | Modify | `src/automana/core/service_modules.py` | Add market_price_service to "backend" and "all" |
 | Create | `src/automana/api/routers/integrations/ebay/ebay_market.py` | GET /market-price router |
@@ -684,7 +684,7 @@ git commit -m "feat(ebay): add EbayFindingAPIRepository for sold listings"
 ## Task 4: Register Finding API Repository
 
 **Files:**
-- Modify: `src/automana/core/service_registry.py`
+- Modify: `src/automana/core/framework/registry.py`
 
 The service manager resolves `api_repositories=["ebay_finding"]` by calling `ServiceRegistry.get_api_repository("ebay_finding")`, instantiates the class with `environment=env`, and injects it as the kwarg `ebay_finding_repository` into the service function.
 
@@ -705,14 +705,14 @@ Add it after the existing `"selling"` registration.
 - [ ] **Step 4.2 — Verify no import errors**
 
 ```bash
-python -c "from automana.core.service_registry import ServiceRegistry; print(ServiceRegistry.get_api_repository('ebay_finding'))"
+python -c "from automana.core.framework.registry import ServiceRegistry; print(ServiceRegistry.get_api_repository('ebay_finding'))"
 ```
 Expected: `('automana.core.repositories.app_integration.ebay.ApiFinding_repository', 'EbayFindingAPIRepository')`
 
 - [ ] **Step 4.3 — Commit**
 
 ```bash
-git add src/automana/core/service_registry.py
+git add src/automana/core/framework/registry.py
 git commit -m "feat(ebay): register ebay_finding API repository in ServiceRegistry"
 ```
 
@@ -943,7 +943,7 @@ from typing import Optional
 from automana.core.models.ebay.market_price import CardMarketData, PriceAggregates, PricePoint
 from automana.core.repositories.app_integration.ebay.ApiFinding_repository import EbayFindingAPIRepository
 from automana.core.repositories.app_integration.ebay.ApiBrowse_repository import EbayBrowseAPIRepository
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 from automana.core.services.app_integration.ebay.market_price_scorer import (
     build_query_string,
     score_title,
@@ -1143,7 +1143,7 @@ Add it after `"automana.core.services.app_integration.ebay.fulfillment_service"`
 
 ```bash
 python -c "
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 import automana.core.services.app_integration.ebay.market_price_service
 cfg = ServiceRegistry.get_service('integrations.ebay.market_price')
 print(cfg.api_repositories)

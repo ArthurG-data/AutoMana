@@ -8,7 +8,7 @@ from automana.api.services.auth.session_service import rotate_session_token, cre
 from automana.api.repositories.user_management.user_repository import UserRepository
 from automana.api.repositories.auth.session_repository import SessionRepository
 from automana.api.schemas.user_management.user import UserInDB
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 from automana.api.services.auth.auth import (verify_password, create_access_token, decode_access_token)
 
 logger = logging.getLogger(__name__)

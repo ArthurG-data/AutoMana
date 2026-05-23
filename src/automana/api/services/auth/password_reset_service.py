@@ -10,7 +10,7 @@ from automana.api.repositories.auth.session_repository import SessionRepository
 from automana.api.repositories.user_management.user_repository import UserRepository
 from automana.api.services.auth.auth import get_hash_password
 from automana.api.services.email.email_service import EmailService
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 
 logger = logging.getLogger(__name__)
 

@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timedelta, timezone
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 from automana.core.metrics.buffer import MetricsBuffer
 from automana.core.repositories.metrics_repositories.metrics_repository import MetricsRepository
 from automana.core.config.settings import get_settings

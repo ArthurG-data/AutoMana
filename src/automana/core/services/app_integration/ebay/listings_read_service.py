@@ -30,7 +30,7 @@ from automana.core.repositories.app_integration.ebay.ApiSelling_repository impor
 from automana.core.repositories.app_integration.ebay.sales_repository import (
     EbaySalesRepository,
 )
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 from automana.core.services.app_integration.ebay._auth_context import resolve_token
 from automana.core.utils.redis_cache import get_from_cache, set_to_cache
 

@@ -54,7 +54,7 @@ class ServiceManager:
 
 ## 2. Service Registry (Registry Pattern)
 
-**Where:** [`src/automana/core/service_registry.py`](../src/automana/core/service_registry.py), entire file (lines 1--215)
+**Where:** [`src/automana/core/framework/registry.py`](../src/automana/core/framework/registry.py), entire file (lines 1--215)
 
 **Implementation:** `ServiceRegistry` is a class with class-level dictionaries that act as in-memory registries:
 
@@ -118,7 +118,7 @@ Services register via the `@register` decorator. Repositories and storages are r
 
 ## 6. Decorator (Registration Decorator)
 
-**Where:** [`src/automana/core/service_registry.py`](../src/automana/core/service_registry.py), `register` classmethod (lines 33--62)
+**Where:** [`src/automana/core/framework/registry.py`](../src/automana/core/framework/registry.py), `register` classmethod (lines 33--62)
 
 **Implementation:** `@ServiceRegistry.register(path, db_repositories=[...], ...)` wraps a function without modifying its behavior. The decorator's sole purpose is the side effect of registering the function's metadata (module, function name, dependency declarations) in the `_services` dictionary.
 
@@ -428,11 +428,11 @@ async with track_step(ops_repository, ingestion_run_id, "my_step"):
 | Pattern | Primary Location | Also Used In |
 |---|---|---|
 | Singleton | `service_manager.py` | |
-| Registry | `service_registry.py` | |
+| Registry | `core/framework/registry.py` | |
 | Service Layer | `core/services/` | |
 | Repository | `core/repositories/` | `api/repositories/` |
 | Dependency Injection | `api/dependancies/`, `service_manager.py` | |
-| Decorator | `service_registry.py` | |
+| Decorator | `core/framework/registry.py` | |
 | Chain of Responsibility | `worker/tasks/pipelines.py` | |
 | Context Object | `worker/main.py` (run_service) | |
 | Strategy | `storage.py`, `QueryExecutor.py`, `ErrorHandler.py` | |

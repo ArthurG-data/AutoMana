@@ -9,7 +9,7 @@ from automana.api.schemas.user_management.user import UserInDB
 from automana.core.config.settings import get_settings as get_general_settings
 import logging 
 from typing import Dict, Any
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 
 logger = logging.getLogger(__name__)
 

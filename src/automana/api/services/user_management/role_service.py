@@ -6,7 +6,7 @@ from automana.api.schemas.user_management import user
 from fastapi import HTTPException, Header
 from automana.core.exceptions.service_layer_exceptions.user_management import role_exceptions
 from datetime import datetime
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 #from backend.dependancies import get_internal_settings
 
 

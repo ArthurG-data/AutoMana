@@ -21,7 +21,7 @@ from automana.core.repositories.app_integration.ebay.ApiSelling_repository impor
 from automana.core.repositories.app_integration.ebay.listing_builder_repository import (
     EbayListingBuilderRepository,
 )
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 from automana.core.services.app_integration.ebay.listing_builder import build_mtg_listing
 from automana.core.services.app_integration.ebay.listings_write_service import (
     create_listing,

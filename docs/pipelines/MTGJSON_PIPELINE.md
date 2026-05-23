@@ -418,7 +418,7 @@ MTGJson services are loaded in both the `backend` and `celery` module namespaces
 "automana.core.services.app_integration.mtgjson.pipeline",
 ```
 
-Repository registrations (in `src/automana/core/service_registry.py`):
+Repository registrations (in `src/automana/core/framework/registry.py`):
 
 | Type | Logical name | Class |
 |---|---|---|

@@ -125,7 +125,7 @@ from automana.core.repositories.ops.pipeline_health_snapshot_repository import (
     PipelineHealthSnapshotRepository,
     PipelineHealthSnapshotRow,
 )
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 from automana.core.config.settings import get_settings
 
 logger = logging.getLogger(__name__)

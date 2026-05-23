@@ -529,7 +529,7 @@ Create a new file in the appropriate service directory, e.g., `src/automana/core
 import logging
 from automana.core.repositories.cards.card_repository import CardRepository
 from automana.core.repositories.pricing.price_repository import PriceRepository
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -611,7 +611,7 @@ SERVICE_MODULES = {
 
 ### Step 3: Register Required Repositories (if new types)
 
-If your service uses a new repository type (e.g., `"my_new_repo"`), register it in `src/automana/core/service_registry.py`:
+If your service uses a new repository type (e.g., `"my_new_repo"`), register it in `src/automana/core/framework/registry.py`:
 
 ```python
 class ServiceRegistry:
@@ -823,5 +823,5 @@ async def test_search_service_integration(async_service_manager):
 
 - [`docs/LAYERED_ARCHITECTURE.md`](LAYERED_ARCHITECTURE.md) — Layer 2: Service responsibilities
 - [`docs/DESIGN_PATTERNS.md`](../../DESIGN_PATTERNS.md) — Service patterns and best practices
-- [`src/automana/core/service_registry.py`](../../src/automana/core/service_registry.py) — ServiceRegistry implementation
+- [`src/automana/core/framework/registry.py`](../../src/automana/core/framework/registry.py) — ServiceRegistry implementation
 - [`src/automana/core/service_manager.py`](../../src/automana/core/service_manager.py) — ServiceManager implementation

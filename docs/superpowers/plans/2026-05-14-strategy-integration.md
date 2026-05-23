@@ -209,7 +209,7 @@ from dataclasses import dataclass, field
 from typing import Literal, Optional
 from uuid import UUID
 
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 from automana.core.services.analytics.strategies import (
     CompetitiveStrategy,
     PremiumStrategy,
@@ -591,7 +591,7 @@ Expected: 6 passed.
 
 - [ ] **Step 5: Register the repository in service_registry.py**
 
-In `src/automana/core/service_registry.py`, find the `# Integration repositories` block and add:
+In `src/automana/core/framework/registry.py`, find the `# Integration repositories` block and add:
 
 ```python
 ServiceRegistry.register_db_repository(
@@ -605,7 +605,7 @@ ServiceRegistry.register_db_repository(
 
 ```bash
 cd src && python -c "
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 entry = ServiceRegistry.get_db_repository('listing_actions')
 print('Registered:', entry)
 "
@@ -618,7 +618,7 @@ Expected: `Registered: ('automana.core.repositories.app_integration.ebay.listing
 ```bash
 git add src/automana/core/repositories/app_integration/ebay/listing_actions_repository.py \
         src/automana/tests/unit/repositories/ebay/test_listing_actions_repository.py \
-        src/automana/core/service_registry.py
+        src/automana/core/framework/registry.py
 git commit -m "feat(ebay): add EbayListingActionsRepository + registry entry"
 ```
 
@@ -642,7 +642,7 @@ from uuid import UUID
 from automana.core.repositories.app_integration.ebay.listing_actions_repository import (
     EbayListingActionsRepository,
 )
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 
 logger = logging.getLogger(__name__)
 

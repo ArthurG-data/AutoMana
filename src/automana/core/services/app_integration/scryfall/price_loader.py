@@ -3,7 +3,7 @@ import json
 import logging
 from datetime import date, timezone
 
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 from automana.core.services.ops.pipeline_services import track_step
 from automana.core.storage import StorageService
 

@@ -297,7 +297,7 @@ from automana.core.repositories.app_integration.ebay.app_repository import EbayA
 ```bash
 python -c "
 from automana.core.services.app_integration.ebay.auth_services import update_app_redirect_uri
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 assert 'integrations.ebay.update_app_redirect_uri' in ServiceRegistry._registry
 print('OK')
 "

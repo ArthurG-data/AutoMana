@@ -23,7 +23,7 @@
 | Create | `core/repositories/app_integration/shopify/pipeline_repository.py` | New repo: market listing, tcg_id lookup, source_product bootstrap, obs insert |
 | Create | `core/services/app_integration/shopify/pipeline_service.py` | 4 registered pipeline steps |
 | Modify | `core/repositories/app_integration/shopify/market_queries.py` | Add `markets.` schema prefix + `source_id` column |
-| Modify | `core/service_registry.py` | Register `shopify_pipeline` repository |
+| Modify | `core/framework/registry.py` | Register `shopify_pipeline` repository |
 | Modify | `core/service_modules.py` | Add new pipeline_service module to `backend` + `celery` namespaces |
 | Modify | `worker/tasks/pipelines.py` | Add `shopify_weekly_pipeline` task |
 | Modify | `worker/celeryconfig.py` | Add Sunday 06:00 AEST beat schedule entry |
@@ -551,7 +551,7 @@ from automana.core.repositories.app_integration.shopify.pipeline_repository impo
 )
 from automana.core.repositories.app_integration.shopify.product_repository import ProductRepository
 from automana.core.repositories.ops.ops_repository import OpsRepository
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 from automana.core.services.app_integration.shopify.data_staging_service import (
     process_json_dir_to_parquet,
     stage_data_from_parquet,
@@ -842,12 +842,12 @@ git commit -m "feat(shopify): pipeline_service — 4 registered steps: fetch, pr
 ## Task 6: Register the new repository and service module
 
 **Files:**
-- Modify: `src/automana/core/service_registry.py`
+- Modify: `src/automana/core/framework/registry.py`
 - Modify: `src/automana/core/service_modules.py`
 
 - [ ] **Step 1: Register `ShopifyPipelineRepository` in `service_registry.py`**
 
-In `src/automana/core/service_registry.py`, find the block with `# Shop Meta repositories` and add after the existing three Shopify registrations:
+In `src/automana/core/framework/registry.py`, find the block with `# Shop Meta repositories` and add after the existing three Shopify registrations:
 
 ```python
 ServiceRegistry.register_db_repository(
@@ -873,7 +873,7 @@ Add it also to the `"all"` list if one exists.
 
 ```bash
 cd /home/arthur/projects/AutoMana && .venv/bin/python -c "
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 from automana.core.services.app_integration.shopify.pipeline_service import fetch_all_markets
 print('Import OK')
 "
@@ -884,7 +884,7 @@ Expected: `Import OK`
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/automana/core/service_registry.py src/automana/core/service_modules.py
+git add src/automana/core/framework/registry.py src/automana/core/service_modules.py
 git commit -m "feat(shopify): register ShopifyPipelineRepository + add pipeline_service to service modules"
 ```
 

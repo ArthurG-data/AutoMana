@@ -101,7 +101,7 @@ class ServicesPanel(Vertical):
         viewer: JsonViewer = self.query_one("#json-viewer", JsonViewer)
         viewer.show_info("Loading services...")
         try:
-            from automana.core.service_registry import ServiceRegistry
+            from automana.core.framework.registry import ServiceRegistry
             keys = sorted(ServiceRegistry.list_services())
             tree: ServiceTree = self.query_one("#service-tree", ServiceTree)
             tree.populate(keys)

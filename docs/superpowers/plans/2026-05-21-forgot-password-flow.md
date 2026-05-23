@@ -19,7 +19,7 @@
 | `src/automana/api/repositories/auth/password_reset_repository.py` | Create |
 | `src/automana/api/repositories/auth/session_repository.py` | Modify — add `invalidate_all_for_user` |
 | `src/automana/api/repositories/user_management/user_repository.py` | Modify — add `update_password` |
-| `src/automana/core/service_registry.py` | Modify — register `password_reset` repo |
+| `src/automana/core/framework/registry.py` | Modify — register `password_reset` repo |
 | `src/automana/core/settings.py` | Modify — add 3 new settings |
 | `config/env/.env.example` | Modify — add 3 env vars |
 | `pyproject.toml` | Modify — add `resend` dependency |
@@ -183,7 +183,7 @@
 
 - [ ] **Step 4: Register `PasswordResetRepository` in service registry**
 
-  Open `src/automana/core/service_registry.py`. Find the `#Auth repositories` block (around line 157). Add the new registration after the existing `"session"` registration:
+  Open `src/automana/core/framework/registry.py`. Find the `#Auth repositories` block (around line 157). Add the new registration after the existing `"session"` registration:
 
   ```python
   ServiceRegistry.register_db_repository(
@@ -199,7 +199,7 @@
   git add src/automana/api/repositories/auth/password_reset_repository.py \
           src/automana/api/repositories/auth/session_repository.py \
           src/automana/api/repositories/user_management/user_repository.py \
-          src/automana/core/service_registry.py
+          src/automana/core/framework/registry.py
   git commit -m "feat(auth): add PasswordResetRepository and update Session/UserRepository"
   ```
 
@@ -530,7 +530,7 @@
   from automana.api.repositories.user_management.user_repository import UserRepository
   from automana.api.services.auth.auth import get_hash_password
   from automana.api.services.email.email_service import EmailService
-  from automana.core.service_registry import ServiceRegistry
+  from automana.core.framework.registry import ServiceRegistry
 
   logger = logging.getLogger(__name__)
 

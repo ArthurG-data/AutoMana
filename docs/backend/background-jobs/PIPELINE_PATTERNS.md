@@ -671,7 +671,7 @@ pipeline = chain(
 ### Complete Service with Tracking
 
 ```python
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 from automana.core.services.ops.pipeline_services import track_step
 from automana.core.repositories.ops.ops_repository import OpsRepository
 from automana.core.repositories.card_catalog.card_repository import CardRepository

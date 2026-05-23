@@ -3,7 +3,7 @@ from typing import  Optional
 from contextlib import asynccontextmanager
 from automana.core.db.query_executor import QueryExecutor
 from automana.core.service_modules import SERVICE_MODULES
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 from automana.core.storage import StorageService
 
 from automana.core.log.logging_context import set_service_path
@@ -113,7 +113,7 @@ class ServiceManager:
         Given a service path (e.g., "staging.scryfall.get_bulk_data_uri"),
         return the actual function object registered for that path.
         """
-        from automana.core.service_registry import ServiceRegistry
+        from automana.core.framework.registry import ServiceRegistry
         service_config = ServiceRegistry.get(path)
         if not service_config:
             raise ValueError(f"Service not found: {path}")

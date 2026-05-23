@@ -2,7 +2,7 @@ import logging
 from uuid import UUID
 
 from automana.core.models.card_catalog.price_history import CardPriceEntry, CardPricesResponse
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 
 logger = logging.getLogger(__name__)
 

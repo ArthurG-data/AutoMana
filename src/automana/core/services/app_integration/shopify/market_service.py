@@ -3,7 +3,7 @@ from typing import Optional
 
 from automana.core.models.shopify.Market import InsertMarket
 from automana.core.repositories.app_integration.shopify.market_repository import MarketRepository
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 
 logger = logging.getLogger(__name__)
 

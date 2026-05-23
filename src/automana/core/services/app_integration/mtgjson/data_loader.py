@@ -11,7 +11,7 @@ import logging
 from datetime import date
 from typing import Any
 
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 from automana.core.repositories.app_integration.mtgjson.Apimtgjson_repository import ApimtgjsonRepository
 from automana.core.repositories.app_integration.mtgjson.mtgjson_repository import MtgjsonRepository
 from automana.core.storage import StorageService

@@ -3,7 +3,7 @@ from typing import Optional
 import logging
 
 from automana.core.repositories.pricing.price_repository import PricingTierRepository
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 
 logger = logging.getLogger(__name__)
 

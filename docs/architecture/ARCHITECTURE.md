@@ -290,7 +290,7 @@ When adding a new feature:
 
 1. Add/extend a service in `src/automana/core/services/...`
 2. Decorate it with `@ServiceRegistry.register("dotted.service.key", db_repositories=[...], api_repositories=[...], storage_services=[...])`
-3. If needed, register new repositories in [`src/automana/core/service_registry.py`](../src/automana/core/service_registry.py)
+3. If needed, register new repositories in [`src/automana/core/framework/registry.py`](../src/automana/core/framework/registry.py)
 4. Add a thin router endpoint under `src/automana/api/routers/...`
 5. Use `ApiResponse`/`PaginatedResponse` for consistency
 6. Add/adjust schemas under `src/automana/core/models/` or `src/automana/api/schemas/`

@@ -26,7 +26,7 @@ from automana.core.repositories.app_integration.ebay.ApiFinding_repository impor
 from automana.core.repositories.card_catalog.card_repository import (
     CardReferenceRepository,
 )
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 from automana.core.services.app_integration.ebay.market_price_scorer import (
     build_query_string,
     score_title,

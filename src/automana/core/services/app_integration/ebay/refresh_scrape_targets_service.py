@@ -7,7 +7,7 @@ from typing import Any
 from automana.core.repositories.app_integration.ebay.ebay_scrape_repository import (
     EbayScrapeSoldRepository,
 )
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 from automana.core.config.settings import get_settings
 
 logger = logging.getLogger(__name__)

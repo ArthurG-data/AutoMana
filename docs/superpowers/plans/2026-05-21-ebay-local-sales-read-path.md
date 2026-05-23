@@ -293,7 +293,7 @@ from typing import Any
 from automana.core.repositories.app_integration.ebay.sales_repository import (
     EbaySalesRepository,
 )
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 
 logger = logging.getLogger(__name__)
 

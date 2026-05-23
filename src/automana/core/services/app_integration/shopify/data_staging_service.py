@@ -11,7 +11,7 @@ import pyarrow.parquet as pq
 from automana.core.models.shopify import shopify_theme
 from automana.core.repositories.app_integration.shopify.market_repository import MarketRepository
 from automana.core.repositories.app_integration.shopify.product_repository import ProductRepository
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 from collections import defaultdict
 from bs4 import BeautifulSoup
 

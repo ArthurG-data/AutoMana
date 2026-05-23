@@ -95,7 +95,7 @@ async def _main(service_path, extra_args, raw, db_user, db_password, list_users)
     if not service_path:
         pool = await _bootstrap(db_user, db_password)
         try:
-            from automana.core.service_registry import ServiceRegistry
+            from automana.core.framework.registry import ServiceRegistry
             services = sorted(ServiceRegistry.list_services())
             click.echo(f"\n{len(services)} registered services:\n")
             for s in services:

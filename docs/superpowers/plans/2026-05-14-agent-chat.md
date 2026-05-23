@@ -25,7 +25,7 @@
 | Create | `tests/unit/core/ai/test_agent_chat_service.py` |
 | Create | `tests/unit/core/ai/test_agent_tools.py` |
 | Modify | `src/automana/core/settings.py` — add four Ollama/agent fields |
-| Modify | `src/automana/core/service_registry.py` — register `ollama` API repository |
+| Modify | `src/automana/core/framework/registry.py` — register `ollama` API repository |
 | Modify | `src/automana/api/routers/integrations/__init__.py` — include `ai_router` |
 | Modify | `deploy/docker-compose.dev.yml` — add `ollama` sidecar + volume |
 | Modify | `deploy/docker-compose.prod.yml` — add `ollama` sidecar + volume |
@@ -216,11 +216,11 @@ git commit -m "feat(ai): add OllamaAPIRepository"
 ## Task 3: Register OllamaAPIRepository in ServiceRegistry
 
 **Files:**
-- Modify: `src/automana/core/service_registry.py`
+- Modify: `src/automana/core/framework/registry.py`
 
 - [ ] **Step 1: Add registration at the bottom of the API repositories block**
 
-Open `src/automana/core/service_registry.py`. Find the last `ServiceRegistry.register_api_repository(...)` call and add after it:
+Open `src/automana/core/framework/registry.py`. Find the last `ServiceRegistry.register_api_repository(...)` call and add after it:
 
 ```python
 ServiceRegistry.register_api_repository(
@@ -234,7 +234,7 @@ ServiceRegistry.register_api_repository(
 
 ```bash
 python -c "
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 info = ServiceRegistry.get_api_repository('ollama')
 print(info)
 "
@@ -245,7 +245,7 @@ Expected: `('automana.core.repositories.ai.ollama_repository', 'OllamaAPIReposit
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/automana/core/service_registry.py
+git add src/automana/core/framework/registry.py
 git commit -m "feat(ai): register OllamaAPIRepository in ServiceRegistry"
 ```
 
@@ -1014,13 +1014,13 @@ git commit -m "feat(ai): implement AgentChatService with tool-calling loop"
 ## Task 6: Register the service with ServiceRegistry
 
 **Files:**
-- Modify: `src/automana/core/service_registry.py`
+- Modify: `src/automana/core/framework/registry.py`
 
 The `AgentChatService` is not a `@ServiceRegistry.register` service in the normal sense — it takes `redis` and `ollama_repo` which are not standard DB repositories. We expose it as a thin `@ServiceRegistry.register` wrapper that the router calls via `service_manager.execute_service("ai.agent_chat", ...)`. The service manager passes `api_repositories` by name; Redis is injected separately in the router.
 
 - [ ] **Step 1: Add the service registration block to service_registry.py**
 
-At the bottom of `src/automana/core/service_registry.py`, add:
+At the bottom of `src/automana/core/framework/registry.py`, add:
 
 ```python
 ServiceRegistry.register_db_repository(

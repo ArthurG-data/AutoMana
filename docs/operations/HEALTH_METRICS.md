@@ -173,7 +173,7 @@ The skill discovers any service registered as `ops.integrity.*` directly from `S
 
 ```python
 import automana.core.metrics.card_catalog  # noqa: F401  — register card_catalog.* metrics
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 
 @ServiceRegistry.register("ops.integrity.card_catalog_report", db_repositories=["card", "ops"])
 async def card_catalog_report(...): ...
