@@ -206,7 +206,6 @@ async def insert_card_product_reference(batch: shopify_theme.BatchProductProces,
     await repository.insert_card_product_reference(batch.prepare_prodcut_card_batches())
 
 
-from fastparquet import write, ParquetFile
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -272,6 +271,7 @@ def _append_product_file(parquet_path: str, df_batch: pd.DataFrame, group_size: 
     """
     if df_batch.empty:
         return
+    from fastparquet import write  # optional dep — not installed in API process
     path = Path(parquet_path)
     offsets = _row_group_offsets(len(df_batch), group_size)
 
