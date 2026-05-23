@@ -25,6 +25,6 @@ class PublicTokenData(BaseModel):
     is_expired : bool = Field(default=True)
     @model_validator(mode='after')
     def check_expiry(cls, values):
-        if datetime.now(timezone.utc) < datetime.now(timezone.utc) + timedelta(seconds=values.exp):
+        if datetime.fromtimestamp(values.exp, tz=timezone.utc) > datetime.now(timezone.utc):
             values.is_expired = False
         return values

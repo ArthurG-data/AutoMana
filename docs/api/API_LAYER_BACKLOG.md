@@ -22,23 +22,22 @@ Fixed items are marked ✅. Open items are ordered by priority.
 - `request_handling/utils.py`
 - `routers/auth.py` (0-byte stub)
 
+## ✅ Fixed — 2026-05-23
+
+| Item | Fix |
+|------|-----|
+| H1 — `check_expiry` always sets `is_expired = False` | `datetime.fromtimestamp(values.exp, tz=timezone.utc) > datetime.now(timezone.utc)` |
+| M1 — `extract_ip` AttributeError on UNIX socket / None client | Added `elif request.client:` guard; fallback to `"unknown"` |
+| M2 — eBay OAuth cookie missing `httponly`/`secure` | Re-enabled both flags in `ebay_auth.py` |
+| M4 — `get_settings()` at module import in `ebay_auth.py` | Already removed in prior PR (verified clean) |
+| M6 — docstring says "argon2", scheme is bcrypt | Docstring corrected to "bcrypt" |
+| L1 — `UserInDB(*user)` positional unpacking | Both callsites now use `UserInDB.model_validate(user)` |
+
 ---
 
 ## Open — High Priority
 
-### H1 — `schemas/auth/token.py` — `check_expiry` validator always sets `is_expired = False`
-
-`now < now + delta` is trivially true. Any code that reads `token.is_expired` will always see `False` regardless of actual expiry.
-
-```python
-# WRONG — current code
-if datetime.now(timezone.utc) < datetime.now(timezone.utc) + timedelta(seconds=values.exp):
-    values.is_expired = False
-
-# FIX — compare against absolute expiry timestamp
-if datetime.fromtimestamp(values.exp, tz=timezone.utc) > datetime.now(timezone.utc):
-    values.is_expired = False
-```
+### ✅ H1 — `schemas/auth/token.py` — `check_expiry` (FIXED 2026-05-23)
 
 ---
 
@@ -78,20 +77,11 @@ Hashes created by raw bcrypt and passlib bcrypt have slightly different formats.
 
 ## Open — Medium Priority
 
-### M1 — `dependancies/general.py:extract_ip` — AttributeError on UNIX sockets
-
-`request.client.host` crashes when `request.client is None` (UNIX socket connections, some test environments).
-
-```python
-# FIX
-return request.client.host if request.client else "unknown"
-```
+### ✅ M1 — `dependancies/general.py:extract_ip` (FIXED 2026-05-23)
 
 ---
 
-### M2 — eBay auth token cookie missing security flags
-
-`routers/integrations/ebay/ebay_auth.py:230–234` — `httponly=True` and `secure=True` are commented out. The eBay OAuth token is accessible to JavaScript, creating an XSS exposure. Re-enable both flags; if a JS client needs to read the cookie, document that explicitly rather than silently commenting out the flags.
+### ✅ M2 — eBay auth token cookie missing `httponly`/`secure` (FIXED 2026-05-23)
 
 ---
 
@@ -101,9 +91,7 @@ return request.client.host if request.client else "unknown"
 
 ---
 
-### M4 — `routers/integrations/ebay/ebay_auth.py:13` — `get_settings()` called at import time
-
-`settings = get_settings()` is module-level. If the module is imported before the environment is ready (e.g. test setup), it fails silently or uses stale defaults. Move `get_settings()` inside the functions that need it, or use the FastAPI dependency pattern established in `dependancies/service_deps.py`.
+### ✅ M4 — `routers/integrations/ebay/ebay_auth.py:13` — `get_settings()` at import time (ALREADY FIXED)
 
 ---
 
@@ -113,24 +101,15 @@ return request.client.host if request.client else "unknown"
 
 ---
 
-### M6 — `utils/auth.py:24` — docstring says "argon2", scheme is bcrypt
-
-```python
-# FIX — update or remove the misleading docstring
-```
+### ✅ M6 — `utils/auth.py:24` — docstring says "argon2" (FIXED 2026-05-23)
 
 ---
 
 ## Open — Low Priority
 
-### L1 — `user_repository.py` — `UserInDB(*user)` positional row unpacking
+### ✅ L1 — `user_repository.py` — `UserInDB(*user)` positional row unpacking (FIXED 2026-05-23)
 
-Two callsites in `services/user_management/user_service.py` unpack DB rows positionally. Adding or reordering a column will silently populate wrong fields.
-
-```python
-# FIX — unpack by name (asyncpg records support this)
-UserInDB(**dict(user))
-```
+Both callsites now use `UserInDB.model_validate(user)`.
 
 ---
 

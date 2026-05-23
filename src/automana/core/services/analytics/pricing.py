@@ -3,8 +3,11 @@ from automana.core.services.analytics.models import PricingResult
 from automana.core.services.analytics.strategies import PricingStrategy, PricingStrategyManager
 from automana.core.services.analytics.utils import parse_title_for_condition, parsed_description_for_condition
 from automana.core.service_registry import ServiceRegistry
+import logging
 import numpy as np
 import statistics
+
+logger = logging.getLogger(__name__)
 
 
 def analyze_pricing_strategy(ebay_result, strategy: Optional[PricingStrategy] = None):
@@ -55,7 +58,7 @@ def analyze_pricing_strategy(ebay_result, strategy: Optional[PricingStrategy] = 
                     
                     listings_data.append(listing_info)
                 except (ValueError, TypeError, AttributeError) as e:
-                    print(f"Error processing item: {e}")
+                    logger.warning("pricing_item_error", extra={"error": str(e)})
                     continue
     if not prices:
         return {"error": "No valid prices found in listings"}
