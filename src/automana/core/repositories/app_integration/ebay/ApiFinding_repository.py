@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from typing import Any, Optional
+import asyncio
 import logging
 
 from automana.core.repositories.app_integration.ebay.EbayApiRepository import EbayApiClient
@@ -8,6 +9,16 @@ logger = logging.getLogger(__name__)
 
 _FINDING_ENDPOINT = "/services/search/FindingService/v1"
 _SERVICE_VERSION = "1.13.0"
+_MAX_RATE_LIMIT_RETRIES = 3
+
+
+def _is_rate_limited(data: Any) -> bool:
+    """Return True if the response contains errorId 10001 (Finding API burst throttle)."""
+    try:
+        errors = data.get("errorMessage", [{}])[0].get("error", [])
+        return any(e.get("errorId", [""])[0] == "10001" for e in errors)
+    except (IndexError, KeyError, TypeError, AttributeError):
+        return False
 
 
 def _parse_finding_items(response: dict) -> list[dict]:
@@ -77,16 +88,18 @@ class EbayFindingAPIRepository(EbayApiClient):
         keywords: str,
         app_id: str,
         *,
+        global_id: str = "EBAY-US",
         category_id: int = 2536,
         condition_id: Optional[int] = None,
         min_date: Optional[datetime] = None,
-        limit: int = 50,
+        limit: int = 100,
     ) -> list[dict]:
         params: dict[str, Any] = {
             "OPERATION-NAME": "findCompletedItems",
             "SERVICE-VERSION": _SERVICE_VERSION,
             "SECURITY-APPNAME": app_id,
             "RESPONSE-DATA-FORMAT": "JSON",
+            "GLOBAL-ID": global_id,
             "keywords": keywords,
             "categoryId": str(category_id),
             "itemFilter(0).name": "SoldItemsOnly",
@@ -112,8 +125,22 @@ class EbayFindingAPIRepository(EbayApiClient):
             "Finding API request",
             extra={"keywords": keywords, "category_id": category_id, "limit": limit},
         )
-        async with self:
-            response = await self.send("GET", _FINDING_ENDPOINT, params=params)
-            data = self._parse_response(response)
+        for attempt in range(_MAX_RATE_LIMIT_RETRIES):
+            async with self:
+                response = await self.send("GET", _FINDING_ENDPOINT, params=params)
+                data = self._parse_response(response)
 
-        return _parse_finding_items(data)
+            if _is_rate_limited(data):
+                wait = (2 ** attempt) + 5
+                logger.warning(
+                    "finding_api_rate_limited",
+                    extra={"attempt": attempt + 1, "wait_seconds": wait, "keywords": keywords},
+                )
+                if attempt < _MAX_RATE_LIMIT_RETRIES - 1:
+                    await asyncio.sleep(wait)
+                    continue
+                return []
+
+            return _parse_finding_items(data)
+
+        return []

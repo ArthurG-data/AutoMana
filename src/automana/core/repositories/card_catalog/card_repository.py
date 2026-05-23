@@ -152,6 +152,25 @@ class CardReferenceRepository(AbstractRepository[Any]):
         row.update(price_data.get(str(card_id), self._PRICE_DEFAULTS))
         return row
 
+    async def get_scrape_metadata(self, card_version_id: UUID) -> dict | None:
+        """Return frame/promo attributes needed by the global market scraper."""
+        query = """
+            SELECT
+                v.card_name,
+                v.set_code,
+                v.frame_effects,
+                v.is_promo,
+                v.promo_types,
+                v.border_color_name,
+                v.full_art
+            FROM card_catalog.v_card_versions_complete v
+            WHERE v.card_version_id = $1;
+        """
+        result = await self.execute_query(query, (card_version_id,))
+        if not result:
+            return None
+        return dict(result[0])
+
     async def suggest(self, query: str, limit: int = 10) -> list[dict]:
         sql = """
             SELECT v.card_version_id, v.card_name, v.set_code, v.rarity_name,
@@ -254,11 +273,11 @@ class CardReferenceRepository(AbstractRepository[Any]):
         for row in rows:
             cid = str(row["card_version_id"])
             fresh[cid] = {
-                "price": row["price"],
-                "price_change_1d": row["price_change_1d"],
-                "price_change_7d": row["price_change_7d"],
-                "price_change_30d": row["price_change_30d"],
-                "spark": list(row["spark"]) if row["spark"] else [],
+                "price": float(row["price"]) if row["price"] is not None else None,
+                "price_change_1d": float(row["price_change_1d"]) if row["price_change_1d"] is not None else 0.0,
+                "price_change_7d": float(row["price_change_7d"]) if row["price_change_7d"] is not None else 0.0,
+                "price_change_30d": float(row["price_change_30d"]) if row["price_change_30d"] is not None else 0.0,
+                "spark": [float(v) for v in row["spark"]] if row["spark"] else [],
                 "finish": "non-foil",
             }
 

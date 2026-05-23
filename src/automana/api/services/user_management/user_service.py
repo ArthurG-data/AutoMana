@@ -140,9 +140,9 @@ async def get_by_username(user_repository: UserRepository, username: str) -> Opt
 
 
 async def get_user(user_repository: UserRepository, username: str) -> UserInDB:
-    user =  await user_repository.get(username)
+    user = await user_repository.get(username)
     if user:
-        return UserInDB(*user)
+        return UserInDB.model_validate(user)
     else:
         return None
 
@@ -151,7 +151,7 @@ async def get_user_by_session(user_repository: UserRepository, user_id: UUID) ->
     try:
         user = await user_repository.get_user_from_session(user_id)
         if user:
-            return UserInDB(*user)
+            return UserInDB.model_validate(user)
         else:
             raise user_exceptions.UserNotFoundError("User not found")
     except Exception as e:

@@ -108,6 +108,10 @@ beat_schedule = {
         "task": "archive_to_weekly_prices",
         "schedule": crontab(day_of_week=0, hour=5, minute=45),  # Sunday 05:45 AEST
     },
+    "shopify-ingest-weekly": {
+        "task": "automana.worker.tasks.pipelines.shopify_weekly_pipeline",
+        "schedule": crontab(day_of_week=0, hour=6, minute=0),  # Sunday 06:00 AEST
+    },
     # eBay sold-price persistence — own sales (Fulfillment API, 90-day window).
     "ebay-sync-own-sales-nightly": {
         "task": "automana.worker.tasks.ebay.ebay_sync_own_sales_task",
@@ -124,6 +128,32 @@ beat_schedule = {
         "task": "run_service",
         "schedule": crontab(hour=8, minute=0),   # 08:00 AEST
         "kwargs": {"path": "integrations.ebay.promote_sold_obs"},
+    },
+    # FX rates: fetch AUD→USD and CAD→USD from frankfurter.app before market scrape.
+    "pricing-fetch-fx-rates-nightly": {
+        "task": "run_service",
+        "schedule": crontab(hour=6, minute=45),   # 06:45 AEST
+        "kwargs": {"path": "integrations.pricing.fetch_fx_rates"},
+    },
+    # eBay global market: refresh rare/mythic/promo watchlist.
+    # Runs after promote_sold_obs (08:00) so price_observation has fresh data for
+    # the sell_avg_cents >= threshold filter.
+    "ebay-refresh-scrape-targets-nightly": {
+        "task": "run_service",
+        "schedule": crontab(hour=8, minute=30),   # 08:30 AEST — after promote_sold_obs
+        "kwargs": {"path": "integrations.ebay.refresh_scrape_targets"},
+    },
+    # eBay global market: scrape sold prices across EBAY-US, EBAY-AU, EBAY-ENCA.
+    "ebay-scrape-global-market-nightly": {
+        "task": "run_service",
+        "schedule": crontab(hour=8, minute=45),   # 08:45 AEST — after targets refreshed
+        "kwargs": {
+            "path": "integrations.ebay.scrape_global_market",
+            "days_back": 30,
+            "score_threshold": 0.7,
+            "limit_per_card": 50,
+            "environment": "production",
+        },
     },
     # Drain staging pricing actions → apply to eBay listings every 5 minutes.
     "drain-listing-actions": {

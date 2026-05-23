@@ -202,7 +202,10 @@ ServiceRegistry.register_db_repository(
     "product", "automana.core.repositories.app_integration.shopify.product_repository", "ProductRepository"
 )
 ServiceRegistry.register_db_repository(
-    "collection", "automana.core.repositories.app_integration.shopify.collection_repository", "CollectionRepository"
+    "collection", "automana.core.repositories.app_integration.shopify.collection_repository", "ShopifyCollectionRepository"
+)
+ServiceRegistry.register_db_repository(
+    "shopify_pipeline", "automana.core.repositories.app_integration.shopify.pipeline_repository", "ShopifyPipelineRepository"
 )
 
 # Integration repositories
@@ -226,6 +229,11 @@ ServiceRegistry.register_db_repository(
 # Pricing Tier repositories
 ServiceRegistry.register_db_repository(
     "pricing", "automana.core.repositories.pricing.price_repository", "PricingTierRepository"
+)
+ServiceRegistry.register_db_repository(
+    "fx_rates",
+    "automana.core.repositories.pricing.fx_rates_repository",
+    "FxRatesRepository",
 )
 
 # Ops repositories
@@ -286,6 +294,11 @@ ServiceRegistry.register_api_repository(
     "ollama",
     "automana.core.repositories.ai.ollama_repository",
     "OllamaAPIRepository",
+)
+ServiceRegistry.register_api_repository(
+    "shopify_api",
+    "automana.core.repositories.app_integration.shopify.ApiShopify_repository",
+    "ShopifyAPIRepository",
 )
 
 # Storage backends (type → class)

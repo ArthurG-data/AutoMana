@@ -25,6 +25,7 @@ async def test_insert_scraped_sold_calls_command(repo):
         source_product_id=10,
         price_cents=150,
         currency="USD",
+        marketplace_id="EBAY-US",
         condition_id=2,
         finish_id=1,
         language_id=1,

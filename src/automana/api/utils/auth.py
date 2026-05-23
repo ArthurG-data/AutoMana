@@ -22,7 +22,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 def get_hash_password(password: str) -> str:
-    """Hashes a plain password using argon2."""
+    """Hashes a plain password using bcrypt."""
     return pwd_context.hash(password)
 
 # JWT utilities 

@@ -1,17 +1,21 @@
 ﻿
-import os,  glob, ijson, functools, requests, json, tempfile
+import logging
+import os, glob, ijson, functools, requests, json, tempfile
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import List, Any, Optional, Tuple
+from typing import List, Any, Optional, Tuple, Dict
 import pandas as pd
 from tqdm import tqdm
 from dotenv import load_dotenv
 import pyarrow.parquet as pq
 from automana.core.models.shopify import shopify_theme
+from automana.core.repositories.app_integration.shopify.market_repository import MarketRepository
 from automana.core.repositories.app_integration.shopify.product_repository import ProductRepository
+from automana.core.service_registry import ServiceRegistry
 from collections import defaultdict
 from bs4 import BeautifulSoup
-from typing import Dict
+
+logger = logging.getLogger(__name__)
 
 @functools.lru_cache(maxsize=365)
 def fetch_fx_rate(from_currency: str, to_currency: str, date_str: str, app_id : str) -> float:
@@ -36,7 +40,7 @@ async def get_market_id(market_repository ,code : str)-> int:
         else:
             return -1
     except Exception as e:
-        print(f"Error fetching market_id for {code}: {e}")
+        logger.warning("market_id_fetch_failed", extra={"code": code, "error": str(e)})
         return -1
 
 async def prepare_product_shop_id_query(validated_batch: shopify_theme.BatchProductProces) -> Tuple[
@@ -184,10 +188,10 @@ async def upload_all_json_in_directory(absolute_path: str, market_id: str, app_i
     json_files = glob.glob(os.path.join(abs_directory_path, '*.json'))
     
     if not json_files:
-        print(f"No JSON files found in directory: {abs_directory_path}")
+        logger.warning("no_json_files", extra={"directory": abs_directory_path})
         return
     
-    print(f"Found {len(json_files)} JSON files in: {abs_directory_path}")
+    logger.info("json_files_found", extra={"count": len(json_files), "directory": abs_directory_path})
     
     with tqdm(json_files, desc="Processing JSON files", dynamic_ncols=True, leave=True) as pbar:
         for path in pbar:
@@ -195,7 +199,7 @@ async def upload_all_json_in_directory(absolute_path: str, market_id: str, app_i
             try:
                 upload_batches_from_stream(path, market_id, app_id, repository, batch_size, product_currency)
             except Exception as e:
-                print(f"Error processing {path}: {e}")
+                logger.error("json_file_processing_failed", extra={"file": path, "error": str(e)})
 
 async def insert_card_product_reference(batch: shopify_theme.BatchProductProces, repository: ProductRepository):
 
@@ -282,7 +286,6 @@ def _append_product_file(parquet_path: str, df_batch: pd.DataFrame, group_size: 
         stats=True
     )
 
-import logging
 # --- main: scan a directory of JSON dumps, write info.json + append parquet per product ---
 
 async def get_total_items_in_json(path_to_json: str) -> int:
@@ -325,7 +328,7 @@ async def get_card_id_from_html(html: str) -> Optional[str]:
             return card_id
         return None
     except Exception as e:
-        print(f"Error extracting card ID from HTML: {e}")
+        logger.warning("card_id_extraction_failed", extra={"error": str(e)})
         return None
 
 async def extract_all_metadata_from_html(html: str) -> Dict[str, Optional[str]]:
@@ -348,12 +351,18 @@ async def extract_all_metadata_from_html(html: str) -> Dict[str, Optional[str]]:
             }
         return {}
     except Exception as e:
-        print(f"Error extracting metadata from HTML: {e}")
+        logger.warning("metadata_extraction_failed", extra={"error": str(e)})
         return {}
     
 
 
-async def process_json_dir_to_parquet(market_repository, path_to_json: str, market_code: str, output_path: str):
+@ServiceRegistry.register(
+    path="shopify.data.process_to_parquet",
+    db_repositories=["market"],
+    runs_in_transaction=False,
+    command_timeout=3600,
+)
+async def process_json_dir_to_parquet(market_repository: MarketRepository, path_to_json: str, market_code: str, output_path: str):
     """
     - Reads all *.json in `path_to_json`
     - Streams items with ijson (low RAM)
@@ -428,6 +437,7 @@ async def process_json_dir_to_parquet(market_repository, path_to_json: str, mark
                                 "product_id": pid,
                                 "shop_id": market_id,
                                 "title": item.get("title"),
+                                "handle": item.get("handle"),
                                 "vendor": item.get("vendor"),
                                 "product_type": item.get("product_type"),
                                 "card_id": meta_data.get("card_id"),
@@ -452,7 +462,12 @@ async def process_json_dir_to_parquet(market_repository, path_to_json: str, mark
     for pid in list(buffers.keys()):
         _flush_product(pid)
 
-#add the foolowing code to add the data to a staging table
+@ServiceRegistry.register(
+    path="shopify.data.stage_from_parquet",
+    db_repositories=["product"],
+    runs_in_transaction=False,
+    command_timeout=3600,
+)
 async def stage_data_from_parquet(product_repository: ProductRepository, parquet_base_path: str, batch_size: int = 10000):
     """
     Scan the parquet_base_path for product subdirectories, read their data.parquet files,
@@ -463,11 +478,8 @@ async def stage_data_from_parquet(product_repository: ProductRepository, parquet
     source = parquet_base_path.split("/")[-1]
     total_products = len(product_dirs)
     if total_products == 0:
-        logging.warning(f"No product directories found in {parquet_base_path}")
+        logger.warning("no_product_dirs", extra={"path": parquet_base_path})
         return
-
-    
-
 
     parquet_files = []
     for prod_dir in product_dirs:
@@ -475,71 +487,61 @@ async def stage_data_from_parquet(product_repository: ProductRepository, parquet
         if os.path.exists(parquet_file_path):
             parquet_files.append(parquet_file_path)
         else:
-            logging.warning(f"(no data.parquet) {prod_dir}")
-    
+            logger.warning("missing_parquet", extra={"dir": prod_dir})
+
     if not parquet_files:
-        logging.warning("No parquet files found to process")
+        logger.warning("no_parquet_files", extra={"path": parquet_base_path})
         return
-    
-    logging.info(f"Staging data from {total_products} products in {parquet_base_path}")
+
+    logger.info("staging_start", extra={"total_products": total_products, "path": parquet_base_path})
 
     schema = pq.ParquetFile(parquet_files[0]).schema_arrow
-    
-    # Create temporary file for concatenated data
+
     with tempfile.NamedTemporaryFile(suffix='.parquet', delete=False) as temp_file:
         temp_parquet_path = temp_file.name
     try:
-        # Step 1: Concatenate all parquet files into one
-        logging.info("Concatenating parquet files...")
+        logger.info("concatenating_parquet_files")
         with pq.ParquetWriter(temp_parquet_path, schema=schema) as writer:
             for parquet_file_path in tqdm(parquet_files, desc="Concatenating files", unit="file", dynamic_ncols=True):
                 try:
                     table = pq.read_table(parquet_file_path, schema=schema)
                     writer.write_table(table)
                 except Exception as e:
-                    logging.error(f"Error processing {parquet_file_path}: {e}")
+                    logger.error("parquet_read_failed", extra={"file": parquet_file_path, "error": str(e)})
                     continue
-        
-        # Step 2: Read the concatenated file and prepare for COPY
-        logging.info("Reading concatenated data for staging...")
+
+        logger.info("reading_concatenated_parquet")
         combined_table = pq.read_table(temp_parquet_path)
         df = combined_table.to_pandas()
 
-        logging.info(f"Final DataFrame columns: {df.columns.tolist()}")
-        logging.info(f"Final DataFrame dtypes:\n{df.dtypes}")
-        logging.info(f"Sample final data:\n{df.head()}")
-
         total_rows = len(df)
         if total_rows == 0:
-            logging.warning("No data found to stage")
+            logger.warning("no_rows_to_stage")
             return
 
-        logging.info(f"Total rows to stage: {total_rows}")
+        logger.info("staging_rows", extra={"total_rows": total_rows})
 
-        # Step 3: Process in batches using COPY
         total_batches = (total_rows + batch_size - 1) // batch_size
-        
+
         with tqdm(total=total_batches, desc="Staging to PostgreSQL", unit="batch") as pbar:
             for i in range(0, total_rows, batch_size):
                 end_idx = min(i + batch_size, total_rows)
                 batch_df = df.iloc[i:end_idx]
-
-
                 try:
                     await product_repository.bulk_copy_prices(batch_df)
                     pbar.update(1)
                     pbar.set_postfix_str(f"Rows {i+1}-{end_idx}")
                 except Exception as e:
-                    logging.error(f"Error inserting batch {i//batch_size + 1}: {e}")
+                    logger.error("batch_insert_failed", extra={"batch": i // batch_size + 1, "error": str(e)})
                     raise
 
-        logging.info(f"Staging completed successfully! Processed {total_rows} rows in {total_batches} batches.")
+        logger.info("staging_complete", extra={"total_rows": total_rows, "total_batches": total_batches})
 
     finally:
         # Clean up temporary file
         try:
             os.unlink(temp_parquet_path)
         except Exception as e:
-            print(f"Warning: Could not delete temporary file {temp_parquet_path}: {e}")
+            logger.warning("temp_file_cleanup_failed", extra={"path": temp_parquet_path, "error": str(e)})
 
 

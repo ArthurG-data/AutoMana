@@ -36,7 +36,7 @@ from automana.core.settings import get_settings
 logger = logging.getLogger(__name__)
 
 _EBAY_SOURCE_ID = 5
-_RATE_LIMIT_DELAY = 0.5  # seconds between cards
+_RATE_LIMIT_DELAY = 1.0  # seconds between cards — stays below Finding API burst throttle
 
 
 @ServiceRegistry.register(
@@ -53,7 +53,7 @@ async def scrape_external_sold(
     ebay_finding_repository: EbayFindingAPIRepository,
     days_back: int = 30,
     score_threshold: float = 0.7,
-    limit_per_card: int = 50,
+    limit_per_card: int = 100,
     **kwargs: Any,
 ) -> dict:
     """Scrape external sold listings for every card the seller has listed."""
@@ -181,6 +181,7 @@ async def _scrape_one_card(
             source_product_id=source_product_id,
             price_cents=price_cents,
             currency=currency,
+            marketplace_id="EBAY-US",
             condition_id=None,
             finish_id=1,
             language_id=1,
