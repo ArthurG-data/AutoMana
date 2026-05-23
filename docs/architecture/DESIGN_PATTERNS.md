@@ -170,7 +170,7 @@ wf = chain(
 
 **Where:**
 - Storage backends: [`src/automana/core/storage.py`](../src/automana/core/storage.py) -- `StorageBackend` ABC (lines 13--50) and `LocalStorageBackend` (lines 51--193)
-- Query executors: [`src/automana/core/QueryExecutor.py`](../src/automana/core/QueryExecutor.py) -- `QueryExecutor` ABC (lines 13--44), `SyncQueryExecutor` (lines 46--74), `AsyncQueryExecutor` (lines 77--124)
+- Query executors: [`src/automana/core/db/query_executor.py`](../src/automana/core/db/query_executor.py) -- `QueryExecutor` ABC (lines 13--44), `SyncQueryExecutor` (lines 46--74), `AsyncQueryExecutor` (lines 77--124)
 - Exception handlers: [`src/automana/api/request_handling/ErrorHandler.py`](../src/automana/api/request_handling/ErrorHandler.py) -- `ExceptionHandler` protocol (lines 10--30), `Psycopg2ExceptionHandler` (lines 32--52), `AsyncpgExceptionHandler` (lines 54--70)
 
 **Implementation:** In each case, an abstract interface defines the contract (e.g., `save`, `load`, `delete` for storage; `execute_query`, `execute_command` for query execution; `handle`, `handle_async` for error handling). Concrete implementations provide the behavior. The consumer (`StorageService`, `AbstractRepository`, `AsyncQueryExecutor`) receives the strategy at construction time.
@@ -225,7 +225,7 @@ repositories[f"{repo_type}_repository"] = repo_class(conn, self.query_executor)
 ## 13. Abstract Base Class (Interface Segregation)
 
 **Where:**
-- [`src/automana/core/QueryExecutor.py`](../src/automana/core/QueryExecutor.py), `QueryExecutor` ABC (lines 13--44)
+- [`src/automana/core/db/query_executor.py`](../src/automana/core/db/query_executor.py), `QueryExecutor` ABC (lines 13--44)
 - [`src/automana/core/storage.py`](../src/automana/core/storage.py), `StorageBackend` ABC (lines 13--50)
 - [`src/automana/core/repositories/abstract_repositories/AbstractDBRepository.py`](../src/automana/core/repositories/abstract_repositories/AbstractDBRepository.py), `AbstractRepository` ABC (lines 9--92)
 - [`src/automana/api/request_handling/ErrorHandler.py`](../src/automana/api/request_handling/ErrorHandler.py), `ExceptionHandler` protocol (lines 10--30)
@@ -324,7 +324,7 @@ async def transaction(self):
 ## 19. Retry with Exponential Backoff
 
 **Where:**
-- DB pool creation: [`src/automana/core/database.py`](../src/automana/core/database.py), `init_async_pool` (lines 16--55) and `init_sync_pool_with_retry` (lines 70--101)
+- DB pool creation: [`src/automana/core/db/database.py`](../src/automana/core/db/database.py), `init_async_pool` (lines 16--55) and `init_sync_pool_with_retry` (lines 70--101)
 - HTTP client: [`src/automana/worker/http_utils.py`](../src/automana/worker/http_utils.py), `get` function (lines 7--17)
 - Celery `run_service` task: [`src/automana/worker/main.py`](../src/automana/worker/main.py), lines 32--37 (`autoretry_for`, `retry_backoff=True`)
 

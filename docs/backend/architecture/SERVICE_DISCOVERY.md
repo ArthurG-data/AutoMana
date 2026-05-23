@@ -44,7 +44,7 @@ In `src/automana/api/main.py`, the app's lifespan context manager initializes `S
 async def lifespan(app: FastAPI):
     try:
         settings = get_settings()
-        from automana.core.database import init_async_pool
+        from automana.core.db.database import init_async_pool
         from automana.core.service_manager import ServiceManager
         
         app.state.async_db_pool = await init_async_pool(settings)

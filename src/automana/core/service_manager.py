@@ -1,7 +1,7 @@
 ﻿import importlib, logging
 from typing import  Optional
 from contextlib import asynccontextmanager
-from automana.core.QueryExecutor import QueryExecutor
+from automana.core.db.query_executor import QueryExecutor
 from automana.core.service_modules import SERVICE_MODULES
 from automana.core.service_registry import ServiceRegistry
 from automana.core.storage import StorageService

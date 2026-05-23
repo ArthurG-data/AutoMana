@@ -737,7 +737,7 @@ print(f"Pipeline task ID: {pipeline.id}")
 ```python
 import asyncio
 from automana.core.service_manager import ServiceManager
-from automana.core.database import init_async_pool
+from automana.core.db.database import init_async_pool
 from automana.core.config.settings import Settings
 
 async def test():

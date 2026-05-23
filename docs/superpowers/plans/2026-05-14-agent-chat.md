@@ -1048,7 +1048,7 @@ The service manager wires `api_repositories=["ollama"]` for the `OllamaAPIReposi
 
 **Files:**
 - Modify: `src/automana/core/settings.py` — add `agent_db_user` and `agent_db_password_file`
-- Modify: `src/automana/core/database.py` — add `init_agent_pool` helper
+- Modify: `src/automana/core/db/database.py` — add `init_agent_pool` helper
 
 The `agent` DB role has a dedicated password file (`config/secrets/agent_db_password.txt`). The router acquires a connection from this pool for tool calls.
 
@@ -1064,7 +1064,7 @@ agent_db_password: str | None = Field(default=None, alias="AGENT_DB_PASSWORD")
 
 - [ ] **Step 2: Add init_agent_pool to database.py**
 
-In `src/automana/core/database.py`, add after `init_async_pool`:
+In `src/automana/core/db/database.py`, add after `init_async_pool`:
 
 ```python
 async def init_agent_pool(settings: Settings) -> asyncpg.Pool:
@@ -1103,7 +1103,7 @@ app.state.db_pool = await init_async_pool(settings)
 Add below it:
 
 ```python
-from automana.core.database import init_agent_pool
+from automana.core.db.database import init_agent_pool
 app.state.agent_pool = await init_agent_pool(settings)
 ```
 
@@ -1124,7 +1124,7 @@ docker compose -f deploy/docker-compose.dev.yml exec backend python -c "print('o
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/automana/core/settings.py src/automana/core/database.py src/automana/main.py
+git add src/automana/core/settings.py src/automana/core/db/database.py src/automana/main.py
 git commit -m "feat(ai): add agent read-only DB pool"
 ```
 

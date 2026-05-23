@@ -57,7 +57,7 @@ docker compose -f deploy/docker-compose.dev.yml logs --tail 100 backend
 
 If the backend is slow:
 - Check database connectivity: `docker compose -f deploy/docker-compose.dev.yml logs --tail 50 postgres`
-- Verify asyncpg pool is initialized correctly (check `src/automana/core/database.py` pool settings)
+- Verify asyncpg pool is initialized correctly (check `src/automana/core/db/database.py` pool settings)
 - Ensure Redis is healthy: `docker compose -f deploy/docker-compose.dev.yml logs --tail 50 redis`
 
 ## HTTPS issues / browser warnings
@@ -93,7 +93,7 @@ Error: `InterfaceError: connection has been released back to the pool`
 
 Likely cause: The database connection was silently closed by the OS TCP stack during a long idle window (e.g., 30-50s of CPU-heavy batch processing with no DB activity).
 
-This is prevented by TCP keepalive settings configured in `src/automana/core/database.py`:
+This is prevented by TCP keepalive settings configured in `src/automana/core/db/database.py`:
 - `tcp_keepalives_idle`: 60s before first probe
 - `tcp_keepalives_interval`: 10s between probes
 - `tcp_keepalives_count`: 5 probes before giving up

@@ -132,7 +132,7 @@ If your prod DB/user names differ, use the values from `config/env/.env.prod`.
 
 The backend application uses asyncpg's connection pool with TCP keepalive and timeout configuration to handle long-running batch operations (e.g., bulk pricing imports).
 
-### Pool settings (in `src/automana/core/database.py`)
+### Pool settings (in `src/automana/core/db/database.py`)
 
 | Setting | Value | Purpose |
 |---------|-------|---------|

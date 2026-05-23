@@ -163,7 +163,7 @@ The backend uses:
 - async DB access (asyncpg) for all service calls in the HTTP and Celery paths
 - sync DB access (psycopg2) available for special cases
 
-Pool initialization lives in [`src/automana/core/database.py`](../src/automana/core/database.py), with configurable retry/backoff.
+Pool initialization lives in [`src/automana/core/db/database.py`](../src/automana/core/db/database.py), with configurable retry/backoff.
 
 ### Standard response shapes
 
