@@ -9,7 +9,6 @@ from __future__ import annotations
 import logging
 from collections import defaultdict
 from datetime import date
-from typing import Any
 
 from automana.core.repositories.app_integration.ebay.sales_repository import (
     EbaySalesRepository,
@@ -17,6 +16,7 @@ from automana.core.repositories.app_integration.ebay.sales_repository import (
 from automana.core.repositories.app_integration.ebay.ebay_scrape_repository import (
     EbayScrapeSoldRepository,
 )
+from automana.core.repositories.pricing.fx_rates_repository import FxRatesRepository
 from automana.core.service_registry import ServiceRegistry
 
 logger = logging.getLogger(__name__)
@@ -63,24 +63,31 @@ def _aggregate(rows: list[dict], fx_map: dict[str, float] | None = None) -> dict
 
 @ServiceRegistry.register(
     path="integrations.ebay.promote_sold_obs",
-    db_repositories=["ebay_sales", "ebay_scrape"],
+    db_repositories=["ebay_sales", "ebay_scrape", "fx_rates"],
     runs_in_transaction=False,
 )
 async def promote_sold_obs(
     ebay_sales_repository: EbaySalesRepository,
     ebay_scrape_repository: EbayScrapeSoldRepository,
-    **kwargs: Any,
+    fx_rates_repository: FxRatesRepository,
 ) -> dict:
     """Promote unpromoted staging rows from both channels into price_observation."""
+    rate_rows = await fx_rates_repository.get_rates_for_date(date.today())
+    fx_map: dict[str, float] = {r["from_currency"]: r["rate"] for r in rate_rows}
+    if not fx_map:
+        logger.warning("promote_sold_obs_no_fx_rates", extra={"date": str(date.today())})
+
     own_promoted = await _promote_channel(
         staging_rows=await ebay_sales_repository.get_unpromoted(),
         mark_fn=lambda ids: ebay_sales_repository.mark_promoted(ids),
         upsert_fn=ebay_sales_repository.upsert_price_observation,
+        fx_map=None,  # own-sales are always USD
     )
     scrape_promoted = await _promote_channel(
         staging_rows=await ebay_scrape_repository.get_unpromoted(),
         mark_fn=lambda ids: ebay_scrape_repository.mark_promoted(ids),
         upsert_fn=ebay_sales_repository.upsert_price_observation,
+        fx_map=fx_map or None,
     )
     total = own_promoted + scrape_promoted
     logger.info(

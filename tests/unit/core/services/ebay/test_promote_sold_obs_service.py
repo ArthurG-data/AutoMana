@@ -125,6 +125,8 @@ async def test_promote_channel_applies_fx_conversion():
 
 @pytest.mark.asyncio
 async def test_promote_sold_obs_both_channels():
+    from automana.core.repositories.pricing.fx_rates_repository import FxRatesRepository
+
     ebay_sales = AsyncMock()
     ebay_sales.get_unpromoted = AsyncMock(return_value=[_row(1, 200)])
     ebay_sales.mark_promoted = AsyncMock()
@@ -134,9 +136,13 @@ async def test_promote_sold_obs_both_channels():
     ebay_scrape.get_unpromoted = AsyncMock(return_value=[_scrape_row(10, 300)])
     ebay_scrape.mark_promoted = AsyncMock()
 
+    fx_rates = AsyncMock(spec=FxRatesRepository)
+    fx_rates.get_rates_for_date = AsyncMock(return_value=[])
+
     result = await promote_sold_obs(
         ebay_sales_repository=ebay_sales,
         ebay_scrape_repository=ebay_scrape,
+        fx_rates_repository=fx_rates,
     )
 
     assert result["promoted"] == 2
@@ -145,14 +151,19 @@ async def test_promote_sold_obs_both_channels():
 
 @pytest.mark.asyncio
 async def test_promote_sold_obs_empty_both():
+    from automana.core.repositories.pricing.fx_rates_repository import FxRatesRepository
+
     ebay_sales = AsyncMock()
     ebay_sales.get_unpromoted = AsyncMock(return_value=[])
     ebay_scrape = AsyncMock()
     ebay_scrape.get_unpromoted = AsyncMock(return_value=[])
+    fx_rates = AsyncMock(spec=FxRatesRepository)
+    fx_rates.get_rates_for_date = AsyncMock(return_value=[])
 
     result = await promote_sold_obs(
         ebay_sales_repository=ebay_sales,
         ebay_scrape_repository=ebay_scrape,
+        fx_rates_repository=fx_rates,
     )
     assert result == {"promoted": 0}
 
@@ -214,3 +225,81 @@ def test_aggregate_no_fx_map_uses_face_value():
     groups = _aggregate(rows, fx_map=None)
     key = (SOURCE_ID, date(2024, 1, 15), 1, 1, 1)
     assert groups[key]["total"] == 200
+
+
+# ── FX wiring in promote_sold_obs ─────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_promote_sold_obs_applies_fx_to_scrape_channel():
+    """AUD 200-cent scrape row should land as 130 USD cents (0.65 rate)."""
+    from automana.core.repositories.pricing.fx_rates_repository import FxRatesRepository
+
+    ebay_sales = AsyncMock()
+    ebay_sales.get_unpromoted = AsyncMock(return_value=[])
+    ebay_sales.mark_promoted = AsyncMock()
+    ebay_sales.upsert_price_observation = AsyncMock()
+
+    ebay_scrape = AsyncMock()
+    ebay_scrape.get_unpromoted = AsyncMock(return_value=[{
+        "scrape_id": 10,
+        "source_product_id": SOURCE_ID,
+        "price_cents": 200,
+        "currency": "AUD",
+        "sold_at": datetime(2024, 1, 15, tzinfo=timezone.utc),
+        "finish_id": 1,
+        "condition_id": 1,
+        "language_id": 1,
+    }])
+    ebay_scrape.mark_promoted = AsyncMock()
+
+    fx_rates = AsyncMock(spec=FxRatesRepository)
+    fx_rates.get_rates_for_date = AsyncMock(return_value=[
+        {"from_currency": "AUD", "rate": 0.65},
+    ])
+
+    result = await promote_sold_obs(
+        ebay_sales_repository=ebay_sales,
+        ebay_scrape_repository=ebay_scrape,
+        fx_rates_repository=fx_rates,
+    )
+
+    assert result["promoted"] == 1
+    upsert_call = ebay_sales.upsert_price_observation.call_args.kwargs
+    assert upsert_call["sold_avg_cents"] == 130  # 200 * 0.65 = 130
+
+
+@pytest.mark.asyncio
+async def test_promote_sold_obs_skips_fx_when_no_rates_available():
+    """If FX table has no rates today, promote at face value (no crash)."""
+    from automana.core.repositories.pricing.fx_rates_repository import FxRatesRepository
+
+    ebay_sales = AsyncMock()
+    ebay_sales.get_unpromoted = AsyncMock(return_value=[])
+    ebay_sales.mark_promoted = AsyncMock()
+    ebay_sales.upsert_price_observation = AsyncMock()
+
+    ebay_scrape = AsyncMock()
+    ebay_scrape.get_unpromoted = AsyncMock(return_value=[{
+        "scrape_id": 10,
+        "source_product_id": SOURCE_ID,
+        "price_cents": 200,
+        "currency": "AUD",
+        "sold_at": datetime(2024, 1, 15, tzinfo=timezone.utc),
+        "finish_id": 1,
+        "condition_id": 1,
+        "language_id": 1,
+    }])
+    ebay_scrape.mark_promoted = AsyncMock()
+
+    fx_rates = AsyncMock(spec=FxRatesRepository)
+    fx_rates.get_rates_for_date = AsyncMock(return_value=[])  # empty — no rates today
+
+    result = await promote_sold_obs(
+        ebay_sales_repository=ebay_sales,
+        ebay_scrape_repository=ebay_scrape,
+        fx_rates_repository=fx_rates,
+    )
+
+    assert result["promoted"] == 1
+    upsert_call = ebay_sales.upsert_price_observation.call_args.kwargs
+    assert upsert_call["sold_avg_cents"] == 200  # face value fallback
