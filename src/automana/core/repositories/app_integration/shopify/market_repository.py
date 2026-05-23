@@ -20,7 +20,7 @@ class MarketRepository(AbstractRepository):
 
     async def get_market_code(self, name: str) -> Optional[str]:
         """Get a market by name"""
-        query = "SELECT source_id FROM price_source WHERE code = $1;"
+        query = "SELECT source_id FROM pricing.price_source WHERE code = $1;"
         result = await self.execute_query(
             query,
             (name,)

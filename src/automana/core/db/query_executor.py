@@ -33,15 +33,24 @@ class QueryExecutor(ABC):
     @abstractmethod
     def execute_query(
         self,
-        query: str, 
+        query: str,
         params: Tuple[Any, ...] = ()
     ) -> List[T]:
         logger.debug(f"Executing query: {query} with params: {params}")
-        
+
         """
         Execute a SELECT or other row-returning statement.
         Returns all rows as a list of tuples.
         """
+
+    @abstractmethod
+    def execute_many(
+        self,
+        query: str,
+        rows: List[Tuple[Any, ...]],
+    ) -> None:
+        """Execute a bulk command (INSERT/UPDATE) against a list of row tuples."""
+        pass
 
 class SyncQueryExecutor(QueryExecutor):
     def __init__(self, error_Handler: Any = print):
@@ -62,9 +71,9 @@ class SyncQueryExecutor(QueryExecutor):
             raise
         
     def execute_query(
-        self, 
+        self,
         connection: connection,
-        query: str, 
+        query: str,
         params: Tuple[Any, ...] = ()
     ) -> List[T]:
         logger.debug(f"Executing query: {query} with values: {params}")
@@ -72,6 +81,20 @@ class SyncQueryExecutor(QueryExecutor):
             cur.execute(query, params)
             rows = cur.fetchall()
         return rows
+
+    def execute_many(
+        self,
+        connection: connection,
+        query: str,
+        rows: List[Tuple[Any, ...]],
+    ) -> None:
+        try:
+            with connection.cursor() as cursor:
+                cursor.executemany(query, rows)
+                connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
 
 
 class AsyncQueryExecutor(QueryExecutor):
@@ -129,6 +152,21 @@ class AsyncQueryExecutor(QueryExecutor):
             await connection.execute("ROLLBACK")
             records = await connection.fetch(query, *params)
             return [dict(row) for row in records]
+        except Exception as e:
+            await self._handle_exception(e)
+            raise
+
+    async def execute_many(
+        self,
+        connection: asyncpg.Connection,
+        query: str,
+        rows: List[Tuple[Any, ...]],
+    ) -> None:
+        try:
+            await connection.executemany(query, rows)
+        except asyncpg.InFailedSQLTransactionError:
+            await connection.execute("ROLLBACK")
+            await connection.executemany(query, rows)
         except Exception as e:
             await self._handle_exception(e)
             raise

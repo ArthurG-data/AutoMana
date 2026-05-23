@@ -3,13 +3,12 @@ import logging
 import secrets
 from datetime import datetime, timezone, timedelta
 
-from fastapi import HTTPException
-
 from automana.api.repositories.auth.password_reset_repository import PasswordResetRepository
 from automana.api.repositories.auth.session_repository import SessionRepository
 from automana.api.repositories.user_management.user_repository import UserRepository
 from automana.api.services.auth.auth import get_hash_password
 from automana.api.services.email.email_service import EmailService
+from automana.core.exceptions.service_layer_exceptions.user_management.user_exceptions import InvalidResetTokenError
 from automana.core.framework.registry import ServiceRegistry
 
 logger = logging.getLogger(__name__)
@@ -62,11 +61,11 @@ async def reset_password(
     row = await password_reset_repository.get_by_token_hash(token_hash)
 
     if not row:
-        raise HTTPException(status_code=400, detail=_INVALID_MSG)
+        raise InvalidResetTokenError(_INVALID_MSG)
     if row["used_at"] is not None:
-        raise HTTPException(status_code=400, detail=_INVALID_MSG)
+        raise InvalidResetTokenError(_INVALID_MSG)
     if row["expires_at"] < datetime.now(timezone.utc):
-        raise HTTPException(status_code=400, detail=_INVALID_MSG)
+        raise InvalidResetTokenError(_INVALID_MSG)
 
     hashed = get_hash_password(new_password)
     await user_repository.update_password(user_id=row["user_id"], hashed_password=hashed)

@@ -6,6 +6,7 @@ from automana.api.dependancies.general import ipDep
 from fastapi.security import OAuth2PasswordRequestForm
 from automana.api.schemas.auth.token import Token, TokenResponse
 from automana.core.exceptions.session_exceptions import SessionNotFoundError, SessionError
+from automana.core.exceptions.service_layer_exceptions.user_management.user_exceptions import InvalidResetTokenError
 from automana.api.schemas.auth.password_reset import ForgotPasswordRequest, ResetPasswordRequest
 from automana.api.dependancies.service_deps import ServiceManagerDep
 from automana.api.schemas.StandardisedQueryResponse import ErrorResponse
@@ -220,9 +221,12 @@ async def reset_password_endpoint(
     body: ResetPasswordRequest,
     service_manager: ServiceManagerDep,
 ):
-    await service_manager.execute_service(
-        "auth.password.reset_password",
-        token=body.token,
-        new_password=body.new_password,
-    )
+    try:
+        await service_manager.execute_service(
+            "auth.password.reset_password",
+            token=body.token,
+            new_password=body.new_password,
+        )
+    except InvalidResetTokenError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
     return {"message": "Password updated successfully."}

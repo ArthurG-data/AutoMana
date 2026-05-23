@@ -18,3 +18,7 @@ class UserCreationError(UserError):
 class UserSearchError(UserError):
     """Exception raised when user search fails"""
     pass
+
+class InvalidResetTokenError(UserError):
+    """Exception raised when a password-reset token is missing, expired, or already used"""
+    pass

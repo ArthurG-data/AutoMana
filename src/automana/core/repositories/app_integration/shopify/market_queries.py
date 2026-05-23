@@ -9,7 +9,7 @@ select_market_id_query = """
 """
 
 select_all_markets_query = """
-    SELECT market_id, name, api_url, country_code, city, source_id, created_at, updated_at
+    SELECT market_id, name, api_url, country_code, city, created_at, updated_at
     FROM markets.market_ref;
 """
 

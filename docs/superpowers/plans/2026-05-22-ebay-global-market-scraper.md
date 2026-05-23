@@ -1205,7 +1205,7 @@ from automana.core.repositories.app_integration.ebay.ebay_scrape_repository impo
     EbayScrapeSoldRepository,
 )
 from automana.core.framework.registry import ServiceRegistry
-from automana.core.config.settings import get_settings
+from automana.core.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -1462,7 +1462,7 @@ from automana.core.services.app_integration.ebay.title_parser import (
     parse_finish_code,
     parse_frame_variant,
 )
-from automana.core.config.settings import get_settings
+from automana.core.settings import get_settings
 
 logger = logging.getLogger(__name__)
 

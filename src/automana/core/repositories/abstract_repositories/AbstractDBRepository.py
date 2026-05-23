@@ -68,7 +68,15 @@ class AbstractRepository(Generic[T], ABC):
         else:
             logger.debug("Executing query without executor")
             return await self.connection.execute(query, *values)
-        
+
+    async def execute_many(self, query: str, rows: list) -> None:
+        if self.executor:
+            logger.debug("Executing bulk command with executor")
+            return await self.executor.execute_many(self.connection, query, rows)
+        else:
+            logger.debug("Executing bulk command without executor")
+            return await self.connection.executemany(query, rows)
+
     @abstractmethod
     async def add(self, item: T) -> None:
         pass
