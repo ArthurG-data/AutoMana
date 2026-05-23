@@ -809,8 +809,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
             for row in rows
         ]
 
-    def bulk_update_mtg_stock_ids(self, ids: dict[str, str]):
-        #not async anymore
+    async def bulk_update_mtg_stock_ids(self, ids: dict[str, str]):
         if not ids:
             return 0  # or just return
 
@@ -842,7 +841,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
         """
 
         # Pass TWO params, not one
-        self.execute_command(query,(scry_ids, stock_ids))
+        await self.execute_command(query, (scry_ids, stock_ids))
 
     @dataclass(slots=True, frozen=True)
     class ExternalIdentifierRegistration:
@@ -889,7 +888,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
                 (SELECT card_version_id FROM cv)         IS NOT NULL AS card_version_exists,
                 EXISTS (SELECT 1 FROM ins)                           AS inserted
         """
-        rows = await self.execute_query(query, card_version_id, identifier_name, value)
+        rows = await self.execute_query(query, (card_version_id, identifier_name, value))
         row = rows[0] if rows else None
         if row is None:
             raise RuntimeError(
