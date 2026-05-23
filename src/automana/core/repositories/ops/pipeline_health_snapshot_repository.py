@@ -83,7 +83,7 @@ class PipelineHealthSnapshotRepository(AbstractRepository[PipelineHealthSnapshot
             )
             for r in rows
         ]
-        await self.connection.executemany(_INSERT_SQL, payload)
+        await self.execute_many(_INSERT_SQL, payload)
 
     async def latest_for_check_set(
         self,

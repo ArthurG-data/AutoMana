@@ -49,7 +49,7 @@ class ShopifyPipelineRepository(AbstractRepository):
         """
         if not rows:
             return
-        await self.connection.executemany(
+        await self.execute_many(
             """
             INSERT INTO markets.product_ref (product_shop_id, product_id, market_id, handle, title)
             VALUES ($1, $1, $2, $3, $4)
@@ -164,7 +164,7 @@ class ShopifyPipelineRepository(AbstractRepository):
             )
             for r in df.to_dict("records")
         ]
-        await self.connection.executemany(
+        await self.execute_many(
             """
             INSERT INTO pricing.price_observation
                 (ts_date, price_type_id, finish_id, condition_id, language_id,

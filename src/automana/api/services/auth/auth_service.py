@@ -102,7 +102,7 @@ async def login( user_repository: UserRepository
             "login_failed",
             extra={"action": "login", "username": username, "ip_address": ip_address, "user_agent": user_agent},
         )
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+        return None
     
     # Get or create session
     return_value = await session_repository.get_by_user_id(user.unique_id)

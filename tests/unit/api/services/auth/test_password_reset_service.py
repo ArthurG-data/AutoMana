@@ -75,17 +75,17 @@ class TestRequestReset:
 
 
 class TestResetPassword:
-    async def test_invalid_token_raises_400(self):
-        """Returns 400 when token hash not found in DB."""
-        from fastapi import HTTPException
+    async def test_invalid_token_raises_domain_error(self):
+        """Raises InvalidResetTokenError (not HTTPException) when token not found."""
         from automana.api.services.auth.password_reset_service import reset_password
+        from automana.core.exceptions.service_layer_exceptions.user_management.user_exceptions import InvalidResetTokenError
 
         user_repo = AsyncMock()
         reset_repo = AsyncMock()
         reset_repo.get_by_token_hash.return_value = None
         session_repo = AsyncMock()
 
-        with pytest.raises(HTTPException) as exc:
+        with pytest.raises(InvalidResetTokenError):
             await reset_password(
                 user_repository=user_repo,
                 password_reset_repository=reset_repo,
@@ -94,12 +94,10 @@ class TestResetPassword:
                 new_password="NewPass123!",
             )
 
-        assert exc.value.status_code == 400
-
-    async def test_expired_token_raises_400(self):
-        """Returns 400 when token is past its expiry."""
-        from fastapi import HTTPException
+    async def test_expired_token_raises_domain_error(self):
+        """Raises InvalidResetTokenError when token is past its expiry."""
         from automana.api.services.auth.password_reset_service import reset_password
+        from automana.core.exceptions.service_layer_exceptions.user_management.user_exceptions import InvalidResetTokenError
 
         user_id = uuid4()
         expired_row = {
@@ -114,7 +112,7 @@ class TestResetPassword:
         reset_repo.get_by_token_hash.return_value = expired_row
         session_repo = AsyncMock()
 
-        with pytest.raises(HTTPException) as exc:
+        with pytest.raises(InvalidResetTokenError):
             await reset_password(
                 user_repository=user_repo,
                 password_reset_repository=reset_repo,
@@ -123,12 +121,10 @@ class TestResetPassword:
                 new_password="NewPass123!",
             )
 
-        assert exc.value.status_code == 400
-
-    async def test_already_used_token_raises_400(self):
-        """Returns 400 when token was already consumed."""
-        from fastapi import HTTPException
+    async def test_already_used_token_raises_domain_error(self):
+        """Raises InvalidResetTokenError when token was already consumed."""
         from automana.api.services.auth.password_reset_service import reset_password
+        from automana.core.exceptions.service_layer_exceptions.user_management.user_exceptions import InvalidResetTokenError
 
         user_id = uuid4()
         used_row = {
@@ -143,7 +139,7 @@ class TestResetPassword:
         reset_repo.get_by_token_hash.return_value = used_row
         session_repo = AsyncMock()
 
-        with pytest.raises(HTTPException) as exc:
+        with pytest.raises(InvalidResetTokenError):
             await reset_password(
                 user_repository=user_repo,
                 password_reset_repository=reset_repo,
@@ -151,8 +147,6 @@ class TestResetPassword:
                 token="usedtoken",
                 new_password="NewPass123!",
             )
-
-        assert exc.value.status_code == 400
 
     async def test_valid_token_updates_password_and_invalidates_sessions(self):
         """Valid token → password updated, token marked used, sessions cleared."""
