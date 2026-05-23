@@ -15,7 +15,7 @@ class MarketRepository(AbstractRepository):
         """Add a market to the database"""
         await self.execute_command(
             queries.insert_market_query,
-            values.name, values.api_url, values.country_code, values.city
+            (values.name, values.api_url, values.country_code, values.city),
         )
 
     async def get_market_code(self, name: str) -> Optional[str]:
