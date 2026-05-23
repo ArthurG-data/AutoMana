@@ -1018,7 +1018,7 @@ git commit -m "feat(ai): implement AgentChatService with tool-calling loop"
 
 The `AgentChatService` is not a `@ServiceRegistry.register` service in the normal sense — it takes `redis` and `ollama_repo` which are not standard DB repositories. We expose it as a thin `@ServiceRegistry.register` wrapper that the router calls via `service_manager.execute_service("ai.agent_chat", ...)`. The service manager passes `api_repositories` by name; Redis is injected separately in the router.
 
-- [ ] **Step 1: Add the service registration block to service_registry.py**
+- [ ] **Step 1: Add the service registration block to framework/wiring.py**
 
 At the bottom of `src/automana/core/framework/registry.py`, add:
 

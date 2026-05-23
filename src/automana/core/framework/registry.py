@@ -86,7 +86,7 @@ class ServiceRegistry:
                 runs_in_transaction=runs_in_transaction,
                 command_timeout=command_timeout,
             )
-            logger.debug(f"Registered service: {path}")
+            logger.debug("registered_service", extra={"path": path})
             return func
         return decorator
 
@@ -104,19 +104,19 @@ class ServiceRegistry:
     def register_db_repository(cls, name: str, module_path: str, class_name: str) -> None:
         """Register a database repository type"""
         cls._repository_registry[name] = (module_path, class_name)
-        logger.debug(f"Registered DB repository: {name}")
+        logger.debug("registered_db_repository", extra={"name": name})
 
     @classmethod
     def register_api_repository(cls, name: str, module_path: str, class_name: str) -> None:
         """Register an API repository type"""
         cls._api_repository_registry[name] = (module_path, class_name)
-        logger.debug(f"Registered API repository: {name}")
+        logger.debug("registered_api_repository", extra={"name": name})
 
     @classmethod
     def register_storage_backend(cls, name: str, module_path: str, class_name: str) -> None:
         """Register a storage backend class (e.g. 'local', 's3')."""
         cls._storage_backend_registry[name] = (module_path, class_name)
-        logger.debug(f"Registered storage backend: {name}")
+        logger.debug("registered_storage_backend", extra={"name": name})
 
     @classmethod
     def register_storage(cls, name: str, backend: str, **config) -> None:
@@ -127,7 +127,7 @@ class ServiceRegistry:
             register_storage("scryfall", backend="s3",    bucket="automana", prefix="scryfall")
         """
         cls._storage_registry[name] = {"backend": backend, **config}
-        logger.debug(f"Registered storage: {name} → backend={backend}")
+        logger.debug("registered_storage", extra={"name": name, "backend": backend})
 
     @classmethod
     def get_db_repository(cls, name: str) -> Optional[tuple[str, str]]:

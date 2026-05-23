@@ -973,7 +973,7 @@ git commit -m "feat(api): add GET /{item_id}/trend endpoint for listing price tr
 
 ## Task 7: Fix spec — correct repository alias reference
 
-The design spec erroneously references `"selling"` and `"ebay_selling"` as the `EbaySalesRepository` alias. The correct alias (from `service_registry.py:208`) is `"ebay_sales"`. Update the spec for accuracy.
+The design spec erroneously references `"selling"` and `"ebay_selling"` as the `EbaySalesRepository` alias. The correct alias (from `framework/registry.py`) is `"ebay_sales"`. Update the spec for accuracy.
 
 **Files:**
 - Modify: `docs/superpowers/specs/2026-05-17-listing-price-trend-design.md`

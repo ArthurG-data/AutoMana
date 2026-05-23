@@ -589,7 +589,7 @@ cd src/automana && python -m pytest tests/unit/repositories/ebay/test_listing_ac
 
 Expected: 6 passed.
 
-- [ ] **Step 5: Register the repository in service_registry.py**
+- [ ] **Step 5: Register the repository in framework/wiring.py**
 
 In `src/automana/core/framework/registry.py`, find the `# Integration repositories` block and add:
 

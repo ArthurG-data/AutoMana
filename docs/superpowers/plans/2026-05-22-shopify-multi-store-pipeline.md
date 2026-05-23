@@ -845,7 +845,7 @@ git commit -m "feat(shopify): pipeline_service — 4 registered steps: fetch, pr
 - Modify: `src/automana/core/framework/registry.py`
 - Modify: `src/automana/core/service_modules.py`
 
-- [ ] **Step 1: Register `ShopifyPipelineRepository` in `service_registry.py`**
+- [ ] **Step 1: Register `ShopifyPipelineRepository` in `framework/wiring.py`**
 
 In `src/automana/core/framework/registry.py`, find the block with `# Shop Meta repositories` and add after the existing three Shopify registrations:
 
@@ -1020,7 +1020,7 @@ git commit -m "test(shopify): add edge-case unit tests for pipeline helpers"
 
 - [ ] `migration_45` applies cleanly: `psql -U automana_admin automana -f migration_45_shopify_market_pipeline.sql`
 - [ ] All 4 service paths are importable: `python -c "from automana.core.services.app_integration.shopify.pipeline_service import *"`
-- [ ] `ShopifyPipelineRepository` is in `service_registry.py`
+- [ ] `ShopifyPipelineRepository` is in `framework/wiring.py`
 - [ ] `pipeline_service` appears in both `backend` and `celery` namespaces in `service_modules.py`
 - [ ] Beat schedule entry is present in `celeryconfig.py`
 - [ ] All unit tests pass: `pytest tests/unit/core/test_shopify_pipeline.py -v`

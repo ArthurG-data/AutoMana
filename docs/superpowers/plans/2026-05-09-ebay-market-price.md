@@ -688,7 +688,7 @@ git commit -m "feat(ebay): add EbayFindingAPIRepository for sold listings"
 
 The service manager resolves `api_repositories=["ebay_finding"]` by calling `ServiceRegistry.get_api_repository("ebay_finding")`, instantiates the class with `environment=env`, and injects it as the kwarg `ebay_finding_repository` into the service function.
 
-- [ ] **Step 4.1 — Add registration to service_registry.py**
+- [ ] **Step 4.1 — Add registration to framework/wiring.py**
 
 Find the block of `ServiceRegistry.register_api_repository(...)` calls (around line 234) and add:
 
