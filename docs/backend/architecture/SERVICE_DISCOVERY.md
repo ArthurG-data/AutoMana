@@ -351,7 +351,7 @@ At app startup, `ServiceManager.initialize()` calls `_discover_services()`:
 ```python
 def _discover_services(self):
     """Import all service modules to register them"""
-    from automana.core.settings import get_settings
+    from automana.core.config.settings import get_settings
     from automana.core.data_loader import load_services
     
     settings = get_settings()

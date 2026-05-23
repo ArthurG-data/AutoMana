@@ -262,7 +262,7 @@
   ```python
   import logging
   import resend
-  from automana.core.settings import get_settings
+  from automana.core.config.settings import get_settings
 
   logger = logging.getLogger(__name__)
 

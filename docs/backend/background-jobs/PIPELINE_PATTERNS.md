@@ -738,7 +738,7 @@ print(f"Pipeline task ID: {pipeline.id}")
 import asyncio
 from automana.core.service_manager import ServiceManager
 from automana.core.database import init_async_pool
-from automana.core.settings import Settings
+from automana.core.config.settings import Settings
 
 async def test():
     # Initialize the service manager (usually done in main.py)

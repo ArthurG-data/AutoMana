@@ -53,7 +53,7 @@ agent_chat_ttl: int = Field(default=7200, alias="AGENT_CHAT_TTL")
 
 ```bash
 cd /home/arthur/projects/AutoMana
-python -c "from automana.core.settings import get_settings; s = get_settings(); print(s.ollama_base_url, s.ollama_model)"
+python -c "from automana.core.config.settings import get_settings; s = get_settings(); print(s.ollama_base_url, s.ollama_model)"
 ```
 
 Expected output: `http://ollama:11434 qwen3:30b-a3b`
@@ -177,7 +177,7 @@ class OllamaAPIRepository(BaseApiClient):
         model: str | None = None,
     ) -> dict[str, Any]:
         """POST /v1/chat/completions — returns raw response dict."""
-        from automana.core.settings import get_settings
+        from automana.core.config.settings import get_settings
         _model = model or get_settings().ollama_model
         payload: dict[str, Any] = {
             "model": _model,
@@ -881,7 +881,7 @@ from redis.exceptions import RedisError
 
 from automana.core.repositories.ai.ollama_repository import OllamaAPIRepository
 from automana.core.services.ai.agent_tools import TOOL_MAP, TOOL_SCHEMAS
-from automana.core.settings import get_settings
+from automana.core.config.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -1089,7 +1089,7 @@ async def init_agent_pool(settings: Settings) -> asyncpg.Pool:
 
 Add the import for `read_db_password` at the top of `database.py`:
 ```python
-from automana.core.settings import read_db_password
+from automana.core.config.settings import read_db_password
 ```
 
 - [ ] **Step 3: Wire the agent pool into the app lifespan**
@@ -1209,7 +1209,7 @@ from automana.api.dependancies.auth.users import CurrentUserDep
 from automana.api.schemas.StandardisedQueryResponse import ApiResponse
 from automana.core.repositories.ai.ollama_repository import OllamaAPIRepository
 from automana.core.services.ai.agent_chat_service import run_agent_turn
-from automana.core.settings import get_settings
+from automana.core.config.settings import get_settings
 from automana.core.utils.redis_cache import get_redis_client
 
 logger = logging.getLogger(__name__)

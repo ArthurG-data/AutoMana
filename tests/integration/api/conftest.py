@@ -41,7 +41,7 @@ async def created_user(client, test_user_data):
 async def auth_headers(created_user, test_user_data):
     """Generates a Bearer token for the test user using the same JWT settings as the app."""
     from automana.api.services.auth.auth import create_access_token
-    from automana.core.settings import get_settings
+    from automana.core.config.settings import get_settings
 
     settings = get_settings()
     token = create_access_token(

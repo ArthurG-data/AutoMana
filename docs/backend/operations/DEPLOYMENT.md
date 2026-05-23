@@ -376,7 +376,7 @@ class Settings(BaseSettings):
 **Usage:**
 
 ```python
-from automana.core.settings import get_settings
+from automana.core.config.settings import get_settings
 
 settings = get_settings()
 print(settings.db_host)  # "localhost" in dev, "postgres.prod" in prod
