@@ -9,7 +9,7 @@ ON CONFLICT (item_id) DO NOTHING;
 """
 
 GET_UNPROMOTED_SCRAPED = """
-SELECT scrape_id, source_product_id, price_cents, sold_at,
+SELECT scrape_id, source_product_id, price_cents, currency, sold_at,
        finish_id, condition_id, language_id
 FROM pricing.ebay_scraped_sold
 WHERE promoted_to_obs = false AND source_product_id IS NOT NULL;
