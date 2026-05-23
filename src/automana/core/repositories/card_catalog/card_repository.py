@@ -48,14 +48,14 @@ class CardReferenceRepository(AbstractRepository[Any]):
         data = buffer.getvalue()  # convert BytesIO -> bytes
         data_mv = memoryview(data)
         assert isinstance(data, (bytes, bytearray)), type(data_mv)
-        status =await self.connection.copy_to_table(
-            table_name=table_name,
+        status = await self.execute_copy_to_table(
+            table_name,
+            data_mv,
             schema_name=schema_name,
-            source=data_mv,
             format='csv',
             null='',
             delimiter='\t',
-            header=False
+            header=False,
         )
         return status
 
@@ -973,17 +973,17 @@ class CardReferenceRepository(AbstractRepository[Any]):
         # Single transaction binds DDL + COPY + INSERT. If any step raises,
         # asyncpg rolls back; ``ON COMMIT DROP`` guarantees the temp table
         # evaporates on the happy path — no explicit DROP required.
-        async with self.connection.transaction():
-            await self.connection.execute(create_staging_sql)
-            copy_status = await self.connection.copy_to_table(
-                table_name=staging_table,
-                source=data_mv,
+        async with self.transaction():
+            await self.execute_command(create_staging_sql)
+            copy_status = await self.execute_copy_to_table(
+                staging_table,
+                data_mv,
                 format="csv",
                 null="",
                 delimiter="\t",
                 header=False,
             )
-            insert_status = await self.connection.execute(promote_sql)
+            insert_status = await self.execute_command(promote_sql)
 
         # Return both statuses — ``insert_status`` (e.g. "INSERT 0 N") is what
         # callers actually care about: rows that survived the conflict filter.
@@ -1140,7 +1140,7 @@ JOIN card_catalog.card_identifier_ref ir ON ir.card_identifier_ref_id = ei.card_
     AND ir.identifier_name = 'scryfall_id'
 WHERE cv.card_version_id = ei.card_version_id
 """
-        status = await self.connection.execute(sql, scryfall_ids, uri_jsons)
+        status = await self.execute_command(sql, (scryfall_ids, uri_jsons))
         # status is like "UPDATE N"
         try:
             return int(status.split()[-1])
