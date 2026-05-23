@@ -7,7 +7,7 @@ import sys
 from datetime import datetime, timezone
 from typing import Any, Dict
 
-from automana.core.logging_context import get_request_id, get_task_id, get_service_path
+from automana.core.log.logging_context import get_request_id, get_task_id, get_service_path
 
 _RESERVED = {
     "name", "msg", "args", "levelname", "levelno", "pathname", "filename", "module",

@@ -23,10 +23,10 @@ DB_USERS: dict[str, tuple[str, str, str]] = {
 
 async def bootstrap(db_user: str | None = None, db_password: str | None = None) -> Any:
     """Initialise asyncpg pool and ServiceManager.  Returns the pool."""
-    from automana.core.database import init_async_pool
-    from automana.core.QueryExecutor import AsyncQueryExecutor
-    from automana.core.service_manager import ServiceManager
-    from automana.core.settings import get_settings
+    from automana.core.db.database import init_async_pool
+    from automana.core.db.query_executor import AsyncQueryExecutor
+    from automana.core.framework.service_manager import ServiceManager
+    from automana.core.config.settings import get_settings
 
     if db_user:
         os.environ["APP_BACKEND_DB_USER"] = db_user
@@ -52,7 +52,7 @@ async def bootstrap(db_user: str | None = None, db_password: str | None = None) 
 
 async def teardown(pool: Any) -> None:
     """Close the asyncpg connection pool cleanly."""
-    from automana.core.database import close_async_pool
+    from automana.core.db.database import close_async_pool
     await close_async_pool(pool)
 
 

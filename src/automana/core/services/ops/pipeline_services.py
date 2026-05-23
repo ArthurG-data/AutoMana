@@ -1,6 +1,6 @@
 ﻿import logging
 from contextlib import asynccontextmanager
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 from automana.core.repositories.ops.ops_repository import OpsRepository
 
 logger = logging.getLogger(__name__)

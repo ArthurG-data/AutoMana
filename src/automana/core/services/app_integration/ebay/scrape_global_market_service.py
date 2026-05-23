@@ -19,7 +19,7 @@ from automana.core.repositories.app_integration.ebay.sales_repository import (
 from automana.core.repositories.card_catalog.card_repository import (
     CardReferenceRepository,
 )
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 from automana.core.services.app_integration.ebay.market_price_scorer import (
     build_query_string,
     score_title,
@@ -32,7 +32,7 @@ from automana.core.services.app_integration.ebay.title_parser import (
     parse_finish_code,
     parse_frame_variant,
 )
-from automana.core.settings import get_settings
+from automana.core.config.settings import get_settings
 
 logger = logging.getLogger(__name__)
 

@@ -1,4 +1,4 @@
-from automana.core.settings import get_settings
+from automana.core.config.settings import get_settings
 
 class CeleryAppState:
     def __init__(self):

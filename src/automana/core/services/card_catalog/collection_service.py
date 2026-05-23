@@ -9,7 +9,7 @@ from automana.core.repositories.card_catalog.card_repository import CardReferenc
 from typing import Optional, List
 from uuid import UUID
 from automana.core.exceptions.service_layer_exceptions.card_catalogue import card_catalog_exceptions
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 import logging
 
 logger = logging.getLogger(__name__)

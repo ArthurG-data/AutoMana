@@ -310,7 +310,7 @@ Celery tasks (background jobs) use the same `ServiceManager` and layered archite
 # In automana/worker/tasks/pricing_tasks.py
 
 from celery import shared_task
-from automana.core.service_manager import ServiceManager
+from automana.core.framework.service_manager import ServiceManager
 
 @shared_task(
     bind=True,
@@ -403,7 +403,7 @@ logger.info(
 The logging context is thread-local storage that carries data through the request lifecycle:
 
 ```python
-# In src/automana/core/logging_context.py
+# In src/automana/core/log/logging_context.py
 
 _context = contextvars.ContextVar("logging_context", default={})
 

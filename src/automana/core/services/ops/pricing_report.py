@@ -6,7 +6,7 @@ import logging
 import automana.core.metrics.pricing  # noqa: F401  — register pricing.* metrics
 from automana.core.repositories.app_integration.mtg_stock.price_repository import PriceRepository
 from automana.core.repositories.ops.ops_repository import OpsRepository
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 from automana.core.services.ops._metric_runner import run_metric_report
 
 logger = logging.getLogger(__name__)

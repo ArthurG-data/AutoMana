@@ -3,7 +3,7 @@ import os, json, logging
 import pandas as pd
 from automana.core.repositories.app_integration.mtg_stock.price_repository import PriceRepository
 import time
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 from automana.core.services.ops.pipeline_services import track_step
 from tqdm import tqdm
 from automana.core.models.pipelines.mtg_stock import MTGStockBatchStep

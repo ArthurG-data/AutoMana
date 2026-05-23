@@ -6,7 +6,7 @@ import logging
 import automana.core.metrics.card_catalog  # noqa: F401  — register card_catalog.* metrics
 from automana.core.repositories.card_catalog.card_repository import CardReferenceRepository
 from automana.core.repositories.ops.ops_repository import OpsRepository
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 from automana.core.services.ops._metric_runner import run_metric_report
 
 logger = logging.getLogger(__name__)

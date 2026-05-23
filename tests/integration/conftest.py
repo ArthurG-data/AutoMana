@@ -101,7 +101,7 @@ def _test_env(timescale_container, redis_container):
     # purging sys.modules doesn't break them.
     for mod in [m for m in sys.modules if m.startswith("automana")]:
         del sys.modules[mod]
-    from automana.core.settings import get_settings
+    from automana.core.config.settings import get_settings
 
     get_settings.cache_clear()
 

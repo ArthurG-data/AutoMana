@@ -247,7 +247,7 @@ To add a metric group for a different pipeline (e.g., `scryfall.*`):
    - Calls `MetricRegistry.select(prefix="<pipeline>.")`.
    - Uses the `_invoke_metric` + `_build_report` pattern from `mtgstock_report.py`.
    - Registers with `@ServiceRegistry.register("ops.integrity.<pipeline>_report", db_repositories=[...])`.
-4. Add the runner module to `SERVICE_MODULES` in `core/service_modules.py` for every applicable namespace.
+4. Add the runner module to `SERVICE_MODULES` in `core/framework/service_modules.py` for every applicable namespace.
 
 ---
 

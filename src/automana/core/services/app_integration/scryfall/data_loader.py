@@ -5,7 +5,7 @@ from automana.core.services.ops.pipeline_services import track_step
 from automana.core.storage import StorageService
 
 from datetime import datetime
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 
 logger = logging.getLogger(__name__)
 

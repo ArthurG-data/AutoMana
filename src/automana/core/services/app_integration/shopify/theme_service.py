@@ -3,7 +3,7 @@ import logging
 from automana.core.exceptions.service_layer_exceptions.shop_data_ingestion.shopify import shopify_collection_exception
 from automana.core.models.shopify import shopify_theme
 from automana.core.repositories.app_integration.shopify.collection_repository import ShopifyCollectionRepository
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 
 logger = logging.getLogger(__name__)
 

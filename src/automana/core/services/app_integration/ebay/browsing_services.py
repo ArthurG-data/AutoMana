@@ -5,7 +5,7 @@ from automana.core.models.ebay import listings as listings_model
 from automana.core.models.ebay import auth as auth_model
 from automana.core.repositories.app_integration.ebay.ApiBrowse_repository  import EbayBrowseAPIRepository
 from automana.core.exceptions.service_layer_exceptions.ebay import app_exception
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 
 logger = logging.getLogger(__name__)
 

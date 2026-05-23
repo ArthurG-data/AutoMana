@@ -411,14 +411,14 @@ Correctness is further backed by the promoter's `ON CONFLICT ... DO UPDATE` sema
 
 ## Module registration
 
-MTGJson services are loaded in both the `backend` and `celery` module namespaces (defined in `src/automana/core/service_modules.py`):
+MTGJson services are loaded in both the `backend` and `celery` module namespaces (defined in `src/automana/core/framework/service_modules.py`):
 
 ```python
 "automana.core.services.app_integration.mtgjson.data_loader",
 "automana.core.services.app_integration.mtgjson.pipeline",
 ```
 
-Repository registrations (in `src/automana/core/service_registry.py`):
+Repository registrations (in `src/automana/core/framework/registry.py`):
 
 | Type | Logical name | Class |
 |---|---|---|

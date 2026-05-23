@@ -13,7 +13,7 @@ from automana.core.repositories.app_integration.shopify.pipeline_repository impo
 )
 from automana.core.repositories.app_integration.shopify.product_repository import ProductRepository
 from automana.core.repositories.ops.ops_repository import OpsRepository
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 from automana.core.services.ops.pipeline_services import track_step
 from automana.core.storage import StorageService
 

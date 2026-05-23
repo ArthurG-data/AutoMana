@@ -1,4 +1,4 @@
-﻿from automana.core.settings import Settings
+﻿from automana.core.config.settings import Settings
 import re
 
 def assert_safe_database_url(settings: Settings) -> None:

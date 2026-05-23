@@ -175,7 +175,7 @@ See [`docs/HEALTH_METRICS.md`](../../HEALTH_METRICS.md) for exhaustive metric re
 
 All background job logging is **structured JSON** via the `JsonFormatter`:
 
-**File:** `src/automana/core/logging_config.py`
+**File:** `src/automana/core/log/logging_config.py`
 
 ```python
 class JsonFormatter(logging.Formatter):
@@ -225,7 +225,7 @@ Follow these rules (from CLAUDE.md):
 
 Three context variables are automatically injected into every log:
 
-**File:** `src/automana/core/logging_context.py`
+**File:** `src/automana/core/log/logging_context.py`
 
 | Variable | Set by | Read by | Purpose |
 |----------|--------|---------|---------|

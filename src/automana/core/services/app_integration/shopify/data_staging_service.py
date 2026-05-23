@@ -17,7 +17,7 @@ from bs4 import BeautifulSoup
 from automana.core.models.shopify import shopify_theme
 from automana.core.repositories.app_integration.shopify.market_repository import MarketRepository
 from automana.core.repositories.app_integration.shopify.product_repository import ProductRepository
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 from automana.core.storage import StorageService
 
 logger = logging.getLogger(__name__)

@@ -6,7 +6,7 @@ from uuid import UUID
 from automana.core.models.ebay.market_price import CardMarketData, PriceAggregates, PricePoint
 from automana.core.repositories.app_integration.ebay.ApiBrowse_repository import EbayBrowseAPIRepository
 from automana.core.repositories.app_integration.ebay.auth_repository import EbayAuthRepository
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 from automana.core.services.app_integration.ebay._auth_context import resolve_app_token
 from automana.core.services.app_integration.ebay.market_price_scorer import (
     build_query_string,

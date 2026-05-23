@@ -39,7 +39,7 @@ Each row dict has keys: check_name, severity, row_count, details.
 import logging
 
 from automana.core.repositories.ops.ops_repository import OpsRepository
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 
 logger = logging.getLogger(__name__)
 

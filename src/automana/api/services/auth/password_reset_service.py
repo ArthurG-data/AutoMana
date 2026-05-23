@@ -9,7 +9,7 @@ from automana.api.repositories.user_management.user_repository import UserReposi
 from automana.api.services.auth.auth import get_hash_password
 from automana.api.services.email.email_service import EmailService
 from automana.core.exceptions.service_layer_exceptions.user_management.user_exceptions import InvalidResetTokenError
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 
 logger = logging.getLogger(__name__)
 

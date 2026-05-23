@@ -80,7 +80,7 @@ def cli(service_path, extra_args, raw, db_user, db_password, list_users):
 
 
 async def _main(service_path, extra_args, raw, db_user, db_password, list_users):
-    from automana.core.logging_config import configure_logging
+    from automana.core.log.logging_config import configure_logging
     configure_logging()
 
     # ── list users mode ────────────────────────────────────────────────────
@@ -95,7 +95,7 @@ async def _main(service_path, extra_args, raw, db_user, db_password, list_users)
     if not service_path:
         pool = await _bootstrap(db_user, db_password)
         try:
-            from automana.core.service_registry import ServiceRegistry
+            from automana.core.framework.registry import ServiceRegistry
             services = sorted(ServiceRegistry.list_services())
             click.echo(f"\n{len(services)} registered services:\n")
             for s in services:
@@ -135,7 +135,7 @@ async def _main(service_path, extra_args, raw, db_user, db_password, list_users)
     # ── bootstrap ─────────────────────────────────────────────────────────
     pool = await _bootstrap(db_user, db_password)
     try:
-        from automana.core.service_manager import ServiceManager
+        from automana.core.framework.service_manager import ServiceManager
 
         accumulated: dict[str, Any] = {}
         result: Any = None

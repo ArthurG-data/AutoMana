@@ -199,7 +199,7 @@ postResetPassword(token: string, newPassword: string): Promise<void>
 | `src/automana/api/services/email/email_service.py` | Create |
 | `src/automana/api/services/email/__init__.py` | Create |
 | `src/automana/api/routers/users/auth.py` | Modify — add 2 endpoints |
-| `src/automana/core/service_registry.py` | Modify — register `password_reset` repository |
+| `src/automana/core/framework/registry.py` | Modify — register `password_reset` repository |
 | `src/automana/core/settings.py` | Modify — add 3 settings |
 | `config/env/.env.example` | Modify — add 3 env vars |
 | `requirements.txt` | Modify — add `resend` |

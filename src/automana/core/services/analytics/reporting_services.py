@@ -1,4 +1,4 @@
-﻿from automana.core.service_registry import ServiceRegistry
+﻿from automana.core.framework.registry import ServiceRegistry
 from automana.core.repositories.ops import ops_repository
 from automana.core.repositories.analytics_repositories.analytics_repository import AnalyticsRepository
 

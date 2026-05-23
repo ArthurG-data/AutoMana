@@ -4,7 +4,7 @@ from pathlib import Path
 import pandas as pd
 import pyarrow as pa, pyarrow.parquet as pq
 from automana.core.repositories.app_integration.mtg_stock.ApiMtgStock_repository import ApiMtgStockRepository
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 from automana.core.repositories.ops.ops_repository import OpsRepository
 from automana.core.models.pipelines.mtg_stock import MTGStockBatchStep
 from tqdm import tqdm

@@ -11,7 +11,7 @@ from automana.core.services.ops.pipeline_services import track_step
 from automana.core.models.card_catalog.set import  SetInDB, NewSet, UpdatedSet, NewSets, SetBrowseItem
 from automana.core.exceptions.service_layer_exceptions.card_catalogue import set_exception
 from automana.core.utils.utils import decode_json_input
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 from automana.core.storage import StorageService
 
 logger = logging.getLogger(__name__)

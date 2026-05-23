@@ -409,7 +409,7 @@ Celery tasks process data in parallel. Share a connection pool across workers:
 
 ```python
 # In Celery worker setup
-from automana.core.database import init_async_pool
+from automana.core.db.database import init_async_pool
 
 pool = None
 
@@ -479,7 +479,7 @@ curl http://localhost:5555/api/workers
 The connection pool must accommodate peak concurrency:
 
 ```python
-# In src/automana/core/database.py
+# In src/automana/core/db/database.py
 pool = await asyncpg.create_pool(
     dsn=...,
     min_size=10,      # Minimum connections to keep open

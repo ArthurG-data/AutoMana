@@ -12,7 +12,7 @@ from automana.core.repositories.card_catalog.card_repository import CardReferenc
 from automana.core.models.card_catalog.card import BaseCard, CardDetail, CardSuggestion, CardSuggestionResponse, CatalogStats
 from automana.core.models.card_catalog.price_history import PriceHistoryResponse, DateRange
 from automana.core.exceptions.service_layer_exceptions.card_catalogue import card_exception
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 from automana.core.models.pipelines.mtg_stock import  MTGStockBatchStep
 from automana.core.storage import StorageService
 from automana.core.utils.redis_cache import get_from_cache, set_to_cache, invalidate_cache_pattern

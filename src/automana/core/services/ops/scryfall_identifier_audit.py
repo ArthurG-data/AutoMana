@@ -27,7 +27,7 @@ from typing import Any, Callable
 import ijson
 
 from automana.core.repositories.card_catalog.card_repository import CardReferenceRepository
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 from automana.core.services.ops.integrity_checks import _build_report
 
 logger = logging.getLogger(__name__)

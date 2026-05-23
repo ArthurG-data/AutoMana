@@ -17,7 +17,7 @@ from automana.core.repositories.app_integration.ebay.ebay_scrape_repository impo
     EbayScrapeSoldRepository,
 )
 from automana.core.repositories.pricing.fx_rates_repository import FxRatesRepository
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 
 logger = logging.getLogger(__name__)
 

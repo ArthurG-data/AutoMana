@@ -25,7 +25,7 @@
 | Create | `tests/unit/core/ai/test_agent_chat_service.py` |
 | Create | `tests/unit/core/ai/test_agent_tools.py` |
 | Modify | `src/automana/core/settings.py` — add four Ollama/agent fields |
-| Modify | `src/automana/core/service_registry.py` — register `ollama` API repository |
+| Modify | `src/automana/core/framework/registry.py` — register `ollama` API repository |
 | Modify | `src/automana/api/routers/integrations/__init__.py` — include `ai_router` |
 | Modify | `deploy/docker-compose.dev.yml` — add `ollama` sidecar + volume |
 | Modify | `deploy/docker-compose.prod.yml` — add `ollama` sidecar + volume |
@@ -53,7 +53,7 @@ agent_chat_ttl: int = Field(default=7200, alias="AGENT_CHAT_TTL")
 
 ```bash
 cd /home/arthur/projects/AutoMana
-python -c "from automana.core.settings import get_settings; s = get_settings(); print(s.ollama_base_url, s.ollama_model)"
+python -c "from automana.core.config.settings import get_settings; s = get_settings(); print(s.ollama_base_url, s.ollama_model)"
 ```
 
 Expected output: `http://ollama:11434 qwen3:30b-a3b`
@@ -177,7 +177,7 @@ class OllamaAPIRepository(BaseApiClient):
         model: str | None = None,
     ) -> dict[str, Any]:
         """POST /v1/chat/completions — returns raw response dict."""
-        from automana.core.settings import get_settings
+        from automana.core.config.settings import get_settings
         _model = model or get_settings().ollama_model
         payload: dict[str, Any] = {
             "model": _model,
@@ -216,11 +216,11 @@ git commit -m "feat(ai): add OllamaAPIRepository"
 ## Task 3: Register OllamaAPIRepository in ServiceRegistry
 
 **Files:**
-- Modify: `src/automana/core/service_registry.py`
+- Modify: `src/automana/core/framework/registry.py`
 
 - [ ] **Step 1: Add registration at the bottom of the API repositories block**
 
-Open `src/automana/core/service_registry.py`. Find the last `ServiceRegistry.register_api_repository(...)` call and add after it:
+Open `src/automana/core/framework/registry.py`. Find the last `ServiceRegistry.register_api_repository(...)` call and add after it:
 
 ```python
 ServiceRegistry.register_api_repository(
@@ -234,7 +234,7 @@ ServiceRegistry.register_api_repository(
 
 ```bash
 python -c "
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 info = ServiceRegistry.get_api_repository('ollama')
 print(info)
 "
@@ -245,7 +245,7 @@ Expected: `('automana.core.repositories.ai.ollama_repository', 'OllamaAPIReposit
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/automana/core/service_registry.py
+git add src/automana/core/framework/registry.py
 git commit -m "feat(ai): register OllamaAPIRepository in ServiceRegistry"
 ```
 
@@ -881,7 +881,7 @@ from redis.exceptions import RedisError
 
 from automana.core.repositories.ai.ollama_repository import OllamaAPIRepository
 from automana.core.services.ai.agent_tools import TOOL_MAP, TOOL_SCHEMAS
-from automana.core.settings import get_settings
+from automana.core.config.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -1014,13 +1014,13 @@ git commit -m "feat(ai): implement AgentChatService with tool-calling loop"
 ## Task 6: Register the service with ServiceRegistry
 
 **Files:**
-- Modify: `src/automana/core/service_registry.py`
+- Modify: `src/automana/core/framework/registry.py`
 
 The `AgentChatService` is not a `@ServiceRegistry.register` service in the normal sense — it takes `redis` and `ollama_repo` which are not standard DB repositories. We expose it as a thin `@ServiceRegistry.register` wrapper that the router calls via `service_manager.execute_service("ai.agent_chat", ...)`. The service manager passes `api_repositories` by name; Redis is injected separately in the router.
 
-- [ ] **Step 1: Add the service registration block to service_registry.py**
+- [ ] **Step 1: Add the service registration block to framework/wiring.py**
 
-At the bottom of `src/automana/core/service_registry.py`, add:
+At the bottom of `src/automana/core/framework/registry.py`, add:
 
 ```python
 ServiceRegistry.register_db_repository(
@@ -1048,7 +1048,7 @@ The service manager wires `api_repositories=["ollama"]` for the `OllamaAPIReposi
 
 **Files:**
 - Modify: `src/automana/core/settings.py` — add `agent_db_user` and `agent_db_password_file`
-- Modify: `src/automana/core/database.py` — add `init_agent_pool` helper
+- Modify: `src/automana/core/db/database.py` — add `init_agent_pool` helper
 
 The `agent` DB role has a dedicated password file (`config/secrets/agent_db_password.txt`). The router acquires a connection from this pool for tool calls.
 
@@ -1064,7 +1064,7 @@ agent_db_password: str | None = Field(default=None, alias="AGENT_DB_PASSWORD")
 
 - [ ] **Step 2: Add init_agent_pool to database.py**
 
-In `src/automana/core/database.py`, add after `init_async_pool`:
+In `src/automana/core/db/database.py`, add after `init_async_pool`:
 
 ```python
 async def init_agent_pool(settings: Settings) -> asyncpg.Pool:
@@ -1089,7 +1089,7 @@ async def init_agent_pool(settings: Settings) -> asyncpg.Pool:
 
 Add the import for `read_db_password` at the top of `database.py`:
 ```python
-from automana.core.settings import read_db_password
+from automana.core.config.settings import read_db_password
 ```
 
 - [ ] **Step 3: Wire the agent pool into the app lifespan**
@@ -1103,7 +1103,7 @@ app.state.db_pool = await init_async_pool(settings)
 Add below it:
 
 ```python
-from automana.core.database import init_agent_pool
+from automana.core.db.database import init_agent_pool
 app.state.agent_pool = await init_agent_pool(settings)
 ```
 
@@ -1124,7 +1124,7 @@ docker compose -f deploy/docker-compose.dev.yml exec backend python -c "print('o
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/automana/core/settings.py src/automana/core/database.py src/automana/main.py
+git add src/automana/core/settings.py src/automana/core/db/database.py src/automana/main.py
 git commit -m "feat(ai): add agent read-only DB pool"
 ```
 
@@ -1209,7 +1209,7 @@ from automana.api.dependancies.auth.users import CurrentUserDep
 from automana.api.schemas.StandardisedQueryResponse import ApiResponse
 from automana.core.repositories.ai.ollama_repository import OllamaAPIRepository
 from automana.core.services.ai.agent_chat_service import run_agent_turn
-from automana.core.settings import get_settings
+from automana.core.config.settings import get_settings
 from automana.core.utils.redis_cache import get_redis_client
 
 logger = logging.getLogger(__name__)

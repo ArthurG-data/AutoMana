@@ -1,7 +1,7 @@
-from automana.core.database import close_async_pool, init_async_pool
-from automana.core.service_manager import ServiceManager
+from automana.core.db.database import close_async_pool, init_async_pool
+from automana.core.framework.service_manager import ServiceManager
 from automana.worker.state import CeleryAppState
-from automana.core.QueryExecutor import AsyncQueryExecutor
+from automana.core.db.query_executor import AsyncQueryExecutor
 import asyncio
 import logging
 

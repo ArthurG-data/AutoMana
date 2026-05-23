@@ -15,7 +15,7 @@ from automana.core.repositories.app_integration.ebay.ApiAnalytics_repository imp
 from automana.core.repositories.app_integration.ebay.ApiAuth_repository import EbayAuthAPIRepository
 from automana.core.repositories.app_integration.ebay.app_repository import EbayAppRepository
 from automana.core.repositories.app_integration.ebay.auth_repository import EbayAuthRepository
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 from automana.core.utils.redis_cache import get_redis_client
 
 logger = logging.getLogger(__name__)

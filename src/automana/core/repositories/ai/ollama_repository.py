@@ -33,7 +33,7 @@ class OllamaAPIRepository(BaseApiClient):
         model: str | None = None,
     ) -> dict[str, Any]:
         """POST /v1/chat/completions — returns raw response dict."""
-        from automana.core.settings import get_settings
+        from automana.core.config.settings import get_settings
         _model = model or get_settings().ollama_model
         payload: dict[str, Any] = {
             "model": _model,

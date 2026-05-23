@@ -1,5 +1,5 @@
 ﻿from fastapi import HTTPException, Depends
-from automana.core.settings import Settings, get_settings
+from automana.core.config.settings import Settings, get_settings
 
 def require_destructive_enabled():
     settings = get_settings()

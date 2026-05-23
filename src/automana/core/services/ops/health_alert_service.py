@@ -125,8 +125,8 @@ from automana.core.repositories.ops.pipeline_health_snapshot_repository import (
     PipelineHealthSnapshotRepository,
     PipelineHealthSnapshotRow,
 )
-from automana.core.service_registry import ServiceRegistry
-from automana.core.settings import get_settings
+from automana.core.framework.registry import ServiceRegistry
+from automana.core.config.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -151,7 +151,7 @@ async def _run_integrity_service(service_key: str) -> dict:
     instantiates declared repositories from the registry and runs the
     target service in the current event loop.
     """
-    from automana.core.service_manager import ServiceManager
+    from automana.core.framework.service_manager import ServiceManager
     return await ServiceManager.execute_service(service_key)
 
 

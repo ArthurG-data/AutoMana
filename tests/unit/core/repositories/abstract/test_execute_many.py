@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, call
 import asyncpg
 import pytest
 
-from automana.core.QueryExecutor import AsyncQueryExecutor
+from automana.core.db.query_executor import AsyncQueryExecutor
 
 
 class TestAsyncQueryExecutorExecuteMany:

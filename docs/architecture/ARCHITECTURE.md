@@ -134,7 +134,7 @@ This layer should stay thin: validation, dependency wiring, and calling services
 
 ### Service layer
 
-The service layer lives under [`src/automana/core/services/`](../src/automana/core/services/) and is orchestrated by [`src/automana/core/service_manager.py`](../src/automana/core/service_manager.py).
+The service layer lives under [`src/automana/core/services/`](../src/automana/core/services/) and is orchestrated by [`src/automana/core/framework/service_manager.py`](../src/automana/core/framework/service_manager.py).
 
 - The `ServiceManager` is a singleton that dispatches calls to services registered in the `ServiceRegistry`.
 - Services register themselves using the `@ServiceRegistry.register` decorator, declaring their service path, required DB repositories, API repositories, and storage services.
@@ -146,7 +146,7 @@ This gives you a single place to:
 - reuse services from HTTP endpoints, Celery tasks, CLI tools, or the TUI
 - swap implementations without changing routers
 
-Service modules are grouped into namespaces (`backend`, `celery`, `all`) in [`src/automana/core/service_modules.py`](../src/automana/core/service_modules.py). The active namespace is set by the `MODULES_NAMESPACE` setting.
+Service modules are grouped into namespaces (`backend`, `celery`, `all`) in [`src/automana/core/framework/service_modules.py`](../src/automana/core/framework/service_modules.py). The active namespace is set by the `MODULES_NAMESPACE` setting.
 
 ### Metric registry (`core/metrics/`)
 
@@ -163,7 +163,7 @@ The backend uses:
 - async DB access (asyncpg) for all service calls in the HTTP and Celery paths
 - sync DB access (psycopg2) available for special cases
 
-Pool initialization lives in [`src/automana/core/database.py`](../src/automana/core/database.py), with configurable retry/backoff.
+Pool initialization lives in [`src/automana/core/db/database.py`](../src/automana/core/db/database.py), with configurable retry/backoff.
 
 ### Standard response shapes
 
@@ -290,7 +290,7 @@ When adding a new feature:
 
 1. Add/extend a service in `src/automana/core/services/...`
 2. Decorate it with `@ServiceRegistry.register("dotted.service.key", db_repositories=[...], api_repositories=[...], storage_services=[...])`
-3. If needed, register new repositories in [`src/automana/core/service_registry.py`](../src/automana/core/service_registry.py)
+3. If needed, register new repositories in [`src/automana/core/framework/registry.py`](../src/automana/core/framework/registry.py)
 4. Add a thin router endpoint under `src/automana/api/routers/...`
 5. Use `ApiResponse`/`PaginatedResponse` for consistency
 6. Add/adjust schemas under `src/automana/core/models/` or `src/automana/api/schemas/`

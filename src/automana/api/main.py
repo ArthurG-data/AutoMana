@@ -3,15 +3,15 @@ import time, logging, uuid
 #from backend.modules.ebay import routers as ebay_router
 #from backend import api
 from contextlib import asynccontextmanager
-from automana.core.settings import get_settings
+from automana.core.config.settings import get_settings
 #for fasvicon
 from pathlib import Path
 from fastapi import HTTPException
 from fastapi.responses import FileResponse, RedirectResponse
 from automana.api.dependancies.auth.users import BrowserAuthRequired, LOGIN_URL
 
-from automana.core.logging_config import configure_logging
-from automana.core.logging_context import set_request_id, set_service_path
+from automana.core.log.logging_config import configure_logging
+from automana.core.log.logging_context import set_request_id, set_service_path
 from automana.api.middleware.metrics_middleware import MetricsMiddleware
 
 
@@ -38,13 +38,13 @@ async def lifespan(app: FastAPI):
     try:
         settings = get_settings()
         from automana.api.request_handling.ErrorHandler import AsyncpgExceptionHandler
-        from automana.core.QueryExecutor import AsyncQueryExecutor
-        from automana.core.database import init_async_pool, close_async_pool, init_sync_pool_with_retry, close_sync_pool    
-        from automana.core.service_manager import ServiceManager
+        from automana.core.db.query_executor import AsyncQueryExecutor
+        from automana.core.db.database import init_async_pool, close_async_pool, init_sync_pool_with_retry, close_sync_pool    
+        from automana.core.framework.service_manager import ServiceManager
         app.state.error_handler = AsyncpgExceptionHandler()
         app.state.async_db_pool = await init_async_pool(settings)
         try:
-            from automana.core.database import init_agent_pool
+            from automana.core.db.database import init_agent_pool
             app.state.agent_pool = await init_agent_pool(settings)
         except Exception as e:
             logger.warning("agent_pool_unavailable", extra={"error": str(e)})

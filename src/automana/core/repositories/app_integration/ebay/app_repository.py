@@ -6,7 +6,7 @@ from automana.core.repositories.abstract_repositories.AbstractDBRepository impor
 from automana.core.repositories.app_integration.ebay import app_queries
 from typing import Optional
 from automana.core.repositories.app_integration.ebay import auth_queries
-from automana.core.settings import get_settings as get_general_settings
+from automana.core.config.settings import get_settings as get_general_settings
 
 logger = logging.getLogger(__name__)
 

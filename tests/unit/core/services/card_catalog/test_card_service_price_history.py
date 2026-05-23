@@ -24,7 +24,7 @@ from automana.core.models.card_catalog.price_history import PriceHistoryResponse
 from automana.core.exceptions.service_layer_exceptions.card_catalogue.card_exception import (
     CardRetrievalError,
 )
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 
 pytestmark = pytest.mark.unit
 

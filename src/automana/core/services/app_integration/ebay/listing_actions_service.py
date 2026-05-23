@@ -4,7 +4,7 @@ import logging
 from typing import Optional
 from uuid import UUID
 
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 
 logger = logging.getLogger(__name__)
 

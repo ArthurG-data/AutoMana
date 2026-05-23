@@ -54,7 +54,7 @@ class KwargForm(Vertical):
 
         try:
             import importlib
-            from automana.core.service_registry import ServiceRegistry
+            from automana.core.framework.registry import ServiceRegistry
 
             config = ServiceRegistry.get(service_key)
             if config is None:

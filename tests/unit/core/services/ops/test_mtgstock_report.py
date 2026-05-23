@@ -26,7 +26,7 @@ from automana.core.services.ops.mtgstock_report import (
     mtgstock_report,
 )
 from automana.core.metrics.registry import MetricRegistry
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 
 pytestmark = pytest.mark.unit
 

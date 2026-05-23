@@ -1059,7 +1059,7 @@ from typing import Any
 import httpx
 
 from automana.core.repositories.pricing.fx_rates_repository import FxRatesRepository
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -1204,7 +1204,7 @@ from typing import Any
 from automana.core.repositories.app_integration.ebay.ebay_scrape_repository import (
     EbayScrapeSoldRepository,
 )
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 from automana.core.settings import get_settings
 
 logger = logging.getLogger(__name__)
@@ -1245,7 +1245,7 @@ Expected: both tests `PASSED`.
 cd /home/arthur/projects/AutoMana
 python -c "
 from automana.core.services.app_integration.ebay.refresh_scrape_targets_service import refresh_scrape_targets
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 svc = ServiceRegistry.get('integrations.ebay.refresh_scrape_targets')
 print('registered:', svc is not None)
 "
@@ -1449,7 +1449,7 @@ from automana.core.repositories.app_integration.ebay.sales_repository import (
 from automana.core.repositories.card_catalog.card_repository import (
     CardReferenceRepository,
 )
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 from automana.core.services.app_integration.ebay.market_price_scorer import (
     build_query_string,
     score_title,
