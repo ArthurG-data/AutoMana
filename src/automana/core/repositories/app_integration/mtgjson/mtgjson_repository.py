@@ -34,8 +34,8 @@ class MtgjsonRepository(AbstractRepository):
         without any external locking infrastructure. Released automatically
         on COMMIT/ROLLBACK.
         """
-        await self.connection.execute(
-            "SELECT pg_advisory_xact_lock(hashtext($1))", lock_name
+        await self.execute_command(
+            "SELECT pg_advisory_xact_lock(hashtext($1))", (lock_name,)
         )
 
     async def copy_staging_batch(self, records: Sequence[tuple]) -> int:
@@ -47,7 +47,7 @@ class MtgjsonRepository(AbstractRepository):
         """
         if not records:
             return 0
-        await self.connection.copy_records_to_table(
+        await self.execute_copy_records_to_table(
             "mtgjson_card_prices_staging",
             records=records,
             columns=_STAGING_COLUMNS,
@@ -70,7 +70,7 @@ class MtgjsonRepository(AbstractRepository):
             return 0
         mtgjson_uuids = [p[0] for p in pairs]
         scryfall_uuids = [p[1] for p in pairs]
-        count = await self.connection.fetchval("""
+        count = await self.execute_fetchval("""
             WITH pairs AS (
                 SELECT
                     unnest($1::text[]) AS mtgjson_uuid,
@@ -98,7 +98,7 @@ class MtgjsonRepository(AbstractRepository):
                 RETURNING 1
             )
             SELECT COUNT(*) FROM inserted
-        """, mtgjson_uuids, scryfall_uuids)
+        """, (mtgjson_uuids, scryfall_uuids))
         return count or 0
 
     async def promote_staging_to_production(self) -> None:
