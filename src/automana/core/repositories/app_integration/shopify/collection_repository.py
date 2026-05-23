@@ -24,7 +24,7 @@ class ShopifyCollectionRepository(AbstractRepository[shopify_theme.CollectionMod
     async def add_many(self, values: List[shopify_theme.InsertCollection]):
         if not values:
             return
-        await self.connection.executemany(
+        await self.execute_many(
             """
             INSERT INTO markets.collection_handles (name, market_id)
             VALUES ($1, $2)
