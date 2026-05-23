@@ -50,6 +50,7 @@ async def test_scrape_one_card_inserts_foil_nm_correctly():
         ebay_sales_repository=sales_repo,
         ebay_scrape_repository=scrape_repo,
         ebay_finding_repository=finding_repo,
+        source_product_id=42,
     )
 
     assert count == 1
@@ -90,6 +91,7 @@ async def test_scrape_one_card_skips_low_score():
         ebay_sales_repository=sales_repo,
         ebay_scrape_repository=scrape_repo,
         ebay_finding_repository=finding_repo,
+        source_product_id=42,
     )
 
     assert count == 0
@@ -129,6 +131,7 @@ async def test_scrape_one_card_skips_frame_conflict():
         ebay_sales_repository=sales_repo,
         ebay_scrape_repository=scrape_repo,
         ebay_finding_repository=finding_repo,
+        source_product_id=42,
     )
 
     assert count == 0
