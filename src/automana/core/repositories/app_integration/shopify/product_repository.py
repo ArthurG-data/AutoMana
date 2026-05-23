@@ -4,7 +4,7 @@ from automana.core.models.shopify import Market as Market_Model
 import io, logging
 
 class ProductRepository(AbstractRepository):
-    def __init__(self, connection, executor : None):
+    def __init__(self, connection, executor=None):
         super().__init__(connection, executor)
 
 
@@ -16,11 +16,7 @@ class ProductRepository(AbstractRepository):
         buf = io.BytesIO()
         df.to_csv(buf, index=False, header=True, encoding='utf-8')
         buf.seek(0)
-        await self.connection.copy_to_table(
-            table,
-            source=buf,
-            format='csv',
-            header=True)
+        await self.execute_copy_to_table(table, buf, format='csv', header=True)
     
     async def bulk_copy_prices(self, df):
         await self._copy_to_table(df, "pricing.shopify_staging_raw")
