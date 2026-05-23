@@ -23,8 +23,7 @@ class ProductRepository(AbstractRepository):
             header=True)
     
     async def bulk_copy_prices(self, df):
-        await self._copy_to_table(df, "shopify_staging_raw")
-        await self.connection.execute('COMMIT;')
+        await self._copy_to_table(df, "pricing.shopify_staging_raw")
 
     async def bulk_insert_products(self, products: List[dict]):
         query = 'CALL add_product_batch_arrays(%s, %s, %s, %s, %s)'
