@@ -13,9 +13,6 @@ import threading
 
 import ijson
 
-# NB: dropped `from numpy import full` — it was never referenced, yet it
-# dragged the entire NumPy dependency into a storage module. That's a
-# textbook example of an IDE autocomplete accident passing code review.
 
 logger = logging.getLogger(__name__)
 

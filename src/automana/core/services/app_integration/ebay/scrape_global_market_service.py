@@ -41,6 +41,8 @@ _DEFAULT_LANGUAGE_ID = 1
 _MARKETPLACES = ("EBAY-US", "EBAY-AU", "EBAY-ENCA")
 _INTER_MARKETPLACE_DELAY = 1.0   # 1 req/s per marketplace — stays well below burst throttle
 _INTER_CARD_DELAY = 0.5          # breathing room between cards
+_API_DAILY_BUDGET = 5_000
+_API_WARN_THRESHOLD = 0.80
 
 
 @ServiceRegistry.register(
@@ -73,6 +75,8 @@ async def scrape_global_market(
 
     min_date = datetime.now(timezone.utc) - timedelta(days=days_back)
     total_items = 0
+    api_calls = 0
+    warn_at = round(_API_DAILY_BUDGET * _API_WARN_THRESHOLD)
 
     for card_version_id in targets:
         card = await card_repository.get_scrape_metadata(card_version_id)
@@ -102,6 +106,18 @@ async def scrape_global_market(
             continue
 
         for marketplace in _MARKETPLACES:
+            if api_calls >= _API_DAILY_BUDGET:
+                logger.error(
+                    "scrape_global_market_api_budget_exhausted",
+                    extra={"api_calls": api_calls, "budget": _API_DAILY_BUDGET},
+                )
+                break
+            api_calls += 1
+            if api_calls == warn_at:
+                logger.warning(
+                    "scrape_global_market_api_budget_warning",
+                    extra={"api_calls": api_calls, "budget": _API_DAILY_BUDGET},
+                )
             try:
                 count = await _scrape_one_card(
                     card_version_id=card_version_id,
@@ -126,22 +142,24 @@ async def scrape_global_market(
                     },
                 )
             await asyncio.sleep(_INTER_MARKETPLACE_DELAY)
-
-        try:
-            await ebay_scrape_repository.update_target_last_scraped(card_version_id)
-        except Exception:
-            logger.warning(
-                "scrape_global_market_update_last_scraped_failed",
-                extra={"card_version_id": str(card_version_id)},
-            )
-
-        await asyncio.sleep(_INTER_CARD_DELAY)
+        else:
+            # inner loop completed without hitting budget limit
+            try:
+                await ebay_scrape_repository.update_target_last_scraped(card_version_id)
+            except Exception:
+                logger.warning(
+                    "scrape_global_market_update_last_scraped_failed",
+                    extra={"card_version_id": str(card_version_id)},
+                )
+            await asyncio.sleep(_INTER_CARD_DELAY)
+            continue
+        break  # budget exhausted — exit outer loop
 
     logger.info(
         "scrape_global_market_complete",
-        extra={"scraped_items": total_items, "cards_processed": len(targets)},
+        extra={"scraped_items": total_items, "cards_processed": len(targets), "api_calls": api_calls},
     )
-    return {"scraped_items": total_items, "cards_processed": len(targets)}
+    return {"scraped_items": total_items, "cards_processed": len(targets), "api_calls": api_calls}
 
 
 async def _scrape_one_card(
@@ -155,7 +173,7 @@ async def _scrape_one_card(
     ebay_sales_repository: EbaySalesRepository,
     ebay_scrape_repository: EbayScrapeSoldRepository,
     ebay_finding_repository: EbayFindingAPIRepository,
-    source_product_id: Optional[int] = None,
+    source_product_id: int,
 ) -> int:
     card_name: str = card.get("card_name", "")
     set_code: Optional[str] = card.get("set_code")
@@ -179,14 +197,6 @@ async def _scrape_one_card(
         min_date=min_date,
         limit=limit_per_card,
     )
-
-    sp_id = source_product_id
-    if sp_id is None:
-        sp_id = await ebay_sales_repository.ensure_source_product(
-            card_version_id, _EBAY_SOURCE_ID
-        )
-        if not sp_id:
-            return 0
 
     count = 0
     for item in items:
@@ -223,7 +233,7 @@ async def _scrape_one_card(
         await ebay_scrape_repository.insert_scraped_sold(
             item_id=item_id,
             title=title,
-            source_product_id=sp_id,
+            source_product_id=source_product_id,
             price_cents=price_cents,
             currency=currency,
             marketplace_id=marketplace,

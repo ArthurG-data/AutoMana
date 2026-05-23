@@ -310,4 +310,5 @@ ServiceRegistry.register_storage_backend(
 ServiceRegistry.register_storage("mtgjson",  backend="local", subpath="mtgjson/raw")
 ServiceRegistry.register_storage("scryfall", backend="local", subpath="scryfall/raw_files")
 ServiceRegistry.register_storage("errors",   backend="local", subpath="errors/card_import")
+ServiceRegistry.register_storage("shopify",  backend="local", subpath="shopify")
 

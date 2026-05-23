@@ -1,7 +1,6 @@
-import glob
 import logging
-import os
 from decimal import Decimal, ROUND_HALF_UP
+from pathlib import Path
 from typing import Optional
 
 import pandas as pd
@@ -16,10 +15,9 @@ from automana.core.repositories.app_integration.shopify.product_repository impor
 from automana.core.repositories.ops.ops_repository import OpsRepository
 from automana.core.service_registry import ServiceRegistry
 from automana.core.services.ops.pipeline_services import track_step
+from automana.core.storage import StorageService
 
 logger = logging.getLogger(__name__)
-
-_SHOPIFY_DATA_ROOT = os.getenv("SHOPIFY_DATA_ROOT", "/data/automana_data/shopify")
 
 
 def _price_to_cents(price) -> Optional[int]:
@@ -81,6 +79,7 @@ def _build_obs_dataframe(
     path="shopify.pipeline.fetch_all_markets",
     db_repositories=["shopify_pipeline", "ops"],
     api_repositories=["shopify_api"],
+    storage_services=["shopify"],
     runs_in_transaction=False,
     command_timeout=3600,
 )
@@ -88,6 +87,7 @@ async def fetch_all_markets(
     shopify_pipeline_repository: ShopifyPipelineRepository,
     ops_repository: OpsRepository,
     shopify_api_repository: ShopifyAPIRepository,
+    storage_service: StorageService,
     ingestion_run_id: int = None,
 ):
     markets = await shopify_pipeline_repository.get_active_pipeline_markets()
@@ -98,20 +98,25 @@ async def fetch_all_markets(
         source_id = market["source_id"]
         api_url = market["api_url"]
         async with track_step(ops_repository, ingestion_run_id, f"fetch_storefront_{market_id}"):
-            out_dir, pages = await shopify_api_repository.fetch_products_pages(
-                api_url, source_id, _SHOPIFY_DATA_ROOT
-            )
+            pages = 0
+            async for page_index, products in shopify_api_repository.iter_products_pages(api_url, source_id):
+                await storage_service.save_json(
+                    f"{source_id}_fetch/page_{page_index}_products.json",
+                    {"items": products},
+                )
+                pages += 1
             logger.info(
                 "shopify_fetch: fetched pages",
                 extra={"market_id": market_id, "source_id": source_id, "pages": pages},
             )
-            market_dirs[market_id] = out_dir
+            market_dirs[market_id] = str(storage_service.backend.resolve_path(f"{source_id}_fetch"))
     return {"market_dirs": market_dirs, "markets": markets}
 
 
 @ServiceRegistry.register(
     path="shopify.pipeline.process_to_parquet",
     db_repositories=["market", "shopify_pipeline", "ops"],
+    storage_services=["shopify"],
     runs_in_transaction=False,
     command_timeout=3600,
 )
@@ -119,6 +124,7 @@ async def process_to_parquet(
     market_repository: MarketRepository,
     shopify_pipeline_repository: ShopifyPipelineRepository,
     ops_repository: OpsRepository,
+    storage_service: StorageService,
     ingestion_run_id: int = None,
     market_dirs: dict = None,
     markets: list = None,
@@ -127,7 +133,12 @@ async def process_to_parquet(
     for market in (markets or []):
         market_id = market["market_id"]
         source_code = market.get("source_code")
-        parquet_dir = os.path.join(_SHOPIFY_DATA_ROOT, "parquet", str(market_id))
+        out_dir = (market_dirs or {}).get(market_id)
+        if out_dir is None:
+            logger.warning("shopify_process: no fetch dir for market", extra={"market_id": market_id})
+            continue
+        data_root = str(Path(out_dir).parent)
+        parquet_dir = str(Path(data_root) / "parquet" / str(market_id))
 
         async with track_step(ops_repository, ingestion_run_id, f"process_to_parquet_{market_id}"):
             from automana.core.services.app_integration.shopify.data_staging_service import (
@@ -135,15 +146,22 @@ async def process_to_parquet(
             )
             await process_json_dir_to_parquet(
                 market_repository=market_repository,
-                path_to_json=_SHOPIFY_DATA_ROOT,
+                storage_service=storage_service,
+                path_to_json=data_root,
                 market_code=source_code,
                 output_path=parquet_dir,
             )
-            info_files = glob.glob(os.path.join(parquet_dir, "*", "info.json"))
+            # Read info.json files written by the staging service via the storage layer
+            storage_base = storage_service.backend.base_path
+            try:
+                rel_parquet = str(Path(parquet_dir).relative_to(storage_base))
+            except ValueError:
+                rel_parquet = parquet_dir
+            info_paths = sorted(storage_service.backend.resolve_path(rel_parquet).glob("*/info.json"))
             handle_rows = []
-            for info_path in info_files:
-                with open(info_path) as f:
-                    info = json.load(f)
+            for info_path in info_paths:
+                rel_info = str(info_path.relative_to(storage_base))
+                info = await storage_service.load_json(rel_info)
                 handle_rows.append({
                     "product_id": str(info["product_id"]),
                     "market_id": market_id,
@@ -160,6 +178,7 @@ async def process_to_parquet(
 @ServiceRegistry.register(
     path="shopify.pipeline.stage_raw",
     db_repositories=["product", "shopify_pipeline", "ops"],
+    storage_services=["shopify"],
     runs_in_transaction=False,
     command_timeout=3600,
 )
@@ -167,6 +186,7 @@ async def stage_raw(
     product_repository: ProductRepository,
     shopify_pipeline_repository: ShopifyPipelineRepository,
     ops_repository: OpsRepository,
+    storage_service: StorageService,
     ingestion_run_id: int = None,
     parquet_dirs: dict = None,
     markets: list = None,
@@ -174,16 +194,17 @@ async def stage_raw(
     for market in (markets or []):
         market_id = market["market_id"]
         source_id = market["source_id"]
-        parquet_dir = (parquet_dirs or {}).get(
-            market_id,
-            os.path.join(_SHOPIFY_DATA_ROOT, "parquet", str(market_id)),
-        )
+        parquet_dir = (parquet_dirs or {}).get(market_id)
+        if parquet_dir is None:
+            logger.warning("shopify_stage: no parquet dir for market", extra={"market_id": market_id})
+            continue
         async with track_step(ops_repository, ingestion_run_id, f"stage_raw_{market_id}"):
             from automana.core.services.app_integration.shopify.data_staging_service import (
                 stage_data_from_parquet,
             )
             await stage_data_from_parquet(
                 product_repository=product_repository,
+                storage_service=storage_service,
                 parquet_base_path=parquet_dir,
             )
             await shopify_pipeline_repository.connection.execute(

@@ -12,7 +12,7 @@ async def post_theme(
     _admin: AdminUserDep,
     service_manager: ServiceManagerDep,
 ):
-    await service_manager.execute_service("shop_meta.theme.add", values=values)
+    return await service_manager.execute_service("shop_meta.theme.add", values=values)
 
 @theme_router.post("/collection")
 async def post_collection(
@@ -20,8 +20,4 @@ async def post_collection(
     _admin: AdminUserDep,
     service_manager: ServiceManagerDep,
 ):
-    """
-    Insert a new collection theme into the database.
-    If the collection theme already exists, it will not be inserted again.
-    """
-    await service_manager.execute_service("shop_meta.theme.add_collection_theme", values=values)
+    return await service_manager.execute_service("shop_meta.theme.add_collection_theme", values=values)
