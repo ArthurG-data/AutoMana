@@ -40,3 +40,47 @@ class TestAsyncQueryExecutorExecuteMany:
 
         with pytest.raises(RuntimeError, match="boom"):
             await executor.execute_many(conn, "INSERT INTO t VALUES ($1)", [("x",)])
+
+
+from automana.core.repositories.abstract_repositories.AbstractDBRepository import (
+    AbstractRepository,
+)
+
+
+class _ConcreteRepo(AbstractRepository[dict]):
+    """Minimal concrete subclass to satisfy abstract methods."""
+    @property
+    def name(self) -> str:
+        return "test"
+
+    async def add(self, item): pass
+    async def get(self, id): return None
+    async def update(self, item): pass
+    async def delete(self, id): pass
+    async def list(self, items=None): return []
+
+
+class TestAbstractRepositoryExecuteMany:
+    async def test_routes_through_executor_when_present(self):
+        conn = AsyncMock()
+        executor = AsyncMock()
+        repo = _ConcreteRepo(connection=conn, executor=executor)
+        rows = [("a", 1)]
+
+        await repo.execute_many("INSERT INTO t VALUES ($1, $2)", rows)
+
+        executor.execute_many.assert_awaited_once_with(
+            conn, "INSERT INTO t VALUES ($1, $2)", rows
+        )
+        conn.executemany.assert_not_awaited()
+
+    async def test_falls_back_to_connection_when_no_executor(self):
+        conn = AsyncMock()
+        repo = _ConcreteRepo(connection=conn, executor=None)
+        rows = [("x",)]
+
+        await repo.execute_many("INSERT INTO t VALUES ($1)", rows)
+
+        conn.executemany.assert_awaited_once_with(
+            "INSERT INTO t VALUES ($1)", rows
+        )
