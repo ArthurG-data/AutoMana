@@ -216,7 +216,7 @@ class PricingTierRepository(AbstractRepository):
 
     async def get_card_current_prices(self, card_version_id) -> list[dict]:
         """Return current price entries from print_price_latest for a card."""
-        rows = await self.connection.fetch(_GET_CARD_CURRENT_PRICES_SQL, card_version_id)
+        rows = await self.execute_query(_GET_CARD_CURRENT_PRICES_SQL, (card_version_id,))
         return [dict(r) for r in rows]
 
     async def get_price_history(
@@ -233,12 +233,9 @@ class PricingTierRepository(AbstractRepository):
 
         Returns list of dicts sorted oldest-first. Empty list if no data.
         """
-        rows = await self.connection.fetch(
+        rows = await self.execute_query(
             _GET_PRICE_HISTORY_SQL,
-            card_version_id,
-            finish_id,
-            condition_id,
-            days,
+            (card_version_id, finish_id, condition_id, days),
         )
         return [dict(r) for r in rows]
 
@@ -310,7 +307,7 @@ class PricingTierRepository(AbstractRepository):
 
     async def refresh_card_price_spark(self) -> dict:
         try:
-            await self.connection.execute("CALL pricing.refresh_card_price_spark()")
+            await self.execute_procedure("pricing.refresh_card_price_spark")
             logger.info("refresh_card_price_spark completed")
             return {"status": "success"}
         except Exception as e:
@@ -339,7 +336,7 @@ class PricingTierRepository(AbstractRepository):
         scryfall_ids = list({r["scryfall_id"] for r in rows})
 
         # Step 1 — Resolve scryfall_ids → card_version_id + product_id
-        resolved = await self.connection.fetch(_RESOLVE_SCRYFALL_IDS_SQL, scryfall_ids)
+        resolved = await self.execute_query(_RESOLVE_SCRYFALL_IDS_SQL, (scryfall_ids,))
 
         # Build lookup: scryfall_id → {card_version_id, product_id}
         scryfall_to_meta: dict[str, dict] = {}
@@ -362,7 +359,7 @@ class PricingTierRepository(AbstractRepository):
             if meta["product_id"] is None
         ]
         if unlinked_cv_ids:
-            new_rows = await self.connection.fetch(_INSERT_PRODUCTS_BATCH_SQL, unlinked_cv_ids)
+            new_rows = await self.execute_query(_INSERT_PRODUCTS_BATCH_SQL, (unlinked_cv_ids,))
             for row in new_rows:
                 sid = cv_id_to_sid.get(str(row["card_version_id"]))
                 if sid is not None:
@@ -375,8 +372,8 @@ class PricingTierRepository(AbstractRepository):
                 if meta["product_id"] is None
             ]
             if still_missing_cv_ids:
-                existing = await self.connection.fetch(
-                    _GET_PRODUCT_IDS_FOR_CARDS_SQL, still_missing_cv_ids
+                existing = await self.execute_query(
+                    _GET_PRODUCT_IDS_FOR_CARDS_SQL, (still_missing_cv_ids,)
                 )
                 cv_to_product = {
                     str(row["card_version_id"]): row["product_id"] for row in existing
@@ -400,15 +397,15 @@ class PricingTierRepository(AbstractRepository):
         if not sp_product_ids:
             return 0
 
-        await self.connection.execute(
-            _ENSURE_SOURCE_PRODUCT_SQL, sp_product_ids, sp_source_codes
+        await self.execute_command(
+            _ENSURE_SOURCE_PRODUCT_SQL, (sp_product_ids, sp_source_codes)
         )
 
         # Step 4 — Fetch source_product_ids
         unique_product_ids = list(set(sp_product_ids))
         unique_source_codes = list(set(sp_source_codes))
-        sp_rows = await self.connection.fetch(
-            _FETCH_SOURCE_PRODUCT_IDS_SQL, unique_product_ids, unique_source_codes
+        sp_rows = await self.execute_query(
+            _FETCH_SOURCE_PRODUCT_IDS_SQL, (unique_product_ids, unique_source_codes)
         )
 
         # Build lookup: (product_id_str, source_code) → source_product_id
@@ -436,12 +433,9 @@ class PricingTierRepository(AbstractRepository):
         if not obs_source_product_ids:
             return 0
 
-        status = await self.connection.execute(
+        status = await self.execute_command(
             _UPSERT_PRICE_OBSERVATION_SQL,
-            ts_date,
-            obs_source_product_ids,
-            obs_finish_codes,
-            obs_price_cents,
+            (ts_date, obs_source_product_ids, obs_finish_codes, obs_price_cents),
         )
         # status is like "INSERT 0 N"
         try:
@@ -465,7 +459,7 @@ class PricingTierRepository(AbstractRepository):
         tcgplayer_ids = list({str(r["tcgplayer_id"]) for r in rows})
 
         # Step 1 — Resolve tcgplayer_ids → card_version_id + product_id
-        resolved = await self.connection.fetch(_RESOLVE_TCGPLAYER_IDS_SQL, tcgplayer_ids)
+        resolved = await self.execute_query(_RESOLVE_TCGPLAYER_IDS_SQL, (tcgplayer_ids,))
 
         tid_to_meta: dict[str, dict] = {}
         for rec in resolved:
@@ -486,7 +480,7 @@ class PricingTierRepository(AbstractRepository):
             if meta["product_id"] is None
         ]
         if unlinked_cv_ids:
-            new_rows = await self.connection.fetch(_INSERT_PRODUCTS_BATCH_SQL, unlinked_cv_ids)
+            new_rows = await self.execute_query(_INSERT_PRODUCTS_BATCH_SQL, (unlinked_cv_ids,))
             for row in new_rows:
                 tid = cv_id_to_tid.get(str(row["card_version_id"]))
                 if tid is not None:
@@ -498,7 +492,7 @@ class PricingTierRepository(AbstractRepository):
                 if meta["product_id"] is None
             ]
             if still_missing:
-                existing = await self.connection.fetch(_GET_PRODUCT_IDS_FOR_CARDS_SQL, still_missing)
+                existing = await self.execute_query(_GET_PRODUCT_IDS_FOR_CARDS_SQL, (still_missing,))
                 cv_to_product = {str(r["card_version_id"]): r["product_id"] for r in existing}
                 for meta in tid_to_meta.values():
                     cv_str = str(meta["card_version_id"])
@@ -517,13 +511,13 @@ class PricingTierRepository(AbstractRepository):
         if not sp_product_ids:
             return 0
 
-        await self.connection.execute(_ENSURE_SOURCE_PRODUCT_SQL, sp_product_ids, sp_source_codes)
+        await self.execute_command(_ENSURE_SOURCE_PRODUCT_SQL, (sp_product_ids, sp_source_codes))
 
         # Step 4 — Fetch source_product_ids
         unique_product_ids = list({pid for pid in sp_product_ids})
         unique_source_codes = list({sc for sc in sp_source_codes})
-        sp_rows = await self.connection.fetch(
-            _FETCH_SOURCE_PRODUCT_IDS_SQL, unique_product_ids, unique_source_codes
+        sp_rows = await self.execute_query(
+            _FETCH_SOURCE_PRODUCT_IDS_SQL, (unique_product_ids, unique_source_codes)
         )
 
         sp_lookup: dict[tuple, int] = {}
@@ -558,36 +552,14 @@ class PricingTierRepository(AbstractRepository):
         if not obs_sp_ids:
             return 0
 
-        status = await self.connection.execute(
+        status = await self.execute_command(
             _UPSERT_OPENTCG_PRICE_OBSERVATION_SQL,
-            ts_date,
-            obs_sp_ids,
-            obs_finish_codes,
-            obs_condition_codes,
-            obs_language_codes,
-            obs_list_avg,
-            obs_list_low,
-            obs_list_count,
+            (ts_date, obs_sp_ids, obs_finish_codes, obs_condition_codes, obs_language_codes, obs_list_avg, obs_list_low, obs_list_count),
         )
         try:
             return int(status.split()[-1])
         except (IndexError, ValueError):
             return len(obs_sp_ids)
-
-    async def execute_procedure(self, proc_name: str, args: tuple) -> None:
-        """
-        Execute a stored procedure with arguments.
-
-        Args:
-            proc_name: Fully qualified procedure name (e.g., 'pricing.refresh_daily_prices')
-            args: Tuple of arguments to pass to the procedure
-        """
-        # Build the CALL statement
-        placeholders = ", ".join(f"${i+1}" for i in range(len(args)))
-        call_stmt = f"CALL {proc_name}({placeholders})"
-
-        # Execute via the connection — long timeout for large date ranges
-        await self.connection.execute(call_stmt, *args, timeout=7200)
 
     async def add(self, item: Any) -> None:
         raise NotImplementedError
