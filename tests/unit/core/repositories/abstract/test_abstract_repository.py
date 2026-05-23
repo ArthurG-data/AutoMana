@@ -43,6 +43,16 @@ async def test_execute_fetchval_delegates_to_connection():
 
 
 @pytest.mark.asyncio
+async def test_execute_fetchval_no_args():
+    conn = AsyncMock()
+    conn.fetchval = AsyncMock(return_value=42)
+    repo = ConcreteRepo(connection=conn)
+    result = await repo.execute_fetchval("SELECT 1")
+    conn.fetchval.assert_awaited_once_with("SELECT 1")
+    assert result == 42
+
+
+@pytest.mark.asyncio
 async def test_execute_copy_to_table_passes_kwargs():
     conn = AsyncMock()
     conn.copy_to_table = AsyncMock(return_value="COPY 10")
