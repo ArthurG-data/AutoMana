@@ -141,7 +141,7 @@ class ServicesPanel(Vertical):
 
         try:
             # Re-bootstrap only if the DB user changed from the pool's user
-            from automana.core.service_manager import ServiceManager
+            from automana.core.framework.service_manager import ServiceManager
             t0 = time.perf_counter()
             result = await ServiceManager.execute_service(self._selected_service, **kwargs)
             elapsed = (time.perf_counter() - t0) * 1000

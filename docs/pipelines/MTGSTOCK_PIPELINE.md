@@ -392,7 +392,7 @@ Run-level metrics (`pipeline_duration_seconds`, `run_status`, `steps_failed_coun
 
 ### Auto-discovery
 
-The service is listed in every `SERVICE_MODULES` namespace (`backend`, `celery`, `all`) in `core/service_modules.py`. It is auto-discovered by the `pipeline-health-check` skill because its path matches the `ops.integrity.*` prefix.
+The service is listed in every `SERVICE_MODULES` namespace (`backend`, `celery`, `all`) in `core/framework/service_modules.py`. It is auto-discovered by the `pipeline-health-check` skill because its path matches the `ops.integrity.*` prefix.
 
 For the MetricRegistry design and how to add new metrics, see [`docs/METRICS_REGISTRY.md`](METRICS_REGISTRY.md).
 

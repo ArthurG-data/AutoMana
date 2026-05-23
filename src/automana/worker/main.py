@@ -1,6 +1,6 @@
 from celery import Celery
 from celery.signals import worker_process_init, worker_process_shutdown
-from automana.core.service_manager import ServiceManager
+from automana.core.framework.service_manager import ServiceManager
 from automana.worker.ressources import get_state, init_backend_runtime, shutdown_backend_runtime
 from automana.core.log.logging_config import configure_logging
 from automana.core.log.logging_context import set_task_id, set_request_id, set_service_path

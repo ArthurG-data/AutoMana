@@ -134,7 +134,7 @@ This layer should stay thin: validation, dependency wiring, and calling services
 
 ### Service layer
 
-The service layer lives under [`src/automana/core/services/`](../src/automana/core/services/) and is orchestrated by [`src/automana/core/service_manager.py`](../src/automana/core/service_manager.py).
+The service layer lives under [`src/automana/core/services/`](../src/automana/core/services/) and is orchestrated by [`src/automana/core/framework/service_manager.py`](../src/automana/core/framework/service_manager.py).
 
 - The `ServiceManager` is a singleton that dispatches calls to services registered in the `ServiceRegistry`.
 - Services register themselves using the `@ServiceRegistry.register` decorator, declaring their service path, required DB repositories, API repositories, and storage services.
@@ -146,7 +146,7 @@ This gives you a single place to:
 - reuse services from HTTP endpoints, Celery tasks, CLI tools, or the TUI
 - swap implementations without changing routers
 
-Service modules are grouped into namespaces (`backend`, `celery`, `all`) in [`src/automana/core/service_modules.py`](../src/automana/core/service_modules.py). The active namespace is set by the `MODULES_NAMESPACE` setting.
+Service modules are grouped into namespaces (`backend`, `celery`, `all`) in [`src/automana/core/framework/service_modules.py`](../src/automana/core/framework/service_modules.py). The active namespace is set by the `MODULES_NAMESPACE` setting.
 
 ### Metric registry (`core/metrics/`)
 

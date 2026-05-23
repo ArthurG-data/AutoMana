@@ -26,7 +26,7 @@
 | Create | `src/automana/core/services/app_integration/ebay/sales_sync_service.py` | `sync_own_sales` service |
 | Create | `src/automana/core/services/app_integration/ebay/scrape_sold_service.py` | `scrape_external_sold` service |
 | Create | `src/automana/core/services/app_integration/ebay/promote_sold_obs_service.py` | `promote_sold_obs` service |
-| Modify | `src/automana/core/service_modules.py` | Register 3 new service modules |
+| Modify | `src/automana/core/framework/service_modules.py` | Register 3 new service modules |
 | Modify | `src/automana/api/routers/integrations/ebay/ebay_selling.py` | Write to `ebay_active_listings` after listing creation |
 | Modify | `src/automana/worker/tasks/ebay.py` | Add 2 new Celery task functions |
 | Modify | `src/automana/worker/celeryconfig.py` | Add 3 nightly beat entries |
@@ -1754,11 +1754,11 @@ git commit -m "feat(ebay): add promote_sold_obs service — both channels to pri
 ## Task 10: Register Services in service_modules.py
 
 **Files:**
-- Modify: `src/automana/core/service_modules.py`
+- Modify: `src/automana/core/framework/service_modules.py`
 
 - [ ] **Step 10.1 — Add 3 new module paths**
 
-In `src/automana/core/service_modules.py`, find the block containing `"automana.core.services.app_integration.ebay.fulfillment_service"` (appears in both `"backend"` and `"all"` lists). After `fulfillment_service` in each list, add:
+In `src/automana/core/framework/service_modules.py`, find the block containing `"automana.core.services.app_integration.ebay.fulfillment_service"` (appears in both `"backend"` and `"all"` lists). After `fulfillment_service` in each list, add:
 
 ```python
 "automana.core.services.app_integration.ebay.sales_sync_service",
@@ -1770,7 +1770,7 @@ In `src/automana/core/service_modules.py`, find the block containing `"automana.
 
 ```bash
 .venv/bin/python -c "
-import automana.core.service_modules  # triggers module loading
+import automana.core.framework.service_modules  # triggers module loading
 from automana.core.framework.registry import ServiceRegistry
 for path in [
     'integrations.ebay.track_active_listing',
@@ -1788,7 +1788,7 @@ Expected: 4 lines, each showing the correct repo lists without errors.
 - [ ] **Step 10.3 — Commit**
 
 ```bash
-git add src/automana/core/service_modules.py
+git add src/automana/core/framework/service_modules.py
 git commit -m "feat(ebay): register sales_sync, scrape_sold, promote_sold_obs in service_modules"
 ```
 

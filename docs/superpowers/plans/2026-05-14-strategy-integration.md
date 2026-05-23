@@ -32,7 +32,7 @@
 ### Modified files
 | Path | Change |
 |------|--------|
-| `src/automana/core/service_modules.py` | Register recommendation + action services |
+| `src/automana/core/framework/service_modules.py` | Register recommendation + action services |
 | `src/automana/api/routers/integrations/ebay/__init__.py` | Include recommendations router |
 | `src/automana/worker/celeryconfig.py` | Add `ebay_actions` to imports + beat schedule |
 | `src/frontend/src/features/ebay/mockListings.ts` | Extend `EbayLiveListing` with `recommendation` + `pendingAction` |
@@ -860,13 +860,13 @@ git commit -m "feat(ebay): add recommendation + action endpoints"
 ## Task 6: Register Services + Celery Drain Task
 
 **Files:**
-- Modify: `src/automana/core/service_modules.py`
+- Modify: `src/automana/core/framework/service_modules.py`
 - Create: `src/automana/worker/tasks/ebay_actions.py`
 - Modify: `src/automana/worker/celeryconfig.py`
 
 - [ ] **Step 1: Register services in service_modules.py**
 
-In `src/automana/core/service_modules.py`, add to both `"backend"` and `"celery"` lists:
+In `src/automana/core/framework/service_modules.py`, add to both `"backend"` and `"celery"` lists:
 
 ```python
 # Add to the "backend" list (after the last ebay service entry):
@@ -978,7 +978,7 @@ Expected: `OK`
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/automana/core/service_modules.py \
+git add src/automana/core/framework/service_modules.py \
         src/automana/worker/tasks/ebay_actions.py \
         src/automana/worker/celeryconfig.py
 git commit -m "feat(celery): add drain_listing_actions task + register action services"

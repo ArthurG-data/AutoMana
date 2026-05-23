@@ -189,7 +189,7 @@ The general flow is documented in [`METRICS_REGISTRY.md`](METRICS_REGISTRY.md#wa
 
 - **`card_catalog.*`** — pick a module under `src/automana/core/metrics/card_catalog/` (`identifier_metrics.py` for identifier coverage, `catalog_metrics.py` for shape checks). Add the function to `__init__.py` if you create a new module. The `card_catalog_report` runner picks it up automatically via `MetricRegistry.select(prefix="card_catalog.")`.
 - **`pricing.*`** — pick a module under `src/automana/core/metrics/pricing/` (`freshness_metrics.py`, `coverage_metrics.py`, `integrity_metrics.py`). Same auto-pickup via the `pricing.` prefix.
-- **New family** — create the package, register at least one metric, create a runner service that delegates to `_metric_runner.run_metric_report` with the new prefix, and register the runner module in all three `SERVICE_MODULES` profiles in `src/automana/core/service_modules.py`.
+- **New family** — create the package, register at least one metric, create a runner service that delegates to `_metric_runner.run_metric_report` with the new prefix, and register the runner module in all three `SERVICE_MODULES` profiles in `src/automana/core/framework/service_modules.py`.
 
 ---
 

@@ -1,7 +1,7 @@
 ﻿from fastapi import Depends,  Request,Request
 from typing import Annotated, Any
 from automana.core.db.query_executor import QueryExecutor, AsyncQueryExecutor
-from automana.core.service_manager import ServiceManager
+from automana.core.framework.service_manager import ServiceManager
 
 # ==========================================
 # Core Service Dependencies

@@ -2,7 +2,7 @@
 from typing import  Optional
 from contextlib import asynccontextmanager
 from automana.core.db.query_executor import QueryExecutor
-from automana.core.service_modules import SERVICE_MODULES
+from automana.core.framework.service_modules import SERVICE_MODULES
 from automana.core.framework.registry import ServiceRegistry
 from automana.core.storage import StorageService
 
@@ -34,7 +34,7 @@ class ServiceManager:
     def _discover_services(self):
         """Import all service modules to register them"""
         from automana.core.config.settings import get_settings
-        from automana.core.data_loader import load_services
+        from automana.core.framework.data_loader import load_services
         settings = get_settings()
         module_namespace = getattr(settings, "modules_namespace")
         modules = SERVICE_MODULES.get(module_namespace, [])

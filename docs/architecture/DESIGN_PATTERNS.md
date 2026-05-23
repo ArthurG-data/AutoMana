@@ -33,7 +33,7 @@ This document catalogues every distinct design pattern found in the AutoMana cod
 
 ## 1. Singleton
 
-**Where:** [`src/automana/core/service_manager.py`](../src/automana/core/service_manager.py), lines 14--27
+**Where:** [`src/automana/core/framework/service_manager.py`](../src/automana/core/framework/service_manager.py), lines 14--27
 
 **Implementation:** `ServiceManager` overrides `__new__` to ensure only one instance exists across the entire process. The `_initialized` flag prevents `__init__` from running more than once. A class-level `_instance` attribute holds the singleton.
 
@@ -104,7 +104,7 @@ Services register via the `@register` decorator. Repositories and storages are r
 - FastAPI DI: [`src/automana/api/dependancies/service_deps.py`](../src/automana/api/dependancies/service_deps.py) (lines 1--44)
 - Auth DI: [`src/automana/api/dependancies/auth/users.py`](../src/automana/api/dependancies/auth/users.py) (lines 1--50)
 - Query params DI: [`src/automana/api/dependancies/query_deps.py`](../src/automana/api/dependancies/query_deps.py) (lines 1--121)
-- ServiceManager-level DI: [`src/automana/core/service_manager.py`](../src/automana/core/service_manager.py), `_execute_service` method (lines 177--244)
+- ServiceManager-level DI: [`src/automana/core/framework/service_manager.py`](../src/automana/core/framework/service_manager.py), `_execute_service` method (lines 177--244)
 
 **Implementation:** Two levels of DI operate in AutoMana:
 
@@ -195,7 +195,7 @@ Similarly, `BaseApiClient` in [`AbstractAPIRepository.py`](../src/automana/core/
 
 **Where:**
 - [`src/automana/core/storage.py`](../src/automana/core/storage.py), `StorageService` class (lines 195--261)
-- [`src/automana/core/service_manager.py`](../src/automana/core/service_manager.py), `ServiceManager` class
+- [`src/automana/core/framework/service_manager.py`](../src/automana/core/framework/service_manager.py), `ServiceManager` class
 
 **Implementation:** `StorageService` wraps a `StorageBackend` and exposes higher-level operations (`save_json`, `load_json`, `save_binary`, `save_with_timestamp`, `list_directory`, etc.) that combine backend primitives with naming conventions and format handling. Services interact with `StorageService` without knowing which backend is in use.
 
@@ -207,7 +207,7 @@ Similarly, `BaseApiClient` in [`AbstractAPIRepository.py`](../src/automana/core/
 
 ## 12. Factory (Dynamic Instantiation)
 
-**Where:** [`src/automana/core/service_manager.py`](../src/automana/core/service_manager.py), `_execute_service` method (lines 177--244) and `get_storage_service` method (lines 128--159)
+**Where:** [`src/automana/core/framework/service_manager.py`](../src/automana/core/framework/service_manager.py), `_execute_service` method (lines 177--244) and `get_storage_service` method (lines 128--159)
 
 **Implementation:** When `_execute_service` runs, it dynamically imports repository modules and instantiates repository classes based on the registered module path and class name. It passes the current DB connection and query executor to DB repositories, and the environment to API repositories. `get_storage_service` similarly resolves a named storage to a backend class and instantiates it with the appropriate config.
 
@@ -285,7 +285,7 @@ def _shutdown(**_):
 
 ## 17. Unit of Work (Transaction Wrapper)
 
-**Where:** [`src/automana/core/service_manager.py`](../src/automana/core/service_manager.py), `transaction` async context manager (lines 69--86)
+**Where:** [`src/automana/core/framework/service_manager.py`](../src/automana/core/framework/service_manager.py), `transaction` async context manager (lines 69--86)
 
 **Implementation:** The `transaction()` method acquires a connection from the pool, starts a database transaction, yields the connection, and either commits on success or rolls back on exception. Every service execution goes through this context manager (line 202: `async with self.transaction() as conn:`).
 
@@ -376,7 +376,7 @@ ServiceError (base)
 
 ## 22. Module Namespace Selector
 
-**Where:** [`src/automana/core/service_modules.py`](../src/automana/core/service_modules.py), `SERVICE_MODULES` dict (lines 1--47)
+**Where:** [`src/automana/core/framework/service_modules.py`](../src/automana/core/framework/service_modules.py), `SERVICE_MODULES` dict (lines 1--47)
 
 **Implementation:** A dictionary maps namespace names (`"backend"`, `"celery"`, `"all"`) to lists of service module paths. During `ServiceManager._discover_services()`, the active namespace (from `settings.modules_namespace`) determines which modules are imported. Modules not in the list are never loaded, so their `@ServiceRegistry.register` decorators never fire.
 

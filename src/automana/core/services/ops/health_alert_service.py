@@ -151,7 +151,7 @@ async def _run_integrity_service(service_key: str) -> dict:
     instantiates declared repositories from the registry and runs the
     target service in the current event loop.
     """
-    from automana.core.service_manager import ServiceManager
+    from automana.core.framework.service_manager import ServiceManager
     return await ServiceManager.execute_service(service_key)
 
 

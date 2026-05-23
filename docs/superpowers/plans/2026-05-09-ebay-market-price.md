@@ -21,7 +21,7 @@
 | Create | `src/automana/core/repositories/app_integration/ebay/ApiFinding_repository.py` | EbayFindingAPIRepository — Finding API client |
 | Modify | `src/automana/core/framework/registry.py` | Register "ebay_finding" API repository |
 | Create | `src/automana/core/services/app_integration/ebay/market_price_service.py` | fetch_card_market_price registered service |
-| Modify | `src/automana/core/service_modules.py` | Add market_price_service to "backend" and "all" |
+| Modify | `src/automana/core/framework/service_modules.py` | Add market_price_service to "backend" and "all" |
 | Create | `src/automana/api/routers/integrations/ebay/ebay_market.py` | GET /market-price router |
 | Modify | `src/automana/api/routers/integrations/ebay/__init__.py` | Mount ebay_market_router |
 | Create | `notebooks/ebay_price_research.ipynb` | Demo notebook |
@@ -1131,7 +1131,7 @@ Expected: 6 passed.
 
 - [ ] **Step 5.5 — Add service to service_modules.py**
 
-In `src/automana/core/service_modules.py`, add the service path to both `"backend"` and `"all"` lists:
+In `src/automana/core/framework/service_modules.py`, add the service path to both `"backend"` and `"all"` lists:
 
 ```python
 "automana.core.services.app_integration.ebay.market_price_service",
@@ -1155,7 +1155,7 @@ Expected: `['ebay_finding', 'search']`
 
 ```bash
 git add src/automana/core/services/app_integration/ebay/market_price_service.py \
-        src/automana/core/service_modules.py \
+        src/automana/core/framework/service_modules.py \
         tests/unit/core/services/app_integration/ebay/test_market_price_service.py
 git commit -m "feat(ebay): add fetch_card_market_price service with concurrent Finding+Browse fetch"
 ```

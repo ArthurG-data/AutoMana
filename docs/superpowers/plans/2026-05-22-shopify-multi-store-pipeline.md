@@ -24,7 +24,7 @@
 | Create | `core/services/app_integration/shopify/pipeline_service.py` | 4 registered pipeline steps |
 | Modify | `core/repositories/app_integration/shopify/market_queries.py` | Add `markets.` schema prefix + `source_id` column |
 | Modify | `core/framework/registry.py` | Register `shopify_pipeline` repository |
-| Modify | `core/service_modules.py` | Add new pipeline_service module to `backend` + `celery` namespaces |
+| Modify | `core/framework/service_modules.py` | Add new pipeline_service module to `backend` + `celery` namespaces |
 | Modify | `worker/tasks/pipelines.py` | Add `shopify_weekly_pipeline` task |
 | Modify | `worker/celeryconfig.py` | Add Sunday 06:00 AEST beat schedule entry |
 | Create | `tests/unit/core/test_shopify_pipeline.py` | Unit tests for variation mapping + price conversion |
@@ -843,7 +843,7 @@ git commit -m "feat(shopify): pipeline_service — 4 registered steps: fetch, pr
 
 **Files:**
 - Modify: `src/automana/core/framework/registry.py`
-- Modify: `src/automana/core/service_modules.py`
+- Modify: `src/automana/core/framework/service_modules.py`
 
 - [ ] **Step 1: Register `ShopifyPipelineRepository` in `framework/wiring.py`**
 
@@ -859,7 +859,7 @@ ServiceRegistry.register_db_repository(
 
 - [ ] **Step 2: Add `pipeline_service` to both namespaces in `service_modules.py`**
 
-In `src/automana/core/service_modules.py`, add the following line to the `"backend"` list (after the existing shopify/mtg_stock entries):
+In `src/automana/core/framework/service_modules.py`, add the following line to the `"backend"` list (after the existing shopify/mtg_stock entries):
 
 ```python
 "automana.core.services.app_integration.shopify.pipeline_service",
@@ -884,7 +884,7 @@ Expected: `Import OK`
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/automana/core/framework/registry.py src/automana/core/service_modules.py
+git add src/automana/core/framework/registry.py src/automana/core/framework/service_modules.py
 git commit -m "feat(shopify): register ShopifyPipelineRepository + add pipeline_service to service modules"
 ```
 

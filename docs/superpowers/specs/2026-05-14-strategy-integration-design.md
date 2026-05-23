@@ -316,7 +316,7 @@ def apply_premium_strategy(stats: dict, percentiles: dict, market_data: dict) ->
 - `src/frontend/src/features/ebay/components/SignalBadge.module.css`
 
 ### Modified files
-- `core/service_modules.py` — register new service
+- `core/framework/service_modules.py` — register new service
 - `api/routers/integrations/ebay/__init__.py` — add 3 new endpoints
 - `worker/tasks/` — add `drain_listing_actions` task
 - `worker/celeryconfig.py` — add beat schedule entry

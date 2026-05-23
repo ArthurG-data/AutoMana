@@ -10,7 +10,7 @@ import automana.core.services.app_integration.ebay.scrape_global_market_service 
 
 from automana.worker.main import app
 from automana.worker.ressources import get_state, init_backend_runtime
-from automana.core.service_manager import ServiceManager
+from automana.core.framework.service_manager import ServiceManager
 from automana.core.log.logging_context import set_task_id, set_service_path
 
 logger = logging.getLogger(__name__)

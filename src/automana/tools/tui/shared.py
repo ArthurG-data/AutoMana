@@ -25,7 +25,7 @@ async def bootstrap(db_user: str | None = None, db_password: str | None = None) 
     """Initialise asyncpg pool and ServiceManager.  Returns the pool."""
     from automana.core.db.database import init_async_pool
     from automana.core.db.query_executor import AsyncQueryExecutor
-    from automana.core.service_manager import ServiceManager
+    from automana.core.framework.service_manager import ServiceManager
     from automana.core.config.settings import get_settings
 
     if db_user:

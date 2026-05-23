@@ -20,7 +20,7 @@
 | Create | `src/automana/core/services/app_integration/ebay/local_sales_service.py` |
 | Create | `tests/unit/core/services/ebay/test_local_sales_service.py` |
 | Modify | `src/automana/api/routers/integrations/ebay/ebay_selling.py` |
-| Modify | `src/automana/core/service_modules.py` |
+| Modify | `src/automana/core/framework/service_modules.py` |
 | Modify | `src/frontend/src/features/ebay/soldOrders.ts` |
 | Modify | `src/frontend/src/features/ebay/__tests__/soldOrders.test.ts` |
 | Modify | `src/frontend/src/features/ebay/api.ts` |
@@ -347,7 +347,7 @@ git commit -m "feat(ebay): add local_sales_service for DB-backed sold order read
 
 **Files:**
 - Modify: `src/automana/api/routers/integrations/ebay/ebay_selling.py`
-- Modify: `src/automana/core/service_modules.py`
+- Modify: `src/automana/core/framework/service_modules.py`
 
 No unit test for this task — routing + module wiring is covered by integration tests and smoke-tested manually.
 
@@ -388,7 +388,7 @@ async def get_local_order_history(
 
 - [ ] **Step 2: Register the service module**
 
-In `src/automana/core/service_modules.py`, add `"automana.core.services.app_integration.ebay.local_sales_service"` after `sales_sync_service` in both the `"backend"` list (after line 21) and the `"all"` list (after line 90). Do NOT add it to `"celery"` — this is a request-time read service, not a background job.
+In `src/automana/core/framework/service_modules.py`, add `"automana.core.services.app_integration.ebay.local_sales_service"` after `sales_sync_service` in both the `"backend"` list (after line 21) and the `"all"` list (after line 90). Do NOT add it to `"celery"` — this is a request-time read service, not a background job.
 
 After edit, the `"backend"` block should look like:
 ```python
@@ -417,7 +417,7 @@ Expected: `OK`
 ```bash
 git add \
   src/automana/api/routers/integrations/ebay/ebay_selling.py \
-  src/automana/core/service_modules.py
+  src/automana/core/framework/service_modules.py
 git commit -m "feat(ebay): add GET /listing/local-history endpoint and register service module"
 ```
 

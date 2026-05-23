@@ -135,7 +135,7 @@ async def _main(service_path, extra_args, raw, db_user, db_password, list_users)
     # ── bootstrap ─────────────────────────────────────────────────────────
     pool = await _bootstrap(db_user, db_password)
     try:
-        from automana.core.service_manager import ServiceManager
+        from automana.core.framework.service_manager import ServiceManager
 
         accumulated: dict[str, Any] = {}
         result: Any = None
