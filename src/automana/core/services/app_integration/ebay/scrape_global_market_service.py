@@ -155,7 +155,7 @@ async def _scrape_one_card(
     ebay_sales_repository: EbaySalesRepository,
     ebay_scrape_repository: EbayScrapeSoldRepository,
     ebay_finding_repository: EbayFindingAPIRepository,
-    source_product_id: Optional[int] = None,
+    source_product_id: int,
 ) -> int:
     card_name: str = card.get("card_name", "")
     set_code: Optional[str] = card.get("set_code")
@@ -179,14 +179,6 @@ async def _scrape_one_card(
         min_date=min_date,
         limit=limit_per_card,
     )
-
-    sp_id = source_product_id
-    if sp_id is None:
-        sp_id = await ebay_sales_repository.ensure_source_product(
-            card_version_id, _EBAY_SOURCE_ID
-        )
-        if not sp_id:
-            return 0
 
     count = 0
     for item in items:
@@ -223,7 +215,7 @@ async def _scrape_one_card(
         await ebay_scrape_repository.insert_scraped_sold(
             item_id=item_id,
             title=title,
-            source_product_id=sp_id,
+            source_product_id=source_product_id,
             price_cents=price_cents,
             currency=currency,
             marketplace_id=marketplace,
