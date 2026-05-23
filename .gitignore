@@ -94,7 +94,6 @@ docs/db-schema/
 *.egg-info
 *.dist-info/
 
-CLAUDE.md
 .claude/
 plans/
 !docs/superpowers/plans/

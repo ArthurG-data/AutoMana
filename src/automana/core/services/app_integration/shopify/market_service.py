@@ -1,19 +1,31 @@
-﻿from automana.core.repositories.app_integration.shopify.market_repository import MarketRepository
-from automana.core.models.shopify.Market import InsertMarket, MarketInDb
-from typing import List, Optional
+import logging
+from typing import Optional
 
-async def add(repository : MarketRepository, values: InsertMarket):
-    """Add a market to the database"""
-    await repository.add(values)
+from automana.core.models.shopify.Market import InsertMarket
+from automana.core.repositories.app_integration.shopify.market_repository import MarketRepository
+from automana.core.service_registry import ServiceRegistry
+
+logger = logging.getLogger(__name__)
+
+
+@ServiceRegistry.register(
+    path="shop_meta.market.add",
+    db_repositories=["market"],
+)
+async def add(market_repository: MarketRepository, values: InsertMarket):
+    await market_repository.add(values)
     return {"status": "success", "name": values.name}
 
-async def get(repository: MarketRepository, id: Optional[int] = None):
-    """for now, cheat, do the filtering in the service layer"""
-    market : List[MarketInDb] = await repository.list()
 
+@ServiceRegistry.register(
+    path="shop_meta.market.get",
+    db_repositories=["market"],
+)
+async def get(market_repository: MarketRepository, id: Optional[int] = None):
+    markets = await market_repository.list()
     if id:
-        market = next((m for m in market if m.market_id == id), None)
-    if market:
+        market = next((m for m in markets if m.get("market_id") == id), None)
+        if not market:
+            return {"status": "error", "message": "Market not found"}
         return {"status": "success", "market": market}
-    return {"status": "error", "message": "Market not found"}
-
+    return {"status": "success", "market": markets}

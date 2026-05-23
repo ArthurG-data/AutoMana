@@ -23,10 +23,10 @@ These items are either data-correctness risks or complete feature blockers.
 
 | # | Title | Area | Severity | Source |
 |---|-------|------|----------|--------|
-| C1 | MTGStock 0% link rate — 5.8M reject rows | Pipelines | Critical | `docs/pipelines/MTGSTOCK_REJECT_ANALYSIS.md` |
-| C2 | `check_expiry` validator always sets `is_expired = False` | API — Auth | Critical | `docs/api/API_LAYER_BACKLOG.md` H1 |
+| C1 | ✅ MTGStock 0% link rate — 5.8M reject rows (**FIXED 2026-05-23**) | Pipelines | — (fixed) | `docs/pipelines/MTGSTOCK_REJECT_ANALYSIS.md` |
+| C2 | ✅ `check_expiry` validator always sets `is_expired = False` (**FIXED 2026-05-23**) | API — Auth | — (fixed) | `docs/api/API_LAYER_BACKLOG.md` H1 |
 | C3 | FX normalization absent in `promote_sold_obs` — AUD/CAD prices stored at face value | Pipelines | Critical | `docs/pipelines/EBAY_GLOBAL_MARKET_SCRAPER.md` Known Limitations |
-| C4 | SQL injection via f-string in `role_repository.py` `SET LOCAL` (**FIXED 2026-05-22**) | API — Repositories | — (fixed) | `docs/api/API_LAYER_BACKLOG.md` fixed section |
+| C4 | ✅ SQL injection via f-string in `role_repository.py` `SET LOCAL` (**FIXED 2026-05-22**) | API — Repositories | — (fixed) | `docs/api/API_LAYER_BACKLOG.md` fixed section |
 
 ---
 
@@ -36,13 +36,9 @@ Source: `docs/api/API_LAYER_BACKLOG.md` (full senior-level review 2026-05-22).
 
 ### High Priority
 
-**H1 — `schemas/auth/token.py` — `check_expiry` always sets `is_expired = False`**
+**✅ H1 — `schemas/auth/token.py` — `check_expiry` always sets `is_expired = False` (FIXED 2026-05-23)**
 
-`now < now + delta` is trivially true. Any code reading `token.is_expired` always sees `False` regardless of actual expiry.
-
-- Severity: **Critical**
-- File: `src/automana/api/schemas/auth/token.py`
-- Fix: `if datetime.fromtimestamp(values.exp, tz=timezone.utc) > datetime.now(timezone.utc):`
+- Fixed: `datetime.fromtimestamp(values.exp, tz=timezone.utc) > datetime.now(timezone.utc)`
 
 ---
 
@@ -84,23 +80,15 @@ Raw bcrypt and passlib bcrypt produce slightly different hash formats. A hash cr
 
 ### Medium Priority
 
-**M1 — `dependancies/general.py:extract_ip` — AttributeError on UNIX sockets**
+**✅ M1 — `dependancies/general.py:extract_ip` — AttributeError on UNIX sockets (FIXED 2026-05-23)**
 
-`request.client.host` crashes when `request.client is None` (UNIX socket connections, some test environments).
-
-- Severity: **Medium**
-- File: `src/automana/api/dependancies/general.py`
-- Fix: `return request.client.host if request.client else "unknown"`
+- Fixed: Added `elif request.client:` guard; falls back to `"unknown"`.
 
 ---
 
-**M2 — eBay auth token cookie missing `httponly` and `secure` flags**
+**✅ M2 — eBay auth token cookie missing `httponly` and `secure` flags (FIXED 2026-05-23)**
 
-`routers/integrations/ebay/ebay_auth.py:230–234` — `httponly=True` and `secure=True` are commented out. The eBay OAuth token is accessible to JavaScript — XSS exposure.
-
-- Severity: **Medium**
-- File: `src/automana/api/routers/integrations/ebay/ebay_auth.py:230–234`
-- Fix: Re-enable both flags; document explicitly if a JS client genuinely needs to read the cookie.
+- Fixed: Re-enabled `httponly=True` and `secure=True` on the eBay OAuth set_cookie call.
 
 ---
 
@@ -114,13 +102,9 @@ Raw bcrypt and passlib bcrypt produce slightly different hash formats. A hash cr
 
 ---
 
-**M4 — `ebay_auth.py:13` — `get_settings()` called at module import time**
+**✅ M4 — `ebay_auth.py:13` — `get_settings()` called at module import time (FIXED)**
 
-`settings = get_settings()` is module-level. If the module is imported before the environment is ready, it fails silently or uses stale defaults.
-
-- Severity: **Medium**
-- File: `src/automana/api/routers/integrations/ebay/ebay_auth.py:13`
-- Fix: Move `get_settings()` inside functions, or use the FastAPI dependency pattern from `dependancies/service_deps.py`.
+- Fixed: Module-level `settings = get_settings()` removed in a prior PR.
 
 ---
 
@@ -134,22 +118,17 @@ Raw bcrypt and passlib bcrypt produce slightly different hash formats. A hash cr
 
 ---
 
-**M6 — `utils/auth.py:24` — docstring says "argon2", scheme is bcrypt**
+**✅ M6 — `utils/auth.py:24` — docstring says "argon2", scheme is bcrypt (FIXED 2026-05-23)**
 
-- Severity: **Medium** (misleading documentation)
-- File: `src/automana/api/utils/auth.py:24`
-- Fix: Update or remove the misleading docstring.
+- Fixed: Docstring updated to "bcrypt".
 
 ---
 
 ### Low Priority
 
-**L1 — `user_repository.py` — `UserInDB(*user)` positional row unpacking**
+**✅ L1 — `user_repository.py` — `UserInDB(*user)` positional row unpacking (FIXED 2026-05-23)**
 
-Two callsites in `services/user_management/user_service.py` unpack DB rows positionally. Adding or reordering a column will silently populate wrong fields.
-
-- Severity: **Low**
-- Fix: `UserInDB(**dict(user))`
+- Fixed: Both callsites in `user_service.py` now use `UserInDB.model_validate(user)`.
 
 ---
 
@@ -208,38 +187,25 @@ Two `TODO(startup-wiring)` comments indicate the idempotency module needs a pre-
 
 ---
 
-**S3 — `session_service.py` — `print()` call instead of `logger.info()`**
+**✅ S3 — `session_service.py` — `print()` call (NOT FOUND — already clean)**
 
-A `print()` call on line 104 of `session_service.py` is not production-grade.
-
-- Severity: **Low**
-- File: `src/automana/api/services/auth/session_service.py:104`
-- Fix: Replace with `logger.info(...)` following the logging convention.
+- Verified 2026-05-23: No `print()` calls exist in `session_service.py`. False positive from prior audit.
 
 ---
 
 ### Analytics Services
 
-**S4 — `analytics/pricing.py` — bare `print()` on exception**
+**✅ S4 — `analytics/pricing.py` — bare `print()` on exception (FIXED 2026-05-23)**
 
-A `print(f"Error processing item: {e}")` debug statement in the analytics pricing service bypasses the structured logging system.
-
-- Severity: **Low**
-- File: `src/automana/core/services/analytics/pricing.py:58`
-- Fix: Replace with `logger.error("Error processing item", extra={"error": str(e)})`.
+- Fixed: Replaced with `logger.warning("pricing_item_error", extra={"error": str(e)})`.
 
 ---
 
 ### Shopify Services
 
-**S5 — `shopify/data_staging_service.py` — 9 `print()` debug statements**
+**✅ S5 — `shopify/data_staging_service.py` — `print()` debug statements (FIXED 2026-05-23)**
 
-Nine `print(f"...")` calls in the Shopify data staging service bypass structured logging.
-
-- Severity: **Low**
-- File: `src/automana/core/services/app_integration/shopify/data_staging_service.py`
-- Lines: 39, 152, 162, 187, 190, 198, 328, 351, 543
-- Fix: Replace all with `logger.debug(...)` or `logger.info(...)` with `extra={}` context.
+- Fixed: All active `print()` calls replaced with structured `logger.*()` calls; duplicate `import logging` removed.
 
 ---
 
@@ -260,20 +226,19 @@ The reject log does not include `scryfall_id`, `card_name`, `set_abbr`, or `coll
 
 ### MTGStock Pipeline
 
-**P1 — 5,801,810 unresolved reject rows (86% are token price rows)**
+**✅ P1 — 5,801,810 unresolved reject rows (86% are token price rows) (FIXED 2026-05-23)**
 
-The MTGStock staging → prices pipeline rejects rows it cannot match to a `card_version`. Root causes:
+The MTGStock staging → prices pipeline rejects rows it cannot match to a `card_version`. Root causes and resolution:
 
 | Category | Row count | % of total | Status |
 |----------|-----------|------------|--------|
-| Tokens (no collector_number) | ~5.0M | 86.2% | Fix in migration_40 — pipeline not re-run |
-| Art card name mismatch | ~685K | 11.8% | Fix in migration_40 — pipeline not re-run |
+| Tokens (no collector_number) | ~5.0M | 86.2% | ✅ Fixed — migration_40 seeds 186 token rows |
+| Art card name mismatch | ~685K | 11.8% | ✅ Fixed — migration_40 seeds 43 art rows |
 | Foil suffix (partially blocked) | ~104K | 1.8% | Partial fix only |
 | No set abbreviation | ~5.8K | 0.1% | Open |
 
-- Severity: **Critical** (0% link rate on token/art prices blocks Tier 1 pricing data for ~88% of MTGStock rows)
+- Resolution: migration_40 seeds applied (43 art + 186 token rows); migration_46 fixed `cv.name` → `ucr.card_name` column ref in `resolve_price_rejects`; reject table verified empty as of 2026-05-23.
 - Source: `docs/pipelines/MTGSTOCK_REJECT_ANALYSIS.md`
-- Next step: Re-run the MTGStock pipeline against migration_40 fixes and measure new link rate.
 
 ---
 
@@ -444,13 +409,9 @@ Cache hit/miss rates are not tracked. There is no visibility into cache efficien
 
 ### Architecture
 
-**I4 — `AbstractRepository` base class has `print()` debug statements**
+**✅ I4 — `AbstractRepository` base class has `print()` debug statements (ALREADY CLEAN)**
 
-Debug `print()` calls in the base repository class bypass the structured logging system.
-
-- Severity: **Low**
-- Source: `docs/architecture/ARCHITECTURE.md` Known Sharp Edges
-- Fix: Replace with `logger.debug(...)`.
+- Verified 2026-05-23: No `print()` calls found in abstract repository base. Already clean.
 
 ---
 
@@ -472,13 +433,9 @@ Phase 1 unit tests shipped (pure logic: auth, analytics strategies/utils, ops in
 
 ---
 
-**T2 — `token_service.py` architecturally incoherent — untestable**
+**✅ T2 — `token_service.py` architecturally incoherent (FIXED 2026-05-22)**
 
-Two definitions of the same function with different signatures. Likely a failed merge or incomplete refactor. Deferred from testing until rewritten.
-
-- Severity: **Medium**
-- File: `src/automana/api/services/auth/token_service.py`
-- Source: `docs/testing/UNIT_TEST_PLAN.md` §3.1
+- Fixed: `token_service.py` deleted entirely in commit `7c7d785c`.
 
 ---
 
@@ -486,15 +443,15 @@ Two definitions of the same function with different signatures. Likely a failed 
 
 Items resolvable in under an hour each, no dependency on other changes:
 
-| # | Item | File | Effort |
-|---|------|------|--------|
-| QW1 | Fix `check_expiry` datetime comparison bug | `api/schemas/auth/token.py` | 5 min |
-| QW2 | Fix `extract_ip` None guard | `api/dependancies/general.py` | 5 min |
-| QW3 | Fix misleading "argon2" docstring | `api/utils/auth.py:24` | 5 min |
-| QW4 | Replace `print()` in `analytics/pricing.py` | `core/services/analytics/pricing.py:58` | 10 min |
-| QW5 | Replace `print()` in `session_service.py` | `api/services/auth/session_service.py:104` | 10 min |
-| QW6 | Replace 9 `print()` in `shopify/data_staging_service.py` | `core/services/app_integration/shopify/data_staging_service.py` | 20 min |
-| QW7 | Replace `print()` in `AbstractRepository` base class | `core/repositories/` base class | 10 min |
-| QW8 | Re-enable `httponly` and `secure` on eBay OAuth cookie | `api/routers/integrations/ebay/ebay_auth.py:230–234` | 10 min |
-| QW9 | Fix `UserInDB(*user)` positional unpacking → `UserInDB(**dict(user))` | `api/services/user_management/user_service.py` | 10 min |
-| QW10 | Re-run MTGStock pipeline to measure actual link rate after migration_40 | — | 30–60 min run |
+| # | Item | Status |
+|---|------|--------|
+| QW1 | Fix `check_expiry` datetime comparison bug | ✅ DONE 2026-05-23 |
+| QW2 | Fix `extract_ip` None guard | ✅ DONE 2026-05-23 |
+| QW3 | Fix misleading "argon2" docstring | ✅ DONE 2026-05-23 |
+| QW4 | Replace `print()` in `analytics/pricing.py` | ✅ DONE 2026-05-23 |
+| QW5 | Replace `print()` in `session_service.py` | ✅ N/A — no print found |
+| QW6 | Replace `print()` in `shopify/data_staging_service.py` | ✅ DONE 2026-05-23 |
+| QW7 | Replace `print()` in `AbstractRepository` base class | ✅ N/A — already clean |
+| QW8 | Re-enable `httponly` and `secure` on eBay OAuth cookie | ✅ DONE 2026-05-23 |
+| QW9 | Fix `UserInDB(*user)` positional unpacking | ✅ DONE 2026-05-23 |
+| QW10 | Re-run MTGStock pipeline to measure actual link rate after migration_40 | Open |

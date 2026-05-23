@@ -1,13 +1,12 @@
 import glob
-import json
 import logging
 import os
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional
 
-import aiohttp
 import pandas as pd
 
+from automana.core.repositories.app_integration.shopify.ApiShopify_repository import ShopifyAPIRepository
 from automana.core.repositories.app_integration.shopify.market_repository import MarketRepository
 from automana.core.repositories.app_integration.shopify.pipeline_repository import (
     ShopifyPipelineRepository,
@@ -78,47 +77,17 @@ def _build_obs_dataframe(
     return pd.DataFrame(rows) if rows else pd.DataFrame(columns=_COLS)
 
 
-async def _fetch_all_pages(api_url: str, source_id: int, data_root: str) -> tuple[str, int]:
-    """Paginate /products.json and save each page as page_N_products.json.
-
-    Output dir: {data_root}/{source_id}_fetch/ — matches the glob pattern
-    {source_id}_*/**/*products.json used by process_json_dir_to_parquet.
-    Returns (out_dir, page_count).
-    """
-    out_dir = os.path.join(data_root, f"{source_id}_fetch")
-    os.makedirs(out_dir, exist_ok=True)
-    page = 0
-    next_url = f"{api_url.rstrip('/')}/products.json?limit=250"
-    async with aiohttp.ClientSession() as session:
-        while next_url:
-            async with session.get(next_url, timeout=aiohttp.ClientTimeout(total=30)) as resp:
-                resp.raise_for_status()
-                data = await resp.json()
-                products = data.get("products") or data.get("items") or []
-                if not products:
-                    break
-                page_path = os.path.join(out_dir, f"page_{page}_products.json")
-                with open(page_path, "w", encoding="utf-8") as f:
-                    json.dump({"items": products}, f)
-                page += 1
-                link_header = resp.headers.get("Link", "")
-                next_url = None
-                for part in link_header.split(","):
-                    if 'rel="next"' in part:
-                        next_url = part.split(";")[0].strip().strip("<>")
-                        break
-    return out_dir, page
-
-
 @ServiceRegistry.register(
     path="shopify.pipeline.fetch_all_markets",
     db_repositories=["shopify_pipeline", "ops"],
+    api_repositories=["shopify_api"],
     runs_in_transaction=False,
     command_timeout=3600,
 )
 async def fetch_all_markets(
     shopify_pipeline_repository: ShopifyPipelineRepository,
     ops_repository: OpsRepository,
+    shopify_api_repository: ShopifyAPIRepository,
     ingestion_run_id: int = None,
 ):
     markets = await shopify_pipeline_repository.get_active_pipeline_markets()
@@ -129,7 +98,9 @@ async def fetch_all_markets(
         source_id = market["source_id"]
         api_url = market["api_url"]
         async with track_step(ops_repository, ingestion_run_id, f"fetch_storefront_{market_id}"):
-            out_dir, pages = await _fetch_all_pages(api_url, source_id, _SHOPIFY_DATA_ROOT)
+            out_dir, pages = await shopify_api_repository.fetch_products_pages(
+                api_url, source_id, _SHOPIFY_DATA_ROOT
+            )
             logger.info(
                 "shopify_fetch: fetched pages",
                 extra={"market_id": market_id, "source_id": source_id, "pages": pages},
