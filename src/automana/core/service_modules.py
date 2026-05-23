@@ -69,6 +69,7 @@ SERVICE_MODULES : dict[str, list[str]]= {
             "automana.core.services.app_integration.shopify.theme_service",
             "automana.core.services.app_integration.shopify.data_staging_service",
             "automana.core.services.app_integration.ebay.sales_sync_service",
+            "automana.core.services.app_integration.ebay.local_sales_service",
             "automana.core.services.app_integration.ebay.scrape_sold_service",
             "automana.core.services.app_integration.ebay.promote_sold_obs_service",
             "automana.core.services.app_integration.ebay.refresh_scrape_targets_service",
