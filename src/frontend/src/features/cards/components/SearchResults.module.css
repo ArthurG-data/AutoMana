@@ -13,7 +13,7 @@
 @media (min-width: 1460px) { .grid { grid-template-columns: repeat(4, 1fr); } }
 @media (min-width: 1700px) { .grid { grid-template-columns: repeat(5, 1fr); } }
 
-.card { background: transparent; border: none; cursor: pointer; text-align: left; padding: 0; }
+.card { display: block; width: 100%; background: transparent; border: none; cursor: pointer; text-align: left; padding: 0; }
 .card:hover .cardInfo { border-color: var(--hd-accent); }
 .cardInfo { padding: 8px 4px; }
 .cardName { font-size: 13px; font-weight: 500; color: var(--hd-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
