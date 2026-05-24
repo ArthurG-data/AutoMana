@@ -65,20 +65,25 @@ BEGIN
   END IF;
 
   -- Bootstrap: auto-create product_ref + mtg_card_products for any staged card
-  -- that has a mtgjson_id in the catalog but no product mapping yet.
+  -- that has a mtgjson_id (or alias) in the catalog but no product mapping yet.
   -- This allows MTGJson to be the sole pricing source for cards not yet on MTGStock.
   WITH unmapped AS (
-    SELECT DISTINCT cei.card_version_id
+    SELECT DISTINCT coalesce_cv.card_version_id
     FROM pricing.mtgjson_card_prices_staging st
-    JOIN card_catalog.card_external_identifier cei
-      ON cei.value = st.card_uuid
-    JOIN card_catalog.card_identifier_ref cir
-      ON cir.card_identifier_ref_id = cei.card_identifier_ref_id
-     AND cir.identifier_name = 'mtgjson_id'
+    JOIN (
+      SELECT cei.value AS uuid, cei.card_version_id
+      FROM card_catalog.card_external_identifier cei
+      JOIN card_catalog.card_identifier_ref cir
+        ON cir.card_identifier_ref_id = cei.card_identifier_ref_id
+       AND cir.identifier_name = 'mtgjson_id'
+      UNION ALL
+      SELECT alias.uuid, alias.card_version_id
+      FROM card_catalog.mtgjson_uuid_alias alias
+    ) coalesce_cv ON coalesce_cv.uuid = st.card_uuid
     WHERE st.card_uuid IS NOT NULL
       AND NOT EXISTS (
         SELECT 1 FROM pricing.mtg_card_products mcp
-        WHERE mcp.card_version_id = cei.card_version_id
+        WHERE mcp.card_version_id = coalesce_cv.card_version_id
       )
   ),
   new_mapping AS (
@@ -178,20 +183,19 @@ BEGIN
         SELECT cf.finish_id, cf.code
         FROM card_catalog.card_finished cf
       ),
+      -- cv: primary mtgjson_id entries UNION back-face alias entries
       cv AS (
-        SELECT
-          cei.value::uuid AS card_uuid,
-          cei.card_version_id
+        SELECT cei.value::uuid AS card_uuid, cei.card_version_id
         FROM card_catalog.card_external_identifier cei
         JOIN card_catalog.card_identifier_ref cir
           ON cir.card_identifier_ref_id = cei.card_identifier_ref_id
-        WHERE cir.identifier_name = 'mtgjson_id'
+         AND cir.identifier_name = 'mtgjson_id'
+        UNION ALL
+        SELECT alias.uuid::uuid, alias.card_version_id
+        FROM card_catalog.mtgjson_uuid_alias alias
       ),
       prod AS (
-        SELECT
-          cv.card_version_id,
-	 cv.card_uuid, 
-          mcp.product_id
+        SELECT cv.card_version_id, cv.card_uuid, mcp.product_id
         FROM cv
         JOIN pricing.mtg_card_products mcp
           ON mcp.card_version_id = cv.card_version_id
@@ -320,23 +324,21 @@ BEGIN
         SELECT cf.finish_id, cf.code
         FROM card_catalog.card_finished cf
       ),
+      -- cv: primary mtgjson_id entries UNION back-face alias entries
       cv AS (
-        SELECT
-          cei.value::uuid AS card_uuid,
-          cei.card_version_id
+        SELECT cei.value::uuid AS card_uuid, cei.card_version_id
         FROM card_catalog.card_external_identifier cei
         JOIN card_catalog.card_identifier_ref cir
           ON cir.card_identifier_ref_id = cei.card_identifier_ref_id
-        WHERE cir.identifier_name = 'mtgjson_id'
+         AND cir.identifier_name = 'mtgjson_id'
+        UNION ALL
+        SELECT alias.uuid::uuid, alias.card_version_id
+        FROM card_catalog.mtgjson_uuid_alias alias
       ),
       prod AS (
-        SELECT
-          cv.card_version_id,
-          cv.card_uuid,
-          mcp.product_id
+        SELECT cv.card_version_id, cv.card_uuid, mcp.product_id
         FROM cv
-        JOIN pricing.mtg_card_products mcp
-          ON mcp.card_version_id = cv.card_version_id
+        JOIN pricing.mtg_card_products mcp ON mcp.card_version_id = cv.card_version_id
       ),
       staged AS (
         SELECT
