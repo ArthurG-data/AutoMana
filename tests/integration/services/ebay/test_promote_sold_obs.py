@@ -103,3 +103,130 @@ async def test_staged_row_is_promoted_to_price_observation(db_pool, seeded_db):
         "Staging row item_id='TEST-ITEM-001' was not marked promoted_to_obs=true. "
         "Check mark_promoted in EbayScrapeSoldRepository."
     )
+
+
+@pytest.mark.live
+@pytest.mark.skipif(
+    not os.getenv("EBAY_APP_ID"),
+    reason="EBAY_APP_ID not set — live eBay API test skipped",
+)
+async def test_live_sheoldred_pipeline(db_pool, seeded_db):
+    """Live smoke: fetch real Sheoldred DMU sold prices from eBay, promote to price_observation.
+
+    Run with:
+        EBAY_APP_ID=<your-app-id> pytest tests/integration/services/ebay/ -m "integration and live" -s
+    """
+    from automana.core.repositories.app_integration.ebay.ApiFinding_repository import (
+        EbayFindingAPIRepository,
+    )
+    from automana.core.repositories.app_integration.ebay.sales_repository import (
+        EbaySalesRepository,
+    )
+    from automana.core.repositories.app_integration.ebay.ebay_scrape_repository import (
+        EbayScrapeSoldRepository,
+    )
+    from automana.core.repositories.pricing.fx_rates_repository import FxRatesRepository
+    from automana.core.services.app_integration.ebay.promote_sold_obs_service import (
+        promote_sold_obs,
+    )
+    from automana.core.services.app_integration.ebay.title_parser import (
+        FINISH_ID_MAP,
+        CONDITION_ID_MAP,
+        parse_finish_code,
+        parse_condition_code,
+        parse_frame_variant,
+        conflicts_with_expected,
+    )
+    from automana.core.services.app_integration.ebay.market_price_scorer import score_title
+
+    _SHEOLDRED = {
+        "card_name": "Sheoldred, the Apocalypse",
+        "set_code": "DMU",
+        "frame_effects": [],
+        "is_promo": False,
+        "promo_types": [],
+        "border_color_name": "black",
+        "full_art": False,
+    }
+
+    source_product_id = seeded_db["source_product_id"]
+    language_id = seeded_db["language_id"]
+    app_id = os.environ["EBAY_APP_ID"]
+
+    # Fetch real eBay sold listings — no mock
+    finding = EbayFindingAPIRepository(environment="production")
+    items = await finding.find_completed_items(
+        "Sheoldred the Apocalypse DMU",
+        app_id,
+        global_id="EBAY-US",
+        limit=10,
+    )
+
+    inserted = 0
+    async with db_pool.acquire() as conn:
+        ebay_scrape = EbayScrapeSoldRepository(conn)
+
+        for item in items:
+            if score_title(
+                item["title"],
+                _SHEOLDRED["card_name"],
+                _SHEOLDRED["set_code"],
+                is_foil=None,
+                frame=None,
+            ) < 0.7:
+                continue
+            if conflicts_with_expected(parse_frame_variant(item["title"]), _SHEOLDRED):
+                continue
+
+            finish_code = parse_finish_code(item["title"])
+            condition_code = parse_condition_code(item.get("condition"), item["title"])
+
+            await ebay_scrape.insert_scraped_sold(
+                item_id=item["item_id"],
+                title=item["title"],
+                source_product_id=source_product_id,
+                price_cents=int(float(item["price"]) * 100),
+                currency=item.get("currency", "USD"),
+                marketplace_id="EBAY-US",
+                condition_id=CONDITION_ID_MAP.get(condition_code, 1),
+                finish_id=FINISH_ID_MAP.get(finish_code, 1),
+                language_id=language_id,
+                sold_at=datetime.fromisoformat(
+                    item["sold_date"].replace("Z", "+00:00")
+                ),
+            )
+            inserted += 1
+
+        result = await promote_sold_obs(
+            ebay_sales_repository=EbaySalesRepository(conn),
+            ebay_scrape_repository=ebay_scrape,
+            fx_rates_repository=FxRatesRepository(conn),
+        )
+
+    # Human-readable summary — visible with -s flag
+    async with db_pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT sold_avg_cents, sold_count FROM pricing.price_observation "
+            "WHERE source_product_id = $1",
+            source_product_id,
+        )
+
+    print(
+        f"\n[live] eBay items fetched={len(items)}  "
+        f"inserted={inserted}  promoted={result['promoted']}"
+    )
+    for r in rows:
+        avg_usd = r["sold_avg_cents"] / 100
+        print(f"  price_observation: avg=${avg_usd:.2f}  count={r['sold_count']}")
+
+    assert inserted > 0, (
+        f"0 items passed the scorer for 'Sheoldred the Apocalypse DMU'. "
+        f"eBay returned {len(items)} raw results. Check score_title threshold or keyword."
+    )
+    assert result["promoted"] >= 1, (
+        "No rows were promoted to price_observation. "
+        "Check promote_sold_obs_service._promote_channel."
+    )
+    assert all(r["sold_avg_cents"] > 0 for r in rows), (
+        "price_observation row has sold_avg_cents=0 — check _aggregate price calculation."
+    )
