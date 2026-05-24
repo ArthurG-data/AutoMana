@@ -17,6 +17,11 @@ CREATE INDEX IF NOT EXISTS idx_mtgjson_uuid_alias_card_version
 
 GRANT SELECT, INSERT ON card_catalog.mtgjson_uuid_alias TO app_rw, app_admin, app_celery, app_backend;
 
+-- Grant TRUNCATE on the staging table so app_celery (via app_rw) can clean
+-- it up after promotion. The staging table was created without explicit TRUNCATE
+-- grants because only SELECT/INSERT/UPDATE/DELETE were needed — cleanup is new.
+GRANT TRUNCATE ON pricing.mtgjson_card_prices_staging TO app_rw, app_admin;
+
 -- Re-create the promotion procedure with the alias UNION in both cv CTEs.
 CREATE OR REPLACE PROCEDURE pricing.load_price_observation_from_mtgjson_staging_batched(
    batch_days int DEFAULT 30

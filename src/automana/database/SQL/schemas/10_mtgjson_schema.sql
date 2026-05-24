@@ -35,6 +35,10 @@ CREATE TABLE IF NOT EXISTS pricing.mtgjson_card_prices_staging (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- app_rw (and app_celery which inherits it) needs TRUNCATE to clear residual
+-- rows after promotion via cleanup_staging_db.
+GRANT TRUNCATE ON pricing.mtgjson_card_prices_staging TO app_rw, app_admin;
+
 -- Promote staged rows into pricing.price_observation.
 -- No `p_payload_id` parameter — the streaming pipeline writes rows without
 -- payload provenance (see stream_to_staging service), so there's no payload
