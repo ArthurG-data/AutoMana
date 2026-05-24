@@ -16,7 +16,6 @@ Fixed items are marked ✅. Open items are ordered by priority.
 
 **Dead code removed:**
 - `services/auth/cookie_utils.py` + entries in `core/framework/service_modules.py`
-- `services/auth/cookie_utils.py` + entries in `core/service_modules.py`
 - `services/auth/token_service.py`
 - `services/auth/get_hash_password.py`
 - `repositories/auth/auth_repository.py`

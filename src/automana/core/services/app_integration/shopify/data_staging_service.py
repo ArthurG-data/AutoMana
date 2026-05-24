@@ -348,6 +348,7 @@ async def stage_data_from_parquet(
         combined_table = pq.read_table(str(temp_parquet_path))
         df = combined_table.to_pandas()
 
+
         total_rows = len(df)
         if total_rows == 0:
             logger.warning("no_rows_to_stage")
@@ -373,3 +374,4 @@ async def stage_data_from_parquet(
 
     finally:
         await storage_service.delete_file(tmp_rel)
+
