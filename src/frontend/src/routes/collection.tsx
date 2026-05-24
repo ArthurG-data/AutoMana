@@ -43,31 +43,26 @@ function CollectionCatalogPage() {
   const { data: collections = [] } = useQuery(collectionsQueryOptions())
   const activeCollectionId = selectedCollectionId ?? collections[0]?.collection_id ?? null
 
+  const isWishlistFilter: boolean | undefined =
+    catalogTab === 'owned' ? false : catalogTab === 'wishlist' ? true : undefined
+
   const {
     allEntries: entries,
     isFetchingMore,
     hasMore,
     removeEntry,
     sentinelRef,
-  } = useInfiniteEntries(activeCollectionId)
+  } = useInfiniteEntries(activeCollectionId, isWishlistFilter)
 
   const isLoading = entries.length === 0 && isFetchingMore
 
   const filtered = useMemo(() => {
-    let result = entries
-
-    if (catalogTab === 'owned')    result = result.filter((e) => !e.is_wishlist)
-    if (catalogTab === 'wishlist') result = result.filter((e) => e.is_wishlist)
-
-    if (deferredQuery.trim()) {
-      const q = deferredQuery.toLowerCase()
-      result = result.filter(
-        (e) => e.card_name.toLowerCase().includes(q) || e.set_code.toLowerCase().includes(q),
-      )
-    }
-
-    return result
-  }, [entries, catalogTab, deferredQuery])
+    if (!deferredQuery.trim()) return entries
+    const q = deferredQuery.toLowerCase()
+    return entries.filter(
+      (e) => e.card_name.toLowerCase().includes(q) || e.set_code.toLowerCase().includes(q),
+    )
+  }, [entries, deferredQuery])
 
   async function handleRemove(itemId: string) {
     if (!activeCollectionId) return
