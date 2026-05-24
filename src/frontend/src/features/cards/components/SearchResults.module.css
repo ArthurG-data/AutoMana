@@ -73,7 +73,7 @@
 .unreleased { color: #b8860b; font-style: italic; font-weight: 400; }
 
 /* ── Collection add overlay ────────────────────────────────── */
-.cardWrap { position: relative; }
+.cardWrap { position: relative; min-width: 0; }
 .cardWrap:hover .addBtn { opacity: 1; }
 
 .addBtn {
