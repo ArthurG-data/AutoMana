@@ -89,24 +89,25 @@ class CollectionRepository(AbstractRepository):
         language_id,
         status: str = 'purchased',
         ebay_item_id: Optional[str] = None,
+        is_wishlist: bool = False,
     ) -> Optional[dict]:
         query = """
             INSERT INTO user_collection.collection_items
                 (collection_id, unique_card_id, finish_id, condition,
                  purchase_price, currency_code, purchase_date, language_id,
-                 status, ebay_item_id)
-            SELECT $1, $3, $4, $5, $6, $7, $8, $9, $10, $11
+                 status, ebay_item_id, is_wishlist)
+            SELECT $1, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
             FROM user_collection.collections
             WHERE collection_id = $1 AND user_id = $2
             RETURNING item_id, collection_id, unique_card_id AS card_version_id,
                       finish_id, condition, purchase_price, currency_code,
-                      purchase_date, language_id, status, ebay_item_id;
+                      purchase_date, language_id, status, ebay_item_id, is_wishlist;
         """
         rows = await self.execute_query(
             query,
             (collection_id, user_id, card_version_id, finish_id, condition,
              purchase_price, currency_code, purchase_date, language_id,
-             status, ebay_item_id),
+             status, ebay_item_id, is_wishlist),
         )
         return dict(rows[0]) if rows else None
 
@@ -129,6 +130,7 @@ class CollectionRepository(AbstractRepository):
                    ps.price                    AS price,
                    ps.price_change_1d          AS price_change_1d,
                    ci.ebay_item_id,
+                   ci.is_wishlist,
                    CASE
                        WHEN ci.ebay_item_id IS NOT NULL
                             AND eal.item_id IS NOT NULL
@@ -160,8 +162,15 @@ class CollectionRepository(AbstractRepository):
         user_id: UUID,
         limit: int = 50,
         offset: int = 0,
+        is_wishlist: Optional[bool] = None,
     ) -> List[dict]:
-        query = """
+        wishlist_clause = ""
+        if is_wishlist is True:
+            wishlist_clause = "AND ci.is_wishlist = TRUE"
+        elif is_wishlist is False:
+            wishlist_clause = "AND ci.is_wishlist = FALSE"
+
+        query = f"""
             SELECT ci.item_id,
                    ci.collection_id,
                    ci.unique_card_id AS card_version_id,
@@ -179,6 +188,7 @@ class CollectionRepository(AbstractRepository):
                    ps.price                    AS price,
                    ps.price_change_1d          AS price_change_1d,
                    ci.ebay_item_id,
+                   ci.is_wishlist,
                    CASE
                        WHEN ci.ebay_item_id IS NOT NULL
                             AND eal.item_id IS NOT NULL
@@ -200,6 +210,7 @@ class CollectionRepository(AbstractRepository):
             LEFT JOIN app_integration.ebay_active_listings eal
                 ON eal.item_id = ci.ebay_item_id
             WHERE ci.collection_id = $1
+              {wishlist_clause}
             ORDER BY ci.purchase_date DESC, ci.item_id
             LIMIT $3 OFFSET $4;
         """
