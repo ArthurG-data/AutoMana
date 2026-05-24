@@ -86,4 +86,20 @@ describe('useInfiniteEntries', () => {
       expect(api.fetchEntriesPage).toHaveBeenCalledWith('col-1', 0, 50, undefined)
     })
   })
+
+  it('calls fetchEntriesPage with isWishlist=false when specified', async () => {
+    vi.spyOn(api, 'fetchEntriesPage').mockResolvedValue([])
+    renderHook(() => useInfiniteEntries('col-1', false))
+    await waitFor(() => {
+      expect(api.fetchEntriesPage).toHaveBeenCalledWith('col-1', 0, 50, false)
+    })
+  })
+
+  it('calls fetchEntriesPage without isWishlist when not specified', async () => {
+    vi.spyOn(api, 'fetchEntriesPage').mockResolvedValue([])
+    renderHook(() => useInfiniteEntries('col-1'))
+    await waitFor(() => {
+      expect(api.fetchEntriesPage).toHaveBeenCalledWith('col-1', 0, 50, undefined)
+    })
+  })
 })
