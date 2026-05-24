@@ -178,6 +178,11 @@ async def test_live_sheoldred_pipeline(db_pool, seeded_db):
             if conflicts_with_expected(parse_frame_variant(item["title"]), _SHEOLDRED):
                 continue
 
+            if not item.get("sold_date"):
+                continue
+            if not item.get("item_id"):
+                continue
+
             finish_code = parse_finish_code(item["title"])
             condition_code = parse_condition_code(item.get("condition"), item["title"])
 
@@ -219,9 +224,13 @@ async def test_live_sheoldred_pipeline(db_pool, seeded_db):
         avg_usd = r["sold_avg_cents"] / 100
         print(f"  price_observation: avg=${avg_usd:.2f}  count={r['sold_count']}")
 
+    assert len(items) > 0, (
+        "eBay returned 0 results for 'Sheoldred the Apocalypse DMU' — "
+        "check EBAY_APP_ID is valid and the Finding API is reachable."
+    )
     assert inserted > 0, (
-        f"0 items passed the scorer for 'Sheoldred the Apocalypse DMU'. "
-        f"eBay returned {len(items)} raw results. Check score_title threshold or keyword."
+        f"0 items passed the scorer (eBay returned {len(items)} raw results). "
+        "Check score_title threshold or that titles contain the card name and set code."
     )
     assert result["promoted"] >= 1, (
         "No rows were promoted to price_observation. "
