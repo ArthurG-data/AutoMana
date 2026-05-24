@@ -2,7 +2,7 @@
 from automana.core.services.analytics.models import PricingResult
 from automana.core.services.analytics.strategies import PricingStrategy, PricingStrategyManager
 from automana.core.services.analytics.utils import parse_title_for_condition, parsed_description_for_condition
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 import logging
 import numpy as np
 import statistics

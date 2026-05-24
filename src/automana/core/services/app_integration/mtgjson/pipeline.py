@@ -1,6 +1,6 @@
 import logging
 
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 from automana.core.repositories.app_integration.mtgjson.Apimtgjson_repository import ApimtgjsonRepository
 from automana.core.repositories.ops.ops_repository import OpsRepository
 

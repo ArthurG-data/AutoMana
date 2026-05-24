@@ -25,7 +25,12 @@ GET_SCRAPE_TARGETS = """
 SELECT card_version_id
 FROM pricing.ebay_scrape_targets
 WHERE is_active = true
-ORDER BY last_scraped_at NULLS FIRST
+ORDER BY
+    priority_score::float
+    * (1 + EXTRACT(EPOCH FROM (
+        now() - COALESCE(last_scraped_at, now() - INTERVAL '30 days')
+    )) / 86400.0)
+DESC
 LIMIT 500;
 """
 
@@ -47,8 +52,8 @@ WHERE t.is_active = true
 """
 
 REFRESH_SCRAPE_TARGETS = """
-INSERT INTO pricing.ebay_scrape_targets (card_version_id, added_by)
-SELECT DISTINCT cv.card_version_id, 'auto'
+INSERT INTO pricing.ebay_scrape_targets (card_version_id, added_by, priority_score)
+SELECT cv.card_version_id, 'auto', MAX(po.sold_avg_cents)
 FROM card_catalog.v_card_versions_complete cv
 JOIN pricing.mtg_card_products mcp ON mcp.card_version_id = cv.card_version_id
 JOIN pricing.source_product sp ON sp.product_id = mcp.product_id
@@ -56,7 +61,10 @@ JOIN pricing.price_observation po ON po.source_product_id = sp.source_product_id
 WHERE (cv.rarity_name IN ('mythic', 'rare', 'special') OR cv.is_promo = true)
   AND po.sold_avg_cents >= $1
   AND po.ts_date >= now() - interval '7 days'
-ON CONFLICT (card_version_id) DO UPDATE SET is_active = true;
+GROUP BY cv.card_version_id
+ON CONFLICT (card_version_id) DO UPDATE SET
+    is_active = true,
+    priority_score = EXCLUDED.priority_score;
 """
 
 UPDATE_TARGET_LAST_SCRAPED = """

@@ -1,418 +1,235 @@
-﻿
+import glob
+import ijson
+import json
 import logging
-import os, glob, ijson, functools, requests, json, tempfile
-from datetime import datetime, timezone
-from decimal import Decimal
-from typing import List, Any, Optional, Tuple, Dict
+import os
+import tempfile
+from collections import defaultdict
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, Optional
+from zoneinfo import ZoneInfo
+
 import pandas as pd
-from tqdm import tqdm
-from dotenv import load_dotenv
 import pyarrow.parquet as pq
+from bs4 import BeautifulSoup
+
 from automana.core.models.shopify import shopify_theme
 from automana.core.repositories.app_integration.shopify.market_repository import MarketRepository
 from automana.core.repositories.app_integration.shopify.product_repository import ProductRepository
-from automana.core.service_registry import ServiceRegistry
-from collections import defaultdict
-from bs4 import BeautifulSoup
+from automana.core.framework.registry import ServiceRegistry
+from automana.core.storage import StorageService
 
 logger = logging.getLogger(__name__)
 
-@functools.lru_cache(maxsize=365)
-def fetch_fx_rate(from_currency: str, to_currency: str, date_str: str, app_id : str) -> float:
-    
-    # example using exchangerate.host
-    resp = requests.get(
-        f"https://openexchangerates.org/api/historical/{date_str}.json" ,
-        params={"app_id": app_id },
-        timeout=5,
-    )
-    resp.raise_for_status()
-    from_rate = resp.json()["rates"][from_currency]
-    to_rate = resp.json()["rates"][to_currency]
-    rate = to_rate / from_rate
-    return rate
 
-async def get_market_id(market_repository ,code : str)-> int:
+async def get_market_id(market_repository, code: str) -> int:
     try:
         market_id = await market_repository.get_market_code(code)
         if market_id is not None:
             return market_id
-        else:
-            return -1
+        return -1
     except Exception as e:
         logger.warning("market_id_fetch_failed", extra={"code": code, "error": str(e)})
         return -1
 
-async def prepare_product_shop_id_query(validated_batch: shopify_theme.BatchProductProces) -> Tuple[
-    list[str],
-    list[str],
-    list[int],
-    list[datetime],
-    list[datetime]
-]:
-    p_product_shop_ids : List[str] = []
-    p_product_ids : List[str] = []
-    p_market_ids : List[int] = []
-    p_created_at : List[datetime] = []
-    p_updated_at : List[datetime] = []
-    for product in validated_batch:
-        p_product_shop_ids.append(product.product_shop_id)
-        p_product_ids.append(str(product.product_id))
-        p_market_ids.append(product.shop_id)
-        p_created_at.append(product.created_at)
-        p_updated_at.append(product.updated_at) 
-    
-    return (p_product_shop_ids, p_product_ids, p_market_ids, p_created_at, p_updated_at  ) 
-
-
-def validate_batch(batch: List[Any]) -> shopify_theme.BatchProductProces:
-    validated_batch = []
-    for idx ,item in enumerate(batch):
-        try:
-            product : shopify_theme.ProductPrice = shopify_theme.ProductPrice.model_validate(item)
-            validated_batch.append(product)
-        except Exception as e:
-            raise ValueError(f"Validation error in item {item}: {e}")
-    return shopify_theme.BatchProductProces(items=validated_batch)
-             
-async def bulk_insert_product(batch: Tuple [
-    List[datetime], 
-    List[int],
-    List[Decimal],
-    list[str],
-    list[Decimal],
-    list[str]
-], repository: ProductRepository):
-    await repository.bulk_insert_products( batch)
-
-async def bulk_insert_prices(batch: Tuple[
-    List[datetime],
-    List[str],
-    List[Decimal],
-    List[str],
-    List[Decimal],
-    List[bool],
-    List[str]
-      ], repository: ProductRepository):
-
-    await repository.bulk_insert_prices(batch)
-
-def find_condition_variant(product: shopify_theme.ProductModel, condition: str) -> Optional[float]:
-    """
-    Find the price of a variant with the specified condition in the product.
-    Returns None if no such variant exists.
-    """
-    for v in product.variants:
-        if condition.lower() in v.title.lower():
-            return v.price
-    return None
-
-
-def stream_json_file(path: str, market_id: str, app_id: str, batch_size: int = 1000, product_currency='AUD'):
-    """
-    Stream and yield validated batches of ProductPrice from a JSON file.
-    Does not perform DB upload; just yields the validated batch for further processing.
-    """
-    with open(path, 'r', encoding='utf-8') as file:
-        batch = []
-        items = ijson.items(file, 'items.item')
-        products_model = [shopify_theme.ProductModel(**c) for c in items ]
-        for obj in products_model: 
-            date = obj.updated_at.date().isoformat() 
-            exange_rate = fetch_fx_rate(product_currency, 'USD', date, app_id)
-            batch.append(
-                {
-                    'product_id': obj.id,
-                    'shop_id': market_id,
-                    'price': find_condition_variant(obj, "Near Mint"),
-                    'price_usd': Decimal(find_condition_variant(obj, "Near Mint")) * Decimal(exange_rate),
-                    'foil_price':find_condition_variant(obj, "Near Mint Foil"),
-                    'foil_price_usd': Decimal(find_condition_variant(obj, "Near Mint Foil")) * Decimal(exange_rate) if find_condition_variant(obj, "Near Mint Foil") else None,
-                    'html_body': obj.body_html,
-                    'currency': product_currency,
-                    'created_at': obj.created_at,
-                    'updated_at': obj.updated_at,
-                    'source': 'test_source'
-                }
-            )
-            if len(batch) >= batch_size:
-                validated_batch = validate_batch(batch)
-                yield validated_batch
-                batch.clear()
-        if batch:
-            validated_batch = validate_batch(batch)
-            yield validated_batch
-
-# New function to upload batches yielded by the stream
-
-async def upload_batches_from_stream(path: str, market_id: str, app_id: str, repository: ProductRepository, batch_size: int = 1000, product_currency='AUD'):
-    for validated_batch in stream_json_file(path, market_id, app_id, batch_size, product_currency):
-        #
-        """
-        prepared_product_input = prepare_product_shop_id_query(validated_batch)
-        try:
-            bulk_insert_product(prepared_product_input, conn)
-        except Exception as e:
-            print(f"Error during bulk insert: {e}")
-            raise
-        normal_batch, foil_batch = validated_batch.prepare_price_batches(include_foil=True)
-     
-        try:
-            bulk_insert_prices(normal_batch, conn)
-            if foil_batch is not None:
-                bulk_insert_prices(foil_batch, conn)
-
-        except Exception as e:
-            print(f"Error during bulk insert: {e}")
-            raise
-        """
-
-        await insert_card_product_reference(validated_batch, repository)
-
-async def upload_all_json_in_directory(absolute_path: str, market_id: str, app_id: str, repository: ProductRepository, batch_size: int = 1000, product_currency='AUD'):
-    """
-    Iterate over all .json files in a directory and upload their contents to the DB in batches.
-    Shows a tqdm progress bar for file processing, keeping the bar at the same location.
-    """
-    # Ensure the path is absolute
-    abs_directory_path = os.path.abspath(absolute_path)
-    
-    # Verify the directory exists
-    if not os.path.exists(abs_directory_path):
-        raise FileNotFoundError(f"Directory not found: {abs_directory_path}")
-    
-    if not os.path.isdir(abs_directory_path):
-        raise NotADirectoryError(f"Path is not a directory: {abs_directory_path}")
-    
-    # Find all JSON files in the absolute directory path
-    json_files = glob.glob(os.path.join(abs_directory_path, '*.json'))
-    
-    if not json_files:
-        logger.warning("no_json_files", extra={"directory": abs_directory_path})
-        return
-    
-    logger.info("json_files_found", extra={"count": len(json_files), "directory": abs_directory_path})
-    
-    with tqdm(json_files, desc="Processing JSON files", dynamic_ncols=True, leave=True) as pbar:
-        for path in pbar:
-            pbar.set_postfix_str(f"{os.path.basename(path)}")
-            try:
-                upload_batches_from_stream(path, market_id, app_id, repository, batch_size, product_currency)
-            except Exception as e:
-                logger.error("json_file_processing_failed", extra={"file": path, "error": str(e)})
-
-async def insert_card_product_reference(batch: shopify_theme.BatchProductProces, repository: ProductRepository):
-
-    await repository.insert_card_product_reference(batch.prepare_prodcut_card_batches())
-
-
-from fastparquet import write, ParquetFile
-from pathlib import Path
-from zoneinfo import ZoneInfo
 
 AUS_TZ = ZoneInfo("Australia/Brisbane")
+
 
 def _to_utc(x):
     if x is None or x == "":
         return pd.NaT
     return pd.to_datetime(x, utc=True, errors="coerce")
 
+
 def _current_local_date():
-    # Local date in Australia/Brisbane, stored as a date (no time)
     return pd.Timestamp(datetime.now(AUS_TZ).date())
 
-# --- helper: build long-format rows for one product (snapshot = now) ---
+
 def _df_from_item(item: dict) -> pd.DataFrame:
-    """
-    Build one row per (date, variation) with price.
-    Columns: date, variation, price, _src_updated_at (for dedupe then dropped)
-    """
     variants = item.get("variants", []) or []
     if not variants:
-        return pd.DataFrame(columns=["product_id", "date",  "price","variation", "price", "scraped_at"])
-
-    local_date = _current_local_date()
+        return pd.DataFrame(columns=["product_id", "date", "price", "variation", "scraped_at"])
 
     rows = []
     for v in variants:
         rows.append({
             "product_id": item.get("id"),
-            "date":  _to_utc(v.get("updated_at")),
+            "date": _to_utc(v.get("updated_at")),
             "variation": v.get("title"),
             "price": float(v["price"]) if v.get("price") is not None else None,
-            "scraped_at": local_date
+            "scraped_at": _current_local_date(),
         })
 
     df = pd.DataFrame(rows, columns=["product_id", "date", "variation", "price", "scraped_at"])
-    # Dtypes
     df["product_id"] = df["product_id"].astype("int64")
     df["date"] = pd.to_datetime(df["date"]).dt.normalize()
     df["scraped_at"] = pd.to_datetime(df["scraped_at"], utc=True)
     df["price"] = pd.to_numeric(df["price"], errors="coerce").astype("float64")
-    #shrink memory
     df["variation"] = df["variation"].astype("category")
-    return df[["product_id","date","variation","price","scraped_at"]]
+    return df[["product_id", "date", "variation", "price", "scraped_at"]]
+
 
 def _row_group_offsets(n_rows: int, group_size: int) -> list[int]:
-    """Fastparquet wants starting indices of each row group."""
     if group_size <= 0 or n_rows <= group_size:
         return [0]
     return list(range(0, n_rows, group_size))
 
+
 def _dedupe_batch(df: pd.DataFrame) -> pd.DataFrame:
-    """Latest wins within the current batch for (product_id, date, variation)."""
     if df.empty:
         return df
-    return (df.sort_values(["product_id","date","variation","scraped_at"])
-              .drop_duplicates(["product_id","date","variation"], keep="last"))
+    return (
+        df.sort_values(["product_id", "date", "variation", "scraped_at"])
+        .drop_duplicates(["product_id", "date", "variation"], keep="last")
+    )
+
 
 def _append_product_file(parquet_path: str, df_batch: pd.DataFrame, group_size: int = 50000) -> None:
-    """
-    Append a whole batch for one product, no full-file read. ZSTD for size.
-    """
     if df_batch.empty:
         return
+    from fastparquet import write  # optional dep — not installed in API process
     path = Path(parquet_path)
     offsets = _row_group_offsets(len(df_batch), group_size)
-
     write(
         str(path),
         df_batch,
         compression="zstd",
-        object_encoding="utf8",          # categoricals still dictionary-encoded
+        object_encoding="utf8",
         append=path.exists(),
-        file_scheme="simple",            # single file per product
-        row_group_offsets=offsets,       # <-- correct fastparquet option
-        stats=True
+        file_scheme="simple",
+        row_group_offsets=offsets,
+        stats=True,
     )
 
-# --- main: scan a directory of JSON dumps, write info.json + append parquet per product ---
 
 async def get_total_items_in_json(path_to_json: str) -> int:
     with open(path_to_json, "r", encoding="utf-8") as f:
         parser = ijson.parse(f)
         for prefix, event, value in parser:
-            if (prefix, event) == ('items', 'start_array'):
+            if (prefix, event) == ("items", "start_array"):
                 count = 0
                 for _ in parser:
                     count += 1
-                    if (prefix, event) == ('items', 'end_array'):
+                    if (prefix, event) == ("items", "end_array"):
                         break
                 return count
     return 0
 
-MAX_ROWS_PER_PRODUCT_BEFORE_FLUSH = 100_000   # flush when a single product buffer exceeds this
-ROW_GROUP_TARGET = 50_000                    # used inside _append_product_file
+
+MAX_ROWS_PER_PRODUCT_BEFORE_FLUSH = 100_000
+ROW_GROUP_TARGET = 50_000
+
 
 async def parse_html_description(html: str) -> str:
-    """
-    Simple HTML to plain text conversion.
-    """
-    soup = BeautifulSoup(html, 'html.parser')
-    text = soup.get_text(separator=' ', strip=True)
-    return text
+    soup = BeautifulSoup(html, "html.parser")
+    return soup.get_text(separator=" ", strip=True)
+
 
 async def get_card_id_from_html(html: str) -> Optional[str]:
-    """
-    Extract card ID from HTML data attributes.
-    Looks for data-cardid attribute in catalogMetaData div.
-    """
     if not html:
         return None
-    
     try:
-        soup = BeautifulSoup(html, 'html.parser')
-        catalog_div = soup.find('div', class_='catalogMetaData')
+        soup = BeautifulSoup(html, "html.parser")
+        catalog_div = soup.find("div", class_="catalogMetaData")
         if catalog_div:
-            card_id = catalog_div.get('data-cardid')
-            return card_id
+            return catalog_div.get("data-cardid")
         return None
     except Exception as e:
         logger.warning("card_id_extraction_failed", extra={"error": str(e)})
         return None
 
+
 async def extract_all_metadata_from_html(html: str) -> Dict[str, Optional[str]]:
-    """
-    Extract all metadata from the catalogMetaData div.
-    Returns a dictionary with all data attributes.
-    """
     if not html:
         return {}
-    
     try:
-        soup = BeautifulSoup(html, 'html.parser')
-        catalog_div = soup.find('div', class_='catalogMetaData')
+        soup = BeautifulSoup(html, "html.parser")
+        catalog_div = soup.find("div", class_="catalogMetaData")
         if catalog_div:
             return {
-                'card_id': catalog_div.get('data-cardid'),
-                'tcg_id': catalog_div.get('data-tcgid'),
-                'card_type': catalog_div.get('data-cardtype'),
-                'last_updated': catalog_div.get('data-lastupdated')
+                "card_id": catalog_div.get("data-cardid"),
+                "tcg_id": catalog_div.get("data-tcgid"),
+                "card_type": catalog_div.get("data-cardtype"),
+                "last_updated": catalog_div.get("data-lastupdated"),
             }
         return {}
     except Exception as e:
         logger.warning("metadata_extraction_failed", extra={"error": str(e)})
         return {}
-    
 
 
 @ServiceRegistry.register(
     path="shopify.data.process_to_parquet",
     db_repositories=["market"],
+    storage_services=["shopify"],
     runs_in_transaction=False,
     command_timeout=3600,
 )
-async def process_json_dir_to_parquet(market_repository: MarketRepository, path_to_json: str, market_code: str, output_path: str):
-    """
-    - Reads all *.json in `path_to_json`
-    - Streams items with ijson (low RAM)
-    - Batches per product_id across files
-    - Periodically flushes big product buffers to parquet (single file per product)
-    - Writes/keeps info.json per product
-    """
+async def process_json_dir_to_parquet(
+    market_repository: MarketRepository,
+    storage_service: StorageService,
+    path_to_json: str,
+    market_code: str,
+    output_path: str,
+):
     market_id = await get_market_id(market_repository, market_code)
-
     if market_id == -1:
         raise ValueError(f"Market ID not found for market code: {market_code}")
 
-    os.makedirs(output_path, exist_ok=True)
+    storage_base = storage_service.backend.base_path
+    json_files = sorted(storage_base.glob(f"{market_id}_*/**/*products.json"))
+    total_files = len(json_files)
+    total_files_size = sum(f.stat().st_size for f in json_files)
+    logger.info(
+        "parquet_process_start",
+        extra={"file_count": total_files, "total_mb": round(total_files_size / (1024 * 1024), 2)},
+    )
 
-    json_files = glob.glob(os.path.join(path_to_json, f"{market_id}_*", "**", "*products.json"), recursive=True)
-    total_files_size = sum(os.path.getsize(f) for f in json_files)
-    tqdm.write(f"Processing {len(json_files)} JSON files from {path_to_json}, total {total_files_size / (1024*1024):.2f} MB")
+    # Derive the parquet output directory relative to the storage root
+    try:
+        rel_output = str(Path(output_path).relative_to(storage_base))
+    except ValueError:
+        rel_output = f"parquet/{market_id}"
 
-    # accumulate DataFrame chunks per product_id
     buffers: dict[int, list[pd.DataFrame]] = defaultdict(list)
     buffered_rows_count: dict[int, int] = defaultdict(int)
 
     def _flush_product(pid: int):
-        """Flush one product buffer to parquet; clear its buffers."""
         frames = buffers.get(pid, [])
         if not frames:
             return
         df_batch = pd.concat(frames, ignore_index=True)
-        df_batch = _dedupe_batch(df_batch)  # latest per (product_id, date, variation) within THIS run
-        prod_dir = os.path.join(output_path, str(pid))
-        os.makedirs(prod_dir, exist_ok=True)
-        parquet_file_path = os.path.join(prod_dir, "data.parquet")
-        _append_product_file(parquet_file_path, df_batch, group_size=ROW_GROUP_TARGET)
+        df_batch = _dedupe_batch(df_batch)
+        # fastparquet requires a filesystem path; resolve_path bridges the storage abstraction
+        parquet_path = storage_service.backend.resolve_path(f"{rel_output}/{pid}/data.parquet")
+        parquet_path.parent.mkdir(parents=True, exist_ok=True)
+        _append_product_file(str(parquet_path), df_batch, group_size=ROW_GROUP_TARGET)
         buffers[pid].clear()
         buffered_rows_count[pid] = 0
 
-    for json_file in tqdm(json_files, desc="Files", unit="file", dynamic_ncols=True):
-        file_size_mb = os.path.getsize(json_file) / (1024 * 1024)
-        tqdm.write(f"-> {os.path.basename(json_file)} ({file_size_mb:.2f} MB)")
+    for file_index, json_file in enumerate(json_files, 1):
+        file_size_mb = json_file.stat().st_size / (1024 * 1024)
+        logger.info(
+            "parquet_process_file_start",
+            extra={
+                "file": json_file.name,
+                "file_size_mb": round(file_size_mb, 2),
+                "file_index": file_index,
+                "total_files": total_files,
+            },
+        )
 
-        total_items = await get_total_items_in_json(json_file)
+        total_items = await get_total_items_in_json(str(json_file))
         if total_items == 0:
-            tqdm.write(f"(no items) {os.path.basename(json_file)}")
+            logger.info("parquet_process_file_empty", extra={"file": json_file.name})
             continue
 
+        items_processed = 0
         with open(json_file, "rb") as f:
-            pbar = tqdm(total=total_items, desc=f"Items in {os.path.basename(json_file)}", unit="it", leave=False)
             try:
-                for item in ijson.items(f, "items.item"):  # adjust prefix if your JSON structure differs
-                    pbar.update(1)
+                for item in ijson.items(f, "items.item"):
                     if not isinstance(item, dict):
                         continue
 
@@ -420,62 +237,73 @@ async def process_json_dir_to_parquet(market_repository: MarketRepository, path_
                     df_item = _df_from_item(item)
                     if df_item.empty:
                         continue
+
                     meta_data = await extract_all_metadata_from_html(item.get("body_html", ""))
                     df_item["card_id"] = meta_data.get("card_id")
                     df_item["tcg_id"] = meta_data.get("tcg_id")
-                    # buffer
                     buffers[pid].append(df_item)
                     buffered_rows_count[pid] += len(df_item)
 
-                    # write/update info.json if missing (cheap)
-                    prod_dir = os.path.join(output_path, str(pid))
-                    os.makedirs(prod_dir, exist_ok=True)
-                    info_fp = os.path.join(prod_dir, "info.json")
-                    if not os.path.exists(info_fp):
-                        with open(info_fp, "w", encoding="utf-8") as w:
-                            json.dump({
-                                "product_id": pid,
-                                "shop_id": market_id,
-                                "title": item.get("title"),
-                                "handle": item.get("handle"),
-                                "vendor": item.get("vendor"),
-                                "product_type": item.get("product_type"),
-                                "card_id": meta_data.get("card_id"),
-                                "tcg_id": meta_data.get("tcg_id"),
-                                "card_type": meta_data.get("card_type"),
-                                "tags": item.get("tags"),
-                                "published_at": str(item.get("published_at")),
-                                "created_at": str(item.get("created_at")),
-                                "updated_at": str(item.get("updated_at")),
-                            }, w, ensure_ascii=False, indent=2)
+                    info_rel = f"{rel_output}/{pid}/info.json"
+                    if not await storage_service.file_exists(info_rel):
+                        await storage_service.save_json(info_rel, {
+                            "product_id": pid,
+                            "shop_id": market_id,
+                            "title": item.get("title"),
+                            "handle": item.get("handle"),
+                            "vendor": item.get("vendor"),
+                            "product_type": item.get("product_type"),
+                            "card_id": meta_data.get("card_id"),
+                            "tcg_id": meta_data.get("tcg_id"),
+                            "card_type": meta_data.get("card_type"),
+                            "tags": item.get("tags"),
+                            "published_at": str(item.get("published_at")),
+                            "created_at": str(item.get("created_at")),
+                            "updated_at": str(item.get("updated_at")),
+                        })
 
-                    # flush if a single product buffer gets large (keeps RAM steady)
                     if buffered_rows_count[pid] >= MAX_ROWS_PER_PRODUCT_BEFORE_FLUSH:
                         _flush_product(pid)
 
-            finally:
-                pbar.close()
+                    items_processed += 1
+                    if items_processed % 1000 == 0:
+                        logger.info(
+                            "parquet_process_progress",
+                            extra={"file": json_file.name, "items_processed": items_processed, "total_items": total_items},
+                        )
+            except Exception as e:
+                logger.error("parquet_file_processing_failed", extra={"file": str(json_file), "error": str(e)})
 
-        tqdm.write(f"Completed {os.path.basename(json_file)}")
+        logger.info("parquet_process_file_complete", extra={"file": json_file.name, "items_processed": items_processed})
 
-    # final flush for all remaining products
     for pid in list(buffers.keys()):
         _flush_product(pid)
+
+    logger.info("parquet_process_complete", extra={"total_files": total_files})
+
 
 @ServiceRegistry.register(
     path="shopify.data.stage_from_parquet",
     db_repositories=["product"],
+    storage_services=["shopify"],
     runs_in_transaction=False,
     command_timeout=3600,
 )
-async def stage_data_from_parquet(product_repository: ProductRepository, parquet_base_path: str, batch_size: int = 10000):
-    """
-    Scan the parquet_base_path for product subdirectories, read their data.parquet files,
-    and stage the data into the database using the provided repository.
-    """
-    product_dirs = [d for d in glob.glob(os.path.join(parquet_base_path, "*")) if os.path.isdir(d)]
+async def stage_data_from_parquet(
+    product_repository: ProductRepository,
+    storage_service: StorageService,
+    parquet_base_path: str,
+    batch_size: int = 10000,
+):
+    storage_base = storage_service.backend.base_path
+    try:
+        rel_base = str(Path(parquet_base_path).relative_to(storage_base))
+    except ValueError:
+        rel_base = parquet_base_path
 
-    source = parquet_base_path.split("/")[-1]
+    base_dir = storage_service.backend.resolve_path(rel_base)
+    product_dirs = [d for d in base_dir.iterdir() if d.is_dir()] if base_dir.exists() else []
+
     total_products = len(product_dirs)
     if total_products == 0:
         logger.warning("no_product_dirs", extra={"path": parquet_base_path})
@@ -483,11 +311,11 @@ async def stage_data_from_parquet(product_repository: ProductRepository, parquet
 
     parquet_files = []
     for prod_dir in product_dirs:
-        parquet_file_path = os.path.join(prod_dir, "data.parquet")
-        if os.path.exists(parquet_file_path):
+        parquet_file_path = prod_dir / "data.parquet"
+        if parquet_file_path.exists():
             parquet_files.append(parquet_file_path)
         else:
-            logger.warning("missing_parquet", extra={"dir": prod_dir})
+            logger.warning("missing_parquet", extra={"dir": str(prod_dir)})
 
     if not parquet_files:
         logger.warning("no_parquet_files", extra={"path": parquet_base_path})
@@ -497,22 +325,29 @@ async def stage_data_from_parquet(product_repository: ProductRepository, parquet
 
     schema = pq.ParquetFile(parquet_files[0]).schema_arrow
 
-    with tempfile.NamedTemporaryFile(suffix='.parquet', delete=False) as temp_file:
-        temp_parquet_path = temp_file.name
+    # Temp merge file lives under the storage root so cleanup goes through storage
+    tmp_rel = "_tmp/merge.parquet"
+    temp_parquet_path = storage_service.backend.resolve_path(tmp_rel)
+    temp_parquet_path.parent.mkdir(parents=True, exist_ok=True)
+
     try:
         logger.info("concatenating_parquet_files")
-        with pq.ParquetWriter(temp_parquet_path, schema=schema) as writer:
-            for parquet_file_path in tqdm(parquet_files, desc="Concatenating files", unit="file", dynamic_ncols=True):
+        with pq.ParquetWriter(str(temp_parquet_path), schema=schema) as writer:
+            for i, parquet_file_path in enumerate(parquet_files, 1):
+                logger.info(
+                    "parquet_concat_file",
+                    extra={"file_index": i, "total_files": len(parquet_files), "file": parquet_file_path.name},
+                )
                 try:
                     table = pq.read_table(parquet_file_path, schema=schema)
                     writer.write_table(table)
                 except Exception as e:
-                    logger.error("parquet_read_failed", extra={"file": parquet_file_path, "error": str(e)})
-                    continue
+                    logger.error("parquet_read_failed", extra={"file": str(parquet_file_path), "error": str(e)})
 
         logger.info("reading_concatenated_parquet")
-        combined_table = pq.read_table(temp_parquet_path)
+        combined_table = pq.read_table(str(temp_parquet_path))
         df = combined_table.to_pandas()
+
 
         total_rows = len(df)
         if total_rows == 0:
@@ -520,28 +355,23 @@ async def stage_data_from_parquet(product_repository: ProductRepository, parquet
             return
 
         logger.info("staging_rows", extra={"total_rows": total_rows})
-
         total_batches = (total_rows + batch_size - 1) // batch_size
 
-        with tqdm(total=total_batches, desc="Staging to PostgreSQL", unit="batch") as pbar:
-            for i in range(0, total_rows, batch_size):
-                end_idx = min(i + batch_size, total_rows)
-                batch_df = df.iloc[i:end_idx]
-                try:
-                    await product_repository.bulk_copy_prices(batch_df)
-                    pbar.update(1)
-                    pbar.set_postfix_str(f"Rows {i+1}-{end_idx}")
-                except Exception as e:
-                    logger.error("batch_insert_failed", extra={"batch": i // batch_size + 1, "error": str(e)})
-                    raise
+        for batch_num, i in enumerate(range(0, total_rows, batch_size), 1):
+            end_idx = min(i + batch_size, total_rows)
+            batch_df = df.iloc[i:end_idx]
+            logger.info(
+                "staging_batch",
+                extra={"batch": batch_num, "total_batches": total_batches, "rows_start": i + 1, "rows_end": end_idx},
+            )
+            try:
+                await product_repository.bulk_copy_prices(batch_df)
+            except Exception as e:
+                logger.error("batch_insert_failed", extra={"batch": batch_num, "error": str(e)})
+                raise
 
         logger.info("staging_complete", extra={"total_rows": total_rows, "total_batches": total_batches})
 
     finally:
-        # Clean up temporary file
-        try:
-            os.unlink(temp_parquet_path)
-        except Exception as e:
-            logger.warning("temp_file_cleanup_failed", extra={"path": temp_parquet_path, "error": str(e)})
-
+        await storage_service.delete_file(tmp_rel)
 

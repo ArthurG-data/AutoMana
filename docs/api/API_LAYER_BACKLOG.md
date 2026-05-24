@@ -15,7 +15,7 @@ Fixed items are marked ✅. Open items are ordered by priority.
 | `repositories/user_management/role_repository.py:28–29, 41` | SQL injection via f-string interpolation of `reason`/`assigned_by` into `SET LOCAL` — replaced with `set_config($1, true)` |
 
 **Dead code removed:**
-- `services/auth/cookie_utils.py` + entries in `core/service_modules.py`
+- `services/auth/cookie_utils.py` + entries in `core/framework/service_modules.py`
 - `services/auth/token_service.py`
 - `services/auth/get_hash_password.py`
 - `repositories/auth/auth_repository.py`

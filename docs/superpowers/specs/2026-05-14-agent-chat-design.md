@@ -48,7 +48,7 @@ AgentChatService                      (service layer)
 | `deploy/docker-compose.prod.yml` | Add `ollama` sidecar service |
 
 Register in:
-- `src/automana/core/service_registry.py` — `ollama` API repository
+- `src/automana/core/framework/registry.py` — `ollama` API repository
 - `src/automana/api/__init__.py` — agent router under `integrations_router`
 
 ---

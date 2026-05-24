@@ -1,0 +1,155 @@
+from dataclasses import dataclass, field
+from typing import List, Callable, Optional, Dict
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ServiceConfig:
+    """Configuration for a registered service.
+
+    Execution knobs
+    ───────────────
+    `runs_in_transaction` (default True) — ServiceManager wraps the call in an
+    explicit asyncpg transaction. Set to False for services whose SQL manages
+    its own transaction control (e.g. stored procedures that use internal
+    `COMMIT`/`ROLLBACK`). Postgres rejects internal transaction control when
+    `CALL` is issued from an atomic block, so those procs must run on a
+    non-atomic connection.
+
+    `command_timeout` (default None → inherit Postgres role default) — seconds.
+    Applied server-side via `SET [LOCAL|SESSION] statement_timeout` for the
+    service's duration. `LOCAL` scope is used inside a transaction (auto-resets
+    at COMMIT/ROLLBACK); `SESSION` scope is used when `runs_in_transaction=False`
+    and explicitly reset on exit so pooled connections don't leak the override.
+    Pass a number of seconds to extend or tighten the ceiling for known-long
+    operations (e.g. bulk-ETL procs). None keeps the role's `statement_timeout`
+    GUC; there is no way to fully "disable" the timeout — pick a generous
+    number instead.
+    """
+    module: str
+    function: str
+    db_repositories: List[str] = field(default_factory=list)
+    api_repositories: List[str] = field(default_factory=list)
+    storage_services: List[str] = field(default_factory=list)
+    runs_in_transaction: bool = True
+    command_timeout: Optional[float] = None
+
+
+class ServiceRegistry:
+    """
+    Central registry for all application services.
+
+    Services register themselves using the @register decorator,
+    keeping configuration close to the implementation.
+    """
+    _services: Dict[str, ServiceConfig] = {}
+    _repository_registry: Dict[str, tuple[str, str]] = {}
+    _api_repository_registry: Dict[str, tuple[str, str]] = {}
+    # Backend registry: backend_name → (module, class)
+    _storage_backend_registry: Dict[str, tuple[str, str]] = {}
+    # Named storage registry: logical_name → {backend: str, **config}
+    _storage_registry: Dict[str, dict] = {}
+
+    @classmethod
+    def register(
+        cls,
+        path: str,
+        db_repositories: List[str] = None,
+        api_repositories: List[str] = None,
+        storage_services: List[str] = None,
+        runs_in_transaction: bool = True,
+        command_timeout: Optional[float] = None,
+    ) -> Callable:
+        """
+        Decorator to register a service function.
+
+        Usage:
+            @ServiceRegistry.register(
+                "card_catalog.card.search",
+                db_repositories=["card"]
+            )
+            async def search_cards(card_repository, **kwargs):
+                ...
+
+        See `ServiceConfig` for the semantics of `runs_in_transaction` and
+        `command_timeout`.
+        """
+        def decorator(func: Callable) -> Callable:
+            cls._services[path] = ServiceConfig(
+                module=func.__module__,
+                function=func.__name__,
+                db_repositories=db_repositories or [],
+                api_repositories=api_repositories or [],
+                storage_services=storage_services or [],
+                runs_in_transaction=runs_in_transaction,
+                command_timeout=command_timeout,
+            )
+            logger.debug("registered_service", extra={"path": path})
+            return func
+        return decorator
+
+    @classmethod
+    def get(cls, path: str) -> Optional[ServiceConfig]:
+        """Get service configuration by path"""
+        return cls._services.get(path)
+
+    @classmethod
+    def all_services(cls) -> Dict[str, ServiceConfig]:
+        """Get all registered services"""
+        return cls._services.copy()
+
+    @classmethod
+    def register_db_repository(cls, name: str, module_path: str, class_name: str) -> None:
+        """Register a database repository type"""
+        cls._repository_registry[name] = (module_path, class_name)
+        logger.debug("registered_db_repository", extra={"name": name})
+
+    @classmethod
+    def register_api_repository(cls, name: str, module_path: str, class_name: str) -> None:
+        """Register an API repository type"""
+        cls._api_repository_registry[name] = (module_path, class_name)
+        logger.debug("registered_api_repository", extra={"name": name})
+
+    @classmethod
+    def register_storage_backend(cls, name: str, module_path: str, class_name: str) -> None:
+        """Register a storage backend class (e.g. 'local', 's3')."""
+        cls._storage_backend_registry[name] = (module_path, class_name)
+        logger.debug("registered_storage_backend", extra={"name": name})
+
+    @classmethod
+    def register_storage(cls, name: str, backend: str, **config) -> None:
+        """Register a named storage (logical name → backend + config).
+
+        Examples:
+            register_storage("scryfall", backend="local", subpath="scryfall/raw_files")
+            register_storage("scryfall", backend="s3",    bucket="automana", prefix="scryfall")
+        """
+        cls._storage_registry[name] = {"backend": backend, **config}
+        logger.debug("registered_storage", extra={"name": name, "backend": backend})
+
+    @classmethod
+    def get_db_repository(cls, name: str) -> Optional[tuple[str, str]]:
+        """Get DB repository module path and class name"""
+        return cls._repository_registry.get(name)
+
+    @classmethod
+    def get_api_repository(cls, name: str) -> Optional[tuple[str, str]]:
+        """Get API repository module path and class name"""
+        return cls._api_repository_registry.get(name)
+
+    @classmethod
+    def get_storage_backend(cls, name: str) -> Optional[tuple[str, str]]:
+        """Get storage backend (module, class) by backend name."""
+        return cls._storage_backend_registry.get(name)
+
+    @classmethod
+    def get_storage(cls, name: str) -> Optional[dict]:
+        """Get named storage config (includes 'backend' key + backend-specific config)."""
+        return cls._storage_registry.get(name)
+
+    @classmethod
+    def list_services(cls) -> List[str]:
+        """List all registered service paths"""
+        return list(cls._services.keys())

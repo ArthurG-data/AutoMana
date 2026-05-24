@@ -14,7 +14,7 @@ from datetime import datetime, timezone, timedelta
 from automana.api.services.auth.session_service import create_new_session, rotate_session_token
 from automana.api.services.auth.auth import decode_access_token
 from automana.api.schemas.user_management.user import UserInDB
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 
 pytestmark = pytest.mark.unit
 

@@ -1,7 +1,7 @@
 import logging
 from datetime import date
 
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 from automana.core.services.ops.pipeline_services import track_step
 
 logger = logging.getLogger(__name__)

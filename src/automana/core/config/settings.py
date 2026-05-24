@@ -2,7 +2,7 @@
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
-from automana.core.secrets import read_secret
+from automana.core.config.secrets import read_secret
 from pathlib import Path
 from urllib.parse import quote_plus
 import os

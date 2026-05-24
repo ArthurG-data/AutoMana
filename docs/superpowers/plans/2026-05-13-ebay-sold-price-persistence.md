@@ -22,11 +22,11 @@
 | Create | `src/automana/core/repositories/pricing/ebay_scrape_queries.py` | SQL strings for scrape repo |
 | Create | `src/automana/core/repositories/pricing/ebay_scrape_repository.py` | `EbayScrapeSoldRepository` |
 | Modify | `src/automana/core/repositories/app_integration/ebay/auth_repository.py` | Add `get_active_app_code_users()` |
-| Modify | `src/automana/core/service_registry.py` | Register `ebay_sales` + `ebay_scrape` repos |
+| Modify | `src/automana/core/framework/registry.py` | Register `ebay_sales` + `ebay_scrape` repos |
 | Create | `src/automana/core/services/app_integration/ebay/sales_sync_service.py` | `sync_own_sales` service |
 | Create | `src/automana/core/services/app_integration/ebay/scrape_sold_service.py` | `scrape_external_sold` service |
 | Create | `src/automana/core/services/app_integration/ebay/promote_sold_obs_service.py` | `promote_sold_obs` service |
-| Modify | `src/automana/core/service_modules.py` | Register 3 new service modules |
+| Modify | `src/automana/core/framework/service_modules.py` | Register 3 new service modules |
 | Modify | `src/automana/api/routers/integrations/ebay/ebay_selling.py` | Write to `ebay_active_listings` after listing creation |
 | Modify | `src/automana/worker/tasks/ebay.py` | Add 2 new Celery task functions |
 | Modify | `src/automana/worker/celeryconfig.py` | Add 3 nightly beat entries |
@@ -739,11 +739,11 @@ git commit -m "feat(ebay): add get_active_app_code_users to EbayAuthRepository"
 ## Task 5: Register Repositories in ServiceRegistry
 
 **Files:**
-- Modify: `src/automana/core/service_registry.py`
+- Modify: `src/automana/core/framework/registry.py`
 
 - [ ] **Step 5.1 — Add registrations**
 
-In `src/automana/core/service_registry.py`, find the block starting with `# Integration repositories` (around the `"app"` registration) and add after it:
+In `src/automana/core/framework/registry.py`, find the block starting with `# Integration repositories` (around the `"app"` registration) and add after it:
 
 ```python
 ServiceRegistry.register_db_repository(
@@ -762,7 +762,7 @@ ServiceRegistry.register_db_repository(
 
 ```bash
 .venv/bin/python -c "
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 print(ServiceRegistry.get_db_repository('ebay_sales'))
 print(ServiceRegistry.get_db_repository('ebay_scrape'))
 "
@@ -773,7 +773,7 @@ Expected: two tuples with module path + class name printed.
 - [ ] **Step 5.3 — Commit**
 
 ```bash
-git add src/automana/core/service_registry.py
+git add src/automana/core/framework/registry.py
 git commit -m "feat(ebay): register ebay_sales and ebay_scrape DB repositories"
 ```
 
@@ -1028,7 +1028,7 @@ from automana.core.repositories.app_integration.ebay.app_repository import EbayA
 from automana.core.repositories.app_integration.ebay.sales_repository import EbaySalesRepository
 from automana.core.repositories.app_integration.ebay.ApiSelling_repository import EbaySellingRepository
 from automana.core.repositories.card_catalog.card_repository import CardRepository
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 from automana.core.services.app_integration.ebay._auth_context import resolve_token
 from automana.core.services.app_integration.ebay.market_price_scorer import score_title
 
@@ -1323,12 +1323,12 @@ from automana.core.repositories.app_integration.ebay.sales_repository import Eba
 from automana.core.repositories.pricing.ebay_scrape_repository import EbayScrapeSoldRepository
 from automana.core.repositories.card_catalog.card_repository import CardRepository
 from automana.core.repositories.app_integration.ebay.ApiFinding_repository import EbayFindingAPIRepository
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 from automana.core.services.app_integration.ebay.market_price_scorer import (
     build_query_string,
     score_title,
 )
-from automana.core.settings import get_settings
+from automana.core.config.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -1603,7 +1603,7 @@ from typing import Any
 
 from automana.core.repositories.app_integration.ebay.sales_repository import EbaySalesRepository
 from automana.core.repositories.pricing.ebay_scrape_repository import EbayScrapeSoldRepository
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -1754,11 +1754,11 @@ git commit -m "feat(ebay): add promote_sold_obs service — both channels to pri
 ## Task 10: Register Services in service_modules.py
 
 **Files:**
-- Modify: `src/automana/core/service_modules.py`
+- Modify: `src/automana/core/framework/service_modules.py`
 
 - [ ] **Step 10.1 — Add 3 new module paths**
 
-In `src/automana/core/service_modules.py`, find the block containing `"automana.core.services.app_integration.ebay.fulfillment_service"` (appears in both `"backend"` and `"all"` lists). After `fulfillment_service` in each list, add:
+In `src/automana/core/framework/service_modules.py`, find the block containing `"automana.core.services.app_integration.ebay.fulfillment_service"` (appears in both `"backend"` and `"all"` lists). After `fulfillment_service` in each list, add:
 
 ```python
 "automana.core.services.app_integration.ebay.sales_sync_service",
@@ -1770,8 +1770,8 @@ In `src/automana/core/service_modules.py`, find the block containing `"automana.
 
 ```bash
 .venv/bin/python -c "
-import automana.core.service_modules  # triggers module loading
-from automana.core.service_registry import ServiceRegistry
+import automana.core.framework.service_modules  # triggers module loading
+from automana.core.framework.registry import ServiceRegistry
 for path in [
     'integrations.ebay.track_active_listing',
     'integrations.ebay.sync_own_sales',
@@ -1788,7 +1788,7 @@ Expected: 4 lines, each showing the correct repo lists without errors.
 - [ ] **Step 10.3 — Commit**
 
 ```bash
-git add src/automana/core/service_modules.py
+git add src/automana/core/framework/service_modules.py
 git commit -m "feat(ebay): register sales_sync, scrape_sold, promote_sold_obs in service_modules"
 ```
 
@@ -1812,7 +1812,7 @@ from datetime import datetime
 from celery import shared_task
 
 from automana.worker.main import run_service
-from automana.core.logging_context import set_task_id
+from automana.core.log.logging_context import set_task_id
 
 logger = logging.getLogger(__name__)
 

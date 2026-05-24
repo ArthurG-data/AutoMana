@@ -9,7 +9,7 @@ from uuid import UUID
 from automana.core.repositories.app_integration.ebay.auth_repository import EbayAuthRepository
 from automana.core.repositories.app_integration.ebay.app_repository import EbayAppRepository
 from automana.core.repositories.app_integration.ebay.ApiSelling_repository import EbaySellingRepository
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 from automana.core.services.app_integration.ebay._auth_context import resolve_token
 
 logger = logging.getLogger(__name__)

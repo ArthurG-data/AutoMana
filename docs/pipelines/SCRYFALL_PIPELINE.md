@@ -419,7 +419,7 @@ daily_scryfall_data_pipeline (Celery chain)
 
 - **Ops tables** — query `ops.ingestion_runs` + `ops.ingestion_run_steps` for structured step-level status.
 - **Daily analytics report** — `analytics.daily_summary.generate_report` (see [`reporting_services.py`](../src/automana/core/services/analytics/reporting_services.py)) queries new sets/cards in the last 24 hours and posts a summary to Discord.
-- **Structured logs** — all services use the standard Python `logging` module; log records are enriched with request/task context via `core/logging_context.py`.
+- **Structured logs** — all services use the standard Python `logging` module; log records are enriched with request/task context via `core/log/logging_context.py`.
 - **Failed record files** — `failed_cards_*.jsonl` and `failed_sets_*.json` provide row-level debug information without blocking the pipeline.
 
 ---

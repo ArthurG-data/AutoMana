@@ -671,7 +671,7 @@ pipeline = chain(
 ### Complete Service with Tracking
 
 ```python
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 from automana.core.services.ops.pipeline_services import track_step
 from automana.core.repositories.ops.ops_repository import OpsRepository
 from automana.core.repositories.card_catalog.card_repository import CardRepository
@@ -736,9 +736,9 @@ print(f"Pipeline task ID: {pipeline.id}")
 
 ```python
 import asyncio
-from automana.core.service_manager import ServiceManager
-from automana.core.database import init_async_pool
-from automana.core.settings import Settings
+from automana.core.framework.service_manager import ServiceManager
+from automana.core.db.database import init_async_pool
+from automana.core.config.settings import Settings
 
 async def test():
     # Initialize the service manager (usually done in main.py)

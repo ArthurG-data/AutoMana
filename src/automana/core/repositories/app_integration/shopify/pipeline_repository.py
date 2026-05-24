@@ -26,13 +26,16 @@ def _map_variation(variation: str) -> tuple[str, str]:
 
 
 class ShopifyPipelineRepository(AbstractRepository):
+    def __init__(self, connection, executor=None):
+        super().__init__(connection, executor)
+
     @property
     def name(self) -> str:
         return "ShopifyPipelineRepository"
 
     async def get_active_pipeline_markets(self) -> list[dict]:
         """Returns markets that have api_url AND source_id set, including price_source code."""
-        rows = await self.connection.fetch(
+        rows = await self.execute_query(
             """
             SELECT mr.market_id, mr.name, mr.api_url, mr.country_code,
                    mr.source_id, ps.code AS source_code
@@ -49,7 +52,7 @@ class ShopifyPipelineRepository(AbstractRepository):
         """
         if not rows:
             return
-        await self.connection.executemany(
+        await self.execute_many(
             """
             INSERT INTO markets.product_ref (product_shop_id, product_id, market_id, handle, title)
             VALUES ($1, $1, $2, $3, $4)
@@ -65,7 +68,7 @@ class ShopifyPipelineRepository(AbstractRepository):
         """Map tcg_id -> card_version_id (UUID as str). Unmapped IDs are omitted."""
         if not tcg_ids:
             return {}
-        rows = await self.connection.fetch(
+        rows = await self.execute_query(
             """
             SELECT cei.value::BIGINT AS tcg_id, cei.card_version_id::TEXT
             FROM card_catalog.card_external_identifier cei
@@ -74,7 +77,7 @@ class ShopifyPipelineRepository(AbstractRepository):
                AND cir.identifier_name = 'tcgplayer_id'
             WHERE cei.value::BIGINT = ANY($1::BIGINT[])
             """,
-            tcg_ids,
+            (tcg_ids,),
         )
         return {r["tcg_id"]: r["card_version_id"] for r in rows}
 
@@ -93,7 +96,7 @@ class ShopifyPipelineRepository(AbstractRepository):
 
         # Create product_ref + mtg_card_products in one statement via shared CTE UUID.
         # Matches the canonical pattern in 06_prices.sql:2083-2104.
-        await self.connection.execute(
+        await self.execute_command(
             """
             WITH need AS (
                 SELECT cv.card_version_id
@@ -119,11 +122,11 @@ class ShopifyPipelineRepository(AbstractRepository):
             FROM gen
             ON CONFLICT (card_version_id) DO NOTHING
             """,
-            card_version_ids,
+            (card_version_ids,),
         )
 
         # Ensure source_product rows for this source_id
-        await self.connection.execute(
+        await self.execute_command(
             """
             INSERT INTO pricing.source_product (product_id, source_id)
             SELECT mcp.product_id, $2
@@ -131,11 +134,10 @@ class ShopifyPipelineRepository(AbstractRepository):
             JOIN pricing.mtg_card_products mcp ON mcp.card_version_id = cv.card_version_id
             ON CONFLICT (product_id, source_id) DO NOTHING
             """,
-            card_version_ids,
-            source_id,
+            (card_version_ids, source_id),
         )
 
-        rows = await self.connection.fetch(
+        rows = await self.execute_query(
             """
             SELECT mcp.card_version_id::TEXT, sp.source_product_id
             FROM unnest($1::UUID[]) AS cv(card_version_id)
@@ -143,8 +145,7 @@ class ShopifyPipelineRepository(AbstractRepository):
             JOIN pricing.source_product sp
                 ON sp.product_id = mcp.product_id AND sp.source_id = $2
             """,
-            card_version_ids,
-            source_id,
+            (card_version_ids, source_id),
         )
         return {r["card_version_id"]: r["source_product_id"] for r in rows}
 
@@ -164,7 +165,7 @@ class ShopifyPipelineRepository(AbstractRepository):
             )
             for r in df.to_dict("records")
         ]
-        await self.connection.executemany(
+        await self.execute_many(
             """
             INSERT INTO pricing.price_observation
                 (ts_date, price_type_id, finish_id, condition_id, language_id,
@@ -178,11 +179,11 @@ class ShopifyPipelineRepository(AbstractRepository):
         return len(df)
 
     async def truncate_staging(self) -> None:
-        await self.connection.execute("TRUNCATE pricing.shopify_staging_raw;")
+        await self.execute_command("TRUNCATE pricing.shopify_staging_raw;")
 
     async def get_staging_rows(self) -> list[dict]:
         """Fetch all staged rows for promote step."""
-        rows = await self.connection.fetch(
+        rows = await self.execute_query(
             """
             SELECT product_id, date, variation, price, scraped_at, tcg_id, source_id
             FROM pricing.shopify_staging_raw
@@ -193,19 +194,19 @@ class ShopifyPipelineRepository(AbstractRepository):
 
     async def get_reference_ids(self) -> dict:
         """Fetch static reference IDs needed to build price_observation rows."""
-        sell_type = await self.connection.fetchrow(
+        sell_type = await self.execute_fetchrow(
             "SELECT transaction_type_id FROM pricing.transaction_type WHERE transaction_type_code = 'sell'"
         )
-        dp = await self.connection.fetchrow(
+        dp = await self.execute_fetchrow(
             "SELECT data_provider_id FROM pricing.data_provider WHERE code = 'shopify'"
         )
-        lang = await self.connection.fetchrow(
+        lang = await self.execute_fetchrow(
             "SELECT language_id FROM card_catalog.language_ref WHERE language_code = 'en'"
         )
-        conditions = await self.connection.fetch(
+        conditions = await self.execute_query(
             "SELECT code, condition_id FROM pricing.card_condition"
         )
-        finishes = await self.connection.fetch(
+        finishes = await self.execute_query(
             "SELECT code, finish_id FROM card_catalog.card_finished"
         )
         return {

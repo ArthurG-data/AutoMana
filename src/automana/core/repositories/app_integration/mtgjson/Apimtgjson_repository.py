@@ -7,7 +7,7 @@ import logging
 from pathlib import Path
 
 from automana.core.repositories.abstract_repositories.AbstractAPIRepository import BaseApiClient
-from automana.core.settings import Settings
+from automana.core.config.settings import Settings
 
 logger = logging.getLogger(__name__)
 

@@ -14,7 +14,7 @@ import pytest
 
 # Importing the module registers the services via @ServiceRegistry.register.
 import automana.core.services.app_integration.mtg_stock.data_staging as staging
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 
 
 def _fake_folder_fns():

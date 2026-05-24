@@ -1,6 +1,5 @@
-import json
 import logging
-import os
+from typing import AsyncIterator
 
 from automana.core.repositories.abstract_repositories.AbstractAPIRepository import BaseApiClient
 
@@ -19,13 +18,8 @@ class ShopifyAPIRepository(BaseApiClient):
     def _get_base_url(self) -> str:
         return ""
 
-    async def fetch_products_pages(self, api_url: str, source_id: int, data_root: str) -> tuple[str, int]:
-        """Paginate /products.json and write each page as page_N_products.json.
-
-        Returns (out_dir, page_count).
-        """
-        out_dir = os.path.join(data_root, f"{source_id}_fetch")
-        os.makedirs(out_dir, exist_ok=True)
+    async def iter_products_pages(self, api_url: str, source_id: int) -> AsyncIterator[tuple[int, list[dict]]]:
+        """Paginate /products.json, yielding (page_index, products_list) per page."""
         page = 0
         next_url = f"{api_url.rstrip('/')}/products.json?limit=250"
 
@@ -37,9 +31,7 @@ class ShopifyAPIRepository(BaseApiClient):
                 products = data.get("products") or data.get("items") or []
                 if not products:
                     break
-                page_path = os.path.join(out_dir, f"page_{page}_products.json")
-                with open(page_path, "w", encoding="utf-8") as f:
-                    json.dump({"items": products}, f)
+                yield page, products
                 page += 1
                 link_header = response.headers.get("link", "")
                 next_url = None
@@ -47,6 +39,3 @@ class ShopifyAPIRepository(BaseApiClient):
                     if 'rel="next"' in part:
                         next_url = part.split(";")[0].strip().strip("<>")
                         break
-
-        logger.info("shopify_fetch_complete", extra={"source_id": source_id, "pages": page})
-        return out_dir, page

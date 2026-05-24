@@ -83,7 +83,7 @@ class PipelineHealthSnapshotRepository(AbstractRepository[PipelineHealthSnapshot
             )
             for r in rows
         ]
-        await self.connection.executemany(_INSERT_SQL, payload)
+        await self.execute_many(_INSERT_SQL, payload)
 
     async def latest_for_check_set(
         self,
@@ -91,7 +91,7 @@ class PipelineHealthSnapshotRepository(AbstractRepository[PipelineHealthSnapshot
         check_set: str,
         exclude_run_id: uuid.UUID,
     ) -> Optional[dict[str, Any]]:
-        record = await self.connection.fetchrow(_LATEST_SQL, check_set, exclude_run_id)
+        record = await self.execute_fetchrow(_LATEST_SQL, (check_set, exclude_run_id))
         if record is None:
             return None
         d = dict(record)

@@ -6,7 +6,7 @@ from automana.api.repositories.user_management.user_repository import UserReposi
 from uuid import UUID
 from automana.core.exceptions.service_layer_exceptions.user_management import user_exceptions
 import logging
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 
 logger = logging.getLogger(__name__)
 

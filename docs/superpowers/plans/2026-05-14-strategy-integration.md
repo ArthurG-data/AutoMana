@@ -32,7 +32,7 @@
 ### Modified files
 | Path | Change |
 |------|--------|
-| `src/automana/core/service_modules.py` | Register recommendation + action services |
+| `src/automana/core/framework/service_modules.py` | Register recommendation + action services |
 | `src/automana/api/routers/integrations/ebay/__init__.py` | Include recommendations router |
 | `src/automana/worker/celeryconfig.py` | Add `ebay_actions` to imports + beat schedule |
 | `src/frontend/src/features/ebay/mockListings.ts` | Extend `EbayLiveListing` with `recommendation` + `pendingAction` |
@@ -209,7 +209,7 @@ from dataclasses import dataclass, field
 from typing import Literal, Optional
 from uuid import UUID
 
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 from automana.core.services.analytics.strategies import (
     CompetitiveStrategy,
     PremiumStrategy,
@@ -589,9 +589,9 @@ cd src/automana && python -m pytest tests/unit/repositories/ebay/test_listing_ac
 
 Expected: 6 passed.
 
-- [ ] **Step 5: Register the repository in service_registry.py**
+- [ ] **Step 5: Register the repository in framework/wiring.py**
 
-In `src/automana/core/service_registry.py`, find the `# Integration repositories` block and add:
+In `src/automana/core/framework/registry.py`, find the `# Integration repositories` block and add:
 
 ```python
 ServiceRegistry.register_db_repository(
@@ -605,7 +605,7 @@ ServiceRegistry.register_db_repository(
 
 ```bash
 cd src && python -c "
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 entry = ServiceRegistry.get_db_repository('listing_actions')
 print('Registered:', entry)
 "
@@ -618,7 +618,7 @@ Expected: `Registered: ('automana.core.repositories.app_integration.ebay.listing
 ```bash
 git add src/automana/core/repositories/app_integration/ebay/listing_actions_repository.py \
         src/automana/tests/unit/repositories/ebay/test_listing_actions_repository.py \
-        src/automana/core/service_registry.py
+        src/automana/core/framework/registry.py
 git commit -m "feat(ebay): add EbayListingActionsRepository + registry entry"
 ```
 
@@ -642,7 +642,7 @@ from uuid import UUID
 from automana.core.repositories.app_integration.ebay.listing_actions_repository import (
     EbayListingActionsRepository,
 )
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -860,13 +860,13 @@ git commit -m "feat(ebay): add recommendation + action endpoints"
 ## Task 6: Register Services + Celery Drain Task
 
 **Files:**
-- Modify: `src/automana/core/service_modules.py`
+- Modify: `src/automana/core/framework/service_modules.py`
 - Create: `src/automana/worker/tasks/ebay_actions.py`
 - Modify: `src/automana/worker/celeryconfig.py`
 
 - [ ] **Step 1: Register services in service_modules.py**
 
-In `src/automana/core/service_modules.py`, add to both `"backend"` and `"celery"` lists:
+In `src/automana/core/framework/service_modules.py`, add to both `"backend"` and `"celery"` lists:
 
 ```python
 # Add to the "backend" list (after the last ebay service entry):
@@ -978,7 +978,7 @@ Expected: `OK`
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/automana/core/service_modules.py \
+git add src/automana/core/framework/service_modules.py \
         src/automana/worker/tasks/ebay_actions.py \
         src/automana/worker/celeryconfig.py
 git commit -m "feat(celery): add drain_listing_actions task + register action services"

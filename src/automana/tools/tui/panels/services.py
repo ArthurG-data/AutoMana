@@ -101,7 +101,7 @@ class ServicesPanel(Vertical):
         viewer: JsonViewer = self.query_one("#json-viewer", JsonViewer)
         viewer.show_info("Loading services...")
         try:
-            from automana.core.service_registry import ServiceRegistry
+            from automana.core.framework.registry import ServiceRegistry
             keys = sorted(ServiceRegistry.list_services())
             tree: ServiceTree = self.query_one("#service-tree", ServiceTree)
             tree.populate(keys)
@@ -141,7 +141,7 @@ class ServicesPanel(Vertical):
 
         try:
             # Re-bootstrap only if the DB user changed from the pool's user
-            from automana.core.service_manager import ServiceManager
+            from automana.core.framework.service_manager import ServiceManager
             t0 = time.perf_counter()
             result = await ServiceManager.execute_service(self._selected_service, **kwargs)
             elapsed = (time.perf_counter() - t0) * 1000

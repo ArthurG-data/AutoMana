@@ -20,7 +20,7 @@ class MarketRepository(AbstractRepository):
 
     async def get_market_code(self, name: str) -> Optional[str]:
         """Get a market by name"""
-        query = "SELECT source_id FROM price_source WHERE code = $1;"
+        query = "SELECT source_id FROM pricing.price_source WHERE code = $1;"
         result = await self.execute_query(
             query,
             (name,)
@@ -29,9 +29,9 @@ class MarketRepository(AbstractRepository):
     
     async def get(self, id: int) -> Market_Model.Market | None:
         """Get a market by ID"""
-        result = await self.connection.fetchrow(
+        result = await self.execute_fetchrow(
             queries.select_market_id_query,
-            id
+            (id,)
         )
         return result if result else None
 
@@ -63,22 +63,22 @@ class MarketRepository(AbstractRepository):
         query = f"{query_parts[0]} {', '.join(set_clauses)} WHERE market_id = $1"
     
     # Execute the query
-        await self.connection.execute(query, *values)
+        await self.execute_command(query, tuple(values))
 
     async def delete(self, id: int):
         """Delete a market from the database"""
-        await self.connection.execute(
+        await self.execute_command(
             """
             DELETE FROM markets WHERE market_id = $1;
             """,
-            id
+            (id,)
         )
     
     async def list(
         self,
     ) -> List[Market_Model.MarketInDb]:
        
-        rows = await self.connection.fetch(
+        rows = await self.execute_query(
             queries.select_all_markets_query
         )
         items = [Market_Model.MarketInDb(**dict(row)) for row in rows]

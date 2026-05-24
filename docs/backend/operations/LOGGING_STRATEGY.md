@@ -3,8 +3,8 @@
 AutoMana uses structured, context-aware logging built on Python's standard `logging` module. This design ensures that all logs are machine-readable, traceable across async operations, and queryable by request or task ID.
 
 **Related files:**
-- `src/automana/core/logging_context.py` — Context variable management
-- `src/automana/core/logging_config.py` — Root logger setup, formatters, filters
+- `src/automana/core/log/logging_context.py` — Context variable management
+- `src/automana/core/log/logging_config.py` — Root logger setup, formatters, filters
 - `docs/LOGGING.md` — Quick reference
 
 ---
@@ -18,7 +18,7 @@ Call `configure_logging()` once per process at startup. The function is idempote
 **FastAPI entrypoint** (`src/automana/api/main.py`):
 
 ```python
-from automana.core.logging_config import configure_logging
+from automana.core.log.logging_config import configure_logging
 configure_logging()
 logger = logging.getLogger(__name__)
 logger.info("Application startup initiated")
@@ -27,7 +27,7 @@ logger.info("Application startup initiated")
 **Celery worker entrypoint** (e.g., `src/automana/worker/__main__.py`):
 
 ```python
-from automana.core.logging_config import configure_logging
+from automana.core.log.logging_config import configure_logging
 configure_logging()
 logger = logging.getLogger(__name__)
 ```
@@ -184,7 +184,7 @@ logger.critical("Redis unreachable; caching disabled", extra={"redis_url": "..."
 
 Context is stored in `contextvars.ContextVar` — each asyncio coroutine (HTTP request or Celery task) gets its own isolated copy. This ensures concurrent requests never bleed context into each other.
 
-**Defined in** `src/automana/core/logging_context.py`:
+**Defined in** `src/automana/core/log/logging_context.py`:
 
 ### request_id
 
@@ -470,8 +470,8 @@ Context variables are O(1) — reading them is a simple dict lookup and carries 
 ```python
 import logging
 from fastapi import FastAPI
-from automana.core.logging_config import configure_logging
-from automana.core.logging_context import set_request_id, get_request_id
+from automana.core.log.logging_config import configure_logging
+from automana.core.log.logging_context import set_request_id, get_request_id
 
 configure_logging()
 logger = logging.getLogger(__name__)
@@ -505,7 +505,7 @@ async def get_card(card_id: int):
 ```python
 import logging
 from celery import shared_task
-from automana.core.logging_context import get_task_id
+from automana.core.log.logging_context import get_task_id
 
 logger = logging.getLogger(__name__)
 
@@ -549,7 +549,7 @@ def process_card_batch(batch_id: int):
 
 ```python
 import logging
-from automana.core.logging_context import get_service_path
+from automana.core.log.logging_context import get_service_path
 
 logger = logging.getLogger(__name__)
 

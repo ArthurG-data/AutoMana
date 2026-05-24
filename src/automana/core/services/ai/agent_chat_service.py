@@ -12,7 +12,7 @@ from redis.exceptions import RedisError
 
 from automana.core.repositories.ai.ollama_repository import OllamaAPIRepository
 from automana.core.services.ai.agent_tools import TOOL_MAP, TOOL_SCHEMAS
-from automana.core.settings import get_settings
+from automana.core.config.settings import get_settings
 
 logger = logging.getLogger(__name__)
 

@@ -7,7 +7,7 @@ from uuid import UUID
 
 from automana.core.repositories.abstract_repositories.AbstractDBRepository import AbstractRepository
 from automana.core.repositories.app_integration.ebay import auth_queries
-from automana.core.settings import get_settings as get_general_settings
+from automana.core.config.settings import get_settings as get_general_settings
 from automana.core.utils.crypto import get_pgp_key
 
 

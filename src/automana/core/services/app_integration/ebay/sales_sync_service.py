@@ -26,7 +26,7 @@ from automana.core.repositories.app_integration.ebay.sales_repository import (
 from automana.core.repositories.card_catalog.card_repository import (
     CardReferenceRepository,
 )
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 from automana.core.services.app_integration.ebay._auth_context import resolve_token
 from automana.core.services.app_integration.ebay.market_price_scorer import score_title
 from automana.core.models.ebay.listings import FulfillmentResponse, LineItemType

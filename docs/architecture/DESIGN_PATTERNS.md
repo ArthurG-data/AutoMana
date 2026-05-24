@@ -33,7 +33,7 @@ This document catalogues every distinct design pattern found in the AutoMana cod
 
 ## 1. Singleton
 
-**Where:** [`src/automana/core/service_manager.py`](../src/automana/core/service_manager.py), lines 14--27
+**Where:** [`src/automana/core/framework/service_manager.py`](../src/automana/core/framework/service_manager.py), lines 14--27
 
 **Implementation:** `ServiceManager` overrides `__new__` to ensure only one instance exists across the entire process. The `_initialized` flag prevents `__init__` from running more than once. A class-level `_instance` attribute holds the singleton.
 
@@ -54,7 +54,7 @@ class ServiceManager:
 
 ## 2. Service Registry (Registry Pattern)
 
-**Where:** [`src/automana/core/service_registry.py`](../src/automana/core/service_registry.py), entire file (lines 1--215)
+**Where:** [`src/automana/core/framework/registry.py`](../src/automana/core/framework/registry.py), entire file (lines 1--215)
 
 **Implementation:** `ServiceRegistry` is a class with class-level dictionaries that act as in-memory registries:
 
@@ -104,7 +104,7 @@ Services register via the `@register` decorator. Repositories and storages are r
 - FastAPI DI: [`src/automana/api/dependancies/service_deps.py`](../src/automana/api/dependancies/service_deps.py) (lines 1--44)
 - Auth DI: [`src/automana/api/dependancies/auth/users.py`](../src/automana/api/dependancies/auth/users.py) (lines 1--50)
 - Query params DI: [`src/automana/api/dependancies/query_deps.py`](../src/automana/api/dependancies/query_deps.py) (lines 1--121)
-- ServiceManager-level DI: [`src/automana/core/service_manager.py`](../src/automana/core/service_manager.py), `_execute_service` method (lines 177--244)
+- ServiceManager-level DI: [`src/automana/core/framework/service_manager.py`](../src/automana/core/framework/service_manager.py), `_execute_service` method (lines 177--244)
 
 **Implementation:** Two levels of DI operate in AutoMana:
 
@@ -118,7 +118,7 @@ Services register via the `@register` decorator. Repositories and storages are r
 
 ## 6. Decorator (Registration Decorator)
 
-**Where:** [`src/automana/core/service_registry.py`](../src/automana/core/service_registry.py), `register` classmethod (lines 33--62)
+**Where:** [`src/automana/core/framework/registry.py`](../src/automana/core/framework/registry.py), `register` classmethod (lines 33--62)
 
 **Implementation:** `@ServiceRegistry.register(path, db_repositories=[...], ...)` wraps a function without modifying its behavior. The decorator's sole purpose is the side effect of registering the function's metadata (module, function name, dependency declarations) in the `_services` dictionary.
 
@@ -170,7 +170,7 @@ wf = chain(
 
 **Where:**
 - Storage backends: [`src/automana/core/storage.py`](../src/automana/core/storage.py) -- `StorageBackend` ABC (lines 13--50) and `LocalStorageBackend` (lines 51--193)
-- Query executors: [`src/automana/core/QueryExecutor.py`](../src/automana/core/QueryExecutor.py) -- `QueryExecutor` ABC (lines 13--44), `SyncQueryExecutor` (lines 46--74), `AsyncQueryExecutor` (lines 77--124)
+- Query executors: [`src/automana/core/db/query_executor.py`](../src/automana/core/db/query_executor.py) -- `QueryExecutor` ABC (lines 13--44), `SyncQueryExecutor` (lines 46--74), `AsyncQueryExecutor` (lines 77--124)
 - Exception handlers: [`src/automana/api/request_handling/ErrorHandler.py`](../src/automana/api/request_handling/ErrorHandler.py) -- `ExceptionHandler` protocol (lines 10--30), `Psycopg2ExceptionHandler` (lines 32--52), `AsyncpgExceptionHandler` (lines 54--70)
 
 **Implementation:** In each case, an abstract interface defines the contract (e.g., `save`, `load`, `delete` for storage; `execute_query`, `execute_command` for query execution; `handle`, `handle_async` for error handling). Concrete implementations provide the behavior. The consumer (`StorageService`, `AbstractRepository`, `AsyncQueryExecutor`) receives the strategy at construction time.
@@ -195,7 +195,7 @@ Similarly, `BaseApiClient` in [`AbstractAPIRepository.py`](../src/automana/core/
 
 **Where:**
 - [`src/automana/core/storage.py`](../src/automana/core/storage.py), `StorageService` class (lines 195--261)
-- [`src/automana/core/service_manager.py`](../src/automana/core/service_manager.py), `ServiceManager` class
+- [`src/automana/core/framework/service_manager.py`](../src/automana/core/framework/service_manager.py), `ServiceManager` class
 
 **Implementation:** `StorageService` wraps a `StorageBackend` and exposes higher-level operations (`save_json`, `load_json`, `save_binary`, `save_with_timestamp`, `list_directory`, etc.) that combine backend primitives with naming conventions and format handling. Services interact with `StorageService` without knowing which backend is in use.
 
@@ -207,7 +207,7 @@ Similarly, `BaseApiClient` in [`AbstractAPIRepository.py`](../src/automana/core/
 
 ## 12. Factory (Dynamic Instantiation)
 
-**Where:** [`src/automana/core/service_manager.py`](../src/automana/core/service_manager.py), `_execute_service` method (lines 177--244) and `get_storage_service` method (lines 128--159)
+**Where:** [`src/automana/core/framework/service_manager.py`](../src/automana/core/framework/service_manager.py), `_execute_service` method (lines 177--244) and `get_storage_service` method (lines 128--159)
 
 **Implementation:** When `_execute_service` runs, it dynamically imports repository modules and instantiates repository classes based on the registered module path and class name. It passes the current DB connection and query executor to DB repositories, and the environment to API repositories. `get_storage_service` similarly resolves a named storage to a backend class and instantiates it with the appropriate config.
 
@@ -225,7 +225,7 @@ repositories[f"{repo_type}_repository"] = repo_class(conn, self.query_executor)
 ## 13. Abstract Base Class (Interface Segregation)
 
 **Where:**
-- [`src/automana/core/QueryExecutor.py`](../src/automana/core/QueryExecutor.py), `QueryExecutor` ABC (lines 13--44)
+- [`src/automana/core/db/query_executor.py`](../src/automana/core/db/query_executor.py), `QueryExecutor` ABC (lines 13--44)
 - [`src/automana/core/storage.py`](../src/automana/core/storage.py), `StorageBackend` ABC (lines 13--50)
 - [`src/automana/core/repositories/abstract_repositories/AbstractDBRepository.py`](../src/automana/core/repositories/abstract_repositories/AbstractDBRepository.py), `AbstractRepository` ABC (lines 9--92)
 - [`src/automana/api/request_handling/ErrorHandler.py`](../src/automana/api/request_handling/ErrorHandler.py), `ExceptionHandler` protocol (lines 10--30)
@@ -285,7 +285,7 @@ def _shutdown(**_):
 
 ## 17. Unit of Work (Transaction Wrapper)
 
-**Where:** [`src/automana/core/service_manager.py`](../src/automana/core/service_manager.py), `transaction` async context manager (lines 69--86)
+**Where:** [`src/automana/core/framework/service_manager.py`](../src/automana/core/framework/service_manager.py), `transaction` async context manager (lines 69--86)
 
 **Implementation:** The `transaction()` method acquires a connection from the pool, starts a database transaction, yields the connection, and either commits on success or rolls back on exception. Every service execution goes through this context manager (line 202: `async with self.transaction() as conn:`).
 
@@ -312,7 +312,7 @@ async def transaction(self):
 ## 18. Idempotent Guard
 
 **Where:**
-- Logging: [`src/automana/core/logging_config.py`](../src/automana/core/logging_config.py), `configure_logging` function (lines 52--70) -- uses `_automana_configured` flag
+- Logging: [`src/automana/core/log/logging_config.py`](../src/automana/core/log/logging_config.py), `configure_logging` function (lines 52--70) -- uses `_automana_configured` flag
 - Pipeline runs: [`src/automana/core/repositories/ops/ops_repository.py`](../src/automana/core/repositories/ops/ops_repository.py), `start_run` method (lines 43--140) -- uses `ON CONFLICT` with CTE guard `already_started_successfully`
 
 **Implementation:** `configure_logging()` checks a custom flag on the root logger (`_automana_configured`) and returns immediately if already set. This allows it to be called safely from both module-level code and signal handlers. The `start_run` SQL uses a CTE that checks whether a run with the same `(pipeline_name, source_id, run_key)` has already completed its start step; if so, the INSERT is skipped entirely.
@@ -324,7 +324,7 @@ async def transaction(self):
 ## 19. Retry with Exponential Backoff
 
 **Where:**
-- DB pool creation: [`src/automana/core/database.py`](../src/automana/core/database.py), `init_async_pool` (lines 16--55) and `init_sync_pool_with_retry` (lines 70--101)
+- DB pool creation: [`src/automana/core/db/database.py`](../src/automana/core/db/database.py), `init_async_pool` (lines 16--55) and `init_sync_pool_with_retry` (lines 70--101)
 - HTTP client: [`src/automana/worker/http_utils.py`](../src/automana/worker/http_utils.py), `get` function (lines 7--17)
 - Celery `run_service` task: [`src/automana/worker/main.py`](../src/automana/worker/main.py), lines 32--37 (`autoretry_for`, `retry_backoff=True`)
 
@@ -376,7 +376,7 @@ ServiceError (base)
 
 ## 22. Module Namespace Selector
 
-**Where:** [`src/automana/core/service_modules.py`](../src/automana/core/service_modules.py), `SERVICE_MODULES` dict (lines 1--47)
+**Where:** [`src/automana/core/framework/service_modules.py`](../src/automana/core/framework/service_modules.py), `SERVICE_MODULES` dict (lines 1--47)
 
 **Implementation:** A dictionary maps namespace names (`"backend"`, `"celery"`, `"all"`) to lists of service module paths. During `ServiceManager._discover_services()`, the active namespace (from `settings.modules_namespace`) determines which modules are imported. Modules not in the list are never loaded, so their `@ServiceRegistry.register` decorators never fire.
 
@@ -428,11 +428,11 @@ async with track_step(ops_repository, ingestion_run_id, "my_step"):
 | Pattern | Primary Location | Also Used In |
 |---|---|---|
 | Singleton | `service_manager.py` | |
-| Registry | `service_registry.py` | |
+| Registry | `core/framework/registry.py` | |
 | Service Layer | `core/services/` | |
 | Repository | `core/repositories/` | `api/repositories/` |
 | Dependency Injection | `api/dependancies/`, `service_manager.py` | |
-| Decorator | `service_registry.py` | |
+| Decorator | `core/framework/registry.py` | |
 | Chain of Responsibility | `worker/tasks/pipelines.py` | |
 | Context Object | `worker/main.py` (run_service) | |
 | Strategy | `storage.py`, `QueryExecutor.py`, `ErrorHandler.py` | |

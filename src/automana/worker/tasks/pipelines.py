@@ -1,7 +1,7 @@
 from celery import group, shared_task, chain
 import logging
 from automana.worker.main import run_service
-from automana.core.logging_context import set_task_id
+from automana.core.log.logging_context import set_task_id
 from datetime import datetime
 
 logger = logging.getLogger(__name__)

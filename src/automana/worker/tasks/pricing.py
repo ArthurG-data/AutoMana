@@ -2,7 +2,7 @@ from celery import shared_task
 import logging
 from datetime import datetime, date, timedelta
 from automana.worker.main import run_service
-from automana.core.logging_context import set_task_id
+from automana.core.log.logging_context import set_task_id
 import automana.core.services.pricing.fetch_fx_rates_service  # noqa: F401
 
 logger = logging.getLogger(__name__)

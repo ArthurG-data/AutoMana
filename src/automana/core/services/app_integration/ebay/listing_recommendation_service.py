@@ -6,7 +6,7 @@ from datetime import date, timedelta
 from typing import Literal, Optional
 from uuid import UUID
 
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 from automana.core.services.analytics.strategies import (
     CompetitiveStrategy,
     PremiumStrategy,

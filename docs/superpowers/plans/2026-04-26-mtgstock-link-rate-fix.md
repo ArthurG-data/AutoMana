@@ -206,7 +206,7 @@ cd /home/arthur/projects/AutoMana
 
 # Get the connection string from settings
 PGPASSWORD=$(./.venv/bin/python -c \
-  "from automana.core.settings import get_settings; s=get_settings(); print(s.APP_ADMIN_PASSWORD)" \
+  "from automana.core.config.settings import get_settings; s=get_settings(); print(s.APP_ADMIN_PASSWORD)" \
   2>/dev/null)
 
 psql -h localhost -p 5433 -U app_admin -d automana \

@@ -148,7 +148,7 @@ from concurrent.futures import ThreadPoolExecutor
 import asyncpg, psycopg2
 import logging
 from typing import Optional, TypeVar, Generic, Union
-from automana.core.QueryExecutor import QueryExecutor
+from automana.core.db.query_executor import QueryExecutor
 
 logger = logging.getLogger(__name__)
 

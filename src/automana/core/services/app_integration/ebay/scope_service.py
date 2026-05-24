@@ -1,7 +1,7 @@
 from typing import Optional
 
 from automana.core.repositories.app_integration.ebay.auth_repository import EbayAuthRepository
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 
 
 async def register_scope(repository, scope: str, scope_description: Optional[str]):

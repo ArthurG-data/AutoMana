@@ -5,7 +5,7 @@ import orjson
 from redis.asyncio import Redis
 from redis.exceptions import RedisError
 
-from automana.core.settings import get_settings
+from automana.core.config.settings import get_settings
 
 logger = logging.getLogger(__name__)
 

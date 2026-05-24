@@ -12,7 +12,7 @@ The AutoMana backend uses a sophisticated service discovery pattern called **Ser
 4. **Executes** service functions with dependency injection
 5. **Handles** connection acquisition and cleanup
 
-**Location**: `src/automana/core/service_manager.py`
+**Location**: `src/automana/core/framework/service_manager.py`
 
 ### Singleton Pattern
 
@@ -44,8 +44,8 @@ In `src/automana/api/main.py`, the app's lifespan context manager initializes `S
 async def lifespan(app: FastAPI):
     try:
         settings = get_settings()
-        from automana.core.database import init_async_pool
-        from automana.core.service_manager import ServiceManager
+        from automana.core.db.database import init_async_pool
+        from automana.core.framework.service_manager import ServiceManager
         
         app.state.async_db_pool = await init_async_pool(settings)
         
@@ -351,8 +351,8 @@ At app startup, `ServiceManager.initialize()` calls `_discover_services()`:
 ```python
 def _discover_services(self):
     """Import all service modules to register them"""
-    from automana.core.settings import get_settings
-    from automana.core.data_loader import load_services
+    from automana.core.config.settings import get_settings
+    from automana.core.framework.data_loader import load_services
     
     settings = get_settings()
     module_namespace = getattr(settings, "modules_namespace")
@@ -497,7 +497,7 @@ async def get_card(
 
 ```python
 from celery import shared_task
-from automana.core.service_manager import ServiceManager
+from automana.core.framework.service_manager import ServiceManager
 
 @shared_task(bind=True)
 def sync_scryfall_prices(self):
@@ -529,7 +529,7 @@ Create a new file in the appropriate service directory, e.g., `src/automana/core
 import logging
 from automana.core.repositories.cards.card_repository import CardRepository
 from automana.core.repositories.pricing.price_repository import PriceRepository
-from automana.core.service_registry import ServiceRegistry
+from automana.core.framework.registry import ServiceRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -596,7 +596,7 @@ async def search_service(
 
 ### Step 2: Ensure Service Module Is Discovered
 
-The service module must be imported during startup. Check `src/automana/core/service_modules.py`:
+The service module must be imported during startup. Check `src/automana/core/framework/service_modules.py`:
 
 ```python
 SERVICE_MODULES = {
@@ -611,7 +611,7 @@ SERVICE_MODULES = {
 
 ### Step 3: Register Required Repositories (if new types)
 
-If your service uses a new repository type (e.g., `"my_new_repo"`), register it in `src/automana/core/service_registry.py`:
+If your service uses a new repository type (e.g., `"my_new_repo"`), register it in `src/automana/core/framework/registry.py`:
 
 ```python
 class ServiceRegistry:
@@ -823,5 +823,5 @@ async def test_search_service_integration(async_service_manager):
 
 - [`docs/LAYERED_ARCHITECTURE.md`](LAYERED_ARCHITECTURE.md) — Layer 2: Service responsibilities
 - [`docs/DESIGN_PATTERNS.md`](../../DESIGN_PATTERNS.md) — Service patterns and best practices
-- [`src/automana/core/service_registry.py`](../../src/automana/core/service_registry.py) — ServiceRegistry implementation
-- [`src/automana/core/service_manager.py`](../../src/automana/core/service_manager.py) — ServiceManager implementation
+- [`src/automana/core/framework/registry.py`](../../src/automana/core/framework/registry.py) — ServiceRegistry implementation
+- [`src/automana/core/framework/service_manager.py`](../../src/automana/core/framework/service_manager.py) — ServiceManager implementation
