@@ -328,3 +328,26 @@ async def cleanup_raw_files(
         },
     )
     return {"files_deleted": deleted}
+
+
+@ServiceRegistry.register(
+    "staging.mtgjson.cleanup_staging_db",
+    db_repositories=["mtgjson"],
+)
+async def cleanup_staging_db(
+    mtgjson_repository: MtgjsonRepository,
+) -> dict:
+    """Truncate any remaining rows from mtgjson_card_prices_staging after promotion.
+
+    Rows that survive promotion are unresolvable (no catalog entry for their UUID).
+    Logging them as a warning makes the residual visible without failing the pipeline.
+    """
+    unresolved = await mtgjson_repository.truncate_staging_after_promotion()
+    if unresolved:
+        logger.warning(
+            "MTGJson staging cleanup: unresolved rows deleted",
+            extra={"unresolved_rows": unresolved},
+        )
+    else:
+        logger.info("MTGJson staging cleanup: staging table is clean")
+    return {"staging_rows_deleted": unresolved}
