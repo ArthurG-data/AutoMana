@@ -31,6 +31,7 @@ TEST_ROLES_SQL = PROJECT_ROOT / "infra" / "db" / "init" / "00-test-roles.sql"
 SCHEMAS_DIR = PROJECT_ROOT / "src" / "automana" / "database" / "SQL" / "schemas"
 ANALYTICS_DIR = PROJECT_ROOT / "src" / "automana" / "database" / "SQL" / "analytics"
 MIGRATIONS_DIR = PROJECT_ROOT / "infra" / "db" / "init" / "migrations"
+SRC_MIGRATIONS_DIR = PROJECT_ROOT / "src" / "automana" / "database" / "SQL" / "migrations"
 
 
 # -----------------------------------------------------------------------------
@@ -130,6 +131,7 @@ def _collect_sql_files() -> list[pathlib.Path]:
         files.append(integrity)
     files.extend(sorted(ANALYTICS_DIR.glob("*.sql")))
     files.extend(sorted(MIGRATIONS_DIR.glob("*.sql")))
+    files.extend(sorted(SRC_MIGRATIONS_DIR.glob("migration_*.sql")))
     return files
 
 

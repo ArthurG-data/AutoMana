@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
 
 import asyncpg
 import pytest_asyncio
@@ -96,9 +95,10 @@ async def seeded_db(db_pool):
         ebay_source_id = await conn.fetchval(
             "SELECT source_id FROM pricing.price_source WHERE code = 'ebay'"
         )
+        assert ebay_source_id is not None, "pricing.price_source has no 'ebay' row — check schema seed"
         source_product_id = await conn.fetchval(
             "INSERT INTO pricing.source_product (product_id, source_id) VALUES ($1, $2) "
-            "ON CONFLICT (product_id, source_id) DO UPDATE SET source_id = EXCLUDED.source_id "
+            "ON CONFLICT (product_id, source_id) DO UPDATE SET product_id = EXCLUDED.product_id "
             "RETURNING source_product_id",
             product_id, ebay_source_id,
         )
@@ -107,6 +107,7 @@ async def seeded_db(db_pool):
         language_id = await conn.fetchval(
             "SELECT language_id FROM card_catalog.language_ref WHERE language_code = 'en'"
         )
+        assert language_id is not None, "card_catalog.language_ref has no 'en' row — check schema seed"
 
     yield {
         "card_name": card_name,
