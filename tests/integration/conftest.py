@@ -31,6 +31,7 @@ TEST_ROLES_SQL = PROJECT_ROOT / "infra" / "db" / "init" / "00-test-roles.sql"
 SCHEMAS_DIR = PROJECT_ROOT / "src" / "automana" / "database" / "SQL" / "schemas"
 ANALYTICS_DIR = PROJECT_ROOT / "src" / "automana" / "database" / "SQL" / "analytics"
 MIGRATIONS_DIR = PROJECT_ROOT / "infra" / "db" / "init" / "migrations"
+SRC_MIGRATIONS_DIR = PROJECT_ROOT / "src" / "automana" / "database" / "SQL" / "migrations"
 
 
 # -----------------------------------------------------------------------------
@@ -130,6 +131,7 @@ def _collect_sql_files() -> list[pathlib.Path]:
         files.append(integrity)
     files.extend(sorted(ANALYTICS_DIR.glob("*.sql")))
     files.extend(sorted(MIGRATIONS_DIR.glob("*.sql")))
+    files.extend(sorted(SRC_MIGRATIONS_DIR.glob("migration_*.sql")))
     return files
 
 
@@ -155,6 +157,26 @@ def db_migrations_applied(timescale_container, _test_env):
                     continue
                 try:
                     cur.execute(body)
+                except (
+                    psycopg2.errors.DuplicateTable,
+                    psycopg2.errors.DuplicateObject,
+                    psycopg2.errors.DuplicateFunction,
+                    psycopg2.errors.DuplicateSchema,
+                    psycopg2.errors.DuplicateColumn,
+                ) as dup_exc:
+                    # Schema files are kept in sync with migrations (post-migration
+                    # state). Running schemas then migrations on a fresh container means
+                    # some migration DDL (CREATE VIEW, ADD COLUMN, etc.) is already
+                    # applied by the schema file. Tolerate the duplicate and continue.
+                    # Some migrations wrap DDL in BEGIN/COMMIT; even with conn.autocommit=True
+                    # at the driver level, the error inside an explicit BEGIN block leaves
+                    # Postgres in an aborted-transaction state. Send ROLLBACK through the
+                    # cursor directly so the server clears the failed transaction.
+                    print(f"\n[test-migration] Duplicate DDL in {sql_file.name} — rolling back remainder: {dup_exc}")
+                    try:
+                        cur.execute("ROLLBACK")
+                    except Exception:
+                        pass
                 except Exception as exc:
                     raise RuntimeError(f"Migration failed: {sql_file} -> {exc}") from exc
     finally:

@@ -7,6 +7,7 @@ import styles from './CollectionGrid.module.css'
 interface CollectionGridProps {
   entries: CollectionEntry[]
   onRemove: (itemId: string) => void
+  showFinancials?: boolean
 }
 
 function finishBadgeClass(finish: CollectionEntry['finish']): string {
@@ -21,7 +22,7 @@ function toCardArtFinish(finish: CollectionEntry['finish']): 'non-foil' | 'foil'
   return 'etched'
 }
 
-export function CollectionGrid({ entries, onRemove }: CollectionGridProps) {
+export function CollectionGrid({ entries, onRemove, showFinancials = true }: CollectionGridProps) {
   const groups = groupEntries(entries)
 
   if (groups.length === 0) {
@@ -67,11 +68,15 @@ export function CollectionGrid({ entries, onRemove }: CollectionGridProps) {
                           {copy.finish.toLowerCase()}
                         </span>
                       )}
-                      <span className={styles.copyPrice}>{formatUSD(copy.price)}</span>
-                      {plLabel != null && (
-                        <span className={`${styles.pl} ${pl! >= 0 ? styles.plUp : styles.plDown}`}>
-                          {plLabel}
-                        </span>
+                      {showFinancials && (
+                        <>
+                          <span className={styles.copyPrice}>{formatUSD(copy.price)}</span>
+                          {plLabel != null && (
+                            <span className={`${styles.pl} ${pl! >= 0 ? styles.plUp : styles.plDown}`}>
+                              {plLabel}
+                            </span>
+                          )}
+                        </>
                       )}
                       <span className={`${styles.badge} ${styles.badgeStatus}`}>{copy.status}</span>
                       <button

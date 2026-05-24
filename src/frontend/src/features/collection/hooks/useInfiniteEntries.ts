@@ -11,7 +11,10 @@ interface UseInfiniteEntriesResult {
   sentinelRef: React.RefObject<HTMLDivElement>
 }
 
-export function useInfiniteEntries(collectionId: string | null): UseInfiniteEntriesResult {
+export function useInfiniteEntries(
+  collectionId: string | null,
+  isWishlist?: boolean,
+): UseInfiniteEntriesResult {
   const [allEntries, setAllEntries] = useState<CollectionEntry[]>([])
   const [isFetchingMore, setIsFetchingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
@@ -19,7 +22,7 @@ export function useInfiniteEntries(collectionId: string | null): UseInfiniteEntr
   const sentinelRef = useRef<HTMLDivElement>(null)
   const isFetchingRef = useRef(false)
 
-  // Reset and load first page when collectionId changes
+  // Reset and load first page when collectionId or isWishlist changes
   useEffect(() => {
     if (!collectionId) {
       setAllEntries([])
@@ -32,7 +35,7 @@ export function useInfiniteEntries(collectionId: string | null): UseInfiniteEntr
     setAllEntries([])
     setHasMore(true)
     setIsFetchingMore(true)
-    fetchEntriesPage(collectionId, 0, PAGE_SIZE).then((page) => {
+    fetchEntriesPage(collectionId, 0, PAGE_SIZE, isWishlist).then((page) => {
       if (cancelled) return
       setAllEntries(page)
       offsetRef.current = page.length
@@ -41,19 +44,19 @@ export function useInfiniteEntries(collectionId: string | null): UseInfiniteEntr
       setIsFetchingMore(false)
     })
     return () => { cancelled = true; isFetchingRef.current = false }
-  }, [collectionId])
+  }, [collectionId, isWishlist])
 
   const fetchNextPage = useCallback(async () => {
     if (!collectionId || isFetchingRef.current || !hasMore) return
     isFetchingRef.current = true
     setIsFetchingMore(true)
-    const page = await fetchEntriesPage(collectionId, offsetRef.current, PAGE_SIZE)
+    const page = await fetchEntriesPage(collectionId, offsetRef.current, PAGE_SIZE, isWishlist)
     setAllEntries((prev) => [...prev, ...page])
     offsetRef.current += page.length
     setHasMore(page.length === PAGE_SIZE)
     isFetchingRef.current = false
     setIsFetchingMore(false)
-  }, [collectionId, hasMore])
+  }, [collectionId, hasMore, isWishlist])
 
   // Intersection Observer wires the sentinel to fetchNextPage
   useEffect(() => {

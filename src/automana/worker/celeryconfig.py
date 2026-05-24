@@ -120,13 +120,20 @@ beat_schedule = {
     # eBay sold-price persistence — external scrape (Finding API, per listed card).
     "ebay-scrape-external-sold-nightly": {
         "task": "automana.worker.tasks.ebay.ebay_scrape_external_sold_task",
-        "schedule": crontab(hour=7, minute=15),  # 07:15 AEST
+        "schedule": crontab(hour=9, minute=45),  # 09:45 AEST (was 07:15; shifted for category sweep)
+    },
+    # eBay category sweep: fetch all MTG sold listings, match to known cards.
+    # Runs before external scrape so quota consumption is tracked jointly.
+    "ebay-category-sweep-daily": {
+        "task": "automana.worker.tasks.ebay.ebay_category_sweep_task",
+        "schedule": crontab(hour=9, minute=0),   # 09:00 AEST
     },
     # eBay sold-price promotion — aggregate both staging tables → price_observation.
-    # Runs after sync (07:00) and scrape (07:15) have completed.
+    # Runs after sync (07:00), category sweep (09:00), and scrape (09:45).
+    # refresh-scrape-targets (11:00) and scrape-global-market (11:15) depend on this.
     "ebay-promote-sold-obs-nightly": {
         "task": "run_service",
-        "schedule": crontab(hour=8, minute=0),   # 08:00 AEST
+        "schedule": crontab(hour=10, minute=30),  # 10:30 AEST
         "kwargs": {"path": "integrations.ebay.promote_sold_obs"},
     },
     # FX rates: fetch AUD→USD and CAD→USD from frankfurter.app before market scrape.
@@ -136,17 +143,17 @@ beat_schedule = {
         "kwargs": {"path": "integrations.pricing.fetch_fx_rates"},
     },
     # eBay global market: refresh rare/mythic/promo watchlist.
-    # Runs after promote_sold_obs (08:00) so price_observation has fresh data for
+    # Runs after promote_sold_obs (10:30) so price_observation has fresh data for
     # the sell_avg_cents >= threshold filter.
     "ebay-refresh-scrape-targets-nightly": {
         "task": "run_service",
-        "schedule": crontab(hour=8, minute=30),   # 08:30 AEST — after promote_sold_obs
+        "schedule": crontab(hour=11, minute=0),   # 11:00 AEST — after promote_sold_obs (10:30)
         "kwargs": {"path": "integrations.ebay.refresh_scrape_targets"},
     },
     # eBay global market: scrape sold prices across EBAY-US, EBAY-AU, EBAY-ENCA.
     "ebay-scrape-global-market-nightly": {
         "task": "run_service",
-        "schedule": crontab(hour=8, minute=45),   # 08:45 AEST — after targets refreshed
+        "schedule": crontab(hour=11, minute=15),   # 11:15 AEST — after targets refreshed
         "kwargs": {
             "path": "integrations.ebay.scrape_global_market",
             "days_back": 30,
@@ -154,6 +161,11 @@ beat_schedule = {
             "limit_per_card": 50,
             "environment": "production",
         },
+    },
+    # Weekly cleanup of eBay raw JSON files older than 7 days.
+    "ebay-cleanup-raw-files-weekly": {
+        "task": "automana.worker.tasks.ebay.ebay_cleanup_raw_files_task",
+        "schedule": crontab(hour=3, minute=0, day_of_week=0),  # Sunday 03:00 AEST
     },
     # Drain staging pricing actions → apply to eBay listings every 5 minutes.
     "drain-listing-actions": {

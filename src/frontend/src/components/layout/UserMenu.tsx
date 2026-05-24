@@ -95,10 +95,10 @@ export function UserMenu() {
             role="menuitem"
             onClick={() => {
               setOpen(false)
-              navigate({ to: '/collection' })
+              navigate({ to: '/portfolio' })
             }}
           >
-            Collection
+            Portfolio
           </button>
 
           <button

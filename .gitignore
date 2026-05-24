@@ -77,7 +77,6 @@ celerybeat.pid
 # Jupyter
 .ipynb_checkpoints/
 *.ipynb
-!notebooks/*.ipynb
 notebooks/data/
 
 # staging

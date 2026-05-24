@@ -75,19 +75,19 @@ describe('UserMenu', () => {
       expect(screen.getByText('Hello, arthur')).toBeInTheDocument()
     })
 
-    it('shows a Collection menu item', async () => {
+    it('shows a Portfolio menu item', async () => {
       const user = userEvent.setup()
       render(<UserMenu />)
       await user.click(screen.getByRole('button', { name: /user menu for arthur/i }))
-      expect(screen.getByRole('menuitem', { name: /collection/i })).toBeInTheDocument()
+      expect(screen.getByRole('menuitem', { name: /portfolio/i })).toBeInTheDocument()
     })
 
-    it('navigates to /collection and closes dropdown when Collection is clicked', async () => {
+    it('navigates to /portfolio and closes dropdown when Portfolio is clicked', async () => {
       const user = userEvent.setup()
       render(<UserMenu />)
       await user.click(screen.getByRole('button', { name: /user menu for arthur/i }))
-      await user.click(screen.getByRole('menuitem', { name: /collection/i }))
-      expect(mockNavigate).toHaveBeenCalledWith({ to: '/collection' })
+      await user.click(screen.getByRole('menuitem', { name: /portfolio/i }))
+      expect(mockNavigate).toHaveBeenCalledWith({ to: '/portfolio' })
       expect(screen.queryByRole('menu')).not.toBeInTheDocument()
     })
 

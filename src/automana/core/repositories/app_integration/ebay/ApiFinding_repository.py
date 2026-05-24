@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 import asyncio
 import logging
 
@@ -83,9 +83,38 @@ class EbayFindingAPIRepository(EbayApiClient):
             raise ValueError(f"No Finding API URL for environment: {self.environment}")
         return url
 
+    async def _fetch_page(self, params: dict) -> tuple[list[dict], int]:
+        """Fetch one Finding API page. Returns (items, total_pages). Returns ([], 0) on exhausted retries."""
+        for attempt in range(_MAX_RATE_LIMIT_RETRIES):
+            async with self:
+                response = await self.send("GET", _FINDING_ENDPOINT, params=params)
+                data = self._parse_response(response)
+
+            if _is_rate_limited(data):
+                wait = (2 ** attempt) + 5
+                logger.warning(
+                    "finding_api_rate_limited",
+                    extra={"attempt": attempt + 1, "wait_seconds": wait},
+                )
+                if attempt < _MAX_RATE_LIMIT_RETRIES - 1:
+                    await asyncio.sleep(wait)
+                    continue
+                return [], 0
+
+            items = _parse_finding_items(data)
+            try:
+                result_block = data["findCompletedItemsResponse"][0]
+                pagination = result_block.get("paginationOutput", [{}])[0]
+                total_pages = int(pagination.get("totalPages", ["1"])[0])
+            except (KeyError, IndexError, ValueError):
+                total_pages = 1
+            return items, total_pages
+
+        return [], 0
+
     async def find_completed_items(
         self,
-        keywords: str,
+        keywords: Optional[str],
         app_id: str,
         *,
         global_id: str = "EBAY-US",
@@ -93,6 +122,8 @@ class EbayFindingAPIRepository(EbayApiClient):
         condition_id: Optional[int] = None,
         min_date: Optional[datetime] = None,
         limit: int = 100,
+        max_pages: int = 1,
+        on_page_fetched: Optional[Callable] = None,
     ) -> list[dict]:
         params: dict[str, Any] = {
             "OPERATION-NAME": "findCompletedItems",
@@ -100,13 +131,14 @@ class EbayFindingAPIRepository(EbayApiClient):
             "SECURITY-APPNAME": app_id,
             "RESPONSE-DATA-FORMAT": "JSON",
             "GLOBAL-ID": global_id,
-            "keywords": keywords,
             "categoryId": str(category_id),
             "itemFilter(0).name": "SoldItemsOnly",
             "itemFilter(0).value": "true",
             "paginationInput.entriesPerPage": str(min(limit, 100)),
-            "paginationInput.pageNumber": "1",
         }
+
+        if keywords is not None:
+            params["keywords"] = keywords
 
         filter_idx = 1
         if condition_id is not None:
@@ -123,24 +155,17 @@ class EbayFindingAPIRepository(EbayApiClient):
 
         logger.info(
             "Finding API request",
-            extra={"keywords": keywords, "category_id": category_id, "limit": limit},
+            extra={"keywords": keywords, "category_id": category_id, "limit": limit, "max_pages": max_pages},
         )
-        for attempt in range(_MAX_RATE_LIMIT_RETRIES):
-            async with self:
-                response = await self.send("GET", _FINDING_ENDPOINT, params=params)
-                data = self._parse_response(response)
 
-            if _is_rate_limited(data):
-                wait = (2 ** attempt) + 5
-                logger.warning(
-                    "finding_api_rate_limited",
-                    extra={"attempt": attempt + 1, "wait_seconds": wait, "keywords": keywords},
-                )
-                if attempt < _MAX_RATE_LIMIT_RETRIES - 1:
-                    await asyncio.sleep(wait)
-                    continue
-                return []
+        all_items: list[dict] = []
+        for page in range(1, max_pages + 1):
+            params["paginationInput.pageNumber"] = str(page)
+            items, total_pages = await self._fetch_page(params)
+            all_items.extend(items)
+            if items and on_page_fetched is not None:
+                await on_page_fetched()
+            if not items or page >= total_pages:
+                break
 
-            return _parse_finding_items(data)
-
-        return []
+        return all_items

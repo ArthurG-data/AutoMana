@@ -191,3 +191,18 @@ SELECT COUNT(DISTINCT order_id) AS total
 FROM app_integration.ebay_order_source_product
 WHERE app_code = $1;
 """
+
+GET_EBAY_CARD_LOOKUP = """
+SELECT sp.source_product_id,
+       ucr.card_name,
+       cs.set_code,
+       ps.code          AS source_code
+FROM   pricing.source_product sp
+JOIN   pricing.price_source ps       ON sp.source_id    = ps.source_id
+JOIN   pricing.mtg_card_products mcp ON sp.product_id   = mcp.product_id
+JOIN   card_catalog.card_version cv  ON mcp.card_version_id = cv.card_version_id
+JOIN   card_catalog.unique_cards_ref ucr ON cv.unique_card_id = ucr.unique_card_id
+JOIN   card_catalog.sets cs          ON cv.set_id        = cs.set_id
+WHERE  ps.code = 'ebay'
+ORDER  BY sp.source_product_id;
+"""

@@ -15,7 +15,7 @@ export const Route = createFileRoute('/')({
 
 const TILES: { kind: IconKind; title: string; sub: string; to: string }[] = [
   { kind: 'chart',  title: 'Live price history',    sub: 'Every printing, every finish, every day.', to: '/search'     },
-  { kind: 'wallet', title: 'Track your collection', sub: 'Cost basis, P/L, and reprint risk.',       to: '/collection' },
+  { kind: 'wallet', title: 'Track your portfolio',  sub: 'Cost basis, P/L, and reprint risk.',       to: '/portfolio'  },
   { kind: 'bag',    title: 'List on eBay',           sub: 'Smart pricing & one-click listing.',       to: '/listings'   },
 ]
 
