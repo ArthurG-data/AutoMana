@@ -197,12 +197,14 @@ export function SearchResults({
             <div className={styles.cardMeta}>
               {cardPrice(card, delta)}
             </div>
-            <Sparkline
-              points={card.spark}
-              color={delta >= 0 ? 'var(--hd-accent)' : 'var(--hd-red)'}
-              width={100}
-              height={24}
-            />
+            <div style={{ height: 24 }}>
+              <Sparkline
+                points={card.spark}
+                color={delta >= 0 ? 'var(--hd-accent)' : 'var(--hd-red)'}
+                width={100}
+                height={24}
+              />
+            </div>
           </div>
         </button>
 
