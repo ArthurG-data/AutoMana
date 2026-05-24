@@ -18,6 +18,7 @@ const makeEntry = (id: string): CollectionEntry => ({
   price: 30,
   price_change_1d: 0,
   status: 'purchased',
+  is_wishlist: false,
 })
 
 describe('useInfiniteEntries', () => {
@@ -68,5 +69,21 @@ describe('useInfiniteEntries', () => {
     rerender({ id: 'col2' })
     await waitFor(() => expect(result.current.allEntries).toHaveLength(1))
     expect(api.fetchEntriesPage).toHaveBeenCalledWith('col2', 0, expect.any(Number))
+  })
+
+  it('calls fetchEntriesPage with isWishlist=false when specified', async () => {
+    vi.spyOn(api, 'fetchEntriesPage').mockResolvedValue([])
+    renderHook(() => useInfiniteEntries('col-1', false))
+    await waitFor(() => {
+      expect(api.fetchEntriesPage).toHaveBeenCalledWith('col-1', 0, 50, false)
+    })
+  })
+
+  it('calls fetchEntriesPage without isWishlist when not specified', async () => {
+    vi.spyOn(api, 'fetchEntriesPage').mockResolvedValue([])
+    renderHook(() => useInfiniteEntries('col-1'))
+    await waitFor(() => {
+      expect(api.fetchEntriesPage).toHaveBeenCalledWith('col-1', 0, 50, undefined)
+    })
   })
 })

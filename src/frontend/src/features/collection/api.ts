@@ -30,6 +30,7 @@ export interface CollectionEntry {
   price_change_1d: number
   status: EntryStatus
   ebay_item_id?: string | null
+  is_wishlist: boolean
 }
 
 // ── Constants ───────────────────────────────────────────────────────────────
@@ -66,9 +67,17 @@ export async function fetchEntriesPage(
   collectionId: string,
   offset: number,
   limit = PAGE_SIZE,
+  isWishlist?: boolean,
 ): Promise<CollectionEntry[]> {
+  const params = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset),
+  })
+  if (isWishlist !== undefined) {
+    params.set('is_wishlist', String(isWishlist))
+  }
   return apiClient<CollectionEntry[]>(
-    `/catalog/mtg/collection/${collectionId}/entries?limit=${limit}&offset=${offset}`,
+    `/catalog/mtg/collection/${collectionId}/entries?${params}`,
   )
 }
 
@@ -86,7 +95,7 @@ export async function addCollectionEntry(
   cardVersionId: string,
   condition: CollectionEntry['condition'],
   finish: CollectionEntry['finish'],
-  options?: { status?: EntryStatus; ebayItemId?: string },
+  options?: { status?: EntryStatus; ebayItemId?: string; isWishlist?: boolean },
 ): Promise<CollectionEntry> {
   return apiClient<CollectionEntry>(
     `/catalog/mtg/collection/${collectionId}/entries`,
@@ -99,6 +108,7 @@ export async function addCollectionEntry(
         purchase_price: '0.00',
         status: options?.status ?? 'purchased',
         ebay_item_id: options?.ebayItemId ?? null,
+        is_wishlist: options?.isWishlist ?? false,
       }),
     },
   )
