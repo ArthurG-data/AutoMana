@@ -1,4 +1,4 @@
-// src/frontend/src/routes/collection.tsx
+// src/frontend/src/routes/portfolio.tsx
 import React, { useDeferredValue, useMemo, useState, useCallback } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -18,9 +18,9 @@ import { cn } from '../lib/cn'
 import { useInfiniteEntries } from '../features/collection/hooks/useInfiniteEntries'
 import { formatUSD } from '../lib/format'
 import { useToast } from '../lib/useToast'
-import styles from './Collection.module.css'
+import styles from './Portfolio.module.css'
 
-export const Route = createFileRoute('/collection')({
+export const Route = createFileRoute('/portfolio')({
   component: CollectionPage,
 })
 
@@ -154,14 +154,14 @@ function CollectionPage() {
   const plSign = metrics.pl >= 0 ? '+' : '-'
 
   return (
-    <AppShell active="collection">
-      <TopBar title="Collection" />
+    <AppShell active="portfolio">
+      <TopBar title="Portfolio" />
 
       <div className={styles.page}>
         <header className={styles.header}>
           <div className={styles.titleBlock}>
-            <div className={styles.eyebrow}>automana / collection</div>
-            <h1 className={styles.title}>Your vault</h1>
+            <div className={styles.eyebrow}>automana / portfolio</div>
+            <h1 className={styles.title}>Your Portfolio</h1>
           </div>
           <div className={styles.headerActions}>
             <Button
