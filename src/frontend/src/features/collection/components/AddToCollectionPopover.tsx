@@ -18,7 +18,7 @@ interface Props {
   finish: string
   collections: Collection[]
   existingCopies?: number
-  onAdd: (params: { collectionId: string; condition: CollectionEntry['condition']; finish: FinishOut }) => void
+  onAdd: (params: { collectionId: string; condition: CollectionEntry['condition']; finish: FinishOut; isWishlist: boolean }) => void
   onClose: () => void
 }
 
@@ -34,6 +34,7 @@ export function AddToCollectionPopover({
 }: Props) {
   const [condition, setCondition] = useState<CollectionEntry['condition']>('NM')
   const [collectionId, setCollectionId] = useState(collections[0]?.collection_id ?? '')
+  const [isWishlist, setIsWishlist] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
   useClickOutside(ref, onClose)
@@ -55,6 +56,22 @@ export function AddToCollectionPopover({
   return (
     <div ref={ref} className={styles.popover} role="dialog" aria-label={`Add ${cardName} to collection`}>
       <div className={styles.header}>{cardName}</div>
+
+      <div className={styles.label}>Type</div>
+      <div className={styles.pills}>
+        <button
+          className={[styles.pill, !isWishlist ? styles.pillActive : ''].join(' ')}
+          onClick={() => setIsWishlist(false)}
+        >
+          Owned
+        </button>
+        <button
+          className={[styles.pill, isWishlist ? styles.pillActive : ''].join(' ')}
+          onClick={() => setIsWishlist(true)}
+        >
+          Wishlist
+        </button>
+      </div>
 
       <div className={styles.label}>Condition</div>
       <div className={styles.pills}>
@@ -103,7 +120,7 @@ export function AddToCollectionPopover({
           className={styles.btnAdd}
           disabled={!collectionId}
           onClick={() =>
-            onAdd({ collectionId, condition, finish: normaliseFinish(finish) })
+            onAdd({ collectionId, condition, finish: normaliseFinish(finish), isWishlist })
           }
         >
           Add to Collection
