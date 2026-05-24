@@ -56,7 +56,7 @@ class ShopifyCollectionRepository(AbstractRepository[shopify_theme.CollectionMod
         return result[0] if result else None
 
     async def list(self) -> List[Any]:
-        rows = await self.connection.fetch("SELECT * FROM markets.collection_handles")
+        rows = await self.execute_query("SELECT * FROM markets.collection_handles")
         return [dict(row) for row in rows] if rows else []
 
     async def add_theme(self, values: shopify_theme.InsertTheme):

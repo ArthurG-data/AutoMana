@@ -48,14 +48,14 @@ class CardReferenceRepository(AbstractRepository[Any]):
         data = buffer.getvalue()  # convert BytesIO -> bytes
         data_mv = memoryview(data)
         assert isinstance(data, (bytes, bytearray)), type(data_mv)
-        status =await self.connection.copy_to_table(
-            table_name=table_name,
+        status = await self.execute_copy_to_table(
+            table_name,
+            data_mv,
             schema_name=schema_name,
-            source=data_mv,
             format='csv',
             null='',
             delimiter='\t',
-            header=False
+            header=False,
         )
         return status
 
@@ -809,8 +809,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
             for row in rows
         ]
 
-    def bulk_update_mtg_stock_ids(self, ids: dict[str, str]):
-        #not async anymore
+    async def bulk_update_mtg_stock_ids(self, ids: dict[str, str]):
         if not ids:
             return 0  # or just return
 
@@ -842,7 +841,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
         """
 
         # Pass TWO params, not one
-        self.execute_command(query,(scry_ids, stock_ids))
+        await self.execute_command(query, (scry_ids, stock_ids))
 
     @dataclass(slots=True, frozen=True)
     class ExternalIdentifierRegistration:
@@ -889,7 +888,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
                 (SELECT card_version_id FROM cv)         IS NOT NULL AS card_version_exists,
                 EXISTS (SELECT 1 FROM ins)                           AS inserted
         """
-        rows = await self.execute_query(query, card_version_id, identifier_name, value)
+        rows = await self.execute_query(query, (card_version_id, identifier_name, value))
         row = rows[0] if rows else None
         if row is None:
             raise RuntimeError(
@@ -973,17 +972,17 @@ class CardReferenceRepository(AbstractRepository[Any]):
         # Single transaction binds DDL + COPY + INSERT. If any step raises,
         # asyncpg rolls back; ``ON COMMIT DROP`` guarantees the temp table
         # evaporates on the happy path — no explicit DROP required.
-        async with self.connection.transaction():
-            await self.connection.execute(create_staging_sql)
-            copy_status = await self.connection.copy_to_table(
-                table_name=staging_table,
-                source=data_mv,
+        async with self.transaction():
+            await self.execute_command(create_staging_sql)
+            copy_status = await self.execute_copy_to_table(
+                staging_table,
+                data_mv,
                 format="csv",
                 null="",
                 delimiter="\t",
                 header=False,
             )
-            insert_status = await self.connection.execute(promote_sql)
+            insert_status = await self.execute_command(promote_sql)
 
         # Return both statuses — ``insert_status`` (e.g. "INSERT 0 N") is what
         # callers actually care about: rows that survived the conflict filter.
@@ -1140,7 +1139,7 @@ JOIN card_catalog.card_identifier_ref ir ON ir.card_identifier_ref_id = ei.card_
     AND ir.identifier_name = 'scryfall_id'
 WHERE cv.card_version_id = ei.card_version_id
 """
-        status = await self.connection.execute(sql, scryfall_ids, uri_jsons)
+        status = await self.execute_command(sql, (scryfall_ids, uri_jsons))
         # status is like "UPDATE N"
         try:
             return int(status.split()[-1])
