@@ -6,6 +6,8 @@ from automana.core.services.app_integration.ebay.scrape_global_market_service im
     _scrape_one_card,
 )
 
+_MODULE = "automana.core.services.app_integration.ebay.scrape_global_market_service"
+
 
 def _make_item(title, price=5.0, currency="USD", condition=None, item_id=None):
     return {
@@ -16,6 +18,18 @@ def _make_item(title, price=5.0, currency="USD", condition=None, item_id=None):
         "condition": condition,
         "sold_date": "2026-05-20T12:00:00.000Z",
     }
+
+
+def _make_redis_mock(exhausted: bool = False):
+    mock_redis = AsyncMock()
+    mock_redis.get = AsyncMock(return_value=b"5000" if exhausted else None)
+    mock_redis.incr = AsyncMock(return_value=1)
+    mock_redis.aclose = AsyncMock()
+    return mock_redis
+
+
+def _fake_watchlist_path():
+    return MagicMock(exists=MagicMock(return_value=False))
 
 
 @pytest.mark.asyncio
@@ -33,25 +47,28 @@ async def test_scrape_one_card_inserts_foil_nm_correctly():
     # Include all name tokens so score_title gives full 0.50 name bonus + 0.20 set + 0.15 foil = 0.85
     items = [_make_item("Sheoldred the Apocalypse MH2 Foil NM MTG", condition="Near Mint or Better")]
     sales_repo = AsyncMock()
-    sales_repo.ensure_product = AsyncMock(return_value=uuid4())
-    sales_repo.ensure_source_product = AsyncMock(return_value=42)
     scrape_repo = AsyncMock()
     finding_repo = AsyncMock()
     finding_repo.find_completed_items = AsyncMock(return_value=items)
+    redis_client = _make_redis_mock()
 
-    count = await _scrape_one_card(
-        card_version_id=card_version_id,
-        card=card,
-        app_id="APP-ID",
-        marketplace="EBAY-US",
-        min_date=MagicMock(),
-        limit_per_card=50,
-        score_threshold=0.7,
-        ebay_sales_repository=sales_repo,
-        ebay_scrape_repository=scrape_repo,
-        ebay_finding_repository=finding_repo,
-        source_product_id=42,
-    )
+    with patch(f"{_MODULE}.watchlist_path", return_value=_fake_watchlist_path()), \
+         patch(f"{_MODULE}.write_items_to_json"):
+        count = await _scrape_one_card(
+            card_version_id=card_version_id,
+            card=card,
+            app_id="APP-ID",
+            marketplace="EBAY-US",
+            min_date=MagicMock(),
+            limit_per_card=50,
+            score_threshold=0.7,
+            ebay_sales_repository=sales_repo,
+            ebay_scrape_repository=scrape_repo,
+            ebay_finding_repository=finding_repo,
+            source_product_id=42,
+            today="2026-05-24",
+            redis_client=redis_client,
+        )
 
     assert count == 1
     call_kwargs = scrape_repo.insert_scraped_sold.call_args.kwargs
@@ -75,24 +92,28 @@ async def test_scrape_one_card_skips_low_score():
     }
     # Title completely unrelated — will score < 0.7
     items = [_make_item("Random Pokemon Card Charizard Holo")]
-    sales_repo = AsyncMock()
     scrape_repo = AsyncMock()
     finding_repo = AsyncMock()
     finding_repo.find_completed_items = AsyncMock(return_value=items)
+    redis_client = _make_redis_mock()
 
-    count = await _scrape_one_card(
-        card_version_id=card_version_id,
-        card=card,
-        app_id="APP-ID",
-        marketplace="EBAY-US",
-        min_date=MagicMock(),
-        limit_per_card=50,
-        score_threshold=0.7,
-        ebay_sales_repository=sales_repo,
-        ebay_scrape_repository=scrape_repo,
-        ebay_finding_repository=finding_repo,
-        source_product_id=42,
-    )
+    with patch(f"{_MODULE}.watchlist_path", return_value=_fake_watchlist_path()), \
+         patch(f"{_MODULE}.write_items_to_json"):
+        count = await _scrape_one_card(
+            card_version_id=card_version_id,
+            card=card,
+            app_id="APP-ID",
+            marketplace="EBAY-US",
+            min_date=MagicMock(),
+            limit_per_card=50,
+            score_threshold=0.7,
+            ebay_sales_repository=AsyncMock(),
+            ebay_scrape_repository=scrape_repo,
+            ebay_finding_repository=finding_repo,
+            source_product_id=42,
+            today="2026-05-24",
+            redis_client=redis_client,
+        )
 
     assert count == 0
     scrape_repo.insert_scraped_sold.assert_not_called()
@@ -113,26 +134,28 @@ async def test_scrape_one_card_skips_frame_conflict():
     }
     # Include all name tokens so it scores high enough to pass score gate, then hits frame conflict
     items = [_make_item("Sheoldred the Apocalypse MH2 Showcase Foil NM MTG")]
-    sales_repo = AsyncMock()
-    sales_repo.ensure_product = AsyncMock(return_value=uuid4())
-    sales_repo.ensure_source_product = AsyncMock(return_value=42)
     scrape_repo = AsyncMock()
     finding_repo = AsyncMock()
     finding_repo.find_completed_items = AsyncMock(return_value=items)
+    redis_client = _make_redis_mock()
 
-    count = await _scrape_one_card(
-        card_version_id=card_version_id,
-        card=card,
-        app_id="APP-ID",
-        marketplace="EBAY-US",
-        min_date=MagicMock(),
-        limit_per_card=50,
-        score_threshold=0.7,
-        ebay_sales_repository=sales_repo,
-        ebay_scrape_repository=scrape_repo,
-        ebay_finding_repository=finding_repo,
-        source_product_id=42,
-    )
+    with patch(f"{_MODULE}.watchlist_path", return_value=_fake_watchlist_path()), \
+         patch(f"{_MODULE}.write_items_to_json"):
+        count = await _scrape_one_card(
+            card_version_id=card_version_id,
+            card=card,
+            app_id="APP-ID",
+            marketplace="EBAY-US",
+            min_date=MagicMock(),
+            limit_per_card=50,
+            score_threshold=0.7,
+            ebay_sales_repository=AsyncMock(),
+            ebay_scrape_repository=scrape_repo,
+            ebay_finding_repository=finding_repo,
+            source_product_id=42,
+            today="2026-05-24",
+            redis_client=redis_client,
+        )
 
     assert count == 0
     scrape_repo.insert_scraped_sold.assert_not_called()
@@ -164,11 +187,15 @@ async def test_scrape_global_market_calls_ensure_product_before_source_product()
     })
     mock_finding = AsyncMock()
     mock_finding.find_completed_items = AsyncMock(return_value=[])
+    mock_redis = _make_redis_mock()
 
     with patch(
-        "automana.core.services.app_integration.ebay.scrape_global_market_service.get_settings",
-        return_value=type("S", (), {"ebay_app_id": "FAKE-APP-ID"})(),
-    ):
+        f"{_MODULE}.get_settings",
+        return_value=type("S", (), {"ebay_app_id": "FAKE-APP-ID", "redis_host": "localhost", "redis_port": 6379})(),
+    ), patch(f"{_MODULE}.aioredis") as mock_aioredis, \
+       patch(f"{_MODULE}.watchlist_path", return_value=_fake_watchlist_path()), \
+       patch(f"{_MODULE}.write_items_to_json"):
+        mock_aioredis.from_url.return_value = mock_redis
         await scrape_global_market(
             ebay_sales_repository=mock_sales,
             ebay_scrape_repository=mock_scrape,
@@ -185,18 +212,16 @@ async def test_scrape_global_market_calls_ensure_product_before_source_product()
 
 
 @pytest.mark.asyncio
-async def test_scrape_global_market_stops_at_budget():
-    """When api_calls reaches _API_DAILY_BUDGET, the outer loop breaks."""
+async def test_scrape_global_market_skips_fetch_when_quota_exhausted():
+    """When Redis quota is exhausted, find_completed_items is never called."""
     from automana.core.services.app_integration.ebay.scrape_global_market_service import scrape_global_market
-    from unittest.mock import patch, AsyncMock
-    from uuid import uuid4
 
-    card_ids = [uuid4(), uuid4()]
+    card_id = uuid4()
     mock_sales = AsyncMock()
     mock_sales.ensure_product = AsyncMock(return_value=uuid4())
     mock_sales.ensure_source_product = AsyncMock(return_value=99)
     mock_scrape = AsyncMock()
-    mock_scrape.get_scrape_targets = AsyncMock(return_value=card_ids)
+    mock_scrape.get_scrape_targets = AsyncMock(return_value=[card_id])
     mock_scrape.update_target_last_scraped = AsyncMock()
     mock_card = AsyncMock()
     mock_card.get_scrape_metadata = AsyncMock(return_value={
@@ -209,15 +234,14 @@ async def test_scrape_global_market_stops_at_budget():
         "full_art": False,
     })
     mock_finding = AsyncMock()
-    mock_finding.find_completed_items = AsyncMock(return_value=[])
+    mock_redis = _make_redis_mock(exhausted=True)
 
     with patch(
-        "automana.core.services.app_integration.ebay.scrape_global_market_service.get_settings",
-        return_value=type("S", (), {"ebay_app_id": "FAKE-APP-ID"})(),
-    ), patch(
-        "automana.core.services.app_integration.ebay.scrape_global_market_service._API_DAILY_BUDGET",
-        3,
-    ):
+        f"{_MODULE}.get_settings",
+        return_value=type("S", (), {"ebay_app_id": "FAKE-APP-ID", "redis_host": "localhost", "redis_port": 6379})(),
+    ), patch(f"{_MODULE}.aioredis") as mock_aioredis, \
+       patch(f"{_MODULE}.watchlist_path", return_value=_fake_watchlist_path()):
+        mock_aioredis.from_url.return_value = mock_redis
         result = await scrape_global_market(
             ebay_sales_repository=mock_sales,
             ebay_scrape_repository=mock_scrape,
@@ -225,24 +249,22 @@ async def test_scrape_global_market_stops_at_budget():
             ebay_finding_repository=mock_finding,
         )
 
-    assert mock_finding.find_completed_items.call_count == 3
-    assert result["api_calls"] == 3
+    mock_finding.find_completed_items.assert_not_called()
+    assert result["scraped_items"] == 0
 
 
 @pytest.mark.asyncio
-async def test_scrape_global_market_warns_at_threshold(caplog):
-    """A warning is logged when api_calls reaches the warn threshold."""
+async def test_scrape_global_market_logs_warning_when_quota_exhausted(caplog):
+    """When Redis quota is exhausted, a warning is logged for each marketplace."""
     import logging
     from automana.core.services.app_integration.ebay.scrape_global_market_service import scrape_global_market
-    from unittest.mock import patch, AsyncMock
-    from uuid import uuid4
 
-    card_ids = [uuid4()]
+    card_id = uuid4()
     mock_sales = AsyncMock()
     mock_sales.ensure_product = AsyncMock(return_value=uuid4())
     mock_sales.ensure_source_product = AsyncMock(return_value=99)
     mock_scrape = AsyncMock()
-    mock_scrape.get_scrape_targets = AsyncMock(return_value=card_ids)
+    mock_scrape.get_scrape_targets = AsyncMock(return_value=[card_id])
     mock_scrape.update_target_last_scraped = AsyncMock()
     mock_card = AsyncMock()
     mock_card.get_scrape_metadata = AsyncMock(return_value={
@@ -255,19 +277,15 @@ async def test_scrape_global_market_warns_at_threshold(caplog):
         "full_art": False,
     })
     mock_finding = AsyncMock()
-    mock_finding.find_completed_items = AsyncMock(return_value=[])
+    mock_redis = _make_redis_mock(exhausted=True)
 
-    # budget=4, threshold=0.75 → warn_at = round(4*0.75) = 3 → triggered on 3rd call (1 card × 3 marketplaces)
     with patch(
-        "automana.core.services.app_integration.ebay.scrape_global_market_service.get_settings",
-        return_value=type("S", (), {"ebay_app_id": "FAKE-APP-ID"})(),
-    ), patch(
-        "automana.core.services.app_integration.ebay.scrape_global_market_service._API_DAILY_BUDGET",
-        4,
-    ), patch(
-        "automana.core.services.app_integration.ebay.scrape_global_market_service._API_WARN_THRESHOLD",
-        0.75,
-    ), caplog.at_level(logging.WARNING, logger="automana.core.services.app_integration.ebay.scrape_global_market_service"):
+        f"{_MODULE}.get_settings",
+        return_value=type("S", (), {"ebay_app_id": "FAKE-APP-ID", "redis_host": "localhost", "redis_port": 6379})(),
+    ), patch(f"{_MODULE}.aioredis") as mock_aioredis, \
+       patch(f"{_MODULE}.watchlist_path", return_value=_fake_watchlist_path()), \
+       caplog.at_level(logging.WARNING, logger=_MODULE):
+        mock_aioredis.from_url.return_value = mock_redis
         await scrape_global_market(
             ebay_sales_repository=mock_sales,
             ebay_scrape_repository=mock_scrape,
@@ -275,15 +293,13 @@ async def test_scrape_global_market_warns_at_threshold(caplog):
             ebay_finding_repository=mock_finding,
         )
 
-    assert any("scrape_global_market_api_budget_warning" in r.message for r in caplog.records)
+    assert any("scrape_global_market_quota_exhausted" in r.message for r in caplog.records)
 
 
 @pytest.mark.asyncio
-async def test_scrape_global_market_result_includes_api_calls():
-    """The return dict includes api_calls."""
+async def test_scrape_global_market_result_keys():
+    """The return dict contains scraped_items and cards_processed."""
     from automana.core.services.app_integration.ebay.scrape_global_market_service import scrape_global_market
-    from unittest.mock import patch, AsyncMock
-    from uuid import uuid4
 
     mock_sales = AsyncMock()
     mock_sales.ensure_product = AsyncMock(return_value=uuid4())
@@ -303,11 +319,15 @@ async def test_scrape_global_market_result_includes_api_calls():
     })
     mock_finding = AsyncMock()
     mock_finding.find_completed_items = AsyncMock(return_value=[])
+    mock_redis = _make_redis_mock()
 
     with patch(
-        "automana.core.services.app_integration.ebay.scrape_global_market_service.get_settings",
-        return_value=type("S", (), {"ebay_app_id": "FAKE-APP-ID"})(),
-    ):
+        f"{_MODULE}.get_settings",
+        return_value=type("S", (), {"ebay_app_id": "FAKE-APP-ID", "redis_host": "localhost", "redis_port": 6379})(),
+    ), patch(f"{_MODULE}.aioredis") as mock_aioredis, \
+       patch(f"{_MODULE}.watchlist_path", return_value=_fake_watchlist_path()), \
+       patch(f"{_MODULE}.write_items_to_json"):
+        mock_aioredis.from_url.return_value = mock_redis
         result = await scrape_global_market(
             ebay_sales_repository=mock_sales,
             ebay_scrape_repository=mock_scrape,
@@ -315,5 +335,7 @@ async def test_scrape_global_market_result_includes_api_calls():
             ebay_finding_repository=mock_finding,
         )
 
-    assert "api_calls" in result
-    assert result["api_calls"] == 3  # 1 card × 3 marketplaces
+    assert "scraped_items" in result
+    assert "cards_processed" in result
+    assert result["scraped_items"] == 0
+    assert result["cards_processed"] == 1
