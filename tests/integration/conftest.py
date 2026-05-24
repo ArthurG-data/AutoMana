@@ -157,6 +157,25 @@ def db_migrations_applied(timescale_container, _test_env):
                     continue
                 try:
                     cur.execute(body)
+                except (
+                    psycopg2.errors.DuplicateTable,
+                    psycopg2.errors.DuplicateObject,
+                    psycopg2.errors.DuplicateFunction,
+                    psycopg2.errors.DuplicateSchema,
+                    psycopg2.errors.DuplicateColumn,
+                ) as dup_exc:
+                    # Schema files are kept in sync with migrations (post-migration
+                    # state). Running schemas then migrations on a fresh container means
+                    # some migration DDL (CREATE VIEW, ADD COLUMN, etc.) is already
+                    # applied by the schema file. Tolerate the duplicate and continue.
+                    # Some migrations wrap DDL in BEGIN/COMMIT; even with conn.autocommit=True
+                    # at the driver level, the error inside an explicit BEGIN block leaves
+                    # Postgres in an aborted-transaction state. Send ROLLBACK through the
+                    # cursor directly so the server clears the failed transaction.
+                    try:
+                        cur.execute("ROLLBACK")
+                    except Exception:
+                        pass
                 except Exception as exc:
                     raise RuntimeError(f"Migration failed: {sql_file} -> {exc}") from exc
     finally:

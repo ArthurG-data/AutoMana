@@ -9,7 +9,10 @@ INSERT INTO pricing.currency_ref (currency_code, currency_name) VALUES
   ('EUR', 'Euro'),
   ('JPY', 'Japanese Yen'),
   ('CAD', 'Canadian Dollar'),
-  ('GBP', 'British Pound');
+  ('GBP', 'British Pound'),
+  ('AUD', 'Australian Dollar'),
+  ('NZD', 'New Zealand Dollar')
+ON CONFLICT (currency_code) DO NOTHING;
 CREATE TABLE IF NOT EXISTS pricing.price_source ( --market marketplace or website where the price was observed, e.g., tcgplayer, cardkingdom, ebay, amazon, etc.
   source_id   SMALLSERIAL PRIMARY KEY,
   code        TEXT UNIQUE NOT NULL,   -- 'tcgplayer','cardkingdom','ebay','amazon', etc.
