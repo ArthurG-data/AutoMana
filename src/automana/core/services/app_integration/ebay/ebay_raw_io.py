@@ -5,7 +5,7 @@ import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from automana.core.config.settings import get_settings
 
@@ -52,3 +52,38 @@ def write_items_to_json(
         "items": items,
     }
     path.write_text(json.dumps(payload, default=str))
+
+
+def load_or_fetch_items(path: Path) -> tuple[list[dict] | None, bool, bool]:
+    """Try to load items from disk.
+
+    Returns ``(items, was_cached, was_corrupt)``:
+    - ``(items, True, False)``  — cache hit
+    - ``(None, False, False)``  — file absent (normal first-run)
+    - ``(None, False, True)``   — file corrupt (has been unlinked)
+    """
+    if not path.exists():
+        return None, False, False
+    try:
+        return load_items_from_json(path), True, False
+    except ValueError:
+        path.unlink(missing_ok=True)
+        return None, False, True
+
+
+def to_cents(value: Any) -> Optional[int]:
+    """Convert a price value (float/str/None) to integer cents."""
+    try:
+        return round(float(value) * 100)
+    except (TypeError, ValueError):
+        return None
+
+
+def parse_sold_date(date_str: Optional[str]) -> datetime:
+    """Parse an ISO-8601 sold_date string; fall back to now(UTC) on failure."""
+    if date_str:
+        try:
+            return datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+        except ValueError:
+            pass
+    return datetime.now(timezone.utc)
