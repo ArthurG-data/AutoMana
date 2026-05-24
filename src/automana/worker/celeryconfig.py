@@ -120,13 +120,19 @@ beat_schedule = {
     # eBay sold-price persistence — external scrape (Finding API, per listed card).
     "ebay-scrape-external-sold-nightly": {
         "task": "automana.worker.tasks.ebay.ebay_scrape_external_sold_task",
-        "schedule": crontab(hour=7, minute=15),  # 07:15 AEST
+        "schedule": crontab(hour=9, minute=45),  # 09:45 AEST (was 07:15; shifted for category sweep)
+    },
+    # eBay category sweep: fetch all MTG sold listings, match to known cards.
+    # Runs before external scrape so quota consumption is tracked jointly.
+    "ebay-category-sweep-daily": {
+        "task": "automana.worker.tasks.ebay.ebay_category_sweep_task",
+        "schedule": crontab(hour=9, minute=0),   # 09:00 AEST
     },
     # eBay sold-price promotion — aggregate both staging tables → price_observation.
-    # Runs after sync (07:00) and scrape (07:15) have completed.
+    # Runs after sync (07:00), category sweep (09:00), and scrape (09:45).
     "ebay-promote-sold-obs-nightly": {
         "task": "run_service",
-        "schedule": crontab(hour=8, minute=0),   # 08:00 AEST
+        "schedule": crontab(hour=10, minute=30),  # 10:30 AEST (was 08:00; shifted for category sweep)
         "kwargs": {"path": "integrations.ebay.promote_sold_obs"},
     },
     # FX rates: fetch AUD→USD and CAD→USD from frankfurter.app before market scrape.
