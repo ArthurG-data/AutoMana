@@ -80,12 +80,13 @@ class AddCollectionEntryRequest(BaseModel):
     # --- entry metadata ---
     condition: Conditions = Field(default=Conditions.NM)
     finish: Finish = Field(default=Finish.NONFOIL)
-    purchase_price: Decimal = Field(ge=0, decimal_places=2)
+    purchase_price: Decimal = Field(default=Decimal('0.00'), ge=0, decimal_places=2)
     currency_code: str = Field(default='USD', max_length=3)
     purchase_date: date = Field(default_factory=date.today)
     language_id: Optional[int] = Field(default=None)
     status: EntryStatus = Field(default=EntryStatus.PURCHASED)
     ebay_item_id: Optional[str] = Field(default=None, max_length=30)
+    is_wishlist: bool = Field(default=False, description="True if this is a wishlist entry (want it), False if owned")
 
     @model_validator(mode='after')
     def check_identifier(self) -> 'AddCollectionEntryRequest':
@@ -116,6 +117,7 @@ class PublicCollectionEntry(BaseModel):
     price_change_1d: float = 0.0
     status: EntryStatus = EntryStatus.PURCHASED
     ebay_item_id: Optional[str] = None
+    is_wishlist: bool = False
 
 
 class UpdateCollectionEntry(BaseModel):
