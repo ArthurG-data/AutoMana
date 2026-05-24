@@ -83,6 +83,7 @@ export function SearchResults({
     collectionId: string
     condition: 'NM' | 'LP' | 'MP' | 'HP' | 'DMG' | 'SP'
     finish: 'NONFOIL' | 'FOIL' | 'ETCHED'
+    isWishlist: boolean
   }) {
     if (!addTarget) return
     await addCollectionEntry(
@@ -90,9 +91,10 @@ export function SearchResults({
       addTarget.card_version_id,
       params.condition,
       params.finish,
+      { isWishlist: params.isWishlist },
     )
     queryClient.invalidateQueries({ queryKey: collectionEntriesQueryOptions(params.collectionId).queryKey })
-    toast(`${addTarget.card_name} added to collection`)
+    toast(`${addTarget.card_name} ${params.isWishlist ? 'added to wishlist' : 'added to collection'}`)
     setAddTarget(null)
   }
 
