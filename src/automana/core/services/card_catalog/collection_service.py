@@ -185,6 +185,7 @@ async def add_entry(
         language_id=request.language_id,
         status=request.status.value,
         ebay_item_id=request.ebay_item_id,
+        is_wishlist=request.is_wishlist,
     )
     if row:
         item_id = row["item_id"]
@@ -232,6 +233,7 @@ async def list_entries(
     user: UserInDB,
     limit: int = 50,
     offset: int = 0,
+    is_wishlist: Optional[bool] = None,
 ) -> List[PublicCollectionEntry]:
     col = await user_collection_repository.get(collection_id, user.unique_id)
     if not col:
@@ -239,7 +241,7 @@ async def list_entries(
             f"Collection {collection_id} not found"
         )
     rows = await user_collection_repository.get_all_entries(
-        collection_id, user.unique_id, limit=limit, offset=offset
+        collection_id, user.unique_id, limit=limit, offset=offset, is_wishlist=is_wishlist
     )
     return [PublicCollectionEntry.model_validate(r) for r in rows]
 
