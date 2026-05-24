@@ -88,4 +88,18 @@ async def test_staged_row_is_promoted_to_price_observation(db_pool, seeded_db):
         f"Expected sold_avg_cents=1250, got {row['sold_avg_cents']}. "
         "Check _aggregate in promote_sold_obs_service.py."
     )
-    assert row["sold_count"] == 1
+    assert row["sold_count"] == 1, (
+        f"Expected sold_count=1, got {row['sold_count']}. "
+        "Multiple rows aggregated — check GET_UNPROMOTED_SCRAPED scope."
+    )
+
+    # Verify the staging row was actually marked promoted (not just any row being counted)
+    async with db_pool.acquire() as conn:
+        flag = await conn.fetchval(
+            "SELECT promoted_to_obs FROM pricing.ebay_scraped_sold "
+            "WHERE item_id = 'TEST-ITEM-001'",
+        )
+    assert flag is True, (
+        "Staging row item_id='TEST-ITEM-001' was not marked promoted_to_obs=true. "
+        "Check mark_promoted in EbayScrapeSoldRepository."
+    )

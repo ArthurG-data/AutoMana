@@ -172,6 +172,7 @@ def db_migrations_applied(timescale_container, _test_env):
                     # at the driver level, the error inside an explicit BEGIN block leaves
                     # Postgres in an aborted-transaction state. Send ROLLBACK through the
                     # cursor directly so the server clears the failed transaction.
+                    print(f"\n[test-migration] Duplicate DDL in {sql_file.name} — rolling back remainder: {dup_exc}")
                     try:
                         cur.execute("ROLLBACK")
                     except Exception:
