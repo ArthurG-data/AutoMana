@@ -21,6 +21,7 @@ interface CollectionTableProps {
   sortDir?: SortDir
   onSort?: (key: SortKey) => void
   collectionId?: string
+  showFinancials?: boolean
 }
 
 function SortTh({
@@ -44,7 +45,7 @@ function SortTh({
   )
 }
 
-export function CollectionTable({ entries, onRemove, sortBy, sortDir, onSort, collectionId }: CollectionTableProps) {
+export function CollectionTable({ entries, onRemove, sortBy, sortDir, onSort, collectionId, showFinancials = true }: CollectionTableProps) {
   const queryClient = useQueryClient()
 
   async function handleStatusClick(entry: CollectionEntry) {
@@ -64,16 +65,20 @@ export function CollectionTable({ entries, onRemove, sortBy, sortDir, onSort, co
             <SortTh label="Finish"    sortKey="finish"   current={sortBy} dir={sortDir} onSort={onSort} />
             <th scope="col">Condition</th>
             <th scope="col">Status</th>
-            <SortTh label="Purchase"  sortKey="purchase" current={sortBy} dir={sortDir} onSort={onSort} align="right" />
-            <th scope="col" className={styles.right}>Market</th>
-            <SortTh label="P/L"       sortKey="pl"       current={sortBy} dir={sortDir} onSort={onSort} align="right" />
+            {showFinancials && (
+              <>
+                <SortTh label="Purchase"  sortKey="purchase" current={sortBy} dir={sortDir} onSort={onSort} align="right" />
+                <th scope="col" className={styles.right}>Market</th>
+                <SortTh label="P/L"       sortKey="pl"       current={sortBy} dir={sortDir} onSort={onSort} align="right" />
+              </>
+            )}
             <th scope="col" className={styles.right}>Actions</th>
           </tr>
         </thead>
         <tbody>
           {entries.length === 0 && (
             <tr>
-              <td colSpan={8} className={styles.empty}>
+              <td colSpan={showFinancials ? 8 : 5} className={styles.empty}>
                 No cards match your filters
               </td>
             </tr>
@@ -108,21 +113,25 @@ export function CollectionTable({ entries, onRemove, sortBy, sortDir, onSort, co
                     {entry.status}
                   </button>
                 </td>
-                <td className={styles.right}>
-                  {formatUSD(Number(entry.purchase_price))}
-                </td>
-                <td className={styles.right}>
-                  {formatUSD(entry.price ?? null)}
-                </td>
-                <td className={styles.right}>
-                  {pl != null ? (
-                    <span className={pl >= 0 ? styles.positive : styles.negative}>
-                      {plSign}{formatUSD(Math.abs(pl))}
-                    </span>
-                  ) : (
-                    <span className={styles.neutral}>—</span>
-                  )}
-                </td>
+                {showFinancials && (
+                  <>
+                    <td className={styles.right}>
+                      {formatUSD(Number(entry.purchase_price))}
+                    </td>
+                    <td className={styles.right}>
+                      {formatUSD(entry.price ?? null)}
+                    </td>
+                    <td className={styles.right}>
+                      {pl != null ? (
+                        <span className={pl >= 0 ? styles.positive : styles.negative}>
+                          {plSign}{formatUSD(Math.abs(pl))}
+                        </span>
+                      ) : (
+                        <span className={styles.neutral}>—</span>
+                      )}
+                    </td>
+                  </>
+                )}
                 <td className={styles.right}>
                   {onRemove && (
                     <button

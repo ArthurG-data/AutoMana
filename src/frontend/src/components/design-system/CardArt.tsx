@@ -57,7 +57,9 @@ export function CardArt({
     ? { height: h }
     : { aspectRatio: '5 / 7' }
 
-  if (imageUrl) {
+  const isSoon = !!imageUrl && imageUrl.includes('errors.scryfall.com')
+
+  if (imageUrl && !isSoon) {
     return (
       <div
         onMouseMove={handleMouseMove}
@@ -105,7 +107,7 @@ export function CardArt({
         ...style,
       }}
     >
-      {label && (
+      {(label || isSoon) && (
         <div
           style={{
             position: 'absolute',
@@ -118,7 +120,7 @@ export function CardArt({
             letterSpacing: 0.5,
           }}
         >
-          {name}
+          {isSoon ? 'Art coming soon' : name}
         </div>
       )}
     </div>
