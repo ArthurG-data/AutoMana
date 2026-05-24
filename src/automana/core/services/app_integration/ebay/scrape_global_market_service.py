@@ -35,7 +35,9 @@ from automana.core.services.app_integration.ebay.title_parser import (
 from automana.core.config.settings import get_settings
 import redis.asyncio as aioredis
 from automana.core.services.app_integration.ebay.ebay_raw_io import (
-    load_items_from_json,
+    load_or_fetch_items,
+    parse_sold_date,
+    to_cents,
     watchlist_path,
     write_items_to_json,
 )
@@ -146,15 +148,14 @@ async def scrape_global_market(
                         },
                     )
                 await asyncio.sleep(_INTER_MARKETPLACE_DELAY)
-            else:
-                try:
-                    await ebay_scrape_repository.update_target_last_scraped(card_version_id)
-                except Exception:
-                    logger.warning(
-                        "scrape_global_market_update_last_scraped_failed",
-                        extra={"card_version_id": str(card_version_id)},
-                    )
-                await asyncio.sleep(_INTER_CARD_DELAY)
+            try:
+                await ebay_scrape_repository.update_target_last_scraped(card_version_id)
+            except Exception:
+                logger.warning(
+                    "scrape_global_market_update_last_scraped_failed",
+                    extra={"card_version_id": str(card_version_id)},
+                )
+            await asyncio.sleep(_INTER_CARD_DELAY)
     finally:
         await redis_client.aclose()
 
@@ -197,24 +198,18 @@ async def _scrape_one_card(
 
     json_path = watchlist_path(today, source_product_id, marketplace)
 
-    if json_path.exists():
-        try:
-            items = load_items_from_json(json_path)
-            logger.info(
-                "scrape_global_market_replay",
-                extra={"source_product_id": source_product_id, "marketplace": marketplace},
-            )
-        except ValueError:
+    items, was_cached, was_corrupt = load_or_fetch_items(json_path)
+    if was_cached:
+        logger.info(
+            "scrape_global_market_replay",
+            extra={"source_product_id": source_product_id, "marketplace": marketplace},
+        )
+    else:
+        if was_corrupt:
             logger.warning(
                 "scrape_global_market_corrupt_watchlist_file",
                 extra={"path": str(json_path)},
             )
-            json_path.unlink(missing_ok=True)
-            items = await _fetch_watchlist_items(
-                keywords, app_id, marketplace, min_date, limit_per_card,
-                ebay_finding_repository, json_path, source_product_id, redis_client, today,
-            )
-    else:
         items = await _fetch_watchlist_items(
             keywords, app_id, marketplace, min_date, limit_per_card,
             ebay_finding_repository, json_path, source_product_id, redis_client, today,
@@ -238,7 +233,7 @@ async def _scrape_one_card(
         if conflicts_with_expected(parsed_frame, card):
             continue
 
-        price_cents = _to_cents(item.get("price"))
+        price_cents = to_cents(item.get("price"))
         if price_cents is None:
             continue
 
@@ -250,7 +245,7 @@ async def _scrape_one_card(
 
         currency: str = item.get("currency") or "USD"
         item_id: str = item.get("item_id") or ""
-        sold_at = _parse_sold_date(item.get("sold_date"))
+        sold_at = parse_sold_date(item.get("sold_date"))
 
         await ebay_scrape_repository.insert_scraped_sold(
             item_id=item_id,
@@ -310,17 +305,3 @@ async def _fetch_watchlist_items(
     return items
 
 
-def _to_cents(value: Any) -> Optional[int]:
-    try:
-        return round(float(value) * 100)
-    except (TypeError, ValueError):
-        return None
-
-
-def _parse_sold_date(date_str: Optional[str]) -> datetime:
-    if date_str:
-        try:
-            return datetime.fromisoformat(date_str.replace("Z", "+00:00"))
-        except ValueError:
-            pass
-    return datetime.now(timezone.utc)

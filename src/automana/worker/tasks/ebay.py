@@ -6,9 +6,10 @@ all active sellers internally; promote uses run_service.
 import logging
 
 import automana.core.services.app_integration.ebay.category_sweep_service  # noqa: F401
-from automana.core.services.app_integration.ebay.ebay_raw_io import get_ebay_raw_dir
 import automana.core.services.app_integration.ebay.refresh_scrape_targets_service  # noqa: F401
+import automana.core.services.app_integration.ebay.sales_sync_service  # noqa: F401
 import automana.core.services.app_integration.ebay.scrape_global_market_service  # noqa: F401
+from automana.core.services.app_integration.ebay.ebay_raw_io import get_ebay_raw_dir
 
 from automana.worker.main import app
 from automana.worker.ressources import get_state, init_backend_runtime
@@ -18,6 +19,27 @@ from automana.core.log.logging_context import set_task_id, set_service_path
 logger = logging.getLogger(__name__)
 
 
+def _run_ebay_service(task_self, service_path: str, log_key: str, **kwargs):
+    """Run a ServiceManager service synchronously inside a Celery task."""
+    state = get_state()
+    set_task_id(task_self.request.id)
+    set_service_path(service_path)
+    if not state.initialized:
+        init_backend_runtime()
+    try:
+        result = state.loop.run_until_complete(
+            ServiceManager.execute_service(service_path, **kwargs)
+        )
+        logger.info(f"{log_key}_complete", extra={"result": result})
+        return result
+    except Exception:
+        logger.exception(f"{log_key}_failed")
+        raise
+    finally:
+        set_service_path(None)
+        set_task_id(None)
+
+
 @app.task(
     name="automana.worker.tasks.ebay.ebay_sync_own_sales_task",
     bind=True,
@@ -25,29 +47,12 @@ logger = logging.getLogger(__name__)
     max_retries=0,
 )
 def ebay_sync_own_sales_task(self, days_back: int = 90):
-    state = get_state()
-    set_task_id(self.request.id)
-    set_service_path("integrations.ebay.sync_own_sales")
-    if not state.initialized:
-        init_backend_runtime()
-    try:
-        result = state.loop.run_until_complete(
-            ServiceManager.execute_service(
-                "integrations.ebay.sync_own_sales",
-                days_back=days_back,
-            )
-        )
-        logger.info(
-            "ebay_sync_own_sales_task_complete",
-            extra={"result": result},
-        )
-        return result
-    except Exception:
-        logger.exception("ebay_sync_own_sales_task_failed")
-        raise
-    finally:
-        set_service_path(None)
-        set_task_id(None)
+    return _run_ebay_service(
+        self,
+        "integrations.ebay.sync_own_sales",
+        "ebay_sync_own_sales_task",
+        days_back=days_back,
+    )
 
 
 @app.task(
@@ -62,31 +67,14 @@ def ebay_scrape_external_sold_task(
     score_threshold: float = 0.7,
     limit_per_card: int = 50,
 ):
-    state = get_state()
-    set_task_id(self.request.id)
-    set_service_path("integrations.ebay.scrape_external_sold")
-    if not state.initialized:
-        init_backend_runtime()
-    try:
-        result = state.loop.run_until_complete(
-            ServiceManager.execute_service(
-                "integrations.ebay.scrape_external_sold",
-                days_back=days_back,
-                score_threshold=score_threshold,
-                limit_per_card=limit_per_card,
-            )
-        )
-        logger.info(
-            "ebay_scrape_external_sold_task_complete",
-            extra={"result": result},
-        )
-        return result
-    except Exception:
-        logger.exception("ebay_scrape_external_sold_task_failed")
-        raise
-    finally:
-        set_service_path(None)
-        set_task_id(None)
+    return _run_ebay_service(
+        self,
+        "integrations.ebay.scrape_external_sold",
+        "ebay_scrape_external_sold_task",
+        days_back=days_back,
+        score_threshold=score_threshold,
+        limit_per_card=limit_per_card,
+    )
 
 
 @app.task(
@@ -97,23 +85,11 @@ def ebay_scrape_external_sold_task(
 )
 def ebay_category_sweep_task(self):
     """Daily category-wide eBay sold sweep across EBAY-US, EBAY-AU, EBAY-ENCA."""
-    state = get_state()
-    set_task_id(self.request.id)
-    set_service_path("integrations.ebay.category_sweep")
-    if not state.initialized:
-        init_backend_runtime()
-    try:
-        result = state.loop.run_until_complete(
-            ServiceManager.execute_service("integrations.ebay.category_sweep")
-        )
-        logger.info("ebay_category_sweep_task_complete", extra={"result": result})
-        return result
-    except Exception:
-        logger.exception("ebay_category_sweep_task_failed")
-        raise
-    finally:
-        set_service_path(None)
-        set_task_id(None)
+    return _run_ebay_service(
+        self,
+        "integrations.ebay.category_sweep",
+        "ebay_category_sweep_task",
+    )
 
 
 def _cleanup_old_ebay_raw_files(max_age_days: int = 7) -> int:

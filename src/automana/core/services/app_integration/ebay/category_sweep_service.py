@@ -26,8 +26,10 @@ from automana.core.services.app_integration.ebay.title_parser import (
     parse_finish_code,
 )
 from automana.core.services.app_integration.ebay.ebay_raw_io import (
-    load_items_from_json,
+    load_or_fetch_items,
+    parse_sold_date,
     sweep_path,
+    to_cents,
     write_items_to_json,
 )
 from automana.core.services.app_integration.ebay.ebay_api_quota import (
@@ -109,23 +111,15 @@ async def _sweep_marketplace(
     redis_client,
 ) -> dict:
     path = sweep_path(today, marketplace)
-
-    if path.exists():
-        try:
-            items = load_items_from_json(path)
-            logger.info(
-                "ebay_category_sweep_replay",
-                extra={"marketplace": marketplace, "items": len(items)},
-            )
-        except ValueError:
-            logger.warning(
-                "ebay_category_sweep_corrupt_file", extra={"path": str(path)}
-            )
-            path.unlink(missing_ok=True)
-            items = await _fetch_and_stage(
-                path, marketplace, app_id, ebay_finding_repository, redis_client, today
-            )
+    items, was_cached, was_corrupt = load_or_fetch_items(path)
+    if was_cached:
+        logger.info(
+            "ebay_category_sweep_replay",
+            extra={"marketplace": marketplace, "items": len(items)},
+        )
     else:
+        if was_corrupt:
+            logger.warning("ebay_category_sweep_corrupt_file", extra={"path": str(path)})
         items = await _fetch_and_stage(
             path, marketplace, app_id, ebay_finding_repository, redis_client, today
         )
@@ -135,7 +129,7 @@ async def _sweep_marketplace(
     inserted = 0
 
     for item in items:
-        best_spid, best_score, best_card = _match_item(item, card_lookup)
+        best_spid = _match_item(item, card_lookup)
         if best_spid is None:
             continue
         matched += 1
@@ -184,13 +178,10 @@ async def _fetch_and_stage(
     return items
 
 
-def _match_item(
-    item: dict, card_lookup: dict[int, dict]
-) -> tuple[Optional[int], float, Optional[dict]]:
+def _match_item(item: dict, card_lookup: dict[int, dict]) -> Optional[int]:
     title = item.get("title", "")
     best_spid: Optional[int] = None
     best_score = 0.0
-    best_card: Optional[dict] = None
 
     for spid, card in card_lookup.items():
         sc = score_title(
@@ -199,11 +190,8 @@ def _match_item(
         if sc > best_score:
             best_score = sc
             best_spid = spid
-            best_card = card
 
-    if best_score < _SCORE_THRESHOLD:
-        return None, best_score, None
-    return best_spid, best_score, best_card
+    return best_spid if best_score >= _SCORE_THRESHOLD else None
 
 
 async def _insert_matched(
@@ -220,15 +208,11 @@ async def _insert_matched(
     if not item_id or not sold_date or price_raw is None:
         return False
 
-    try:
-        price_cents = round(float(price_raw) * 100)
-    except (TypeError, ValueError):
+    price_cents = to_cents(price_raw)
+    if price_cents is None:
         return False
 
-    try:
-        sold_at = datetime.fromisoformat(sold_date.replace("Z", "+00:00"))
-    except (ValueError, AttributeError):
-        sold_at = datetime.now(timezone.utc)
+    sold_at = parse_sold_date(sold_date)
 
     finish_code = parse_finish_code(title)
     condition_code = parse_condition_code(item.get("condition"), title)
