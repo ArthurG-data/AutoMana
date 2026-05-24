@@ -133,6 +133,9 @@ def daily_mtgjson_data_pipeline(self):
         # resolved rows from staging. No parameters — operates over the
         # whole staging table.
         run_service.s("staging.mtgjson.promote_to_price_observation"),
+        # Truncate any staging rows that promotion couldn't resolve (DFC gap
+        # cards not yet in the catalog). Logged as a warning, not an error.
+        run_service.s("staging.mtgjson.cleanup_staging_db"),
         # Aggregate T1 price_observation → T2 print_price_daily for today.
         # No date args: the proc reads tier_watermark.last_processed_date to
         # pick up exactly where the previous run left off (up to yesterday).
