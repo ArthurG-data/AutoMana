@@ -295,17 +295,6 @@ The Finding API default quota is **5,000 calls/day per App ID** (separate from t
 
 ---
 
-**P7 — Finding API: `totalEntries` ignored — silent data truncation beyond 100 results**
-
-`find_completed_items` hardcodes `paginationInput.pageNumber: "1"` and never checks the `totalEntries` field in the response. For high-volume cards (e.g., playable commons) the real result set can exceed 100 items. Subsequent pages are silently dropped.
-
-- Severity: **Low** (price estimates are still directionally correct; affects completeness, not correctness)
-- File: `src/automana/core/repositories/app_integration/ebay/ApiFinding_repository.py`
-- Fix: Read `totalEntries` from `result_block`; loop pages while `offset < totalEntries` and quota allows.
-- Discovered: 2026-05-23
-
----
-
 **P8 — Finding API: No scrape-frequency tiering — all cards scraped equally nightly**
 
 All watchlist cards are scraped every night across all 3 marketplaces regardless of price velocity. A Reserved List staple sells 5–10 times/month globally; a playable uncommon sells 500+. Treating them identically wastes ~40–60% of the daily quota as the watchlist grows past 150 cards.
@@ -455,3 +444,13 @@ Items resolvable in under an hour each, no dependency on other changes:
 | QW8 | Re-enable `httponly` and `secure` on eBay OAuth cookie | ✅ DONE 2026-05-23 |
 | QW9 | Fix `UserInDB(*user)` positional unpacking | ✅ DONE 2026-05-23 |
 | QW10 | Re-run MTGStock pipeline to measure actual link rate after migration_40 | Open |
+
+---
+
+## Research / Analytics Notebooks
+
+**RN1 — `notebooks/repeat_sales_index.ipynb` — RSI benchmarking section incomplete**
+
+- File: `notebooks/repeat_sales_index.ipynb`, Section 8 "Benchmarking (TODO)"
+- The notebook computes the MTG repeat-sales price index (Methods A/B/C) but the benchmarking comparison is deferred: S&P 500 total return, CPI-adjusted real return, and Pokémon/sports-card PriceCharting comparisons are all listed as TODO.
+- Severity: **Medium** (research quality, not production-blocking)

@@ -47,6 +47,7 @@ AutoMana is a FastAPI backend for tracking Magic: The Gathering card collections
 | React SPA (design system, routing, stores, MSW, testing) | [`docs/frontend/FRONTEND.md`](docs/frontend/FRONTEND.md) |
 | API layer bugs and technical debt backlog | [`docs/api/API_LAYER_BACKLOG.md`](docs/api/API_LAYER_BACKLOG.md) |
 | Consolidated technical debt backlog (all layers) | [`docs/MASTER_TECHNICAL_DEBT.md`](docs/MASTER_TECHNICAL_DEBT.md) |
+| Pending work backlog (features + debt, by domain) | [`docs/BACKLOG.md`](docs/BACKLOG.md) |
 
 ## Common Commands
 
