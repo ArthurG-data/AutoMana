@@ -96,8 +96,9 @@ border_id    = upsert("card_catalog.border_color_ref",   border_color_name="blac
 frame_id     = upsert("card_catalog.frames_ref",         frame_year="2015")
 layout_id    = upsert("card_catalog.layouts_ref",        layout_name="normal")
 
-# Unique set — fresh per invocation to avoid inter-test conflicts
-set_code = "DMU"   # real set code makes output readable
+# Unique set — fresh per invocation to avoid inter-test conflicts.
+# set_code is randomised; card_name carries the readability.
+set_code = "DMU" + uuid.uuid4().hex[:4].upper()   # e.g. "DMUAB3F"
 set_id   = INSERT INTO card_catalog.sets (set_name="Dominaria United",
                                           set_code=set_code, ...)
 
@@ -129,17 +130,18 @@ Also deletes any `ebay_scraped_sold` rows for the seeded `source_product_id`.
 **`test_staged_row_is_promoted_to_price_observation`**
 
 ```python
-# Insert staging row
-await conn.execute(
-    "INSERT INTO pricing.ebay_scraped_sold "
-    "(item_id, title, source_product_id, price_cents, currency, marketplace_id, "
-    " finish_id, condition_id, language_id, sold_at) "
-    "VALUES ('TEST-ITEM-001', 'Sheoldred the Apocalypse DMU Foil NM', $1, "
-    "        1250, 'USD', 'EBAY-US', 2, 1, 1, $2)",
-    source_product_id, yesterday_utc,
-)
+# Step 1: insert staging row
+async with db_pool.acquire() as conn:
+    await conn.execute(
+        "INSERT INTO pricing.ebay_scraped_sold "
+        "(item_id, title, source_product_id, price_cents, currency, marketplace_id, "
+        " finish_id, condition_id, language_id, sold_at) "
+        "VALUES ('TEST-ITEM-001', 'Sheoldred the Apocalypse DMU Foil NM', $1, "
+        "        1250, 'USD', 'EBAY-US', 2, 1, 1, $2)",
+        source_product_id, yesterday_utc,
+    )
 
-# Wire real repos against a single connection
+# Step 2: run promote_sold_obs with real repos
 async with db_pool.acquire() as conn:
     ebay_sales  = EbaySalesRepository(conn)
     ebay_scrape = EbayScrapeSoldRepository(conn)
@@ -152,11 +154,13 @@ async with db_pool.acquire() as conn:
 
 assert result["promoted"] == 1
 
-row = await conn.fetchrow(
-    "SELECT sold_avg_cents, sold_count FROM pricing.price_observation "
-    "WHERE source_product_id = $1",
-    source_product_id,
-)
+# Step 3: verify price_observation
+async with db_pool.acquire() as conn:
+    row = await conn.fetchrow(
+        "SELECT sold_avg_cents, sold_count FROM pricing.price_observation "
+        "WHERE source_product_id = $1",
+        source_product_id,
+    )
 assert row["sold_avg_cents"] == 1250
 assert row["sold_count"] == 1
 ```
