@@ -16,6 +16,7 @@ const makeEntry = (overrides: Partial<CollectionEntry> = {}): CollectionEntry =>
   price: null,
   price_change_1d: 0,
   status: 'purchased',
+  is_wishlist: false,
   ...overrides,
 })
 
@@ -78,8 +79,8 @@ describe('groupEntries', () => {
     expect(groups[1].copies.map((c) => c.item_id)).toEqual(['item-2'])
   })
 
-  it('builds key as card_version_id only', () => {
-    const entries = [makeEntry({ card_version_id: 'card-x', finish: 'FOIL', condition: 'LP' })]
-    expect(groupEntries(entries)[0].key).toBe('card-x')
+  it('builds key from card_version_id and is_wishlist', () => {
+    const entries = [makeEntry({ card_version_id: 'card-x', finish: 'FOIL', condition: 'LP', is_wishlist: false })]
+    expect(groupEntries(entries)[0].key).toBe('card-x:false')
   })
 })
