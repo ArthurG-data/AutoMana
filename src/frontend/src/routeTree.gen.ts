@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as PortfolioRouteImport } from './routes/portfolio'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ListingsRouteImport } from './routes/listings'
 import { Route as CollectionRouteImport } from './routes/collection'
@@ -32,6 +33,11 @@ const SearchRoute = SearchRouteImport.update({
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PortfolioRoute = PortfolioRouteImport.update({
+  id: '/portfolio',
+  path: '/portfolio',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -100,6 +106,7 @@ export interface FileRoutesByFullPath {
   '/collection': typeof CollectionRoute
   '/listings': typeof ListingsRoute
   '/login': typeof LoginRoute
+  '/portfolio': typeof PortfolioRoute
   '/reset-password': typeof ResetPasswordRoute
   '/search': typeof SearchRoute
   '/cards/$id': typeof CardsIdRoute
@@ -116,6 +123,7 @@ export interface FileRoutesByTo {
   '/collection': typeof CollectionRoute
   '/listings': typeof ListingsRoute
   '/login': typeof LoginRoute
+  '/portfolio': typeof PortfolioRoute
   '/reset-password': typeof ResetPasswordRoute
   '/search': typeof SearchRoute
   '/cards/$id': typeof CardsIdRoute
@@ -133,6 +141,7 @@ export interface FileRoutesById {
   '/collection': typeof CollectionRoute
   '/listings': typeof ListingsRoute
   '/login': typeof LoginRoute
+  '/portfolio': typeof PortfolioRoute
   '/reset-password': typeof ResetPasswordRoute
   '/search': typeof SearchRoute
   '/cards/$id': typeof CardsIdRoute
@@ -151,6 +160,7 @@ export interface FileRouteTypes {
     | '/collection'
     | '/listings'
     | '/login'
+    | '/portfolio'
     | '/reset-password'
     | '/search'
     | '/cards/$id'
@@ -167,6 +177,7 @@ export interface FileRouteTypes {
     | '/collection'
     | '/listings'
     | '/login'
+    | '/portfolio'
     | '/reset-password'
     | '/search'
     | '/cards/$id'
@@ -183,6 +194,7 @@ export interface FileRouteTypes {
     | '/collection'
     | '/listings'
     | '/login'
+    | '/portfolio'
     | '/reset-password'
     | '/search'
     | '/cards/$id'
@@ -200,6 +212,7 @@ export interface RootRouteChildren {
   CollectionRoute: typeof CollectionRoute
   ListingsRoute: typeof ListingsRoute
   LoginRoute: typeof LoginRoute
+  PortfolioRoute: typeof PortfolioRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SearchRoute: typeof SearchRoute
   CardsIdRoute: typeof CardsIdRoute
@@ -226,6 +239,13 @@ declare module '@tanstack/react-router' {
       path: '/reset-password'
       fullPath: '/reset-password'
       preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/portfolio': {
+      id: '/portfolio'
+      path: '/portfolio'
+      fullPath: '/portfolio'
+      preLoaderRoute: typeof PortfolioRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -320,6 +340,7 @@ const rootRouteChildren: RootRouteChildren = {
   CollectionRoute: CollectionRoute,
   ListingsRoute: ListingsRoute,
   LoginRoute: LoginRoute,
+  PortfolioRoute: PortfolioRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SearchRoute: SearchRoute,
   CardsIdRoute: CardsIdRoute,

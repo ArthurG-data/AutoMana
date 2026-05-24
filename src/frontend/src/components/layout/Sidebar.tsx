@@ -10,16 +10,11 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { kind: 'chart',    label: 'Dashboard',  id: 'dashboard'  },
   { kind: 'search',   label: 'Search',     id: 'search'     },
   { kind: 'wallet',   label: 'Portfolio',  id: 'portfolio'  },
   { kind: 'cards',    label: 'Collection', id: 'collection' },
   { kind: 'bag',      label: 'Listings',   id: 'listings'   },
-  { kind: 'eye',      label: 'Watchlist',  id: 'watchlist'  },
-  { kind: 'list',     label: 'Journal',    id: 'journal'    },
-  { kind: 'bell',     label: 'Alerts',     id: 'alerts'     },
-  { kind: 'shield',   label: 'eBay',       id: 'ebay'       },
-  { kind: 'settings', label: 'Settings',   id: 'settings'   },
+  { kind: 'tag',      label: 'eBay',       id: 'ebay'       },
 ]
 
 interface SidebarProps {

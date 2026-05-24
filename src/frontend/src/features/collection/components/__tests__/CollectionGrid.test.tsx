@@ -88,4 +88,17 @@ describe('CollectionGrid', () => {
     expect(screen.getByText('Sol Ring')).toBeInTheDocument()
     expect(screen.getByText('Black Lotus')).toBeInTheDocument()
   })
+
+  it('hides price and P/L when showFinancials is false', () => {
+    const entry = makeEntry({ price: 10.00, purchase_price: '5.00' })
+    render(<CollectionGrid entries={[entry]} onRemove={vi.fn()} showFinancials={false} />)
+    // $10.00 is the market price — should be hidden
+    expect(screen.queryByText('$10.00')).toBeNull()
+  })
+
+  it('shows price by default (showFinancials defaults to true)', () => {
+    const entry = makeEntry({ price: 10.00, purchase_price: '5.00' })
+    render(<CollectionGrid entries={[entry]} onRemove={vi.fn()} />)
+    expect(screen.getByText('$10.00')).toBeInTheDocument()
+  })
 })

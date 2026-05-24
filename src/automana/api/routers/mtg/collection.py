@@ -257,6 +257,7 @@ async def list_entries(
     service_manager: ServiceManagerDep,
     limit: int = Query(50, ge=1, le=200, description="Page size"),
     offset: int = Query(0, ge=0, description="Number of entries to skip"),
+    is_wishlist: Optional[bool] = Query(None, description="Filter by wishlist flag. True=wishlist only, False=owned only, omit=all"),
 ):
     try:
         result = await service_manager.execute_service(
@@ -265,6 +266,7 @@ async def list_entries(
             user=current_user,
             limit=limit,
             offset=offset,
+            is_wishlist=is_wishlist,
         )
         return ApiResponse(data=result)
     except CollectionNotFoundError:

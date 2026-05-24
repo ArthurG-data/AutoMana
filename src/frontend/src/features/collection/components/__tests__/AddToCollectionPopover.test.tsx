@@ -87,6 +87,7 @@ describe('AddToCollectionPopover', () => {
       collectionId: 'col1',
       condition: 'LP',
       finish: 'NONFOIL',
+      isWishlist: false,
     })
   })
 
@@ -124,6 +125,7 @@ describe('AddToCollectionPopover', () => {
       collectionId: 'col1',
       condition: 'NM',
       finish: 'FOIL',
+      isWishlist: false,
     })
   })
 
@@ -155,5 +157,57 @@ describe('AddToCollectionPopover', () => {
       />
     )
     expect(screen.queryByText(/You already have/)).not.toBeInTheDocument()
+  })
+
+  it('shows Owned and Wishlist toggle buttons', () => {
+    render(
+      <AddToCollectionPopover
+        cardVersionId="cv1"
+        cardName="Ragavan"
+        finish="non-foil"
+        collections={COLLECTIONS}
+        onAdd={vi.fn()}
+        onClose={vi.fn()}
+      />
+    )
+    expect(screen.getByRole('button', { name: 'Owned' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Wishlist' })).toBeTruthy()
+  })
+
+  it('calls onAdd with isWishlist=true when Wishlist is selected', () => {
+    const onAdd = vi.fn()
+    render(
+      <AddToCollectionPopover
+        cardVersionId="cv1"
+        cardName="Ragavan"
+        finish="non-foil"
+        collections={COLLECTIONS}
+        onAdd={onAdd}
+        onClose={vi.fn()}
+      />
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Wishlist' }))
+    fireEvent.click(screen.getByRole('button', { name: /Add/ }))
+    expect(onAdd).toHaveBeenCalledWith(
+      expect.objectContaining({ isWishlist: true })
+    )
+  })
+
+  it('calls onAdd with isWishlist=false by default (Owned)', () => {
+    const onAdd = vi.fn()
+    render(
+      <AddToCollectionPopover
+        cardVersionId="cv1"
+        cardName="Ragavan"
+        finish="non-foil"
+        collections={COLLECTIONS}
+        onAdd={onAdd}
+        onClose={vi.fn()}
+      />
+    )
+    fireEvent.click(screen.getByRole('button', { name: /Add/ }))
+    expect(onAdd).toHaveBeenCalledWith(
+      expect.objectContaining({ isWishlist: false })
+    )
   })
 })

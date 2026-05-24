@@ -18,6 +18,7 @@ const makeEntry = (id: string): CollectionEntry => ({
   price: 30,
   price_change_1d: 0,
   status: 'purchased',
+  is_wishlist: false,
 })
 
 describe('useInfiniteEntries', () => {
@@ -27,7 +28,7 @@ describe('useInfiniteEntries', () => {
     vi.spyOn(api, 'fetchEntriesPage').mockResolvedValue([makeEntry('e1'), makeEntry('e2')])
     const { result } = renderHook(() => useInfiniteEntries('col1'))
     await waitFor(() => expect(result.current.allEntries).toHaveLength(2))
-    expect(api.fetchEntriesPage).toHaveBeenCalledWith('col1', 0, expect.any(Number))
+    expect(api.fetchEntriesPage).toHaveBeenCalledWith('col1', 0, expect.any(Number), undefined)
   })
 
   it('sets hasMore=false when page is smaller than limit', async () => {
@@ -55,7 +56,7 @@ describe('useInfiniteEntries', () => {
 
     await act(() => result.current.fetchNextPage())
     await waitFor(() => expect(result.current.allEntries).toHaveLength(52))
-    expect(api.fetchEntriesPage).toHaveBeenCalledWith('col1', 50, expect.any(Number))
+    expect(api.fetchEntriesPage).toHaveBeenCalledWith('col1', 50, expect.any(Number), undefined)
   })
 
   it('resets when collectionId changes', async () => {
@@ -67,6 +68,22 @@ describe('useInfiniteEntries', () => {
     await waitFor(() => expect(result.current.allEntries).toHaveLength(1))
     rerender({ id: 'col2' })
     await waitFor(() => expect(result.current.allEntries).toHaveLength(1))
-    expect(api.fetchEntriesPage).toHaveBeenCalledWith('col2', 0, expect.any(Number))
+    expect(api.fetchEntriesPage).toHaveBeenCalledWith('col2', 0, expect.any(Number), undefined)
+  })
+
+  it('calls fetchEntriesPage with isWishlist=false when specified', async () => {
+    vi.spyOn(api, 'fetchEntriesPage').mockResolvedValue([])
+    renderHook(() => useInfiniteEntries('col-1', false))
+    await waitFor(() => {
+      expect(api.fetchEntriesPage).toHaveBeenCalledWith('col-1', 0, 50, false)
+    })
+  })
+
+  it('calls fetchEntriesPage without isWishlist when not specified', async () => {
+    vi.spyOn(api, 'fetchEntriesPage').mockResolvedValue([])
+    renderHook(() => useInfiniteEntries('col-1'))
+    await waitFor(() => {
+      expect(api.fetchEntriesPage).toHaveBeenCalledWith('col-1', 0, 50, undefined)
+    })
   })
 })
