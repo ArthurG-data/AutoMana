@@ -161,6 +161,11 @@ beat_schedule = {
             "environment": "production",
         },
     },
+    # Weekly cleanup of eBay raw JSON files older than 7 days.
+    "ebay-cleanup-raw-files-weekly": {
+        "task": "automana.worker.tasks.ebay.ebay_cleanup_raw_files_task",
+        "schedule": crontab(hour=3, minute=0, day_of_week=0),  # Sunday 03:00 AEST
+    },
     # Drain staging pricing actions → apply to eBay listings every 5 minutes.
     "drain-listing-actions": {
         "task": "automana.worker.tasks.ebay_actions.drain_listing_actions_task",
