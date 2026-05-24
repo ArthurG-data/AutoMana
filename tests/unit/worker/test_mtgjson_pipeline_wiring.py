@@ -14,6 +14,10 @@ EXPECTED_MTGJSON_STEPS = [
     "mtgjson.data.download.today",
     "staging.mtgjson.stream_to_staging",
     "staging.mtgjson.promote_to_price_observation",
+    "staging.mtgjson.cleanup_staging_db",
+    "pricing.refresh_daily_prices",
+    "card_catalog.card_search.refresh",
+    "card_catalog.card_search.invalidate",
     "staging.mtgjson.cleanup_raw_files",
     "ops.pipeline_services.finish_run",
 ]
@@ -36,6 +40,14 @@ class TestTUIPanelSteps:
         idx_sync = task.steps.index("staging.mtgjson.sync_uuid_mappings")
         idx_prices = task.steps.index("mtgjson.data.download.today")
         assert idx_ident < idx_sync < idx_prices
+
+    def test_cleanup_staging_db_runs_before_refresh_daily_prices(self):
+        """DB staging cleanup must precede refresh_daily_prices so the price
+        refresh never sees leftover rows from prior runs."""
+        task = next(t for t in KNOWN_TASKS if t.name == "daily_mtgjson_data_pipeline")
+        idx_cleanup = task.steps.index("staging.mtgjson.cleanup_staging_db")
+        idx_refresh = task.steps.index("pricing.refresh_daily_prices")
+        assert idx_cleanup < idx_refresh
 
 
 class TestBeatSchedule:

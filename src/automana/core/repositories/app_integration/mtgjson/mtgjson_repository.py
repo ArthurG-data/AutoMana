@@ -63,8 +63,12 @@ class MtgjsonRepository(AbstractRepository):
         inserts with identifier_name='mtgjson_id'. Idempotent — the PK
         (card_version_id, card_identifier_ref_id) conflict is silently ignored.
 
+        DFC back-face UUIDs that collide with the PK (same card_version_id already
+        has a different mtgjson_id stored for the front face) are captured in
+        card_catalog.mtgjson_uuid_alias so the promoter can resolve them too.
+
         Uses UNNEST over two text arrays to avoid temp-table/transaction coupling.
-        Returns the number of rows actually inserted (0 on a re-run).
+        Returns the number of rows inserted into card_external_identifier (0 on re-run).
         """
         if not pairs:
             return 0
@@ -99,6 +103,48 @@ class MtgjsonRepository(AbstractRepository):
             )
             SELECT COUNT(*) FROM inserted
         """, (mtgjson_uuids, scryfall_uuids))
+
+        # Insert DFC back-face UUIDs that couldn't go into the primary table.
+        # These are UUIDs whose scryfall_id resolves to a card_version_id that
+        # already has a DIFFERENT mtgjson_id stored (the front-face UUID).
+        await self.execute_command("""
+            INSERT INTO card_catalog.mtgjson_uuid_alias (uuid, card_version_id)
+            SELECT p.mtgjson_uuid, scryfall_cei.card_version_id
+            FROM (
+                SELECT unnest($1::text[]) AS mtgjson_uuid,
+                       unnest($2::text[]) AS scryfall_uuid
+            ) p
+            JOIN card_catalog.card_external_identifier scryfall_cei
+                ON scryfall_cei.value = p.scryfall_uuid
+            JOIN card_catalog.card_identifier_ref scryfall_ref
+                ON scryfall_ref.card_identifier_ref_id = scryfall_cei.card_identifier_ref_id
+               AND scryfall_ref.identifier_name = 'scryfall_id'
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM card_catalog.card_external_identifier primary_cei
+                JOIN card_catalog.card_identifier_ref primary_cir
+                  ON primary_cir.card_identifier_ref_id = primary_cei.card_identifier_ref_id
+                WHERE primary_cir.identifier_name = 'mtgjson_id'
+                  AND primary_cei.value = p.mtgjson_uuid
+            )
+            ON CONFLICT (uuid) DO NOTHING
+        """, (mtgjson_uuids, scryfall_uuids))
+
+        return count or 0
+
+    async def truncate_staging_after_promotion(self) -> int:
+        """Count and truncate any remaining rows in the staging table.
+
+        Returns the number of rows deleted. Skips the TRUNCATE when the table
+        is already empty to avoid an unnecessary DDL lock.
+        """
+        count = await self.execute_fetchval(
+            "SELECT COUNT(*) FROM pricing.mtgjson_card_prices_staging", ()
+        )
+        if count:
+            await self.execute_command(
+                "TRUNCATE pricing.mtgjson_card_prices_staging", ()
+            )
         return count or 0
 
     async def promote_staging_to_production(self) -> None:
