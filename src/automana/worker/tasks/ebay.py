@@ -5,6 +5,8 @@ all active sellers internally; promote uses run_service.
 """
 import logging
 
+import automana.core.services.app_integration.ebay.category_sweep_service  # noqa: F401
+from automana.core.services.app_integration.ebay.ebay_raw_io import get_ebay_raw_dir
 import automana.core.services.app_integration.ebay.refresh_scrape_targets_service  # noqa: F401
 import automana.core.services.app_integration.ebay.scrape_global_market_service  # noqa: F401
 
@@ -85,3 +87,58 @@ def ebay_scrape_external_sold_task(
     finally:
         set_service_path(None)
         set_task_id(None)
+
+
+@app.task(
+    name="automana.worker.tasks.ebay.ebay_category_sweep_task",
+    bind=True,
+    acks_late=True,
+    max_retries=0,
+)
+def ebay_category_sweep_task(self):
+    """Daily category-wide eBay sold sweep across EBAY-US, EBAY-AU, EBAY-ENCA."""
+    state = get_state()
+    set_task_id(self.request.id)
+    set_service_path("integrations.ebay.category_sweep")
+    if not state.initialized:
+        init_backend_runtime()
+    try:
+        result = state.loop.run_until_complete(
+            ServiceManager.execute_service("integrations.ebay.category_sweep")
+        )
+        logger.info("ebay_category_sweep_task_complete", extra={"result": result})
+        return result
+    except Exception:
+        logger.exception("ebay_category_sweep_task_failed")
+        raise
+    finally:
+        set_service_path(None)
+        set_task_id(None)
+
+
+def _cleanup_old_ebay_raw_files(max_age_days: int = 7) -> int:
+    """Delete JSON files under the ebay_raw directory older than max_age_days. Returns count deleted."""
+    import time
+    raw_dir = get_ebay_raw_dir()
+    if not raw_dir.exists():
+        return 0
+    cutoff = time.time() - (max_age_days * 86_400)
+    deleted = 0
+    for f in raw_dir.rglob("*.json"):
+        if f.stat().st_mtime < cutoff:
+            f.unlink(missing_ok=True)
+            deleted += 1
+    return deleted
+
+
+@app.task(
+    name="automana.worker.tasks.ebay.ebay_cleanup_raw_files_task",
+    bind=True,
+    acks_late=True,
+    max_retries=0,
+)
+def ebay_cleanup_raw_files_task(self):
+    """Weekly maintenance: delete eBay raw JSON files older than 7 days."""
+    deleted = _cleanup_old_ebay_raw_files(max_age_days=7)
+    logger.info("ebay_cleanup_raw_files_complete", extra={"deleted": deleted})
+    return {"deleted": deleted}

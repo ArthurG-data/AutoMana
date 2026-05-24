@@ -33,6 +33,16 @@ from automana.core.services.app_integration.ebay.title_parser import (
     parse_frame_variant,
 )
 from automana.core.config.settings import get_settings
+import redis.asyncio as aioredis
+from automana.core.services.app_integration.ebay.ebay_raw_io import (
+    load_items_from_json,
+    watchlist_path,
+    write_items_to_json,
+)
+from automana.core.services.app_integration.ebay.ebay_api_quota import (
+    quota_increment,
+    quota_remaining,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +52,6 @@ _MARKETPLACES = ("EBAY-US", "EBAY-AU", "EBAY-ENCA")
 _INTER_MARKETPLACE_DELAY = 1.0   # 1 req/s per marketplace — stays well below burst throttle
 _INTER_CARD_DELAY = 0.5          # breathing room between cards
 _API_DAILY_BUDGET = 5_000
-_API_WARN_THRESHOLD = 0.80
 
 
 @ServiceRegistry.register(
@@ -74,92 +83,86 @@ async def scrape_global_market(
         return {"scraped_items": 0, "cards_processed": 0}
 
     min_date = datetime.now(timezone.utc) - timedelta(days=days_back)
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    redis_host = getattr(settings, "redis_host", "localhost")
+    redis_port = getattr(settings, "redis_port", 6379)
+    redis_client = aioredis.from_url(f"redis://{redis_host}:{redis_port}/0")
+
     total_items = 0
-    api_calls = 0
-    warn_at = round(_API_DAILY_BUDGET * _API_WARN_THRESHOLD)
 
-    for card_version_id in targets:
-        card = await card_repository.get_scrape_metadata(card_version_id)
-        if not card:
-            logger.warning(
-                "scrape_global_market_card_not_found",
-                extra={"card_version_id": str(card_version_id)},
-            )
-            continue
-
-        product_id = await ebay_sales_repository.ensure_product(card_version_id)
-        if not product_id:
-            logger.warning(
-                "scrape_global_market_ensure_product_failed",
-                extra={"card_version_id": str(card_version_id)},
-            )
-            continue
-
-        source_product_id = await ebay_sales_repository.ensure_source_product(
-            card_version_id, _EBAY_SOURCE_ID
-        )
-        if not source_product_id:
-            logger.warning(
-                "scrape_global_market_ensure_source_product_failed",
-                extra={"card_version_id": str(card_version_id)},
-            )
-            continue
-
-        for marketplace in _MARKETPLACES:
-            if api_calls >= _API_DAILY_BUDGET:
-                logger.error(
-                    "scrape_global_market_api_budget_exhausted",
-                    extra={"api_calls": api_calls, "budget": _API_DAILY_BUDGET},
-                )
-                break
-            api_calls += 1
-            if api_calls == warn_at:
+    try:
+        for card_version_id in targets:
+            card = await card_repository.get_scrape_metadata(card_version_id)
+            if not card:
                 logger.warning(
-                    "scrape_global_market_api_budget_warning",
-                    extra={"api_calls": api_calls, "budget": _API_DAILY_BUDGET},
-                )
-            try:
-                count = await _scrape_one_card(
-                    card_version_id=card_version_id,
-                    card=card,
-                    app_id=app_id,
-                    marketplace=marketplace,
-                    min_date=min_date,
-                    limit_per_card=limit_per_card,
-                    score_threshold=score_threshold,
-                    ebay_sales_repository=ebay_sales_repository,
-                    ebay_scrape_repository=ebay_scrape_repository,
-                    ebay_finding_repository=ebay_finding_repository,
-                    source_product_id=source_product_id,
-                )
-                total_items += count
-            except Exception:
-                logger.exception(
-                    "scrape_global_market_card_marketplace_failed",
-                    extra={
-                        "card_version_id": str(card_version_id),
-                        "marketplace": marketplace,
-                    },
-                )
-            await asyncio.sleep(_INTER_MARKETPLACE_DELAY)
-        else:
-            # inner loop completed without hitting budget limit
-            try:
-                await ebay_scrape_repository.update_target_last_scraped(card_version_id)
-            except Exception:
-                logger.warning(
-                    "scrape_global_market_update_last_scraped_failed",
+                    "scrape_global_market_card_not_found",
                     extra={"card_version_id": str(card_version_id)},
                 )
-            await asyncio.sleep(_INTER_CARD_DELAY)
-            continue
-        break  # budget exhausted — exit outer loop
+                continue
+
+            product_id = await ebay_sales_repository.ensure_product(card_version_id)
+            if not product_id:
+                logger.warning(
+                    "scrape_global_market_ensure_product_failed",
+                    extra={"card_version_id": str(card_version_id)},
+                )
+                continue
+
+            source_product_id = await ebay_sales_repository.ensure_source_product(
+                card_version_id, _EBAY_SOURCE_ID
+            )
+            if not source_product_id:
+                logger.warning(
+                    "scrape_global_market_ensure_source_product_failed",
+                    extra={"card_version_id": str(card_version_id)},
+                )
+                continue
+
+            for marketplace in _MARKETPLACES:
+                try:
+                    count = await _scrape_one_card(
+                        card_version_id=card_version_id,
+                        card=card,
+                        app_id=app_id,
+                        marketplace=marketplace,
+                        min_date=min_date,
+                        limit_per_card=limit_per_card,
+                        score_threshold=score_threshold,
+                        ebay_sales_repository=ebay_sales_repository,
+                        ebay_scrape_repository=ebay_scrape_repository,
+                        ebay_finding_repository=ebay_finding_repository,
+                        source_product_id=source_product_id,
+                        today=today,
+                        redis_client=redis_client,
+                    )
+                    total_items += count
+                except Exception:
+                    logger.exception(
+                        "scrape_global_market_card_marketplace_failed",
+                        extra={
+                            "card_version_id": str(card_version_id),
+                            "marketplace": marketplace,
+                        },
+                    )
+                await asyncio.sleep(_INTER_MARKETPLACE_DELAY)
+            else:
+                try:
+                    await ebay_scrape_repository.update_target_last_scraped(card_version_id)
+                except Exception:
+                    logger.warning(
+                        "scrape_global_market_update_last_scraped_failed",
+                        extra={"card_version_id": str(card_version_id)},
+                    )
+                await asyncio.sleep(_INTER_CARD_DELAY)
+    finally:
+        await redis_client.aclose()
 
     logger.info(
         "scrape_global_market_complete",
-        extra={"scraped_items": total_items, "cards_processed": len(targets), "api_calls": api_calls},
+        extra={"scraped_items": total_items, "cards_processed": len(targets)},
     )
-    return {"scraped_items": total_items, "cards_processed": len(targets), "api_calls": api_calls}
+    return {"scraped_items": total_items, "cards_processed": len(targets)}
 
 
 async def _scrape_one_card(
@@ -174,6 +177,8 @@ async def _scrape_one_card(
     ebay_scrape_repository: EbayScrapeSoldRepository,
     ebay_finding_repository: EbayFindingAPIRepository,
     source_product_id: int,
+    today: str,
+    redis_client,
 ) -> int:
     card_name: str = card.get("card_name", "")
     set_code: Optional[str] = card.get("set_code")
@@ -190,13 +195,30 @@ async def _scrape_one_card(
         frame=primary_frame,
     )
 
-    items = await ebay_finding_repository.find_completed_items(
-        keywords=keywords,
-        app_id=app_id,
-        global_id=marketplace,
-        min_date=min_date,
-        limit=limit_per_card,
-    )
+    json_path = watchlist_path(today, source_product_id, marketplace)
+
+    if json_path.exists():
+        try:
+            items = load_items_from_json(json_path)
+            logger.info(
+                "scrape_global_market_replay",
+                extra={"source_product_id": source_product_id, "marketplace": marketplace},
+            )
+        except ValueError:
+            logger.warning(
+                "scrape_global_market_corrupt_watchlist_file",
+                extra={"path": str(json_path)},
+            )
+            json_path.unlink(missing_ok=True)
+            items = await _fetch_watchlist_items(
+                keywords, app_id, marketplace, min_date, limit_per_card,
+                ebay_finding_repository, json_path, source_product_id, redis_client, today,
+            )
+    else:
+        items = await _fetch_watchlist_items(
+            keywords, app_id, marketplace, min_date, limit_per_card,
+            ebay_finding_repository, json_path, source_product_id, redis_client, today,
+        )
 
     count = 0
     for item in items:
@@ -245,6 +267,47 @@ async def _scrape_one_card(
         count += 1
 
     return count
+
+
+async def _fetch_watchlist_items(
+    keywords: str,
+    app_id: str,
+    marketplace: str,
+    min_date: datetime,
+    limit_per_card: int,
+    ebay_finding_repository: EbayFindingAPIRepository,
+    json_path,
+    source_product_id: int,
+    redis_client,
+    today: str,
+) -> list[dict]:
+    if await quota_remaining(redis_client, today, _API_DAILY_BUDGET) == 0:
+        logger.warning(
+            "scrape_global_market_quota_exhausted",
+            extra={"source_product_id": source_product_id, "marketplace": marketplace},
+        )
+        return []
+
+    async def _on_page():
+        await quota_increment(redis_client, today)
+
+    items = await ebay_finding_repository.find_completed_items(
+        keywords=keywords,
+        app_id=app_id,
+        global_id=marketplace,
+        min_date=min_date,
+        limit=limit_per_card,
+        max_pages=3,
+        on_page_fetched=_on_page,
+    )
+
+    try:
+        write_items_to_json(json_path, items, marketplace, source_product_id=source_product_id)
+    except OSError:
+        logger.error(
+            "scrape_global_market_watchlist_write_failed", extra={"path": str(json_path)}
+        )
+    return items
 
 
 def _to_cents(value: Any) -> Optional[int]:

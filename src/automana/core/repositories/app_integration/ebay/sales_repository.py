@@ -237,6 +237,11 @@ class EbaySalesRepository(AbstractRepository):
             return None
         return row
 
+    async def get_ebay_card_lookup(self) -> list[dict]:
+        """Return all eBay source_products with card metadata for title-matching."""
+        rows = await self.execute_query(sales_queries.GET_EBAY_CARD_LOOKUP, ())
+        return [dict(r) for r in rows]
+
     async def list_local_sales(
         self, app_code: str, limit: int, offset: int
     ) -> tuple[list[dict], int]:
