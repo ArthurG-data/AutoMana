@@ -7,6 +7,7 @@ import { TopBar } from '../components/layout/TopBar'
 import { ToastContainer } from '../components/design-system/Toast'
 import { Icon } from '../components/design-system/Icon'
 import { CollectionGrid } from '../features/collection/components/CollectionGrid'
+import { CollectionTable } from '../features/collection/components/CollectionTable'
 import {
   collectionsQueryOptions,
   createCollection,
@@ -16,6 +17,13 @@ import { cn } from '../lib/cn'
 import { useInfiniteEntries } from '../features/collection/hooks/useInfiniteEntries'
 import { useToast } from '../lib/useToast'
 import styles from './Collection.module.css'
+
+export type SortKey = 'name' | 'set' | 'finish' | 'purchase' | 'pl'
+export type SortDir = 'asc' | 'desc'
+
+type ViewMode = 'grid' | 'list'
+
+const FINISH_ORDER: Record<string, number> = { NONFOIL: 0, FOIL: 1, ETCHED: 2 }
 
 export const Route = createFileRoute('/collection')({
   component: CollectionCatalogPage,
@@ -37,6 +45,9 @@ function CollectionCatalogPage() {
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null)
   const [newCollectionName, setNewCollectionName] = useState('')
   const [creatingNew, setCreatingNew] = useState(false)
+  const [viewMode, setViewMode] = useState<ViewMode>('grid')
+  const [sortBy, setSortBy] = useState<SortKey>('name')
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
 
   const deferredQuery = useDeferredValue(query)
 
@@ -63,6 +74,29 @@ function CollectionCatalogPage() {
       (e) => e.card_name.toLowerCase().includes(q) || e.set_code.toLowerCase().includes(q),
     )
   }, [entries, deferredQuery])
+
+  function handleSort(key: SortKey) {
+    if (key === sortBy) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortBy(key); setSortDir('asc') }
+  }
+
+  const sorted = useMemo(() => {
+    return [...filtered].sort((a, b) => {
+      let cmp = 0
+      switch (sortBy) {
+        case 'name':     cmp = a.card_name.localeCompare(b.card_name); break
+        case 'set':      cmp = a.set_code.localeCompare(b.set_code); break
+        case 'finish':   cmp = (FINISH_ORDER[a.finish] ?? 0) - (FINISH_ORDER[b.finish] ?? 0); break
+        case 'purchase': cmp = Number(a.purchase_price) - Number(b.purchase_price); break
+        case 'pl': {
+          const plA = (a.price ?? 0) - Number(a.purchase_price)
+          const plB = (b.price ?? 0) - Number(b.purchase_price)
+          cmp = plA - plB; break
+        }
+      }
+      return sortDir === 'asc' ? cmp : -cmp
+    })
+  }, [filtered, sortBy, sortDir])
 
   async function handleRemove(itemId: string) {
     if (!activeCollectionId) return
@@ -149,14 +183,46 @@ function CollectionCatalogPage() {
               aria-label="Search collection"
             />
           </div>
+          <div className={styles.toolbarRight}>
+            <div className={styles.viewToggle} role="group" aria-label="View mode">
+              <button
+                className={cn(styles.viewBtn, viewMode === 'grid' && styles.viewBtnActive)}
+                onClick={() => setViewMode('grid')}
+                aria-pressed={viewMode === 'grid'}
+                aria-label="Grid view"
+                title="Grid view"
+              >
+                <Icon kind="grid" size={14} color="currentColor" />
+              </button>
+              <button
+                className={cn(styles.viewBtn, viewMode === 'list' && styles.viewBtnActive)}
+                onClick={() => setViewMode('list')}
+                aria-pressed={viewMode === 'list'}
+                aria-label="List view"
+                title="List view"
+              >
+                <Icon kind="list" size={14} color="currentColor" />
+              </button>
+            </div>
+          </div>
         </div>
 
         {isLoading ? (
           <div className={styles.loading}>Loading…</div>
-        ) : (
+        ) : viewMode === 'grid' ? (
           <CollectionGrid
-            entries={filtered}
+            entries={sorted}
             onRemove={handleRemove}
+            showFinancials={false}
+          />
+        ) : (
+          <CollectionTable
+            entries={sorted}
+            onRemove={handleRemove}
+            sortBy={sortBy}
+            sortDir={sortDir}
+            onSort={handleSort}
+            collectionId={activeCollectionId ?? undefined}
             showFinancials={false}
           />
         )}

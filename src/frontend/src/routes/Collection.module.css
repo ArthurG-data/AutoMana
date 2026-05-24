@@ -128,6 +128,42 @@
   gap: 8px;
 }
 
+.toolbarRight {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.viewToggle {
+  display: flex;
+  border: 1px solid var(--hd-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.viewBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 9px;
+  background: transparent;
+  border: none;
+  color: var(--hd-sub);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+
+.viewBtn:hover {
+  color: var(--hd-text);
+  background: var(--hd-surface-alt);
+}
+
+.viewBtnActive {
+  background: var(--hd-surface-alt);
+  color: var(--hd-text);
+}
+
 .searchBox {
   display: flex;
   align-items: center;
