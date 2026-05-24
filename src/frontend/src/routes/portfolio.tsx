@@ -65,7 +65,7 @@ function CollectionPage() {
     hasMore,
     removeEntry,
     sentinelRef,
-  } = useInfiniteEntries(activeCollectionId)
+  } = useInfiniteEntries(activeCollectionId, false)
   const isLoading = entries.length === 0 && isFetchingMore
 
   const filtered = useMemo(() => {
