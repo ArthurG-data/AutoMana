@@ -241,33 +241,34 @@ BEGIN
                     scraped_at     = EXCLUDED.scraped_at,
                     updated_at     = now()
                 RETURNING 1
+            ),
+            -- Upsert snapshot (advance only when newer) — same CTE chain so resolved is visible
+            snapshot_insert AS (
+                INSERT INTO pricing.sealed_price_latest (
+                    product_id, source_id, transaction_type_id,
+                    price_date, list_avg_cents, sold_avg_cents, n_providers, updated_at
+                )
+                SELECT DISTINCT ON (r.product_id, r.source_id, r.price_type_id)
+                    r.product_id,
+                    r.source_id,
+                    r.price_type_id,
+                    r.ts_date,
+                    CASE WHEN r.price_type_id = 1 THEN r.price_cents END::INT,
+                    CASE WHEN r.price_type_id = 2 THEN r.price_cents END::INT,
+                    1::SMALLINT,
+                    now()
+                FROM resolved r
+                ORDER BY r.product_id, r.source_id, r.price_type_id, r.ts_date DESC
+                ON CONFLICT (product_id, source_id, transaction_type_id)
+                DO UPDATE SET
+                    price_date     = EXCLUDED.price_date,
+                    list_avg_cents = EXCLUDED.list_avg_cents,
+                    sold_avg_cents = EXCLUDED.sold_avg_cents,
+                    n_providers    = EXCLUDED.n_providers,
+                    updated_at     = now()
+                WHERE EXCLUDED.price_date >= pricing.sealed_price_latest.price_date
             )
             SELECT count(*) INTO v_upserted FROM upserted;
-
-            -- Upsert snapshot (advance only when newer)
-            INSERT INTO pricing.sealed_price_latest (
-                product_id, source_id, transaction_type_id,
-                price_date, list_avg_cents, sold_avg_cents, n_providers, updated_at
-            )
-            SELECT DISTINCT ON (r.product_id, r.source_id, r.price_type_id)
-                r.product_id,
-                r.source_id,
-                r.price_type_id,
-                r.ts_date,
-                CASE WHEN r.price_type_id = 1 THEN r.price_cents END::INT,
-                CASE WHEN r.price_type_id = 2 THEN r.price_cents END::INT,
-                1::SMALLINT,
-                now()
-            FROM resolved r
-            ORDER BY r.product_id, r.source_id, r.price_type_id, r.ts_date DESC
-            ON CONFLICT (product_id, source_id, transaction_type_id)
-            DO UPDATE SET
-                price_date     = EXCLUDED.price_date,
-                list_avg_cents = EXCLUDED.list_avg_cents,
-                sold_avg_cents = EXCLUDED.sold_avg_cents,
-                n_providers    = EXCLUDED.n_providers,
-                updated_at     = now()
-            WHERE EXCLUDED.price_date >= pricing.sealed_price_latest.price_date;
 
             -- Delete resolved rows from staging
             WITH
