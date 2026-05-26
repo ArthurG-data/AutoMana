@@ -290,7 +290,7 @@ async def stream_to_staging(
         if uuid_key in sealed_uuids:
             sealed_batch.extend(_iter_sealed_rows(uuid_key, card))
             if len(sealed_batch) >= _COPY_BATCH_SIZE:
-                sealed_rows += await sealed_pricing_repository.copy_sealed_staging_batch(sealed_batch)
+                sealed_rows += await sealed_pricing_repository.insert_sealed_staging_batch(sealed_batch)
                 sealed_batch = []
         else:
             batch.extend(_iter_card_rows(uuid_key, card))
@@ -301,7 +301,7 @@ async def stream_to_staging(
     if batch:
         total_rows += await mtgjson_repository.copy_staging_batch(batch)
     if sealed_batch:
-        sealed_rows += await sealed_pricing_repository.copy_sealed_staging_batch(sealed_batch)
+        sealed_rows += await sealed_pricing_repository.insert_sealed_staging_batch(sealed_batch)
 
     logger.info(
         "MTGJson streaming complete",

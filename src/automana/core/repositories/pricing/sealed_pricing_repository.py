@@ -174,7 +174,7 @@ class SealedPricingRepository(AbstractRepository):
             )
         return len(products)
 
-    async def copy_sealed_staging_batch(self, records: list[tuple]) -> int:
+    async def insert_sealed_staging_batch(self, records: list[tuple]) -> int:
         if not records:
             return 0
         await self.execute_copy_records_to_table(
@@ -185,14 +185,14 @@ class SealedPricingRepository(AbstractRepository):
         )
         return len(records)
 
-    async def promote_sealed_staging(self, batch_days: int = 30) -> None:
+    async def execute_promote_sealed_staging(self, batch_days: int = 30) -> None:
         await self.execute_procedure(
             "pricing.load_price_observation_from_mtgjson_sealed_staging",
             args=(batch_days,),
             timeout=14400,
         )
 
-    async def truncate_sealed_staging(self) -> int:
+    async def execute_truncate_sealed_staging(self) -> int:
         count = await self.execute_fetchval(
             "SELECT COUNT(*) FROM pricing.mtgjson_sealed_prices_staging", ()
         )

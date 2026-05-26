@@ -71,7 +71,7 @@ CREATE INDEX IF NOT EXISTS idx_msps_sealed_uuid
 CREATE INDEX IF NOT EXISTS idx_msps_price_date
     ON pricing.mtgjson_sealed_prices_staging (price_date);
 
-GRANT TRUNCATE ON pricing.mtgjson_sealed_prices_staging TO app_rw, app_admin;
+GRANT TRUNCATE ON pricing.mtgjson_sealed_prices_staging TO app_celery, app_rw, app_admin;
 
 -- ── Promotion procedure ───────────────────────────────────────────────────────
 CREATE OR REPLACE PROCEDURE pricing.load_price_observation_from_mtgjson_sealed_staging(

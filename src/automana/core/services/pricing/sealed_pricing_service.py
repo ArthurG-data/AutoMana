@@ -47,7 +47,7 @@ async def promote_sealed_staging(
 ) -> dict:
     """Promote rows from mtgjson_sealed_prices_staging into price_observation."""
     logger.info("Promoting sealed staging data to price observations")
-    await sealed_pricing_repository.promote_sealed_staging()
+    await sealed_pricing_repository.execute_promote_sealed_staging()
     logger.info("Sealed staging promotion complete")
     return {}
 
@@ -60,7 +60,7 @@ async def cleanup_sealed_staging(
     sealed_pricing_repository: SealedPricingRepository,
 ) -> dict:
     """Truncate any remaining rows from mtgjson_sealed_prices_staging."""
-    count = await sealed_pricing_repository.truncate_sealed_staging()
+    count = await sealed_pricing_repository.execute_truncate_sealed_staging()
     if count:
         logger.warning(
             "Sealed staging cleanup: unresolved rows deleted",
