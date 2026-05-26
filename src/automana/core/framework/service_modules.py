@@ -48,6 +48,7 @@ SERVICE_MODULES : dict[str, list[str]]= {
             "automana.core.services.pricing.pricing_aggregation",
             "automana.core.services.pricing.card_prices_service",
             "automana.core.services.pricing.fetch_fx_rates_service",
+            "automana.core.services.pricing.sealed_pricing_service",
         ],
 
     "celery": [
@@ -84,6 +85,7 @@ SERVICE_MODULES : dict[str, list[str]]= {
             "automana.core.services.ops.scryfall_identifier_audit",
             "automana.core.services.pricing.pricing_aggregation",
             "automana.core.services.pricing.card_prices_service",
+            "automana.core.services.pricing.sealed_pricing_service",
         ],
     "all" : [
             "automana.api.services.auth.auth_service",
@@ -135,5 +137,6 @@ SERVICE_MODULES : dict[str, list[str]]= {
             "automana.core.services.pricing.pricing_aggregation",
             "automana.core.services.pricing.card_prices_service",
             "automana.core.services.pricing.fetch_fx_rates_service",
+            "automana.core.services.pricing.sealed_pricing_service",
     ]
 }
