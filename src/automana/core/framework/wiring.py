@@ -81,6 +81,11 @@ ServiceRegistry.register_db_repository(
     "automana.core.repositories.pricing.fx_rates_repository",
     "FxRatesRepository",
 )
+ServiceRegistry.register_db_repository(
+    "sealed_pricing",
+    "automana.core.repositories.pricing.sealed_pricing_repository",
+    "SealedPricingRepository",
+)
 
 # Ops repositories
 ServiceRegistry.register_db_repository(

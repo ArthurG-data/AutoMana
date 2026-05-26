@@ -47,24 +47,7 @@ class TestTUIPanelSteps:
 
 
 class TestBeatSchedule:
-    def test_mtgstock_daily_entry_exists(self):
-        assert "refresh-mtgstock-daily" in celeryconfig.beat_schedule
-
-    def test_mtgstock_entry_routes_to_pipeline_task(self):
-        entry = celeryconfig.beat_schedule["refresh-mtgstock-daily"]
-        assert entry["task"] == (
-            "automana.worker.tasks.pipelines.mtgStock_download_pipeline"
-        )
-
-    def test_mtgstock_offset_from_scryfall_and_mtgjson(self):
-        """Offset avoids contending on the pricing schema."""
-        hours = {
-            name: entry["schedule"].hour
-            for name, entry in celeryconfig.beat_schedule.items()
-            if "schedule" in entry and hasattr(entry["schedule"], "hour")
-        }
-        scryfall = hours.get("refresh-scryfall-manifest-nightly")
-        mtgjson = hours.get("refresh-mtgjson-daily")
-        mtgstock = hours.get("refresh-mtgstock-daily")
-        assert mtgstock != scryfall
-        assert mtgstock != mtgjson
+    def test_mtgstock_daily_entry_removed(self):
+        # Intentionally disabled: bulk_load fills ~169 GB on every run.
+        # Trigger manually via API when a fresh MTGStocks download is available.
+        assert "refresh-mtgstock-daily" not in celeryconfig.beat_schedule

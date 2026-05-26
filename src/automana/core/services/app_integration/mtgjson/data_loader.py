@@ -14,6 +14,7 @@ from typing import Any
 from automana.core.framework.registry import ServiceRegistry
 from automana.core.repositories.app_integration.mtgjson.Apimtgjson_repository import ApimtgjsonRepository
 from automana.core.repositories.app_integration.mtgjson.mtgjson_repository import MtgjsonRepository
+from automana.core.repositories.pricing.sealed_pricing_repository import SealedPricingRepository
 from automana.core.storage import StorageService
 
 # Module-level logger — per CLAUDE.md logging rules. Re-fetching `getLogger`
@@ -195,21 +196,70 @@ def _iter_card_rows(card_uuid: str, card: Any) -> list[tuple]:
     return rows
 
 
+def _iter_sealed_rows(sealed_uuid: str, entry: Any) -> list[tuple]:
+    """Fan out one MTGJson sealed entry into rows for the sealed staging table.
+
+    MTGJson sealed entries share the same shape as card entries but the
+    staging table drops the ``finish`` dimension — sealed products are not
+    foil/non-foil, so we take the most-recent date per (source, price_type,
+    finish) using a ``break`` after the first date in each finish dict.
+    """
+    rows: list[tuple] = []
+    if not isinstance(entry, dict):
+        return rows
+    paper = entry.get("paper")
+    if not isinstance(paper, dict):
+        return rows
+
+    for source_name, source_val in paper.items():
+        if not isinstance(source_val, dict):
+            continue
+        currency = source_val.get("currency") or "USD"
+        for price_type, finishes in source_val.items():
+            if price_type == "currency" or not isinstance(finishes, dict):
+                continue
+            for _finish, dates in finishes.items():
+                if not isinstance(dates, dict):
+                    continue
+                for date_str, price_value in dates.items():
+                    try:
+                        price_date = date.fromisoformat(date_str)
+                        price_float = float(price_value)
+                    except (TypeError, ValueError):
+                        continue
+                    rows.append((
+                        sealed_uuid,
+                        source_name,
+                        price_type,
+                        currency,
+                        price_float,
+                        price_date,
+                    ))
+                    break  # one date per finish per price_type — most recent wins
+    return rows
+
+
 @ServiceRegistry.register(
     "staging.mtgjson.stream_to_staging",
-    db_repositories=["mtgjson"],
+    db_repositories=["mtgjson", "sealed_pricing"],
     storage_services=["mtgjson"],
 )
 async def stream_to_staging(
     mtgjson_repository: MtgjsonRepository,
+    sealed_pricing_repository: SealedPricingRepository,
     storage_service: StorageService,
     file_path_prices: str,
 ) -> dict:
-    """Stream an MTGJson `.xz` payload into `pricing.mtgjson_card_prices_staging`.
+    """Stream an MTGJson `.xz` payload into card and sealed staging tables.
 
     Pipeline-contract note: `file_path_prices` is the key produced by both
     ``mtgjson.data.download.today`` and ``mtgjson.data.download.last90`` — the
     ``run_service`` dispatcher filters by signature, so the name is load-bearing.
+
+    UUIDs are pre-fetched from ``pricing.sealed_products`` before the stream
+    starts. Each UUID is routed to either the card staging table
+    (``pricing.mtgjson_card_prices_staging``) or the sealed staging table
+    (``pricing.mtgjson_sealed_prices_staging``) based on that lookup.
 
     Memory stays flat regardless of payload size because decompression + JSON
     parsing happens in a background thread and flows through a bounded queue
@@ -223,27 +273,46 @@ async def stream_to_staging(
     # insurance against cron + manual-trigger collisions.
     await mtgjson_repository.acquire_streaming_lock()
 
+    # Pre-load sealed UUIDs so routing is O(1) per card in the stream.
+    sealed_uuids: set[str] = await sealed_pricing_repository.fetch_all_sealed_uuids()
+    logger.info("Sealed UUID set loaded", extra={"count": len(sealed_uuids)})
+
     batch: list[tuple] = []
+    sealed_batch: list[tuple] = []
     total_rows = 0
+    sealed_rows = 0
     cards_seen = 0
 
-    async for card_uuid, card in storage_service.iter_xz_json_kvitems(
+    async for uuid_key, card in storage_service.iter_xz_json_kvitems(
         file_path_prices, prefix="data"
     ):
         cards_seen += 1
-        batch.extend(_iter_card_rows(card_uuid, card))
-        if len(batch) >= _COPY_BATCH_SIZE:
-            total_rows += await mtgjson_repository.copy_staging_batch(batch)
-            batch = []
+        if uuid_key in sealed_uuids:
+            sealed_batch.extend(_iter_sealed_rows(uuid_key, card))
+            if len(sealed_batch) >= _COPY_BATCH_SIZE:
+                sealed_rows += await sealed_pricing_repository.copy_sealed_staging_batch(sealed_batch)
+                sealed_batch = []
+        else:
+            batch.extend(_iter_card_rows(uuid_key, card))
+            if len(batch) >= _COPY_BATCH_SIZE:
+                total_rows += await mtgjson_repository.copy_staging_batch(batch)
+                batch = []
 
     if batch:
         total_rows += await mtgjson_repository.copy_staging_batch(batch)
+    if sealed_batch:
+        sealed_rows += await sealed_pricing_repository.copy_sealed_staging_batch(sealed_batch)
 
     logger.info(
         "MTGJson streaming complete",
-        extra={"cards": cards_seen, "rows_staged": total_rows, "file": file_path_prices},
+        extra={
+            "cards": cards_seen,
+            "rows_staged": total_rows,
+            "sealed_rows_staged": sealed_rows,
+            "file": file_path_prices,
+        },
     )
-    return {"rows_staged": total_rows, "cards_seen": cards_seen}
+    return {"rows_staged": total_rows, "cards_seen": cards_seen, "sealed_rows_staged": sealed_rows}
 
 
 @ServiceRegistry.register(
