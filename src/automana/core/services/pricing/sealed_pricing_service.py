@@ -1,9 +1,7 @@
 """Sealed product pricing service steps.
 
 Registered steps:
-  pricing.sealed.bootstrap_catalog  — upsert sealed product catalog from MTGJson data
-  pricing.sealed.promote_staging    — call promotion stored procedure
-  pricing.sealed.cleanup_staging    — truncate unresolvable residue
+  pricing.sealed.bootstrap_catalog  — upsert sealed product catalog
   pricing.sealed.get_prices_by_set  — query current prices for a set
   pricing.sealed.get_price_history  — query price history for one product
 """
@@ -26,7 +24,7 @@ async def bootstrap_sealed_catalog(
     sealed_pricing_repository: SealedPricingRepository,
     sealed_products_data: list[dict],
 ) -> dict:
-    """Upsert sealed product catalog rows from MTGJson SealedProduct data.
+    """Upsert sealed product catalog rows.
 
     Each element of ``sealed_products_data`` must contain:
       mtgjson_uuid, name, product_type, set_code
@@ -34,41 +32,6 @@ async def bootstrap_sealed_catalog(
     count = await sealed_pricing_repository.upsert_sealed_products(sealed_products_data)
     logger.info("Sealed catalog bootstrapped", extra={"catalog_upserted": count})
     return {"catalog_upserted": count}
-
-
-@ServiceRegistry.register(
-    "pricing.sealed.promote_staging",
-    db_repositories=["sealed_pricing"],
-    runs_in_transaction=False,
-    command_timeout=14400,
-)
-async def promote_sealed_staging(
-    sealed_pricing_repository: SealedPricingRepository,
-) -> dict:
-    """Promote rows from mtgjson_sealed_prices_staging into price_observation."""
-    logger.info("Promoting sealed staging data to price observations")
-    await sealed_pricing_repository.execute_promote_sealed_staging()
-    logger.info("Sealed staging promotion complete")
-    return {}
-
-
-@ServiceRegistry.register(
-    "pricing.sealed.cleanup_staging",
-    db_repositories=["sealed_pricing"],
-)
-async def cleanup_sealed_staging(
-    sealed_pricing_repository: SealedPricingRepository,
-) -> dict:
-    """Truncate any remaining rows from mtgjson_sealed_prices_staging."""
-    count = await sealed_pricing_repository.execute_truncate_sealed_staging()
-    if count:
-        logger.warning(
-            "Sealed staging cleanup: unresolved rows deleted",
-            extra={"staging_rows_deleted": count},
-        )
-    else:
-        logger.info("Sealed staging cleanup: staging table is clean")
-    return {"staging_rows_deleted": count}
 
 
 @ServiceRegistry.register(

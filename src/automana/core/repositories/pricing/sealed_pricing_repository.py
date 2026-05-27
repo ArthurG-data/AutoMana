@@ -10,15 +10,6 @@ from automana.core.repositories.abstract_repositories.AbstractDBRepository impor
 
 logger = logging.getLogger(__name__)
 
-_STAGING_COLUMNS: tuple[str, ...] = (
-    "sealed_uuid",
-    "price_source",
-    "price_type",
-    "currency",
-    "price_value",
-    "price_date",
-)
-
 _GET_SEALED_PRODUCTS_BY_SET_SQL = """
 SELECT
     sp.product_id,
@@ -174,33 +165,6 @@ class SealedPricingRepository(AbstractRepository):
             )
         return len(products)
 
-    async def insert_sealed_staging_batch(self, records: list[tuple]) -> int:
-        if not records:
-            return 0
-        await self.execute_copy_records_to_table(
-            "mtgjson_sealed_prices_staging",
-            records=records,
-            columns=_STAGING_COLUMNS,
-            schema_name="pricing",
-        )
-        return len(records)
-
-    async def execute_promote_sealed_staging(self, batch_days: int = 30) -> None:
-        await self.execute_procedure(
-            "pricing.load_price_observation_from_mtgjson_sealed_staging",
-            args=(batch_days,),
-            timeout=14400,
-        )
-
-    async def execute_truncate_sealed_staging(self) -> int:
-        count = await self.execute_fetchval(
-            "SELECT COUNT(*) FROM pricing.mtgjson_sealed_prices_staging", ()
-        )
-        if count:
-            await self.execute_command(
-                "TRUNCATE pricing.mtgjson_sealed_prices_staging", ()
-            )
-        return count or 0
 
     async def add(self, item: Any) -> None:
         raise NotImplementedError
