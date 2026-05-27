@@ -235,7 +235,6 @@ def _iter_sealed_rows(sealed_uuid: str, entry: Any) -> list[tuple]:
                         price_float,
                         price_date,
                     ))
-                    break  # one date per finish per price_type — most recent wins
     return rows
 
 

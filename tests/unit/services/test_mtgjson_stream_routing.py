@@ -22,13 +22,14 @@ def test_iter_sealed_rows_happy_path():
         }
     }
     rows = _iter_sealed_rows("sealed-abc", entry)
-    assert len(rows) == 1  # one date per finish (break after first)
-    assert rows[0][0] == "sealed-abc"
-    assert rows[0][1] == "tcgplayer"
-    assert rows[0][2] == "retail"
-    assert rows[0][3] == "USD"
-    assert rows[0][4] == 99.99
-    assert rows[0][5] == date(2026, 3, 1)
+    assert len(rows) == 2  # all dates emitted per finish
+    dates = {r[5] for r in rows}
+    assert date(2026, 3, 1) in dates
+    assert date(2026, 2, 28) in dates
+    assert all(r[0] == "sealed-abc" for r in rows)
+    assert all(r[1] == "tcgplayer" for r in rows)
+    assert all(r[2] == "retail" for r in rows)
+    assert all(r[3] == "USD" for r in rows)
 
 
 def test_iter_sealed_rows_no_paper():
