@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timedelta, timezone
 
-import anthropic
 import httpx
 
 from automana.core.config.settings import get_settings
@@ -11,7 +10,6 @@ from automana.core.framework.registry import ServiceRegistry
 
 logger = logging.getLogger(__name__)
 
-_CLAUDE_MODEL = "claude-sonnet-4-6"
 _MAX_LINES = 500
 
 
@@ -66,14 +64,17 @@ async def _query_loki(loki_url: str, window_hours: int) -> dict:
     return resp.json()
 
 
-def _call_claude(prompt: str, api_key: str) -> str:
-    client = anthropic.Anthropic(api_key=api_key)
-    message = client.messages.create(
-        model=_CLAUDE_MODEL,
-        max_tokens=600,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    return message.content[0].text
+async def _call_ollama(prompt: str, ollama_base_url: str, model: str) -> str:
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "stream": False,
+        "options": {"num_predict": 600},
+    }
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        resp = await client.post(f"{ollama_base_url}/api/chat", json=payload)
+        resp.raise_for_status()
+    return resp.json()["message"]["content"]
 
 
 async def _post_to_discord(webhook_url: str, body: str) -> None:
@@ -88,16 +89,12 @@ async def _post_to_discord(webhook_url: str, body: str) -> None:
 
 @ServiceRegistry.register("ops.log_analysis.daily_summary")
 async def run_daily_log_summary() -> dict:
-    """Query Loki for the last 24h of ERROR logs, summarise with Claude, post to Discord."""
+    """Query Loki for the last 24h of ERROR logs, summarise with Ollama, post to Discord."""
     settings = get_settings()
 
     if not settings.LOKI_URL:
         logger.warning("log_analysis_skipped_no_loki_url")
         return {"skipped": True, "reason": "LOKI_URL not set"}
-
-    if not settings.ANTHROPIC_API_KEY:
-        logger.warning("log_analysis_skipped_no_anthropic_key")
-        return {"skipped": True, "reason": "ANTHROPIC_API_KEY not set"}
 
     window_hours = 24
     loki_response = await _query_loki(settings.LOKI_URL, window_hours)
@@ -114,8 +111,8 @@ async def run_daily_log_summary() -> dict:
         )
     else:
         prompt = build_claude_prompt(error_lines, window_hours)
-        claude_text = _call_claude(prompt, settings.ANTHROPIC_API_KEY)
-        payload = format_discord_message(claude_text, error_count, window_hours)
+        summary = await _call_ollama(prompt, settings.ollama_base_url, settings.ollama_model)
+        payload = format_discord_message(summary, error_count, window_hours)
 
     if settings.DISCORD_WEBHOOK_URL:
         await _post_to_discord(settings.DISCORD_WEBHOOK_URL, payload)
