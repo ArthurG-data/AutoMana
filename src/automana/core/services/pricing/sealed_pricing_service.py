@@ -1,11 +1,18 @@
-"""Sealed product pricing service steps."""
+"""Sealed product pricing service steps.
+
+Registered steps:
+  pricing.sealed.bootstrap_catalog  — upsert sealed product catalog from MTGJson data
+  pricing.sealed.promote_staging    — call promotion stored procedure
+  pricing.sealed.cleanup_staging    — truncate unresolvable residue
+  pricing.sealed.get_prices_by_set  — query current prices for a set
+  pricing.sealed.get_price_history  — query price history for one product
+"""
 from __future__ import annotations
 
 import logging
 from datetime import date
 
 from automana.core.framework.registry import ServiceRegistry
-from automana.core.repositories.app_integration.mtgjson.Apimtgjson_repository import ApimtgjsonRepository
 from automana.core.repositories.pricing.sealed_pricing_repository import SealedPricingRepository
 
 logger = logging.getLogger(__name__)
