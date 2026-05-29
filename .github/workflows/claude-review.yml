@@ -5,10 +5,15 @@ on:
     branches: [dev, main]
     types: [opened, synchronize, reopened]
 
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   review-code:
     name: "Claude: Code Review"
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
       pull-requests: write
@@ -35,6 +40,7 @@ jobs:
   review-arch:
     name: "Claude: Architecture"
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
       pull-requests: write
@@ -65,6 +71,10 @@ jobs:
             7. Repository separation: DB queries only in AbstractDBRepository subclasses;
                external HTTP calls only in AbstractAPIRepository subclasses — never mixed
                in the same class.
+            8. Pipeline step tracking: pipeline services must use
+               `async with track_step(ops_repository, ingestion_run_id, "step_name")`.
+               Never call `ops_repository.update_run(status=...)` directly inside a
+               service function.
 
             Post a single PR comment listing any violations with file:line references.
             If the PR is fully compliant, say so in one sentence.
@@ -72,6 +82,7 @@ jobs:
   review-security:
     name: "Claude: Security"
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
       pull-requests: write
@@ -104,6 +115,7 @@ jobs:
   review-docs:
     name: "Claude: Docs Currency"
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
       pull-requests: write
@@ -146,7 +158,7 @@ jobs:
 
             Step 4 — if any stale docs were confirmed in Step 2, open a GitHub issue:
               gh issue create \
-                --title "docs: update documentation for PR #${PR_NUMBER} — ${PR_TITLE}" \
+                --title "docs: update documentation for PR #${PR_NUMBER}" \
                 --label "documentation" \
                 --body "<body listing each stale doc file path and a brief reason>"
             Replace <body ...> with the actual content from your Step 2 findings.
