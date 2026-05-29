@@ -37,17 +37,22 @@ services:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env.logging}
       GF_DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
+      GF_SERVER_ROOT_URL: https://automana.duckdns.org/grafana/
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
     volumes:
       - grafana-data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
     networks:
       - logging
+      - monitoring
     depends_on:
       - loki
 
 networks:
   logging:
     driver: bridge
+  monitoring:
+    external: true
 
 volumes:
   loki-data:
