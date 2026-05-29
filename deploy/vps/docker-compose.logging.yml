@@ -44,12 +44,15 @@ services:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
     networks:
       - logging
+      - monitoring
     depends_on:
       - loki
 
 networks:
   logging:
     driver: bridge
+  monitoring:
+    external: true
 
 volumes:
   loki-data:

@@ -64,6 +64,7 @@ services:
     networks:
       - backend-network
       - frontend-network
+      - monitoring
     depends_on:
       - backend
       - frontend
@@ -97,6 +98,8 @@ networks:
     driver: bridge
   backend-network:   # backend <-> redis <-> celery
     driver: bridge
+  monitoring:        # nginx <-> grafana (external, shared with logging stack)
+    external: true
 volumes:
   redis-data:
   redis-config:
