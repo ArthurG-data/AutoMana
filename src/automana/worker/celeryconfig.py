@@ -72,6 +72,10 @@ beat_schedule = {
         "task": "automana.worker.tasks.pipelines.pipeline_health_alert_task",
         "schedule": crontab(hour=18, minute=0)  # 18:00 AEST — same-day insuranc
     },
+    "log-analysis-daily": {
+        "task": "automana.worker.tasks.pipelines.log_analysis_daily_task",
+        "schedule": crontab(hour=7, minute=30),  # 07:30 AEST — after all nightly pipelines
+    },
     # Card-catalog data-shape health (identifier coverage, orphan unique_cards,
     # external-id collisions) — runs once a day after the daily ingests.
     # `timezone` above resolves to Australia/Sydney, so crontab values are AEST.
