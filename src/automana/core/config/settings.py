@@ -156,6 +156,8 @@ class Settings(BaseSettings):
 
     # WEB HOOKS
     DISCORD_WEBHOOK_URL: str | None = None
+    LOKI_URL: str | None = Field(default=None, description="Loki base URL for log queries, e.g. http://103.6.171.115:3100")
+    ANTHROPIC_API_KEY: str | None = None
 
     @model_validator(mode="after")
     def load_db_settings(self):

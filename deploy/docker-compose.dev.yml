@@ -30,7 +30,7 @@ services:
       - ../infra/db/init/:/docker-entrypoint-initdb.d/:ro
     shm_size: 256m
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${AUTOMANA_ADMIN_DB_USER} -d ${DB_NAME}"]
+      test: ["CMD-SHELL", "pg_isready -U automana_admin -d automana"]
       interval: 5s
       timeout: 3s
       retries: 20

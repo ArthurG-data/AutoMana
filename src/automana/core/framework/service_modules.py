@@ -24,6 +24,8 @@ SERVICE_MODULES : dict[str, list[str]]= {
             "automana.core.services.app_integration.ebay.promote_sold_obs_service",
             "automana.core.services.app_integration.ebay.refresh_scrape_targets_service",
             "automana.core.services.app_integration.ebay.scrape_global_market_service",
+            "automana.core.services.app_integration.pricecharting.pc_catalog_scrape_service",
+            "automana.core.services.app_integration.pricecharting.pc_sales_scrape_service",
             "automana.core.services.ops.pipeline_services",
             "automana.core.services.ops.metrics_service",
             "automana.core.services.app_integration.scryfall.data_loader",
@@ -48,6 +50,7 @@ SERVICE_MODULES : dict[str, list[str]]= {
             "automana.core.services.pricing.pricing_aggregation",
             "automana.core.services.pricing.card_prices_service",
             "automana.core.services.pricing.fetch_fx_rates_service",
+            "automana.core.services.pricing.sealed_pricing_service",
         ],
 
     "celery": [
@@ -75,6 +78,8 @@ SERVICE_MODULES : dict[str, list[str]]= {
             "automana.core.services.app_integration.ebay.refresh_scrape_targets_service",
             "automana.core.services.app_integration.ebay.scrape_global_market_service",
             "automana.core.services.app_integration.ebay.listing_actions_service",
+            "automana.core.services.app_integration.pricecharting.pc_catalog_scrape_service",
+            "automana.core.services.app_integration.pricecharting.pc_sales_scrape_service",
             "automana.core.services.ops.integrity_checks",
             "automana.core.services.ops.mtgstock_report",
             "automana.core.services.ops.card_catalog_report",
@@ -84,6 +89,7 @@ SERVICE_MODULES : dict[str, list[str]]= {
             "automana.core.services.ops.scryfall_identifier_audit",
             "automana.core.services.pricing.pricing_aggregation",
             "automana.core.services.pricing.card_prices_service",
+            "automana.core.services.pricing.sealed_pricing_service",
         ],
     "all" : [
             "automana.api.services.auth.auth_service",
@@ -110,6 +116,8 @@ SERVICE_MODULES : dict[str, list[str]]= {
             "automana.core.services.app_integration.ebay.promote_sold_obs_service",
             "automana.core.services.app_integration.ebay.refresh_scrape_targets_service",
             "automana.core.services.app_integration.ebay.scrape_global_market_service",
+            "automana.core.services.app_integration.pricecharting.pc_catalog_scrape_service",
+            "automana.core.services.app_integration.pricecharting.pc_sales_scrape_service",
             "automana.core.services.ops.pipeline_services",
             "automana.core.services.ops.metrics_service",
             "automana.core.services.app_integration.scryfall.data_loader",
@@ -135,5 +143,6 @@ SERVICE_MODULES : dict[str, list[str]]= {
             "automana.core.services.pricing.pricing_aggregation",
             "automana.core.services.pricing.card_prices_service",
             "automana.core.services.pricing.fetch_fx_rates_service",
+            "automana.core.services.pricing.sealed_pricing_service",
     ]
 }

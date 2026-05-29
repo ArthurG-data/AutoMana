@@ -13,7 +13,11 @@ _MAX_RATE_LIMIT_RETRIES = 3
 
 
 def _is_rate_limited(data: Any) -> bool:
-    """Return True if the response contains errorId 10001 (Finding API burst throttle)."""
+    """Return True if the response contains errorId 10001 (daily quota exceeded).
+
+    eBay returns this as HTTP 500 with errorMessage at the top level — no
+    findCompletedItemsResponse wrapper — so we check the top-level key directly.
+    """
     try:
         errors = data.get("errorMessage", [{}])[0].get("error", [])
         return any(e.get("errorId", [""])[0] == "10001" for e in errors)
@@ -36,7 +40,10 @@ def _parse_finding_items(response: dict) -> list[dict]:
         search_result = result_block.get("searchResult", [{}])[0]
         raw_items = search_result.get("item", [])
     except (KeyError, IndexError):
-        logger.warning("Finding API response missing expected envelope", extra={"keys": list(response.keys())})
+        logger.warning(
+            "Finding API response missing expected envelope",
+            extra={"keys": list(response.keys()), "body": str(response)[:500]},
+        )
         return []
 
     out = []

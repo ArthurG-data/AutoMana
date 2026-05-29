@@ -3,6 +3,7 @@ import logging
 from automana.worker.main import run_service
 from automana.core.log.logging_context import set_task_id
 from datetime import datetime
+from automana.core.services.ops.log_analysis_service import run_daily_log_summary  # noqa: F401 — registers service
 
 logger = logging.getLogger(__name__)
 
@@ -232,6 +233,17 @@ def pipeline_health_alert_task(self):
     next scheduled invocation the recovery path.
     """
     return run_service("ops.health.alert_check")
+
+
+@shared_task(bind=True, name="automana.worker.tasks.pipelines.log_analysis_daily_task")
+def log_analysis_daily_task(self) -> dict:
+    """Daily Celery Beat job: query Loki for last 24h of ERROR logs, summarise
+    with Claude, and post a digest to Discord.
+
+    Per project rules this task does NOT use ``autoretry_for``; retry policy
+    lives at the run_service layer.
+    """
+    return run_service("ops.log_analysis.daily_summary")
 
 
 @shared_task(name="automana.worker.tasks.pipelines.shopify_weekly_pipeline", bind=True)

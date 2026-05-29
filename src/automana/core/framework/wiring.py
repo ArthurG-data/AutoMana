@@ -152,13 +152,20 @@ ServiceRegistry.register_api_repository(
     "ShopifyAPIRepository",
 )
 
+ServiceRegistry.register_api_repository(
+    "pricecharting",
+    "automana.core.repositories.app_integration.pricecharting.pc_api_repository",
+    "PricechartingApiRepository",
+)
+
 # Storage backends (type → class)
 ServiceRegistry.register_storage_backend(
     "local", "automana.core.storage", "LocalStorageBackend"
 )
 
 # Named storages (logical name → backend + config)
-ServiceRegistry.register_storage("mtgjson",  backend="local", subpath="mtgjson/raw")
-ServiceRegistry.register_storage("scryfall", backend="local", subpath="scryfall/raw_files")
-ServiceRegistry.register_storage("errors",   backend="local", subpath="errors/card_import")
+ServiceRegistry.register_storage("mtgjson",        backend="local", subpath="mtgjson/raw")
+ServiceRegistry.register_storage("scryfall",       backend="local", subpath="scryfall/raw_files")
+ServiceRegistry.register_storage("errors",         backend="local", subpath="errors/card_import")
+ServiceRegistry.register_storage("pricecharting",  backend="local", subpath="pricecharting")
 ServiceRegistry.register_storage("shopify",  backend="local", subpath="shopify")

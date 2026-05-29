@@ -27,6 +27,7 @@ Examples
 """
 
 import asyncio
+import inspect
 import json
 import sys
 import time
@@ -142,6 +143,16 @@ async def _main(service_path, extra_args, raw, db_user, db_password, list_users)
 
         for i, (svc, kwargs) in enumerate(steps):
             merged = {**accumulated, **kwargs}  # explicit kwargs win
+            # Filter context to keys accepted by this service — mirrors the
+            # Celery run_service dispatcher so chained steps don't receive
+            # keys they didn't declare (e.g. ingestion_run_id bleeding into
+            # a download step that doesn't accept it).
+            try:
+                svc_func = ServiceManager.get_service_function(svc)
+                allowed = set(inspect.signature(svc_func).parameters)
+                merged = {k: v for k, v in merged.items() if k in allowed}
+            except Exception:
+                pass  # unknown service — let execute_service raise the real error
             click.echo(f"[automana-run] step {i+1}/{len(steps)}: {svc}", err=True)
             if merged:
                 click.echo(f"[automana-run] kwargs   : {merged}", err=True)
