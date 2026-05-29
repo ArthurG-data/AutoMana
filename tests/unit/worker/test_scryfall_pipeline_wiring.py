@@ -76,10 +76,11 @@ class TestBeatSchedule:
             "automana.worker.tasks.pipelines.daily_scryfall_data_pipeline"
         )
 
-    def test_scryfall_runs_before_mtgjson_and_mtgstock(self):
-        """Scryfall must run first so migration table is fresh for downstream pipelines.
+    def test_scryfall_runs_before_mtgjson(self):
+        """Scryfall must run first so migration table is fresh for MTGJson.
 
         crontab.hour is a frozenset, so use min() for numeric comparison.
+        MTGStock schedule is intentionally removed (manual-trigger only).
         """
         hours = {
             name: min(entry["schedule"].hour)
@@ -88,6 +89,4 @@ class TestBeatSchedule:
         }
         scryfall = hours.get("refresh-scryfall-manifest-nightly")
         mtgjson = hours.get("refresh-mtgjson-daily")
-        mtgstock = hours.get("refresh-mtgstock-daily")
         assert scryfall < mtgjson
-        assert scryfall < mtgstock

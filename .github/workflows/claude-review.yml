@@ -1,0 +1,168 @@
+name: Claude PR Review
+
+on:
+  pull_request:
+    branches: [dev, main]
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review-code:
+    name: "Claude: Code Review"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: anthropics/claude-code-action@v1
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          prompt: |
+            Review this pull request diff for code correctness issues. Check for:
+            - Logic errors and silent failures
+            - Missing edge cases or error handling
+            - Test coverage gaps (new code paths with no corresponding test)
+            - Performance issues (N+1 queries, unnecessary loops, blocking calls in async code)
+            - Type errors or unsafe type casts
+
+            Post a single PR comment summarising your findings with file:line references.
+            If there are no significant issues, say so in one sentence.
+
+  review-arch:
+    name: "Claude: Architecture"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: anthropics/claude-code-action@v1
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          prompt: |
+            Review this pull request for architecture and CLAUDE.md rule compliance.
+            First read CLAUDE.md in the repo root for the full ruleset. Key rules to enforce:
+
+            1. Layer boundary: Router → ServiceManager → Service → Repository → Database.
+               No DB access from routers. No business logic in repositories.
+            2. CQS naming: read-only methods must start with get_/fetch_/list_/exists_
+               Write methods must start with insert_/update_/delete_/upsert_/execute_
+            3. Logging: use logger.info("msg", extra={"key": value}) only.
+               Never use logging.basicConfig(), never interpolate values into the message
+               string with f-strings or %s, never pass reserved LogRecord keys in extra=
+               (filename, module, lineno, etc.).
+            4. Pipeline tasks in worker/tasks/pipelines.py must not use autoretry_for.
+            5. No hardcoded credentials or paths — all config must come from core/settings.py.
+            6. Every schema change must have a migration file under database/SQL/migrations/.
+            7. Repository separation: DB queries only in AbstractDBRepository subclasses;
+               external HTTP calls only in AbstractAPIRepository subclasses — never mixed
+               in the same class.
+            8. Pipeline step tracking: pipeline services must use
+               `async with track_step(ops_repository, ingestion_run_id, "step_name")`.
+               Never call `ops_repository.update_run(status=...)` directly inside a
+               service function.
+
+            Post a single PR comment listing any violations with file:line references.
+            If the PR is fully compliant, say so in one sentence.
+
+  review-security:
+    name: "Claude: Security"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: anthropics/claude-code-action@v1
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          prompt: |
+            Review this pull request for security vulnerabilities. Check for:
+            - SQL injection (raw query construction without parameterisation)
+            - Command injection (unsanitised input passed to shell commands)
+            - XSS in any templated or rendered output
+            - Broken authentication or missing authorisation checks
+            - IDOR vulnerabilities — any endpoint touching eBay resources must verify
+              ownership by joining app_info → app_user using both user_id and app_code;
+              never trust a bare resource ID from the request without this check
+            - Exposed secrets or credentials committed to source code
+            - Missing input validation at system boundaries (user-supplied input, external
+              API responses)
+
+            Post a single PR comment with your findings, referencing the relevant OWASP
+            category (e.g. A03 Injection, A01 Broken Access Control) where applicable.
+            If no issues are found, say so in one sentence.
+
+  review-docs:
+    name: "Claude: Docs Currency"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: anthropics/claude-code-action@v1
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        with:
+          prompt: |
+            Review this pull request for documentation currency.
+
+            Step 1 — identify which docs are candidates for staleness using this mapping:
+              src/automana/api/routers/              → docs/api/API.md
+                                                       docs/testing/TESTING_API_FLOW.md (for new endpoints)
+              src/automana/core/services/            → docs/architecture/ARCHITECTURE.md
+                                                       docs/architecture/DESIGN_PATTERNS.md
+              src/automana/core/repositories/        → docs/architecture/ARCHITECTURE.md
+                                                       docs/architecture/DESIGN_PATTERNS.md
+              src/automana/worker/tasks/             → docs/pipelines/ (match by pipeline name)
+                                                       docs/MASTER_TECHNICAL_DEBT.md (if debt introduced)
+              src/automana/database/SQL/             → docs/infrastructure/DATABASE_ROLES.md
+              src/automana/core/settings.py          → docs/infrastructure/DEPLOYMENT.md
+              frontend/src/                          → docs/frontend/FRONTEND.md
+
+            Step 2 — for each candidate doc, read the doc file and compare it against the
+            changed code. Only flag a doc as stale if you can confirm the doc content is
+            now inaccurate or missing information introduced by this PR.
+
+            Step 3 — post a PR comment:
+            - If stale docs found: list each stale file with a one-line reason.
+            - If all docs are current: post one sentence saying so.
+
+            Step 4 — if any stale docs were confirmed in Step 2, open a GitHub issue:
+              gh issue create \
+                --title "docs: update documentation for PR #${PR_NUMBER}" \
+                --label "documentation" \
+                --body "<body listing each stale doc file path and a brief reason>"
+            Replace <body ...> with the actual content from your Step 2 findings.

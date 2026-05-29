@@ -151,6 +151,31 @@ def daily_mtgjson_data_pipeline(self):
     return wf.apply_async().id
 
 
+@shared_task(name="automana.worker.tasks.pipelines.daily_mtgjson_sealed_pipeline", bind=True)
+def daily_mtgjson_sealed_pipeline(self):
+    """Promote any staged sealed prices and refresh the sealed_price_latest snapshot.
+
+    Expects sealed UUIDs to already exist in pricing.sealed_products
+    (bootstrap_catalog must be called at least once when new sets are released).
+    The promotion procedure handles its own batching and commits.
+    """
+    set_task_id(self.request.id)
+    run_key = f"mtgjson_sealed:{datetime.utcnow().date().isoformat()}"
+    logger.info("Starting MTGJson sealed pricing pipeline", extra={"run_key": run_key})
+
+    wf = chain(
+        run_service.s("ops.pipeline_services.start_run",
+                      pipeline_name="mtgjson_sealed",
+                      source_name="mtgjson",
+                      run_key=run_key,
+                      celery_task_id=self.request.id),
+        run_service.s("pricing.sealed.promote_staging"),
+        run_service.s("pricing.sealed.cleanup_staging"),
+        run_service.s("ops.pipeline_services.finish_run", status="success"),
+    )
+    return wf.apply_async().id
+
+
 @shared_task(name="automana.worker.tasks.pipelines.open_tcg_pricing_pipeline", bind=True)
 def open_tcg_pricing_pipeline(self):
     set_task_id(self.request.id)
