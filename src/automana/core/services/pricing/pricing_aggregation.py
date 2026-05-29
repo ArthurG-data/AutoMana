@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
     "pricing.refresh_daily_prices",
     db_repositories=["pricing"],
     runs_in_transaction=False,
+    command_timeout=14400,
 )
 async def refresh_daily_prices(
     pricing_repository: PricingTierRepository,

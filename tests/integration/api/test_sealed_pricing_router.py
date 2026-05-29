@@ -48,16 +48,39 @@ async def sealed_api_seed(db_pool):
         game_id = await conn.fetchval(
             "SELECT game_id FROM card_catalog.card_games_ref WHERE code = 'mtg'"
         )
+        language_id = await conn.fetchval(
+            "SELECT language_id FROM card_catalog.language_ref WHERE language_code = 'en'"
+        )
+        sealed_type_id = await conn.fetchval(
+            "SELECT sealed_type_id FROM card_catalog.sealed_type_ref WHERE type_code = 'booster_box'"
+        )
+
+        sealed_product_id = await conn.fetchval(
+            "INSERT INTO card_catalog.sealed_product "
+            "(set_id, game_id, sealed_type_id, language_id, name) "
+            "VALUES ($1, $2, $3, $4, $5) RETURNING sealed_product_id",
+            set_id, game_id, sealed_type_id, language_id,
+            f"API Test Booster Box {set_code}",
+        )
+
+        uuid_ref_id = await conn.fetchval(
+            "SELECT sealed_identifier_ref_id FROM card_catalog.sealed_identifier_ref "
+            "WHERE identifier_name = 'mtgjson_uuid'"
+        )
+        await conn.execute(
+            "INSERT INTO card_catalog.sealed_external_identifier "
+            "(sealed_identifier_ref_id, sealed_product_id, value) VALUES ($1, $2, $3)",
+            uuid_ref_id, sealed_product_id, sealed_uuid,
+        )
+
         product_id = await conn.fetchval(
             "INSERT INTO pricing.product_ref (game_id) VALUES ($1) RETURNING product_id",
             game_id,
         )
         await conn.execute(
-            "INSERT INTO pricing.sealed_products "
-            "(product_id, set_id, name, product_type, mtgjson_uuid) "
-            "VALUES ($1, $2, $3, $4, $5)",
-            product_id, set_id,
-            f"API Test Booster Box {set_code}", "booster_box", sealed_uuid,
+            "INSERT INTO pricing.mtg_sealed_products (product_id, sealed_product_id) "
+            "VALUES ($1, $2)",
+            product_id, sealed_product_id,
         )
 
         await conn.execute(
@@ -75,7 +98,6 @@ async def sealed_api_seed(db_pool):
             "SELECT transaction_type_id FROM pricing.transaction_type "
             "WHERE transaction_type_code = 'sell'"
         )
-
         await conn.execute(
             "INSERT INTO pricing.sealed_price_latest "
             "(product_id, source_id, transaction_type_id, price_date, list_avg_cents) "
@@ -84,10 +106,11 @@ async def sealed_api_seed(db_pool):
         )
 
     yield {
-        "sealed_uuid": sealed_uuid,
-        "product_id": product_id,
-        "set_id": set_id,
-        "set_code": set_code,
+        "sealed_uuid":       sealed_uuid,
+        "sealed_product_id": sealed_product_id,
+        "product_id":        product_id,
+        "set_id":            set_id,
+        "set_code":          set_code,
     }
 
     async with db_pool.acquire() as conn:
@@ -95,10 +118,14 @@ async def sealed_api_seed(db_pool):
             "DELETE FROM pricing.sealed_price_latest WHERE product_id = $1", product_id
         )
         await conn.execute(
-            "DELETE FROM pricing.sealed_products WHERE product_id = $1", product_id
+            "DELETE FROM pricing.mtg_sealed_products WHERE product_id = $1", product_id
         )
         await conn.execute(
             "DELETE FROM pricing.product_ref WHERE product_id = $1", product_id
+        )
+        await conn.execute(
+            "DELETE FROM card_catalog.sealed_product WHERE sealed_product_id = $1",
+            sealed_product_id,
         )
         await conn.execute("DELETE FROM card_catalog.sets WHERE set_id = $1", set_id)
 
@@ -112,8 +139,9 @@ async def test_get_sealed_prices_by_set_returns_200(client, sealed_api_seed):
     prices = body["prices"]
     assert len(prices) == 1, f"Expected 1 price row, got {len(prices)}"
     row = prices[0]
-    assert row["product_type"] == "booster_box"
+    assert row["type_code"] == "booster_box"
     assert row["list_avg_cents"] == 9999
+    assert row["mtgjson_uuid"] == sealed_api_seed["sealed_uuid"]
 
 
 async def test_get_sealed_prices_unknown_set_returns_404(client):

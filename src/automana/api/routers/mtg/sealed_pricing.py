@@ -16,8 +16,11 @@ logger = logging.getLogger(__name__)
 class SealedPriceRow(BaseModel):
     product_id: str
     name: str
-    product_type: str
-    mtgjson_uuid: str
+    type_code: str
+    subtype_code: Optional[str]
+    language_code: str
+    mtgjson_uuid: Optional[str]
+    tcgplayer_product_id: Optional[str]
     source: str
     transaction_type: str
     price_date: Optional[date]
