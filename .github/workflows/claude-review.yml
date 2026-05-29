@@ -117,17 +117,21 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
         with:
           prompt: |
             Review this pull request for documentation currency.
 
             Step 1 — identify which docs are candidates for staleness using this mapping:
               src/automana/api/routers/              → docs/api/API.md
+                                                       docs/testing/TESTING_API_FLOW.md (for new endpoints)
               src/automana/core/services/            → docs/architecture/ARCHITECTURE.md
                                                        docs/architecture/DESIGN_PATTERNS.md
               src/automana/core/repositories/        → docs/architecture/ARCHITECTURE.md
                                                        docs/architecture/DESIGN_PATTERNS.md
-              src/automana/worker/tasks/pipelines.py → docs/pipelines/ (match by pipeline name)
+              src/automana/worker/tasks/             → docs/pipelines/ (match by pipeline name)
+                                                       docs/MASTER_TECHNICAL_DEBT.md (if debt introduced)
               src/automana/database/SQL/             → docs/infrastructure/DATABASE_ROLES.md
               src/automana/core/settings.py          → docs/infrastructure/DEPLOYMENT.md
               frontend/src/                          → docs/frontend/FRONTEND.md
@@ -142,7 +146,7 @@ jobs:
 
             Step 4 — if any stale docs were confirmed in Step 2, open a GitHub issue:
               gh issue create \
-                --title "docs: update documentation for PR #${{ github.event.pull_request.number }} — ${{ github.event.pull_request.title }}" \
+                --title "docs: update documentation for PR #${PR_NUMBER} — ${PR_TITLE}" \
                 --label "documentation" \
                 --body "<body listing each stale doc file path and a brief reason>"
             Replace <body ...> with the actual content from your Step 2 findings.
