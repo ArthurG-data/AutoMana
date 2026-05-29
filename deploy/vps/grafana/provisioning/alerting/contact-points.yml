@@ -1,0 +1,11 @@
+apiVersion: 1
+contactPoints:
+  - orgId: 1
+    name: discord
+    receivers:
+      - uid: discord-receiver
+        type: discord
+        settings:
+          url: ${GF_DISCORD_WEBHOOK_URL}
+          message: "{{ len .Alerts.Firing }} alert(s) firing\n{{ range .Alerts.Firing }}• {{ .Labels.alertname }}: {{ .Annotations.summary }}\n{{ end }}"
+        disableResolveMessage: false

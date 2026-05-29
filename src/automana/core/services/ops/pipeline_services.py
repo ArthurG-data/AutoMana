@@ -82,7 +82,7 @@ async def start_run(
 async def finish_run(
         ops_repository : OpsRepository,
         ingestion_run_id: int,
-        status: str,
+        status: str = "success",
         notes: str | None = None,
     ) -> None:
     #update the run entry in the ops repository to mark it as finished

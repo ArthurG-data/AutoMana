@@ -80,6 +80,11 @@ class ApimtgjsonRepository(BaseApiClient):
         response = await self.send(method="GET", endpoint="Meta.json")
         return self._parse_response(response)
 
+    async def fetch_set_json(self, set_code: str) -> dict:
+        """Fetch a full set JSON (e.g. BLB.json) including sealedProduct[]."""
+        response = await self.send(method="GET", endpoint=f"{set_code.upper()}.json")
+        return self._parse_response(response)
+
     async def fetch_card_data(self, extension: str) -> dict:
         """Fetch an arbitrary JSON endpoint under the v5 base URL."""
         response = await self.send(method="GET", endpoint=extension)
