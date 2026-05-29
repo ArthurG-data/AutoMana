@@ -4,4 +4,8 @@ automana.duckdns.org {
         header_up X-Forwarded-For   {remote_host}
         header_up X-Forwarded-Proto {scheme}
     }
+
+    handle_path /grafana/* {
+        reverse_proxy host.docker.internal:3000
+    }
 }
