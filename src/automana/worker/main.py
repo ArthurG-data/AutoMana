@@ -147,3 +147,13 @@ def _purge_stale_beat_tasks(sender, **_):
 
     if purged:
         logger.warning("Stale beat tasks purged on startup", extra={"purged": purged})
+
+
+@worker_ready.connect
+def _reconcile_orphaned_runs(sender, **_):
+    result = run_service("ops.pipeline_services.reconcile_orphaned_runs")
+    if result.get("reconciled", 0) > 0:
+        logger.warning(
+            "Orphaned ingestion runs closed on startup",
+            extra={"reconciled_runs": result["runs"]}
+        )

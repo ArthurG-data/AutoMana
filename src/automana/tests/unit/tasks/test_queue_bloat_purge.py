@@ -152,3 +152,34 @@ def test_purge_no_warning_when_no_duplicates():
         with patch("automana.worker.main.logger") as mock_logger:
             _purge_stale_beat_tasks(_mock_sender())
             mock_logger.warning.assert_not_called()
+
+
+# ── _reconcile_orphaned_runs ─────────────────────────────────────────────────
+
+def test_reconcile_calls_run_service():
+    from automana.worker.main import _reconcile_orphaned_runs
+    sender = MagicMock()
+    with patch("automana.worker.main.run_service", return_value={"reconciled": 0, "runs": []}) as mock_rs:
+        _reconcile_orphaned_runs(sender)
+    mock_rs.assert_called_once_with("ops.pipeline_services.reconcile_orphaned_runs")
+
+
+def test_reconcile_logs_warning_when_runs_found():
+    from automana.worker.main import _reconcile_orphaned_runs
+    sender = MagicMock()
+    runs = [{"id": 30, "pipeline_name": "mtg_stock_all", "run_key": "mtgStock_All:2026-05-25"}]
+    with patch("automana.worker.main.run_service", return_value={"reconciled": 1, "runs": runs}):
+        with patch("automana.worker.main.logger") as mock_logger:
+            _reconcile_orphaned_runs(sender)
+            mock_logger.warning.assert_called_once()
+            extra = mock_logger.warning.call_args[1]["extra"]
+            assert "reconciled_runs" in extra
+
+
+def test_reconcile_no_warning_when_no_orphans():
+    from automana.worker.main import _reconcile_orphaned_runs
+    sender = MagicMock()
+    with patch("automana.worker.main.run_service", return_value={"reconciled": 0, "runs": []}):
+        with patch("automana.worker.main.logger") as mock_logger:
+            _reconcile_orphaned_runs(sender)
+            mock_logger.warning.assert_not_called()
