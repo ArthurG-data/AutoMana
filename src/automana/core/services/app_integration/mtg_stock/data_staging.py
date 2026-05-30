@@ -66,7 +66,8 @@ async def bulk_load(price_repository: PriceRepository,
                     market: str = "tcg",
                     start_id: int | None = None,
                     end_id: int | None = None,
-                    concurrency: int = 20):  # wired in Task 2: asyncio.Semaphore slot count
+                    ids_filter: list[int] | None = None,
+                    concurrency: int = 20):
     """TODO: include scryfall_id, card_name, set_abbr, collector_number in the
     staging table to simplify dim/fact loads and avoid re-calling Scryfall API
     in the dimension load step."""
@@ -86,6 +87,10 @@ async def bulk_load(price_repository: PriceRepository,
             and (start_id is None or int(f) >= start_id)
             and (end_id is None or int(f) <= end_id)
         ]
+
+    if ids_filter is not None:
+        _ids_set = set(ids_filter)
+        folders = [f for f in folders if f.isdigit() and int(f) in _ids_set]
 
     deleted = await price_repository.clear_raw_prices()
     logger.info("bulk_load: cleared stale rows from raw_mtg_stock_price", extra={"deleted": deleted})

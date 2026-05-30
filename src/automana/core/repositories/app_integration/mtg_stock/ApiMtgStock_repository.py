@@ -115,68 +115,69 @@ class ApiMtgStockRepository(BaseApiClient):
         url = self.get_full_url(endpoint)
         backoff = self.DELAY_BASE
 
-        for attempt in range(1, self.MAX_ATTEMPTS + 1):
+        async with self.SEM:
+            for attempt in range(1, self.MAX_ATTEMPTS + 1):
 
-            # ðŸ”’ Rate limit before every attempt
-            await self.rate_limiter.acquire()
-            await asyncio.sleep(random.uniform(0.3, 1.2))
-            hdrs = dict(headers or {})
+                # ðŸ”’ Rate limit before every attempt
+                await self.rate_limiter.acquire()
+                await asyncio.sleep(random.uniform(0.3, 1.2))
+                hdrs = dict(headers or {})
 
-            # ðŸ” ETag support
-            cache_entry = self._etag_cache.get(url)
-            if cache_entry and cache_entry.get("etag"):
-                hdrs["If-None-Match"] = cache_entry["etag"]
-            resp = await super().send(
-                method,
-                endpoint,
-                params=params,
-                headers=hdrs,#base will handle if header is passed
-                json=json,
-                data=data,
-                timeout=timeout,
-            )
-            # ðŸŸ¢ 304 Not Modified -> reuse cached body
-            if resp.status_code == 304:
-                cached = self._get_cached(url)
-                if cached is not None:
-                    logger.debug("ETag hit for %s", url)
-                    return httpx.Response(
-                        status_code=200,
-                        content=cached,
-                        headers=resp.headers,
-                        request=resp.request,
-                    )
-            # ðŸ” Rate limited
-            if resp.status_code == 429:
-                retry_after = resp.headers.get("Retry-After")
-                try:
-                    wait = float(retry_after) if retry_after else backoff
-                except ValueError:
-                    wait = backoff
-
-                jitter = wait * (0.7 + random.random() * 0.6)
-                logger.warning(
-                    "MTGStocks 429. Retry in %.2fs (attempt %d/%d)",
-                    jitter, attempt, self.MAX_ATTEMPTS
+                # ðŸ” ETag support
+                cache_entry = self._etag_cache.get(url)
+                if cache_entry and cache_entry.get("etag"):
+                    hdrs["If-None-Match"] = cache_entry["etag"]
+                resp = await super().send(
+                    method,
+                    endpoint,
+                    params=params,
+                    headers=hdrs,#base will handle if header is passed
+                    json=json,
+                    data=data,
+                    timeout=timeout,
                 )
-                await asyncio.sleep(jitter)
-                backoff = min(backoff * 2, 30)
-                continue
+                # ðŸŸ¢ 304 Not Modified -> reuse cached body
+                if resp.status_code == 304:
+                    cached = self._get_cached(url)
+                    if cached is not None:
+                        logger.debug("ETag hit for %s", url)
+                        return httpx.Response(
+                            status_code=200,
+                            content=cached,
+                            headers=resp.headers,
+                            request=resp.request,
+                        )
+                # ðŸ” Rate limited
+                if resp.status_code == 429:
+                    retry_after = resp.headers.get("Retry-After")
+                    try:
+                        wait = float(retry_after) if retry_after else backoff
+                    except ValueError:
+                        wait = backoff
 
-            # âŒ Not found -> return immediately
-            if resp.status_code == 404:
-                return resp
+                    jitter = wait * (0.7 + random.random() * 0.6)
+                    logger.warning(
+                        "MTGStocks 429. Retry in %.2fs (attempt %d/%d)",
+                        jitter, attempt, self.MAX_ATTEMPTS
+                    )
+                    await asyncio.sleep(jitter)
+                    backoff = min(backoff * 2, 30)
+                    continue
 
-            # Success -> store ETag if present
-            if resp.status_code < 400:
-                etag = resp.headers.get("ETag")
-                if etag:
-                    self._store_cache(url, resp.content, etag)
+                # âŒ Not found -> return immediately
+                if resp.status_code == 404:
+                    return resp
+
+                # Success -> store ETag if present
+                if resp.status_code < 400:
+                    etag = resp.headers.get("ETag")
+                    if etag:
+                        self._store_cache(url, resp.content, etag)
+                    return resp
+
                 return resp
 
             return resp
-
-        return resp
     
 
     async def fetch_card_price_data_batch(self, card_ids: List[int], market: str = "tcg") -> Dict[str, Any]:

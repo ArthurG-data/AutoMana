@@ -20,6 +20,7 @@ async def test_download_all_identifiers_streams_to_fixed_path():
 
     result = await download_all_identifiers(
         mtgjson_repository=api_repo,
+        ops_repository=AsyncMock(),
         storage_service=storage_svc,
     )
 
@@ -33,7 +34,7 @@ async def test_cleanup_staging_db_returns_deleted_count():
     repo = MagicMock()
     repo.truncate_staging_after_promotion = AsyncMock(return_value=500)
 
-    result = await cleanup_staging_db(mtgjson_repository=repo)
+    result = await cleanup_staging_db(mtgjson_repository=repo, ops_repository=AsyncMock())
 
     repo.truncate_staging_after_promotion.assert_called_once()
     assert result == {"staging_rows_deleted": 500}
@@ -44,6 +45,6 @@ async def test_cleanup_staging_db_zero_rows():
     repo = MagicMock()
     repo.truncate_staging_after_promotion = AsyncMock(return_value=0)
 
-    result = await cleanup_staging_db(mtgjson_repository=repo)
+    result = await cleanup_staging_db(mtgjson_repository=repo, ops_repository=AsyncMock())
 
     assert result == {"staging_rows_deleted": 0}
