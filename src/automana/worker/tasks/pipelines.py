@@ -1,8 +1,10 @@
 from celery import group, shared_task, chain
+import json
 import logging
+from pathlib import Path
 from automana.worker.main import run_service
 from automana.core.log.logging_context import set_task_id
-from datetime import datetime
+from datetime import datetime, date
 from automana.core.services.ops.log_analysis_service import run_daily_log_summary  # noqa: F401 — registers service
 
 logger = logging.getLogger(__name__)
@@ -294,6 +296,145 @@ def shopify_weekly_pipeline(self):
         run_service.s("shopify.pipeline.process_to_parquet"),
         run_service.s("shopify.pipeline.stage_raw"),
         run_service.s("shopify.pipeline.promote_observations"),
+        run_service.s("ops.pipeline_services.finish_run", status="success"),
+    )
+    return wf.apply_async().id
+
+
+# ── MTGStock rolling refresh ──────────────────────────────────────────────────
+
+_MTGSTOCK_IDS_PATH = Path("/data/automana_data/mtgstocks/raw/prints/existing_ids.json")
+_MTGSTOCK_EPOCH = date(2026, 6, 1)
+_WINDOW_DAYS = 7
+_RUNS_PER_DAY = 6
+_TOTAL_SLICES = _WINDOW_DAYS * _RUNS_PER_DAY  # 42
+
+
+def _mtgstock_slice_ids(hour_slot: int) -> list[int]:
+    """Return the sorted print IDs assigned to this hour_slot on today's date.
+
+    Slice index = (day_offset * 6 + hour_slot) % 42.  Deterministic and
+    stateless — identical inputs always produce the same list.
+    """
+    existing_ids = sorted(json.loads(_MTGSTOCK_IDS_PATH.read_text()))
+    total = len(existing_ids)
+    slice_size = total // _TOTAL_SLICES
+
+    day_offset = (date.today() - _MTGSTOCK_EPOCH).days
+    slice_idx = (day_offset * _RUNS_PER_DAY + hour_slot) % _TOTAL_SLICES
+
+    start = slice_idx * slice_size
+    end = start + slice_size if slice_idx < _TOTAL_SLICES - 1 else total
+    return existing_ids[start:end]
+
+
+def _mtgstock_daily_ids() -> list[int]:
+    """Return all print IDs assigned to today in the 7-day window.
+
+    Day-in-window = day_offset % 7.  Union of all 6 hour_slot slices for today.
+    """
+    existing_ids = sorted(json.loads(_MTGSTOCK_IDS_PATH.read_text()))
+    total = len(existing_ids)
+    daily_size = total // _WINDOW_DAYS
+
+    day_offset = (date.today() - _MTGSTOCK_EPOCH).days
+    day_in_window = day_offset % _WINDOW_DAYS
+    start = day_in_window * daily_size
+    end = start + daily_size if day_in_window < _WINDOW_DAYS - 1 else total
+    return existing_ids[start:end]
+
+
+@shared_task(name="automana.worker.tasks.pipelines.mtgstock_slice_refresh", bind=True)
+def mtgstock_slice_refresh(self, hour_slot: int):
+    """Fetch one 1/42 slice of MTGStock print IDs from the API and update disk files."""
+    set_task_id(self.request.id)
+    today = datetime.utcnow().date().isoformat()
+    run_key = f"mtgStock_slice:{today}:{hour_slot}"
+    logger.info("Starting MTGStock slice refresh", extra={"run_key": run_key, "hour_slot": hour_slot})
+
+    result = run_service("ops.pipeline_services.is_run_active", run_key=run_key)
+    if result.get("is_active"):
+        logger.warning("Duplicate pipeline skipped", extra={"run_key": run_key})
+        return
+
+    slice_ids = _mtgstock_slice_ids(hour_slot)
+    logger.info("MTGStock slice computed", extra={"hour_slot": hour_slot, "count": len(slice_ids)})
+
+    wf = chain(
+        run_service.s("ops.pipeline_services.start_run",
+                      pipeline_name="mtgstock_slice_refresh",
+                      source_name="mtgstocks",
+                      run_key=run_key,
+                      celery_task_id=self.request.id),
+        run_service.s("mtg_stock.data_loader.run_list_id_load",
+                      destination_folder="/data/automana_data/mtgstocks/raw/prints/",
+                      batch_size=500,
+                      ids_list=slice_ids,
+                      market="tcg"),
+        run_service.s("ops.pipeline_services.finish_run", status="success"),
+    )
+    return wf.apply_async().id
+
+
+@shared_task(name="automana.worker.tasks.pipelines.mtgstock_incremental_load", bind=True)
+def mtgstock_incremental_load(self):
+    """Stage and promote today's refreshed MTGStock IDs into price_observation."""
+    set_task_id(self.request.id)
+    today = datetime.utcnow().date().isoformat()
+    run_key = f"mtgStock_load:{today}"
+    logger.info("Starting MTGStock incremental DB load", extra={"run_key": run_key})
+
+    result = run_service("ops.pipeline_services.is_run_active", run_key=run_key)
+    if result.get("is_active"):
+        logger.warning("Duplicate pipeline skipped", extra={"run_key": run_key})
+        return
+
+    today_ids = _mtgstock_daily_ids()
+    logger.info("MTGStock daily IDs computed", extra={"count": len(today_ids)})
+
+    wf = chain(
+        run_service.s("ops.pipeline_services.start_run",
+                      pipeline_name="mtgstock_incremental_load",
+                      source_name="mtgstocks",
+                      run_key=run_key,
+                      celery_task_id=self.request.id),
+        run_service.s("mtg_stock.data_staging.bulk_load",
+                      root_folder="/data/automana_data/mtgstocks/raw/prints/",
+                      batch_size=2000,
+                      ids_filter=today_ids,
+                      market="tcg"),
+        run_service.s("mtg_stock.data_staging.from_raw_to_staging",
+                      source_name="mtgstocks"),
+        run_service.s("mtg_stock.data_staging.retry_rejects"),
+        run_service.s("mtg_stock.data_staging.from_staging_to_prices"),
+        run_service.s("ops.pipeline_services.finish_run", status="success"),
+    )
+    return wf.apply_async().id
+
+
+@shared_task(name="automana.worker.tasks.pipelines.mtgstock_discover_new_ids", bind=True)
+def mtgstock_discover_new_ids(self):
+    """Weekly: probe MTGStocks for print IDs beyond the local maximum and download them."""
+    set_task_id(self.request.id)
+    today = datetime.utcnow().date().isoformat()
+    run_key = f"mtgStock_discover:{today}"
+    logger.info("Starting MTGStock new ID discovery", extra={"run_key": run_key})
+
+    result = run_service("ops.pipeline_services.is_run_active", run_key=run_key)
+    if result.get("is_active"):
+        logger.warning("Duplicate pipeline skipped", extra={"run_key": run_key})
+        return
+
+    wf = chain(
+        run_service.s("ops.pipeline_services.start_run",
+                      pipeline_name="mtgstock_discover_new_ids",
+                      source_name="mtgstocks",
+                      run_key=run_key,
+                      celery_task_id=self.request.id),
+        run_service.s("mtg_stock.data_loader.discover_and_fetch_new_ids",
+                      destination_folder="/data/automana_data/mtgstocks/raw/prints/",
+                      batch_size=500,
+                      market="tcg"),
         run_service.s("ops.pipeline_services.finish_run", status="success"),
     )
     return wf.apply_async().id
