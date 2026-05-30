@@ -34,7 +34,6 @@ AutoMana is a FastAPI backend for tracking Magic: The Gathering card collections
 | MTGJson ETL pipeline | [`docs/pipelines/MTGJSON_PIPELINE.md`](docs/pipelines/MTGJSON_PIPELINE.md) |
 | MTGStocks ETL pipeline | [`docs/pipelines/MTGSTOCK_PIPELINE.md`](docs/pipelines/MTGSTOCK_PIPELINE.md) |
 | Shopify storefront integration | [`docs/backend/integrations/SHOPIFY_INTEGRATION.md`](docs/backend/integrations/SHOPIFY_INTEGRATION.md) |
-| eBay global market scraper | [`docs/pipelines/EBAY_GLOBAL_MARKET_SCRAPER.md`](docs/pipelines/EBAY_GLOBAL_MARKET_SCRAPER.md) |
 | PriceCharting sold price pipeline | [`docs/pipelines/PRICECHARTING_PIPELINE.md`](docs/pipelines/PRICECHARTING_PIPELINE.md) |
 | Database roles and permissions | [`docs/infrastructure/DATABASE_ROLES.md`](docs/infrastructure/DATABASE_ROLES.md) |
 | Deployment and Docker | [`docs/infrastructure/DEPLOYMENT.md`](docs/infrastructure/DEPLOYMENT.md) |

@@ -114,50 +114,20 @@ beat_schedule = {
         "task": "automana.worker.tasks.ebay.ebay_sync_own_sales_task",
         "schedule": crontab(hour=7, minute=0),   # 07:00 AEST
     },
-    # eBay sold-price persistence — external scrape (Finding API, per listed card).
-    "ebay-scrape-external-sold-nightly": {
-        "task": "automana.worker.tasks.ebay.ebay_scrape_external_sold_task",
-        "schedule": crontab(hour=9, minute=45),  # 09:45 AEST (was 07:15; shifted for category sweep)
-    },
-    # eBay category sweep: fetch all MTG sold listings, match to known cards.
-    # Runs before external scrape so quota consumption is tracked jointly.
-    "ebay-category-sweep-daily": {
-        "task": "automana.worker.tasks.ebay.ebay_category_sweep_task",
-        "schedule": crontab(hour=9, minute=0),   # 09:00 AEST
-    },
-    # eBay sold-price promotion — aggregate both staging tables → price_observation.
-    # Runs after sync (07:00), category sweep (09:00), and scrape (09:45).
-    # refresh-scrape-targets (11:00) and scrape-global-market (11:15) depend on this.
+    # eBay sold-price promotion — promote own-sales (Fulfillment) plus any
+    # externally-written scrape rows (e.g. TCGPLAYER) into price_observation.
+    # Runs after own-sales sync (07:00).
     "ebay-promote-sold-obs-nightly": {
         "task": "run_service",
         "schedule": crontab(hour=10, minute=30),  # 10:30 AEST
         "kwargs": {"path": "integrations.ebay.promote_sold_obs"},
     },
-    # FX rates: fetch AUD→USD and CAD→USD from frankfurter.app before market scrape.
+    # FX rates: fetch AUD→USD and CAD→USD from frankfurter.app. Kept for future
+    # cross-currency price normalisation; the pricing.fx_rates table is retained.
     "pricing-fetch-fx-rates-nightly": {
         "task": "run_service",
         "schedule": crontab(hour=6, minute=45),   # 06:45 AEST
         "kwargs": {"path": "integrations.pricing.fetch_fx_rates"},
-    },
-    # eBay global market: refresh rare/mythic/promo watchlist.
-    # Runs after promote_sold_obs (10:30) so price_observation has fresh data for
-    # the sell_avg_cents >= threshold filter.
-    "ebay-refresh-scrape-targets-nightly": {
-        "task": "run_service",
-        "schedule": crontab(hour=11, minute=0),   # 11:00 AEST — after promote_sold_obs (10:30)
-        "kwargs": {"path": "integrations.ebay.refresh_scrape_targets"},
-    },
-    # eBay global market: scrape sold prices across EBAY-US, EBAY-AU, EBAY-ENCA.
-    "ebay-scrape-global-market-nightly": {
-        "task": "run_service",
-        "schedule": crontab(hour=11, minute=15),   # 11:15 AEST — after targets refreshed
-        "kwargs": {
-            "path": "integrations.ebay.scrape_global_market",
-            "days_back": 30,
-            "score_threshold": 0.7,
-            "limit_per_card": 50,
-            "environment": "production",
-        },
     },
     # Weekly cleanup of eBay raw JSON files older than 7 days.
     "ebay-cleanup-raw-files-weekly": {

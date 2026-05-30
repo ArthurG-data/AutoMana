@@ -123,9 +123,6 @@ ServiceRegistry.register_api_repository(
     "selling", "automana.core.repositories.app_integration.ebay.ApiSelling_repository", "EbaySellingRepository"
 )
 ServiceRegistry.register_api_repository(
-    "ebay_finding", "automana.core.repositories.app_integration.ebay.ApiFinding_repository", "EbayFindingAPIRepository"
-)
-ServiceRegistry.register_api_repository(
     "mtg_stock", "automana.core.repositories.app_integration.mtg_stock.ApiMtgStock_repository", "ApiMtgStockRepository"
 )
 
