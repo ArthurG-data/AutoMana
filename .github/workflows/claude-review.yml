@@ -23,10 +23,8 @@ jobs:
         with:
           fetch-depth: 0
       - uses: anthropics/claude-code-action@v1.0.133
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: |
             Review this pull request diff for code correctness issues. Check for:
             - Logic errors and silent failures
@@ -51,10 +49,8 @@ jobs:
         with:
           fetch-depth: 0
       - uses: anthropics/claude-code-action@v1.0.133
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: |
             Review this pull request for architecture and CLAUDE.md rule compliance.
             First read CLAUDE.md in the repo root for the full ruleset. Key rules to enforce:
@@ -94,10 +90,8 @@ jobs:
         with:
           fetch-depth: 0
       - uses: anthropics/claude-code-action@v1.0.133
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: |
             Review this pull request for security vulnerabilities. Check for:
             - SQL injection (raw query construction without parameterisation)
@@ -130,12 +124,10 @@ jobs:
           fetch-depth: 0
       - uses: anthropics/claude-code-action@v1.0.133
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          PR_TITLE: ${{ github.event.pull_request.title }}
         with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: |
             Review this pull request for documentation currency.
 
