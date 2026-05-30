@@ -398,6 +398,19 @@ Cache hit/miss rates are not tracked. There is no visibility into cache efficien
 
 ### Architecture
 
+**I5 — Orphaned run reconciliation assumes single Celery worker**
+
+`_reconcile_orphaned_runs` (added in #329, `worker/main.py`) marks ALL `running` ingestion rows as `failed` on `worker_ready`. This is safe for a single-worker setup but will incorrectly close legitimately-running jobs if multiple workers are ever introduced.
+
+**If moving to multiple workers**, update to:
+1. Call `celery inspect active` across all workers to collect active `celery_task_id` values
+2. Only mark a run `failed` if its stored `celery_task_id` is absent from all active sets
+
+- Severity: **Low** (single-worker today; not a current risk)
+- Source: `docs/superpowers/specs/2026-05-30-orphaned-run-reconciliation-design.md`
+
+---
+
 **✅ I4 — `AbstractRepository` base class has `print()` debug statements (ALREADY CLEAN)**
 
 - Verified 2026-05-23: No `print()` calls found in abstract repository base. Already clean.
