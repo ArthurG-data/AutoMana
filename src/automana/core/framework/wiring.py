@@ -76,6 +76,11 @@ ServiceRegistry.register_db_repository(
     "automana.core.repositories.app_integration.mtg_stock.identifier_repository",
     "MtgstockIdentifierRepository",
 )
+ServiceRegistry.register_db_repository(
+    "mtg_stock_priority",
+    "automana.core.repositories.app_integration.mtg_stock.priority_repository",
+    "MtgstockPriorityRepository",
+)
 
 # Pricing Tier repositories
 ServiceRegistry.register_db_repository(
