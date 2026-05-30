@@ -153,6 +153,7 @@ services:
       dockerfile: deploy/docker/celery/celery.Dockerfile
     volumes:
       - /data:/data
+      - ../src:/app/src
     secrets:
       - celery_db_password
       - pgp_secret_key
@@ -209,6 +210,8 @@ services:
     depends_on:
       redis:
           condition: service_healthy
+    volumes:
+      - ../src:/app/src
     command: >
       sh -c "celery -A automana.worker.main:app beat
       --loglevel=${CELERY_LOGLEVEL:-INFO}
