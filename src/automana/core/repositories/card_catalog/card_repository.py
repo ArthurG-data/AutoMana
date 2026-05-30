@@ -219,6 +219,38 @@ class CardReferenceRepository(AbstractRepository[Any]):
         rows = await self.execute_query(sql, (set_code, collector_number))
         return dict(rows[0]) if rows else None
 
+    async def fetch_versions_by_set_and_name(self, set_code: str, card_name: str) -> list[dict]:
+        """All card_version rows for a set + card name, with the fields the
+        PriceCharting matcher scores on (frame_effects, full_art, border colour)
+        and the tcgplayer_id used as a tiebreaker.
+
+        Returns every candidate (one set+name can have foil/showcase/borderless
+        variants); the service resolves the winner via treatment scoring.
+        """
+        sql = """
+            SELECT cv.card_version_id,
+                   cv.collector_number,
+                   cv.frame_effects,
+                   cv.full_art,
+                   bc.border_color_name,
+                   uc.card_name,
+                   cei.value AS tcgplayer_id
+            FROM   card_catalog.card_version cv
+            JOIN   card_catalog.sets s ON s.set_id = cv.set_id
+            JOIN   card_catalog.unique_cards_ref uc ON uc.unique_card_id = cv.unique_card_id
+            JOIN   card_catalog.border_color_ref bc ON bc.border_color_id = cv.border_color_id
+            LEFT JOIN card_catalog.card_external_identifier cei
+                   ON cei.card_version_id = cv.card_version_id
+                  AND cei.card_identifier_ref_id = (
+                          SELECT card_identifier_ref_id
+                          FROM   card_catalog.card_identifier_ref
+                          WHERE  identifier_name = 'tcgplayer_id'
+                      )
+            WHERE  UPPER(s.set_code) = UPPER($1) AND uc.card_name ILIKE $2
+        """
+        rows = await self.execute_query(sql, (set_code, card_name))
+        return [dict(r) for r in rows]
+
     async def _fetch_prices_for_cards(self, card_ids: list) -> dict:
         """
         Fetch price analytics from tier 2 (print_price_daily) for a batch of cards.

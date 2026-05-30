@@ -190,6 +190,21 @@ class SetReferenceRepository(AbstractRepository[Any]):
         result =  await self.execute_query(query, set_id)
         return result[0] if result else None
     
+    async def fetch_sets_for_matching(self) -> List[Dict]:
+        """All non-digital sets as ``{set_name, set_code}`` for name-based matching.
+
+        Used by the PriceCharting pipeline to map a scraped set name to a DB
+        set_code. Digital-only sets are excluded — PriceCharting tracks physical
+        sold prices.
+        """
+        query = """
+            SELECT set_name, set_code
+            FROM   card_catalog.sets
+            WHERE  digital = false
+            ORDER  BY set_name
+        """
+        return await self.execute_query(query)
+
     async def list(self, limit: int = 100, offset: int = 0, ids: Optional[Sequence[UUID]] = None):
         query = "SELECT * FROM card_catalog.v_joined_set_materialized"
         counter = 1
