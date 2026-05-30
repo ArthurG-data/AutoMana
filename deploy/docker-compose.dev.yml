@@ -179,7 +179,7 @@ services:
       - backend-network
 
     command: >
-      sh -c "celery -A automana.worker.main:app worker -P threads
+      sh -c "celery -A automana.worker.main:app worker -P ${CELERY_POOL:-prefork}
       --loglevel=${CELERY_LOGLEVEL:-DEBUG}
       --concurrency=${CELERY_CONCURRENCY:-1}"
     healthcheck:

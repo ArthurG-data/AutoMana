@@ -90,6 +90,7 @@ changed AS (
 ),
 
 -- ── 6. Insert a new resource_version row for each changed item ────────────────
+--      RETURNING id (resource_version_id) so CTE 6b can link it to the run.
 ins_versions AS (
   INSERT INTO ops.resource_versions (
     resource_id, download_uri, content_type, content_encoding,
@@ -100,7 +101,20 @@ ins_versions AS (
     bytes, last_modified, 'downloaded'
   FROM changed
   ON CONFLICT (resource_id, download_uri, last_modified) DO NOTHING
-  RETURNING resource_id, download_uri, last_modified
+  RETURNING id AS resource_version_id, resource_id, download_uri, last_modified
+),
+
+-- ── 6b. Record run → resource_version lineage (ops.ingestion_run_resources) ───
+--      Populates the traceability join read by ops.integrity.scryfall_run_diff
+--      ("which file version was processed in which run"). Guarded on $2 so the
+--      standalone-test path (no ingestion run) is a no-op. Data-modifying CTEs
+--      run to completion even though the final SELECT does not read this one.
+link_run_resources AS (
+  INSERT INTO ops.ingestion_run_resources (ingestion_run_id, resource_version_id, status)
+  SELECT $2::bigint, iv.resource_version_id, 'processed'
+  FROM ins_versions iv
+  WHERE $2 IS NOT NULL
+  ON CONFLICT (ingestion_run_id, resource_version_id) DO NOTHING
 )
 
 -- ── 7. Return summary + list of new download URIs for the pipeline ────────────

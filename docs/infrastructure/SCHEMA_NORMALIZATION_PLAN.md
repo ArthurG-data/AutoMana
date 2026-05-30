@@ -1,7 +1,7 @@
 # AutoMana Database Normalization Plan
 
 **Date:** 2026-05-30
-**Status (updated 2026-05-30):** Phases 0, 1, 3 **APPLIED** to the dev DB (ANALYZE/VACUUM; `migration_57` indexes; `migration_58` unique_cards FK + tz fix). Phase 2 (`card_game` consolidation, would be `migration_59`) **DEFERRED** to backlog issue [#331](https://github.com/ArthurG-data/AutoMana/issues/331). Phase 4 investigations still open. Nothing committed/pushed.
+**Status (updated 2026-05-30):** Phases 0, 1, 3 **APPLIED** to the dev DB (ANALYZE/VACUUM; `migration_57` indexes; `migration_58` unique_cards FK + tz fix). Phase 2 (`card_game` consolidation, would be `migration_59`) **DEFERRED** to backlog issue [#331](https://github.com/ArthurG-data/AutoMana/issues/331). Phase 4 **INVESTIGATED + actioned**: `ingestion_run_resources` scryfall lineage wired ✅ (verified); `price_metric` cleanup → [#335](https://github.com/ArthurG-data/AutoMana/issues/335); mtgjson lineage → [#336](https://github.com/ArthurG-data/AutoMana/issues/336); `ingestion_step_metrics` kept as scaffolding.
 **Scope:** All ~115 user tables across 8 application schemas (`card_catalog`, `pricing`, `ops`, `app_integration`, `user_management`, `markets`, `user_collection`, `reporting`). TimescaleDB chunk internals (`_timescaledb_*`) excluded.
 **Method:** Every verdict is backed by three signals — real `COUNT(*)`, the FK graph from `pg_constraint` (inbound + outbound), and a grep of `src/` + `database/SQL/` + migrations. `reltuples = -1`/`0` estimates were **not** used to judge "unused".
 
@@ -189,15 +189,17 @@ ALTER TABLE pricing.shopify_staging_raw
 
 ---
 
-## Phase 4 — Investigate before touching (NO migration yet)
+## Phase 4 — Investigate before touching ✅ INVESTIGATED
 
-These are *suspected* relics but **fail the three-signal test** (they're wired in SQL/design even if no Python writes them). Do not drop on suspicion.
+These were *suspected* relics. Investigation done — none are accidental dead tables.
 
-| Item | Why suspicious | What to confirm before any action |
+**Investigation complete (2026-05-30).** Headline: **no accidental dead tables** — two items are deliberately-retained scaffolding, one is a half-built feature. Evidence below.
+
+| Item | Investigation result | Verdict |
 |---|---|---|
-| `pricing.price_metric` (3 rows: low/avg/market) | Only referenced by dynamic DDL in `07_shopify_staging.sql`; superseded by explicit `*_cents` columns on `price_observation` | Is the `price_observation_stage` stored proc still called by any live path? If dead, proc + table go together. |
-| `ops.ingestion_step_metrics` | In schema DDL, no Python writer | Intended telemetry tier (sibling of `ingestion_run_metrics`, which IS written). Decide: wire it up or formally retire. |
-| `ops.ingestion_run_resources` | Read by maintenance diff SQL (`scryfall_run_diff.sql`, `mtgjson_run_diff.sql`), no Python writer | Part of run↔resource lineage design. Keep unless the diff queries are also retired. |
+| `pricing.price_metric` (3 rows) + `raw_to_stage()` / `stage_to_price_observation()` procs + `price_observation_stage` unlogged table | The proc chain that references `price_metric` is **never invoked**; `stage_to_price_observation()` is **explicitly a no-op** (`07_shopify_staging.sql:124`: *"intentionally a no-op. Shopify observations are promoted in Python by the shopify.pipeline.promote_observations service step"*). So this is the superseded SQL-staging design, deliberately stubbed rather than deleted. No inbound FKs. | **RELIC, intentionally retained → ticketed [#335](https://github.com/ArthurG-data/AutoMana/issues/335).** Cleanup (drop `price_metric` + the two procs + the unlogged-table DDL, spanning schema files 06 + 07) tracked rather than auto-deleted — same class as the deferred `card_game` refactor. Harm of leaving: ~nil (3 lookup rows + 2 no-op procs). |
+| `ops.ingestion_step_metrics` (0 rows) | Referenced **only** by its own DDL in `09_ops_schema.sql` — no writer, no reader, no inbound FK. Coherent sibling of `ingestion_run_metrics` (which has a Python writer, though also 0 rows in dev). | **KEEP — designed-but-unwired scaffolding.** Costs nothing empty; part of the ops telemetry tier and would be re-added if step-level metrics get wired. (Drop only if you want strict YAGNI.) |
+| `ops.ingestion_run_resources` (0 rows) | **READ** by the scryfall/mtgjson run-diff maintenance SQL (the run→resource→resource_versions lineage join) but **never written**. | **WIRED UP (scryfall) ✅.** Added a data-modifying CTE `link_run_resources` to `update_bulk_scryfall_data_sql` (`ops/scryfall_data.py`) that links the ingestion run (`$2`) to each newly-inserted `resource_version`, guarded on a non-null run id. Verified live in a rolled-back transaction: `versions_inserted=1` → `run_resources_linked=1, status='processed'`. **mtgjson follow-up → ticketed [#336](https://github.com/ArthurG-data/AutoMana/issues/336):** the mtgjson pipeline never creates a `resource_version` for `mtgjson.all_printings` in the first place, so its `mtgjson_run_diff` lineage join stays empty until that's wired (larger change). |
 
 ---
 

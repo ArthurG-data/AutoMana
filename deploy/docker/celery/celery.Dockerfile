@@ -30,4 +30,4 @@ RUN useradd -m appuser
 RUN mkdir -p /home/appuser/flower && chown appuser:appuser /home/appuser/flower 
 USER appuser
 
-CMD ["celery", "-A", "automana.worker.main:app", "worker", "-P", "solo", "--loglevel=INFO", "--concurrency=1"]
+CMD ["celery", "-A", "automana.worker.main:app", "worker", "-P", "prefork", "--loglevel=INFO", "--concurrency=1"]
