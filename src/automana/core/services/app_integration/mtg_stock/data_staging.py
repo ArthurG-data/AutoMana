@@ -67,7 +67,7 @@ async def bulk_load(price_repository: PriceRepository,
                     start_id: int | None = None,
                     end_id: int | None = None,
                     ids_filter: list[int] | None = None,
-                    concurrency: int = 20):  # wired in Task 2: asyncio.Semaphore slot count
+                    concurrency: int = 20):
     """TODO: include scryfall_id, card_name, set_abbr, collector_number in the
     staging table to simplify dim/fact loads and avoid re-calling Scryfall API
     in the dimension load step."""
