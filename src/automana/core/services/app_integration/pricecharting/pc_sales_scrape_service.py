@@ -6,6 +6,7 @@ import logging
 import re
 from datetime import date
 from typing import Any
+from urllib.parse import unquote
 
 from bs4 import BeautifulSoup
 
@@ -26,6 +27,27 @@ _GRADE_TABLES: dict[str, str] = {
 }
 
 
+def _detect_source(title_td) -> str:
+    """Detect the marketplace a PriceCharting sold row came from.
+
+    PriceCharting tags each completed-sale row's title cell with a ``[TCGPlayer]``
+    or ``[eBay]`` marker; fall back to the row link's href when the marker is absent.
+    """
+    text = title_td.get_text()
+    if "[TCGPlayer]" in text:
+        return "tcgplayer"
+    if "[eBay]" in text:
+        return "ebay"
+    link = title_td.find("a")
+    if link:
+        href = link.get("href", "")
+        if "tcgplayer" in href:
+            return "tcgplayer"
+        if "ebay" in href:
+            return "ebay"
+    return "unknown"
+
+
 def _parse_sales_page(html: str, product_id: str) -> dict:
     """Parse a PriceCharting card page, returning sales rows and TCGPlayer ID."""
     soup = BeautifulSoup(html, "html.parser")
@@ -33,7 +55,9 @@ def _parse_sales_page(html: str, product_id: str) -> dict:
     tcg_link = soup.select_one("a.js-tcgplayer-completed-sale")
     tcg_id: str | None = None
     if tcg_link and tcg_link.get("href"):
-        m = re.search(r"/product/(\d+)", tcg_link["href"])
+        # The href is an affiliate redirect with the real TCGPlayer product URL
+        # percent-encoded in its `u=` param — decode before matching /product/{id}.
+        m = re.search(r"/product/(\d+)", unquote(tcg_link["href"]))
         if m:
             tcg_id = m.group(1)
 
@@ -49,34 +73,31 @@ def _parse_sales_page(html: str, product_id: str) -> dict:
         if not table:
             continue
         for tr in table.select("tbody tr"):
-            tds = tr.find_all("td")
-            if len(tds) < 3:
+            # PriceCharting rows are: date | image | title | numeric(price) | ...
+            # The price lives in td.numeric > span.js-price — NOT a positional cell.
+            date_td = tr.find("td", class_="date")
+            title_td = tr.find("td", class_="title")
+            price_td = tr.find("td", class_="numeric")
+            if not (date_td and title_td and price_td):
                 continue
-            date_td = tr.select_one("td.date") or tds[0]
-            title_td = tr.select_one("td.title") or tds[1]
-            price_td = tr.select_one("td.price") or tds[2]
 
-            price_raw = price_td.get_text(strip=True).replace("$", "").replace(",", "")
+            price_span = price_td.find("span", class_="js-price")
+            price_text = price_span.get_text(strip=True) if price_span else price_td.get_text(strip=True)
+            price_raw = price_text.replace("$", "").replace(",", "")
             try:
                 price_cents = round(float(price_raw) * 100)
             except ValueError:
                 continue
 
-            link = tr.select_one("a")
-            source = "unknown"
-            if link:
-                href = link.get("href", "")
-                if "tcgplayer" in href:
-                    source = "tcgplayer"
-                elif "ebay" in href:
-                    source = "ebay"
+            link = title_td.find("a")
+            listing_title = link.get_text(strip=True) if link else title_td.get_text(strip=True)
 
             sales.append({
                 "grade": grade,
                 "sold_at": date_td.get_text(strip=True),
-                "title": title_td.get_text(strip=True),
+                "title": listing_title,
                 "price_cents": price_cents,
-                "source": source,
+                "source": _detect_source(title_td),
             })
 
     return {"product_id": product_id, "tcgplayer_id": tcg_id, "sales": sales}
