@@ -207,7 +207,7 @@ These were *suspected* relics. Investigation done — none are accidental dead t
 
 | Kept | Reason |
 |---|---|
-| `markets` schema (all tables) | Live Shopify integration (market_ref = real stores; FKs into `pricing`; written by `shopify/*` repos + `scrape_global_market_service`). |
+| `markets` schema (all tables) | Live Shopify integration (market_ref = real stores; FKs into `pricing`; written by `shopify/*` repos). |
 | `pricing.product_ref` / `mtg_card_products` / `mtg_sealed_products` | Justified supertype/subtype; row math closes exactly. Merging would break the polymorphic price-observation chain. |
 | `card_catalog.card_stats_ref` + `card_version_stats` (EAV) | MTG stats are non-numeric (`*`, `1+*`, `X`) → `TEXT` EAV is correct, open-ended by design. |
 | All dev-empty tables (`app_integration.*`, `user_management.*`, `reporting.hourly_metrics`, etc.) | Empty because dev has no users/orders, not unused — all FK-wired and code-referenced. |

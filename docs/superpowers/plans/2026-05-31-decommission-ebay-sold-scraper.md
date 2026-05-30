@@ -37,6 +37,12 @@ Revised after review. Evidence the scrape channel is a **live promoter**, not de
 
 **Follow-up (out of scope):** identify the external/manual TCGPLAYER writer of `ebay_scraped_sold` and either document or formalize it. File as a ticket.
 
+## Post-implementation notes
+- **TCGPLAYER-writer question — resolved during the docs sweep.** `docs/pipelines/PRICECHARTING_PIPELINE.md` documents that the PriceCharting pipeline replaced the Finding API (decommissioned Feb 2025) and **writes into the same `pricing.ebay_scraped_sold` table**, relying on `promote_sold_obs` to promote rows into `price_observation`. This is the live consumer relationship that made keeping `promote_sold_obs` intact correct. (Exact `TCGPLAYER` marketplace-tag writer — PriceCharting vs open_tcg — left as a minor confirm.)
+- **`fetch_fx_rates` is registered in the `backend` + `all` service lists but NOT `celery`**, so the nightly `run_service` beat job cannot resolve it on the worker — the `fx_rates` table will not actually refresh. Pre-existing bug, **left untouched** (out of scope). The kept beat entry's comment is neutral ("retained for future use"), not a freshness claim.
+- **Docs sweep done:** deleted the root duplicate `docs/EBAY_GLOBAL_MARKET_SCRAPER.md`, removed the `docs/README.md` index row, marked C3/P4/P5/P6/P8 MOOT in `MASTER_TECHNICAL_DEBT.md`, dropped the C3 item from `BACKLOG.md`, and fixed the stale `scrape_global_market_service` reference in `SCHEMA_NORMALIZATION_PLAN.md`. Historical `plans/` + `specs/` left as-is (immutable records).
+- **Test baseline:** pre-existing pydantic/env collection failures under `tests/unit/api`, `tests/unit/core/ai`, `tests/unit/core/routers/ebay/test_build_and_create_tracking.py` reproduce identically on clean `origin/dev` (verified via stash baseline) — unrelated to this change.
+
 ### Keep (explicit)
 - `pricing.fx_rates` **table** — per user instruction ("keep the fx_rate table for now").
 - `fetch_fx_rates` service + `pricing-fetch-fx-rates-nightly` beat — so the kept table stays fresh (proposed; awaiting confirmation — user only asked to keep the table).
