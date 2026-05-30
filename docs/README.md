@@ -43,7 +43,6 @@ ETL pipeline guides — one doc per pipeline.
 | [`pipelines/MTGJSON_PIPELINE.md`](pipelines/MTGJSON_PIPELINE.md) | MTGJson daily price ingestion — 6 steps, streaming COPY approach |
 | [`pipelines/MTGSTOCK_PIPELINE.md`](pipelines/MTGSTOCK_PIPELINE.md) | MTGStocks price ingestion — 4 stages, 5-table dimension chain |
 | [`pipelines/MTGSTOCK_REJECT_ANALYSIS.md`](pipelines/MTGSTOCK_REJECT_ANALYSIS.md) | Analysis of 5.8M unresolved staging reject rows and fix progress |
-| [`pipelines/EBAY_GLOBAL_MARKET_SCRAPER.md`](pipelines/EBAY_GLOBAL_MARKET_SCRAPER.md) | eBay global market scraper — FX rates, scrape targets, multi-marketplace sold prices |
 
 Deeper pipeline tutorials: `docs/backend/integrations/`
 

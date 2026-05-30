@@ -9,7 +9,6 @@ Items are grouped by domain. Each entry links to its source plan for full implem
 ## eBay
 
 - **eBay Daily Sold Collection — DFC staging cleanup** — `mtgjson_uuid_alias` table and cv CTE extension shipped (migration_49); the `cleanup_staging_db` Celery step and staging truncation are not yet wired. [Plan](superpowers/plans/2026-05-24-mtgjson-dfc-uuid-staging-cleanup.md)
-- **FX normalization in `promote_sold_obs`** (C3) — AUD/CAD prices from `ebay_scraped_sold` land in `price_observation` at face value; convert at promotion time using `fx_rates`. Source: `docs/MASTER_TECHNICAL_DEBT.md` C3 / `docs/pipelines/EBAY_GLOBAL_MARKET_SCRAPER.md`
 - **ApiBrowse connection pool leak** (P9) — `search_items()` never closes the httpx client; wrap in `async with self:`. Source: `docs/MASTER_TECHNICAL_DEBT.md` P9
 - **ApiBrowse silent failure on 429** (P10) — quota exhaustion silently returns empty `CardMarketData`; add exponential backoff + re-raise. Source: `docs/MASTER_TECHNICAL_DEBT.md` P10
 - **eBay `scopes.py` raw cursor in router** (M3) — `regist_scope` injects a psycopg2 cursor directly; replace with a ServiceRegistry service. Source: `docs/MASTER_TECHNICAL_DEBT.md` M3
