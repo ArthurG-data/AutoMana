@@ -71,3 +71,29 @@ Validated: name-matcher hits **322/375 sets (85%)** on real data
 - A: migration + repo methods + repo/helper unit tests
 - B: build_match_catalog service + pure-helper unit tests + real-data spot check
 - C: stage_sold service + unit tests + real sales-file integration check
+
+## Status — COMPLETE (3 commits)
+- A `d321329d` — migration_61 + 02_card_schema seed (pricecharting_id=9); repo
+  methods fetch_versions_by_set_and_name / fetch_sets_for_matching /
+  upsert_price_source / upsert_source_products_for_cards. All verified vs dev DB.
+- B `5b29bd26` — pc_matching.py + build_match_catalog service. **Improvement over
+  notebook:** added collector-number filter (doc's Pass 1) after a real-data spot
+  check exposed "[Extended Art] #315" mis-mapping to #138.
+- C `be213f73` — pc_staging.py + stage_sold service. Validated against REAL
+  scrape_sales output (3 live MH2 cards → 213 staged rows, correct
+  marketplace/condition/cv mapping, 213 unique item_ids).
+- 68 pricecharting unit tests pass; no new failures in the core+tasks suite
+  (11 pre-existing env failures unchanged).
+
+### Notes for reviewer / follow-ups
+- **Idempotency divergence from notebook:** notebook did DELETE-then-insert;
+  stage_sold relies on the deterministic item_id + ON CONFLICT DO NOTHING (the
+  correct production idempotency; no bulk-delete primitive on the scrape repo).
+- **Per-product DB query in matching:** build_match_catalog issues one
+  fetch_versions_by_set_and_name per single (~63k). Fine for a batch job; could
+  be batched later if it becomes a bottleneck.
+- **No beat schedule yet** — both services run manually via run_service, matching
+  the existing scrape services. Wire a beat chain
+  (scrape_catalog → scrape_sales → build_match_catalog → stage_sold →
+  promote_sold_obs) when ready to automate.
+- **No track_step** — consistent with the existing scrape services (flagged).
