@@ -91,3 +91,15 @@ async def finish_run(
         status=status,
         notes=notes
     )
+
+@ServiceRegistry.register(
+    "ops.pipeline_services.is_run_active",
+    db_repositories=["ops"]
+)
+async def is_run_active(
+    ops_repository: OpsRepository,
+    run_key: str,
+) -> dict:
+    status = await ops_repository.get_run_status_for_key(run_key=run_key)
+    is_active = status in ("running", "success")
+    return {"is_active": is_active}
