@@ -544,6 +544,18 @@ class OpsRepository(AbstractRepository):
         rows = await self.execute_query(query, (pipeline_name,))
         return rows[0]["id"] if rows else None
 
+    async def get_run_status_for_key(self, run_key: str) -> str | None:
+        """Return the status of the most recent run matching ``run_key``, or None."""
+        query = """
+        SELECT status
+        FROM ops.ingestion_runs
+        WHERE run_key = $1
+        ORDER BY started_at DESC
+        LIMIT 1
+        """
+        rows = await self.execute_query(query, (run_key,))
+        return rows[0]["status"] if rows else None
+
     async def fetch_run_summary(self, ingestion_run_id: int) -> dict | None:
         """Return run-level fields used by several metrics in one round-trip.
 
