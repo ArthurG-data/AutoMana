@@ -12,6 +12,10 @@ def daily_scryfall_data_pipeline(self):
     set_task_id(self.request.id)
     run_key = f"scryfall_daily:{datetime.utcnow().date().isoformat()}"
     logger.info("Starting Scryfall daily pipeline", extra={"run_key": run_key})
+    result = run_service("ops.pipeline_services.is_run_active", run_key=run_key)
+    if result.get("is_active"):
+        logger.warning("Duplicate pipeline skipped", extra={"run_key": run_key})
+        return
     wf = chain(
         run_service.s("staging.scryfall.start_pipeline",#new test
                       pipeline_name="scryfall_daily",
@@ -54,6 +58,10 @@ def mtgStock_download_pipeline(self):
     set_task_id(self.request.id)
     run_key = f"mtgStock_All:{datetime.utcnow().date().isoformat()}"
     logger.info("Starting MTGStock download pipeline", extra={"run_key": run_key})
+    result = run_service("ops.pipeline_services.is_run_active", run_key=run_key)
+    if result.get("is_active"):
+        logger.warning("Duplicate pipeline skipped", extra={"run_key": run_key})
+        return
     # Chain shape: start → bulk_load → raw→stg → retry_rejects → stg→observation → finish.
     # `retry_rejects` calls pricing.resolve_price_rejects() to re-feed any
     # previously-rejected rows that can now be resolved (e.g. via new scryfall
@@ -93,6 +101,10 @@ def daily_mtgjson_data_pipeline(self):
     set_task_id(self.request.id)
     run_key = f"mtgjson_daily:{datetime.utcnow().date().isoformat()}"
     logger.info("Starting MTGJson daily pipeline", extra={"run_key": run_key})
+    result = run_service("ops.pipeline_services.is_run_active", run_key=run_key)
+    if result.get("is_active"):
+        logger.warning("Duplicate pipeline skipped", extra={"run_key": run_key})
+        return
 
     # Why `check_version` is NOT wired in here:
     # `check_version` compares the MTGJson `Meta.json` catalog version, which
@@ -163,6 +175,10 @@ def daily_mtgjson_sealed_pipeline(self):
     set_task_id(self.request.id)
     run_key = f"mtgjson_sealed:{datetime.utcnow().date().isoformat()}"
     logger.info("Starting MTGJson sealed pricing pipeline", extra={"run_key": run_key})
+    result = run_service("ops.pipeline_services.is_run_active", run_key=run_key)
+    if result.get("is_active"):
+        logger.warning("Duplicate pipeline skipped", extra={"run_key": run_key})
+        return
 
     wf = chain(
         run_service.s("ops.pipeline_services.start_run",
@@ -182,6 +198,10 @@ def open_tcg_pricing_pipeline(self):
     set_task_id(self.request.id)
     run_key = f"opentcg_pricing:{datetime.utcnow().date().isoformat()}"
     logger.info("Starting Open TCG pricing pipeline", extra={"run_key": run_key})
+    result = run_service("ops.pipeline_services.is_run_active", run_key=run_key)
+    if result.get("is_active"):
+        logger.warning("Duplicate pipeline skipped", extra={"run_key": run_key})
+        return
     wf = chain(
         run_service.s(
             "ops.pipeline_services.start_run",
@@ -258,6 +278,10 @@ def shopify_weekly_pipeline(self):
     set_task_id(self.request.id)
     run_key = f"shopify_weekly:{datetime.utcnow().date().isoformat()}"
     logger.info("Starting Shopify weekly pipeline", extra={"run_key": run_key})
+    result = run_service("ops.pipeline_services.is_run_active", run_key=run_key)
+    if result.get("is_active"):
+        logger.warning("Duplicate pipeline skipped", extra={"run_key": run_key})
+        return
     wf = chain(
         run_service.s(
             "ops.pipeline_services.start_run",

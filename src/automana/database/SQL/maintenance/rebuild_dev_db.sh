@@ -535,6 +535,17 @@ do_verify() {
     FROM ops.ingestion_runs
     GROUP BY 1,2
     ORDER BY 1,2;"
+
+  # Refresh planner statistics. The pipelines bulk-load via COPY/upsert,
+  # which can leave large tables (card_version, *_identifier, price_observation)
+  # with stale or absent stats until autovacuum eventually cycles — meanwhile
+  # the planner estimates them at ~0 rows and picks bad plans. ANALYZE here
+  # (as $SUPERUSER, the only role that may analyze tables it does not own)
+  # guarantees a freshly rebuilt DB is never left blind. ANALYZE is sampling
+  # and read-only w.r.t. data; safe to always run.
+  echo ""
+  echo "  --- refreshing planner statistics (ANALYZE) ---"
+  $EXEC psql -U "$SUPERUSER" -d "$DBNAME" -c "ANALYZE;" || true
 }
 
 if should_run rebuild; then
