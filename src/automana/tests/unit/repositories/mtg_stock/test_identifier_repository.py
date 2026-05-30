@@ -34,34 +34,34 @@ async def test_get_existing_mapped_print_ids_returns_set():
 
 
 @pytest.mark.asyncio
-async def test_resolve_by_scryfall_returns_mapping():
+async def test_fetch_by_scryfall_returns_mapping():
     repo = _make_repo()
     repo.execute_query.return_value = [
         {"scryfall_id": "abc-123", "card_version_id": "uuid-1"},
     ]
-    result = await repo.resolve_by_scryfall(["abc-123", "def-456"])
+    result = await repo.fetch_by_scryfall(["abc-123", "def-456"])
     assert result == {"abc-123": "uuid-1"}
     assert "scryfall_id" in repo.execute_query.call_args[0][0]
 
 
 @pytest.mark.asyncio
-async def test_resolve_by_tcgplayer_returns_mapping():
+async def test_fetch_by_tcgplayer_returns_mapping():
     repo = _make_repo()
     repo.execute_query.return_value = [
         {"tcg_id": "576888", "card_version_id": "uuid-2"},
     ]
-    result = await repo.resolve_by_tcgplayer(["576888"])
+    result = await repo.fetch_by_tcgplayer(["576888"])
     assert result == {"576888": "uuid-2"}
     assert "tcgplayer_id" in repo.execute_query.call_args[0][0]
 
 
 @pytest.mark.asyncio
-async def test_resolve_by_set_collector_returns_mapping():
+async def test_fetch_by_set_collector_returns_mapping():
     repo = _make_repo()
     repo.execute_query.return_value = [
         {"set_code": "dsk", "collector_number": "232", "card_version_id": "uuid-3"},
     ]
-    result = await repo.resolve_by_set_collector([("DSK", "232")])
+    result = await repo.fetch_by_set_collector([("DSK", "232")])
     assert ("DSK", "232") in result
     assert result[("DSK", "232")] == "uuid-3"
 
@@ -74,7 +74,8 @@ async def test_upsert_mtgstock_id_mappings_calls_execute_many():
         {"card_version_id": "uuid-1", "print_id": 1001},
         {"card_version_id": "uuid-2", "print_id": 1002},
     ]
-    await repo.upsert_mtgstock_id_mappings(mappings)
+    result = await repo.upsert_mtgstock_id_mappings(mappings)
+    assert result == 2
     repo.execute_many.assert_awaited_once()
     rows = repo.execute_many.call_args[0][1]
     assert len(rows) == 2

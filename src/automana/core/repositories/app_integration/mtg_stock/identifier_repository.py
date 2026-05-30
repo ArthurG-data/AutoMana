@@ -28,7 +28,7 @@ class MtgstockIdentifierRepository(AbstractRepository):
         )
         return {r["value"] for r in rows}
 
-    async def resolve_by_scryfall(self, scryfall_ids: list[str]) -> dict[str, str]:
+    async def fetch_by_scryfall(self, scryfall_ids: list[str]) -> dict[str, str]:
         """Return {scryfall_id: card_version_id} for matching IDs."""
         if not scryfall_ids:
             return {}
@@ -45,7 +45,7 @@ class MtgstockIdentifierRepository(AbstractRepository):
         )
         return {r["scryfall_id"]: r["card_version_id"] for r in rows}
 
-    async def resolve_by_tcgplayer(self, tcg_ids: list[str]) -> dict[str, str]:
+    async def fetch_by_tcgplayer(self, tcg_ids: list[str]) -> dict[str, str]:
         """Return {tcgplayer_id: card_version_id} for matching IDs."""
         if not tcg_ids:
             return {}
@@ -62,7 +62,7 @@ class MtgstockIdentifierRepository(AbstractRepository):
         )
         return {r["tcg_id"]: r["card_version_id"] for r in rows}
 
-    async def resolve_by_set_collector(
+    async def fetch_by_set_collector(
         self, pairs: list[tuple[str, str]]
     ) -> dict[tuple[str, str], str]:
         """Return {(set_abbr, collector_number): card_version_id} for matching pairs."""
