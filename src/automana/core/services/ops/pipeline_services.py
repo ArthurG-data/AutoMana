@@ -103,3 +103,18 @@ async def is_run_active(
     status = await ops_repository.get_run_status_for_key(run_key=run_key)
     is_active = status in ("running", "success")
     return {"is_active": is_active}
+
+
+@ServiceRegistry.register(
+    "ops.pipeline_services.reconcile_orphaned_runs",
+    db_repositories=["ops"]
+)
+async def reconcile_orphaned_runs(ops_repository: OpsRepository) -> dict:
+    running = await ops_repository.get_running_ingestion_runs()
+    for row in running:
+        await ops_repository.fail_run(
+            row["id"],
+            error_code="orphaned_by_restart",
+            error_details={"message": "Worker restarted while run was in progress"},
+        )
+    return {"reconciled": len(running), "runs": running}
