@@ -125,3 +125,27 @@ async def test_bulk_load_ids_filter_empty_list_processes_nothing():
         )
 
     assert processed_folders == []
+
+
+from automana.core.services.app_integration.mtg_stock.data_staging import process_prices_file
+
+
+@pytest.mark.asyncio
+async def test_process_prices_file_sets_market_source_code(tmp_path):
+    """process_prices_file stamps the marketplace source_code, not 'mtgstocks'."""
+    df = pd.DataFrame({
+        "date": ["2026-01-01"],
+        "price_low": [1.0], "price_avg": [2.0], "price_foil": [3.0],
+        "price_market": [4.0], "price_market_foil": [5.0],
+    })
+    pq_path = tmp_path / "prices.cardmarket.parquet"
+    df.to_parquet(pq_path)
+
+    id_dict = {"mtgstock": 1001, "tcg_id": None}
+    out = await process_prices_file(str(pq_path), id_dict, market="cardmarket")
+    assert (out["source_code"] == "cardmarket").all()
+
+    pq_path2 = tmp_path / "prices.starcity.parquet"
+    df.to_parquet(pq_path2)
+    out2 = await process_prices_file(str(pq_path2), id_dict, market="starcity")
+    assert (out2["source_code"] == "starcitygames").all()
