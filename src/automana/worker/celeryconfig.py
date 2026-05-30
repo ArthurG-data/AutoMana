@@ -176,6 +176,50 @@ beat_schedule = {
         "task": "automana.worker.tasks.pipelines.open_tcg_pricing_pipeline",
         "schedule": crontab(hour=1, minute=0),  # 01:00 AEST
     },
+    # MTGStock rolling refresh — 6 API download slices spread across 24h.
+    # Each slice covers ~2,276 of the 95,615 known print IDs (~38 min at 1 req/sec).
+    # Avoids the 02:00–05:30 AEST heavy-pipeline window.
+    "mtgstock-slice-0": {
+        "task": "automana.worker.tasks.pipelines.mtgstock_slice_refresh",
+        "schedule": crontab(hour=0, minute=30),   # 00:30 AEST
+        "kwargs": {"hour_slot": 0},
+    },
+    "mtgstock-slice-1": {
+        "task": "automana.worker.tasks.pipelines.mtgstock_slice_refresh",
+        "schedule": crontab(hour=6, minute=30),   # 06:30 AEST
+        "kwargs": {"hour_slot": 1},
+    },
+    "mtgstock-slice-2": {
+        "task": "automana.worker.tasks.pipelines.mtgstock_slice_refresh",
+        "schedule": crontab(hour=10, minute=0),   # 10:00 AEST
+        "kwargs": {"hour_slot": 2},
+    },
+    "mtgstock-slice-3": {
+        "task": "automana.worker.tasks.pipelines.mtgstock_slice_refresh",
+        "schedule": crontab(hour=14, minute=0),   # 14:00 AEST
+        "kwargs": {"hour_slot": 3},
+    },
+    "mtgstock-slice-4": {
+        "task": "automana.worker.tasks.pipelines.mtgstock_slice_refresh",
+        "schedule": crontab(hour=17, minute=0),   # 17:00 AEST
+        "kwargs": {"hour_slot": 4},
+    },
+    "mtgstock-slice-5": {
+        "task": "automana.worker.tasks.pipelines.mtgstock_slice_refresh",
+        "schedule": crontab(hour=20, minute=0),   # 20:00 AEST
+        "kwargs": {"hour_slot": 5},
+    },
+    # Incremental DB load: stage all of today's refreshed IDs into price_observation.
+    # Runs at 23:00 AEST after all 6 slice downloads have had time to complete.
+    "mtgstock-incremental-load": {
+        "task": "automana.worker.tasks.pipelines.mtgstock_incremental_load",
+        "schedule": crontab(hour=23, minute=0),   # 23:00 AEST
+    },
+    # Weekly new-ID discovery: probe API for print IDs above current local maximum.
+    "mtgstock-discover-new-ids": {
+        "task": "automana.worker.tasks.pipelines.mtgstock_discover_new_ids",
+        "schedule": crontab(hour=1, minute=0, day_of_week=0),  # Sunday 01:00 AEST
+    },
 }
 
 
