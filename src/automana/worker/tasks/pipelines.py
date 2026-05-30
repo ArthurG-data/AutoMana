@@ -6,6 +6,7 @@ from automana.worker.main import run_service
 from automana.core.log.logging_context import set_task_id
 from datetime import datetime, date
 from automana.core.services.ops.log_analysis_service import run_daily_log_summary  # noqa: F401 — registers service
+from automana.core.services.app_integration.mtg_stock import identifier_service  # noqa: F401 — registers service
 
 logger = logging.getLogger(__name__)
 
@@ -301,6 +302,13 @@ def shopify_weekly_pipeline(self):
     return wf.apply_async().id
 
 
+@shared_task(name="automana.worker.tasks.pipelines.mtgstock_build_id_mapping", bind=True)
+def mtgstock_build_id_mapping(self):
+    """Weekly: resolve print_id → card_version_id and populate card_external_identifier."""
+    set_task_id(self.request.id)
+    today = datetime.utcnow().date().isoformat()
+    run_key = f"mtgStock_id_mapping:{today}"
+    logger.info("Starting MTGStock ID mapping build", extra={"run_key": run_key})
 # ── MTGStock rolling refresh ──────────────────────────────────────────────────
 
 _MTGSTOCK_IDS_PATH = Path("/data/automana_data/mtgstocks/raw/prints/existing_ids.json")
@@ -427,6 +435,13 @@ def mtgstock_discover_new_ids(self):
 
     wf = chain(
         run_service.s("ops.pipeline_services.start_run",
+                      pipeline_name="mtgstock_build_id_mapping",
+                      source_name="mtgstocks",
+                      run_key=run_key,
+                      celery_task_id=self.request.id),
+        run_service.s("mtg_stock.identifier.build_mapping",
+                      destination_folder="/data/automana_data/mtgstocks/raw/prints/",
+                      batch_size=500),
                       pipeline_name="mtgstock_discover_new_ids",
                       source_name="mtgstocks",
                       run_key=run_key,

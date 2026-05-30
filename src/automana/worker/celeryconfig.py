@@ -146,6 +146,11 @@ beat_schedule = {
         "task": "automana.worker.tasks.pipelines.open_tcg_pricing_pipeline",
         "schedule": crontab(hour=1, minute=0),  # 01:00 AEST
     },
+    # Weekly mtgstock_id → card_version_id mapping build.
+    # Runs at 02:00 AEST Sunday, after discover-new-ids (01:00) so new IDs are mapped same run.
+    "mtgstock-build-id-mapping": {
+        "task": "automana.worker.tasks.pipelines.mtgstock_build_id_mapping",
+        "schedule": crontab(hour=2, minute=0, day_of_week=0),  # Sunday 02:00 AEST
     # MTGStock rolling refresh — 6 API download slices spread across 24h.
     # Each slice covers ~2,276 of the 95,615 known print IDs (~38 min at 1 req/sec).
     # Avoids the 02:00–05:30 AEST heavy-pipeline window.
