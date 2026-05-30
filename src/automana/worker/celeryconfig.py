@@ -176,6 +176,12 @@ beat_schedule = {
         "task": "automana.worker.tasks.pipelines.open_tcg_pricing_pipeline",
         "schedule": crontab(hour=1, minute=0),  # 01:00 AEST
     },
+    # Weekly mtgstock_id → card_version_id mapping build.
+    # Runs at 02:00 AEST Sunday, after discover-new-ids (01:00) so new IDs are mapped same run.
+    "mtgstock-build-id-mapping": {
+        "task": "automana.worker.tasks.pipelines.mtgstock_build_id_mapping",
+        "schedule": crontab(hour=2, minute=0, day_of_week=0),  # Sunday 02:00 AEST
+    },
 }
 
 

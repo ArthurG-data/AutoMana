@@ -8,6 +8,7 @@ PIPELINES = [
     ("automana.worker.tasks.pipelines.daily_mtgjson_sealed_pipeline", "daily_mtgjson_sealed_pipeline"),
     ("automana.worker.tasks.pipelines.open_tcg_pricing_pipeline", "open_tcg_pricing_pipeline"),
     ("automana.worker.tasks.pipelines.shopify_weekly_pipeline", "shopify_weekly_pipeline"),
+    ("automana.worker.tasks.pipelines.mtgstock_build_id_mapping", "mtgstock_build_id_mapping"),
 ]
 
 

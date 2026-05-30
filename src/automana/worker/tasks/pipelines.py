@@ -4,6 +4,7 @@ from automana.worker.main import run_service
 from automana.core.log.logging_context import set_task_id
 from datetime import datetime
 from automana.core.services.ops.log_analysis_service import run_daily_log_summary  # noqa: F401 — registers service
+from automana.core.services.app_integration.mtg_stock import identifier_service  # noqa: F401 — registers service
 
 logger = logging.getLogger(__name__)
 
@@ -294,6 +295,33 @@ def shopify_weekly_pipeline(self):
         run_service.s("shopify.pipeline.process_to_parquet"),
         run_service.s("shopify.pipeline.stage_raw"),
         run_service.s("shopify.pipeline.promote_observations"),
+        run_service.s("ops.pipeline_services.finish_run", status="success"),
+    )
+    return wf.apply_async().id
+
+
+@shared_task(name="automana.worker.tasks.pipelines.mtgstock_build_id_mapping", bind=True)
+def mtgstock_build_id_mapping(self):
+    """Weekly: resolve print_id → card_version_id and populate card_external_identifier."""
+    set_task_id(self.request.id)
+    today = datetime.utcnow().date().isoformat()
+    run_key = f"mtgStock_id_mapping:{today}"
+    logger.info("Starting MTGStock ID mapping build", extra={"run_key": run_key})
+
+    result = run_service("ops.pipeline_services.is_run_active", run_key=run_key)
+    if result.get("is_active"):
+        logger.warning("Duplicate pipeline skipped", extra={"run_key": run_key})
+        return
+
+    wf = chain(
+        run_service.s("ops.pipeline_services.start_run",
+                      pipeline_name="mtgstock_build_id_mapping",
+                      source_name="mtgstocks",
+                      run_key=run_key,
+                      celery_task_id=self.request.id),
+        run_service.s("mtg_stock.identifier.build_mapping",
+                      destination_folder="/data/automana_data/mtgstocks/raw/prints/",
+                      batch_size=500),
         run_service.s("ops.pipeline_services.finish_run", status="success"),
     )
     return wf.apply_async().id
