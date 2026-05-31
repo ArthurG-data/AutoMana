@@ -219,13 +219,27 @@ class CardReferenceRepository(AbstractRepository[Any]):
         rows = await self.execute_query(sql, (set_code, collector_number))
         return dict(rows[0]) if rows else None
 
-    async def fetch_versions_by_set_and_name(self, set_code: str, card_name: str) -> list[dict]:
-        """All card_version rows for a set + card name, with the fields the
-        PriceCharting matcher scores on (frame_effects, full_art, border colour)
-        and the tcgplayer_id used as a tiebreaker.
+    async def get_tcgplayer_ref_id(self) -> int:
+        """Look up the card_identifier_ref_id for 'tcgplayer_id' (constant — call once)."""
+        sql = """
+            SELECT card_identifier_ref_id
+            FROM   card_catalog.card_identifier_ref
+            WHERE  identifier_name = 'tcgplayer_id'
+        """
+        rows = await self.execute_query(sql)
+        if not rows:
+            raise ValueError("card_identifier_ref row for 'tcgplayer_id' not found")
+        return rows[0]["card_identifier_ref_id"]
 
-        Returns every candidate (one set+name can have foil/showcase/borderless
-        variants); the service resolves the winner via treatment scoring.
+    async def get_all_card_versions_for_set(
+        self, set_code: str, tcgplayer_ref_id: int
+    ) -> dict[str, list[dict]]:
+        """All card_version rows for a set, keyed by lowercased card name.
+
+        Returns {card_name.lower(): [row_dict, ...]} so the caller can look up
+        candidates by name in O(1) without issuing a query per product.
+        The tcgplayer_id column is populated via the pre-resolved ref_id to avoid
+        a correlated subquery on every call.
         """
         sql = """
             SELECT cv.card_version_id,
@@ -236,20 +250,24 @@ class CardReferenceRepository(AbstractRepository[Any]):
                    uc.card_name,
                    cei.value AS tcgplayer_id
             FROM   card_catalog.card_version cv
-            JOIN   card_catalog.sets s ON s.set_id = cv.set_id
-            JOIN   card_catalog.unique_cards_ref uc ON uc.unique_card_id = cv.unique_card_id
-            JOIN   card_catalog.border_color_ref bc ON bc.border_color_id = cv.border_color_id
+            JOIN   card_catalog.sets s
+                   ON s.set_id = cv.set_id
+            JOIN   card_catalog.unique_cards_ref uc
+                   ON uc.unique_card_id = cv.unique_card_id
+            JOIN   card_catalog.border_color_ref bc
+                   ON bc.border_color_id = cv.border_color_id
             LEFT JOIN card_catalog.card_external_identifier cei
-                   ON cei.card_version_id = cv.card_version_id
-                  AND cei.card_identifier_ref_id = (
-                          SELECT card_identifier_ref_id
-                          FROM   card_catalog.card_identifier_ref
-                          WHERE  identifier_name = 'tcgplayer_id'
-                      )
-            WHERE  UPPER(s.set_code) = UPPER($1) AND uc.card_name ILIKE $2
+                   ON  cei.card_version_id        = cv.card_version_id
+                   AND cei.card_identifier_ref_id = $2
+            WHERE  UPPER(s.set_code) = UPPER($1)
         """
-        rows = await self.execute_query(sql, (set_code, card_name))
-        return [dict(r) for r in rows]
+        rows = await self.execute_query(sql, (set_code, tcgplayer_ref_id))
+        result: dict[str, list[dict]] = {}
+        for row in rows:
+            r = {k: row[k] for k in row.keys()}
+            key = r["card_name"].lower()
+            result.setdefault(key, []).append(r)
+        return result
 
     async def _fetch_prices_for_cards(self, card_ids: list) -> dict:
         """

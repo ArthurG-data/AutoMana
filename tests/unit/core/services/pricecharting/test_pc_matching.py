@@ -229,3 +229,76 @@ def test_certainty_penalised_for_fuzzy_set():
     cands = [{"card_version_id": "a", "collector_number": "1"}]
     out = m.resolve_card_match(cands, "Card #1", None, set_method="fuzzy")
     assert out["certainty"] == 60   # 80 name - 20 fuzzy-set penalty
+
+
+from unittest.mock import AsyncMock, MagicMock
+from automana.core.repositories.card_catalog.card_repository import CardReferenceRepository
+
+
+# ── get_tcgplayer_ref_id ──────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_get_tcgplayer_ref_id_returns_int():
+    repo = CardReferenceRepository.__new__(CardReferenceRepository)
+    row = MagicMock()
+    row.__getitem__ = lambda self, k: 4
+    repo.execute_query = AsyncMock(return_value=[row])
+    result = await repo.get_tcgplayer_ref_id()
+    assert result == 4
+    repo.execute_query.assert_called_once()
+    sql = repo.execute_query.call_args[0][0]
+    assert "card_identifier_ref" in sql
+    assert "tcgplayer_id" in sql
+
+
+@pytest.mark.asyncio
+async def test_get_tcgplayer_ref_id_raises_if_not_found():
+    repo = CardReferenceRepository.__new__(CardReferenceRepository)
+    repo.execute_query = AsyncMock(return_value=[])
+    with pytest.raises(ValueError, match="tcgplayer_id"):
+        await repo.get_tcgplayer_ref_id()
+
+
+# ── get_all_card_versions_for_set ─────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_get_all_card_versions_for_set_groups_by_name():
+    repo = CardReferenceRepository.__new__(CardReferenceRepository)
+
+    def make_row(card_version_id, card_name, collector_number):
+        data = {
+            "card_version_id": card_version_id, "card_name": card_name,
+            "collector_number": collector_number, "frame_effects": [],
+            "full_art": False, "border_color_name": "black", "tcgplayer_id": None,
+        }
+        r = MagicMock()
+        r.keys = MagicMock(return_value=list(data.keys()))
+        r.__getitem__ = lambda self, k: data[k]
+        r.items = MagicMock(return_value=data.items())
+        r.__iter__ = MagicMock(return_value=iter(data.items()))
+        return r
+
+    rows = [
+        make_row("uuid-1", "Lightning Bolt", "1"),
+        make_row("uuid-2", "Lightning Bolt", "250"),
+        make_row("uuid-3", "Counterspell", "55"),
+    ]
+    repo.execute_query = AsyncMock(return_value=rows)
+
+    result = await repo.get_all_card_versions_for_set("lea", 4)
+
+    assert "lightning bolt" in result
+    assert len(result["lightning bolt"]) == 2
+    assert "counterspell" in result
+    assert len(result["counterspell"]) == 1
+    repo.execute_query.assert_called_once()
+    call_args = repo.execute_query.call_args[0]
+    assert call_args[1] == ("lea", 4)
+
+
+@pytest.mark.asyncio
+async def test_get_all_card_versions_for_set_returns_empty_for_unknown_set():
+    repo = CardReferenceRepository.__new__(CardReferenceRepository)
+    repo.execute_query = AsyncMock(return_value=[])
+    result = await repo.get_all_card_versions_for_set("zzz", 4)
+    assert result == {}
