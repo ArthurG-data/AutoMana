@@ -97,3 +97,37 @@ Validated: name-matcher hits **322/375 sets (85%)** on real data
   (scrape_catalog → scrape_sales → build_match_catalog → stage_sold →
   promote_sold_obs) when ready to automate.
 - **No track_step** — consistent with the existing scrape services (flagged).
+
+## Chunk D — persistent match map + certainty + recovery (2 commits)
+Added after the base 1/4/5 pipeline, per user direction ("matching table to do the
+work once; record the match + certainty"; "use the per-listing tcgplayer ids";
+"recover the unmatched sets").
+
+- `ca7e09b2` — parser mines per-listing TCGPlayer ids (majority vote + count, not
+  just the page-level link); set-match recovery (duel-decks normalization +
+  overrides: The List→plst, Vintage Masters, Big Score, Invocations, guild kits)
+  lifting real set match 85%→93%; resolve_card_match emits match_method + certainty.
+- `df48a277` — `pricing.pricecharting_card_map` (migration_62 + schema + app_celery
+  grants) as the durable PC→card match cache/provenance. build_match_catalog caches
+  via the map (skip resolved/verified, re-attempt misses), records method+certainty,
+  writes the `pricecharting_id` external id for confident matches (≥70). stage_sold
+  reads the map (single source of truth; catalog.json dropped).
+
+### Key decisions (Chunk D)
+- **Matching table = the goal, but the card↔PC link lives in
+  `card_external_identifier(pricecharting_id)`**; the map table holds match
+  *provenance* (method, certainty 0-100, tcg_vote_count, verified lock).
+- **Negatives are recorded, not skip-cached** — unmatched rows always re-attempt so
+  matching improvements apply (advisor).
+- **Verified rows are a manual lock** — `upsert_map` never overwrites them.
+- **Grants**: the worker runs as `app_celery` (confirmed via pg_stat_activity); it
+  already inherits the card_catalog grants (external-id write works) and the new map
+  table is granted explicitly. All Chunk-D e2e ran AS app_celery, not admin.
+- Certainty rubric: tcg-confirmed 95(+3 strong consensus), collector-pinned 85,
+  unique-name 80, treatment 65, ambiguous 40; −20 if the set matched fuzzily.
+
+### Still open / follow-ups
+- 26 sets still unmatched (World Championship, odd promos) — their cards re-attempt
+  each run; add overrides as needed.
+- A small review/QA surface over low-certainty map rows would let a human confirm
+  (set `verified=true`) the fuzzy matches.
