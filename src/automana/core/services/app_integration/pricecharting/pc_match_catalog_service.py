@@ -1,25 +1,25 @@
-"""Step 4 — Match PriceCharting products to card_version_ids and build the catalog.
+"""Step 4 — Match PriceCharting products to card_version_ids (persistent map).
 
 Consumes the JSON emitted by ``pricecharting.scrape_catalog`` (uid-keyed
-``sets.json`` + ``products/{uid}.json``) and, where present, the TCGPlayer ids
-from ``pricecharting.scrape_sales`` (``sales/{uid}.json``). For each single
-product it:
+``sets.json`` + ``products/{uid}.json``) and the TCGPlayer ids/votes from
+``pricecharting.scrape_sales`` (``sales/{uid}.json``), and resolves each single
+product to a card_version_id with a method + certainty.
 
-  1. maps the PC set name -> DB set_code (name-based, see pc_matching),
-  2. matches the product to a card_version_id (treatment scoring + tiebreakers),
-  3. registers the PC product_id as a ``pricecharting_id`` external identifier
-     on the matched card_version (so later runs can resolve by id),
-
-then writes ``catalog.json`` (``{pc_product_id: match | null}``) to storage for
-the staging step.
+The result is persisted in ``pricing.pricecharting_card_map`` so the heuristic
+runs ONCE per product: already-resolved (or manually ``verified``) products are
+skipped on later runs; unmatched products are always re-attempted so matching
+improvements apply. Confident matches also get a ``pricecharting_id`` external
+identifier on the card (the durable card_version <-> PC link).
 """
 from __future__ import annotations
 
 import logging
-from datetime import date
 from typing import Any
 
 from automana.core.framework.registry import ServiceRegistry
+from automana.core.repositories.app_integration.pricecharting.pc_map_repository import (
+    PricechartingMapRepository,
+)
 from automana.core.repositories.card_catalog.card_repository import CardReferenceRepository
 from automana.core.repositories.card_catalog.set_repository import SetReferenceRepository
 from automana.core.services.app_integration.pricecharting import pc_matching
@@ -27,71 +27,56 @@ from automana.core.storage import StorageService
 
 logger = logging.getLogger(__name__)
 
-_CATALOG_FILE = "catalog.json"
+# Only confident matches earn the durable card_version <-> pricecharting_id link.
+_REGISTER_CERTAINTY_THRESHOLD = 70
 
 
-async def _load_tcgplayer_ids(storage_service: StorageService, uid: str) -> dict[str, str]:
-    """Return {pc_product_id: tcgplayer_id} from a set's sales file, if scraped."""
+async def _load_tcgplayer_ids(storage_service: StorageService, uid: str) -> dict[str, tuple[str, int]]:
+    """{pc_product_id: (tcgplayer_id, vote_count)} from a set's sales file, if scraped."""
     sales_key = f"sales/{uid}.json"
     if not await storage_service.file_exists(sales_key):
         return {}
     sales = await storage_service.load_json(sales_key)
-    out: dict[str, str] = {}
+    out: dict[str, tuple[str, int]] = {}
     for pid, payload in (sales.get("products") or {}).items():
         tcg_id = payload.get("tcgplayer_id")
         if tcg_id:
-            out[pid] = str(tcg_id)
+            out[pid] = (str(tcg_id), int(payload.get("tcgplayer_id_votes", 0)))
     return out
 
 
 @ServiceRegistry.register(
     path="pricecharting.build_match_catalog",
-    db_repositories=["set", "card"],
+    db_repositories=["set", "card", "pricecharting_map"],
     storage_services=["pricecharting"],
 )
 async def build_match_catalog(
     set_repository: SetReferenceRepository,
     card_repository: CardReferenceRepository,
+    pricecharting_map_repository: PricechartingMapRepository,
     storage_service: StorageService,
-    force_refresh: bool = False,
     **kwargs: Any,
 ) -> dict:
-    """Build ``catalog.json`` mapping PC product_id -> card_version match.
+    """Resolve PriceCharting products to card_versions and persist the matches.
 
-    Requires ``pricecharting.scrape_catalog`` to have produced ``sets.json`` and
-    ``products/{uid}.json``. Cached for the calendar day unless force_refresh.
+    Requires ``pricecharting.scrape_catalog`` (sets.json + products/{uid}.json).
     """
     if not await storage_service.file_exists("sets.json"):
         logger.warning("pricecharting_match_no_sets_file")
-        return {"matched": 0, "unmatched": 0, "skipped_sets": 0, "identifiers_registered": 0}
+        return {"new_matched": 0, "new_unmatched": 0, "skipped_existing": 0,
+                "skipped_sets": 0, "identifiers_registered": 0}
 
-    if await storage_service.file_exists(_CATALOG_FILE) and not force_refresh:
-        existing = await storage_service.load_json(_CATALOG_FILE)
-        if existing.get("built_at") == date.today().isoformat():
-            logger.info(
-                "pricecharting_match_from_cache",
-                extra={"matched": existing.get("matched"), "unmatched": existing.get("unmatched")},
-            )
-            return {
-                "matched": existing.get("matched", 0),
-                "unmatched": existing.get("unmatched", 0),
-                "skipped_sets": existing.get("skipped_sets", 0),
-                "identifiers_registered": existing.get("identifiers_registered", 0),
-                "from_cache": True,
-            }
-
-    # ── Build the set_name -> set_code index once ─────────────────────────────
+    existing = await pricecharting_map_repository.fetch_all_map()
     db_sets = await set_repository.fetch_sets_for_matching()
     set_index = pc_matching.build_set_code_index([dict(r) for r in db_sets])
-
     pc_sets = (await storage_service.load_json("sets.json")).get("sets", [])
 
-    catalog: dict[str, dict | None] = {}
-    matched = unmatched = skipped_sets = identifiers_registered = 0
+    upserts: list[dict] = []
+    new_matched = new_unmatched = skipped_existing = skipped_sets = identifiers_registered = 0
 
     for set_info in pc_sets:
         uid = set_info["uid"]
-        set_code, _method = pc_matching.match_set_code(set_info["name"], set_index)
+        set_code, set_method = pc_matching.match_set_code(set_info["name"], set_index)
         if not set_code:
             skipped_sets += 1
             continue
@@ -101,60 +86,77 @@ async def build_match_catalog(
             skipped_sets += 1
             continue
 
-        catalog_data = await storage_service.load_json(catalog_key)
-        singles = [p for p in catalog_data.get("products", []) if p["product_type"] == "single"]
+        singles = [
+            p for p in (await storage_service.load_json(catalog_key)).get("products", [])
+            if p["product_type"] == "single"
+        ]
         if not singles:
             continue
 
-        tcg_ids = await _load_tcgplayer_ids(storage_service, uid)
+        tcg = await _load_tcgplayer_ids(storage_service, uid)
 
         for product in singles:
             pid = product["product_id"]
+            prior = existing.get(pid)
+            # Skip the heuristic only for already-resolved or manually-locked rows;
+            # always re-attempt recorded misses so matching improvements apply.
+            if prior and (prior.get("card_version_id") is not None or prior.get("verified")):
+                skipped_existing += 1
+                continue
+
             card_name = pc_matching.clean_card_name(product["title"])
             candidates = await card_repository.fetch_versions_by_set_and_name(set_code, card_name)
+            tcg_id, tcg_votes = tcg.get(pid, (None, 0))
             match = pc_matching.resolve_card_match(
-                [dict(c) for c in candidates], product["title"], tcg_ids.get(pid)
+                [dict(c) for c in candidates], product["title"], tcg_id,
+                set_method=set_method, tcg_votes=tcg_votes,
             )
-            catalog[pid] = match
+
             if not match:
-                unmatched += 1
+                upserts.append({"pc_product_id": pid, "card_version_id": None,
+                                "set_code": set_code, "finish_id": None,
+                                "match_method": "none", "certainty": 0, "tcg_vote_count": tcg_votes})
+                new_unmatched += 1
                 continue
-            matched += 1
 
-            # Persist the PC product_id as an external identifier on the card.
-            try:
-                reg = await card_repository.register_external_identifier(
-                    match["card_version_id"], "pricecharting_id", pid
-                )
-                if reg.inserted:
-                    identifiers_registered += 1
-            except Exception:
-                logger.exception(
-                    "pricecharting_identifier_register_failed",
-                    extra={"product_id": pid, "card_version_id": match["card_version_id"]},
-                )
+            upserts.append({
+                "pc_product_id": pid,
+                "card_version_id": match["card_version_id"],
+                "set_code": set_code,
+                "finish_id": match["finish_id"],
+                "match_method": match["match_method"],
+                "certainty": match["certainty"],
+                "tcg_vote_count": tcg_votes,
+            })
+            new_matched += 1
 
-    await storage_service.save_json(_CATALOG_FILE, {
-        "built_at": date.today().isoformat(),
-        "matched": matched,
-        "unmatched": unmatched,
-        "skipped_sets": skipped_sets,
-        "identifiers_registered": identifiers_registered,
-        "catalog": catalog,
-    })
+            if match["certainty"] >= _REGISTER_CERTAINTY_THRESHOLD:
+                try:
+                    reg = await card_repository.register_external_identifier(
+                        match["card_version_id"], "pricecharting_id", pid
+                    )
+                    if reg.inserted:
+                        identifiers_registered += 1
+                except Exception:
+                    logger.exception(
+                        "pricecharting_identifier_register_failed",
+                        extra={"product_id": pid, "card_version_id": match["card_version_id"]},
+                    )
+
+    submitted = await pricecharting_map_repository.upsert_map(upserts)
 
     logger.info(
         "pricecharting_match_complete",
         extra={
-            "matched": matched,
-            "unmatched": unmatched,
-            "skipped_sets": skipped_sets,
-            "identifiers_registered": identifiers_registered,
+            "new_matched": new_matched, "new_unmatched": new_unmatched,
+            "skipped_existing": skipped_existing, "skipped_sets": skipped_sets,
+            "identifiers_registered": identifiers_registered, "rows_upserted": submitted,
         },
     )
     return {
-        "matched": matched,
-        "unmatched": unmatched,
+        "new_matched": new_matched,
+        "new_unmatched": new_unmatched,
+        "skipped_existing": skipped_existing,
         "skipped_sets": skipped_sets,
         "identifiers_registered": identifiers_registered,
     }

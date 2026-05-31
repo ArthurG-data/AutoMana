@@ -1,7 +1,7 @@
 """Step 5 — Stage matched PriceCharting sold listings into pricing.ebay_scraped_sold.
 
-Consumes ``catalog.json`` (from pricecharting.build_match_catalog) and the
-per-set ``sales/{uid}.json`` files (from pricecharting.scrape_sales), resolves a
+Reads the persistent match map (pricing.pricecharting_card_map, the single source
+of truth) to resolve each scraped product to a card_version + finish, resolves a
 source_product_id per matched card_version, and inserts each accepted sale into
 the shared staging table that ``promote_sold_obs`` aggregates into
 pricing.price_observation.
@@ -19,6 +19,9 @@ from automana.core.framework.registry import ServiceRegistry
 from automana.core.repositories.app_integration.ebay.ebay_scrape_repository import (
     EbayScrapeSoldRepository,
 )
+from automana.core.repositories.app_integration.pricecharting.pc_map_repository import (
+    PricechartingMapRepository,
+)
 from automana.core.repositories.pricing.price_repository import PricingTierRepository
 from automana.core.services.app_integration.pricecharting import pc_staging
 from automana.core.storage import StorageService
@@ -26,33 +29,33 @@ from automana.core.storage import StorageService
 logger = logging.getLogger(__name__)
 
 _SOURCE_CODE = "pricecharting"
-_CATALOG_FILE = "catalog.json"
 
 
 @ServiceRegistry.register(
     path="pricecharting.stage_sold",
-    db_repositories=["pricing", "ebay_scrape"],
+    db_repositories=["pricing", "ebay_scrape", "pricecharting_map"],
     storage_services=["pricecharting"],
 )
 async def stage_sold(
     pricing_repository: PricingTierRepository,
     ebay_scrape_repository: EbayScrapeSoldRepository,
+    pricecharting_map_repository: PricechartingMapRepository,
     storage_service: StorageService,
     **kwargs: Any,
 ) -> dict:
     """Stage all matched PriceCharting sold listings into pricing.ebay_scraped_sold.
 
-    Requires build_match_catalog (catalog.json) and scrape_sales (sales/*.json).
+    Requires build_match_catalog (the match map) and scrape_sales (sales/*.json).
     """
-    if not await storage_service.file_exists(_CATALOG_FILE):
-        logger.warning("pricecharting_stage_no_catalog")
-        return {"accepted": 0, "inserted": 0, "sets": 0, "source_products": 0}
-
     if not await storage_service.file_exists("sets.json"):
         logger.warning("pricecharting_stage_no_sets_file")
         return {"accepted": 0, "inserted": 0, "sets": 0, "source_products": 0}
 
-    catalog = (await storage_service.load_json(_CATALOG_FILE)).get("catalog", {})
+    catalog = await pricecharting_map_repository.fetch_matched_map()
+    if not catalog:
+        logger.warning("pricecharting_stage_empty_map")
+        return {"accepted": 0, "inserted": 0, "sets": 0, "source_products": 0}
+
     pc_sets = (await storage_service.load_json("sets.json")).get("sets", [])
 
     # Ensure the price source row exists before resolving source_products.
