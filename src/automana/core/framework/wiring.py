@@ -92,6 +92,11 @@ ServiceRegistry.register_db_repository(
     "FxRatesRepository",
 )
 ServiceRegistry.register_db_repository(
+    "pricecharting_map",
+    "automana.core.repositories.app_integration.pricecharting.pc_map_repository",
+    "PricechartingMapRepository",
+)
+ServiceRegistry.register_db_repository(
     "sealed_pricing",
     "automana.core.repositories.pricing.sealed_pricing_repository",
     "SealedPricingRepository",

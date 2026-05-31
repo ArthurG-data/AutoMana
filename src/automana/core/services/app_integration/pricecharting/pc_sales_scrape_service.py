@@ -48,20 +48,47 @@ def _detect_source(title_td) -> str:
     return "unknown"
 
 
+def _extract_tcg_product_id(node) -> str | None:
+    """First ``/product/<id>`` found in any link href under ``node`` (decoded)."""
+    for a in node.find_all("a"):
+        m = re.search(r"/product/(\d+)", unquote(a.get("href", "")))
+        if m:
+            return m.group(1)
+    return None
+
+
+def _consensus_tcg_id(page_level: str | None, per_listing: list[str]) -> tuple[str | None, int]:
+    """Resolve the product's TCGPlayer id from the per-listing votes, falling
+    back to the page-level link. Returns (id, vote_count).
+
+    The individual TCGPlayer-sourced sold rows each link to the product, so a
+    majority vote across them is more robust than the single page-level link
+    (and still works when that link is absent). vote_count feeds match certainty.
+    """
+    if per_listing:
+        counts: dict[str, int] = {}
+        for pid in per_listing:
+            counts[pid] = counts.get(pid, 0) + 1
+        winner = max(counts, key=lambda k: counts[k])
+        return winner, counts[winner]
+    return page_level, 0
+
+
 def _parse_sales_page(html: str, product_id: str) -> dict:
     """Parse a PriceCharting card page, returning sales rows and TCGPlayer ID."""
     soup = BeautifulSoup(html, "html.parser")
 
     tcg_link = soup.select_one("a.js-tcgplayer-completed-sale")
-    tcg_id: str | None = None
+    page_tcg_id: str | None = None
     if tcg_link and tcg_link.get("href"):
         # The href is an affiliate redirect with the real TCGPlayer product URL
         # percent-encoded in its `u=` param — decode before matching /product/{id}.
         m = re.search(r"/product/(\d+)", unquote(tcg_link["href"]))
         if m:
-            tcg_id = m.group(1)
+            page_tcg_id = m.group(1)
 
     sales: list[dict] = []
+    per_listing_tcg: list[str] = []
     for css_class, grade in _GRADE_TABLES.items():
         # Each grade section has two divs with the same class: a tab label (carries
         # "tab" in its class list) and the content panel that holds the data table.
@@ -92,15 +119,27 @@ def _parse_sales_page(html: str, product_id: str) -> dict:
             link = title_td.find("a")
             listing_title = link.get_text(strip=True) if link else title_td.get_text(strip=True)
 
+            source = _detect_source(title_td)
+            if source == "tcgplayer":
+                row_tcg = _extract_tcg_product_id(tr)
+                if row_tcg:
+                    per_listing_tcg.append(row_tcg)
+
             sales.append({
                 "grade": grade,
                 "sold_at": date_td.get_text(strip=True),
                 "title": listing_title,
                 "price_cents": price_cents,
-                "source": _detect_source(title_td),
+                "source": source,
             })
 
-    return {"product_id": product_id, "tcgplayer_id": tcg_id, "sales": sales}
+    tcg_id, tcg_votes = _consensus_tcg_id(page_tcg_id, per_listing_tcg)
+    return {
+        "product_id": product_id,
+        "tcgplayer_id": tcg_id,
+        "tcgplayer_id_votes": tcg_votes,
+        "sales": sales,
+    }
 
 
 @ServiceRegistry.register(

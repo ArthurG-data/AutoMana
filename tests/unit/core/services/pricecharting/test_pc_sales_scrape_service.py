@@ -18,6 +18,7 @@ not exist) and fell back to the positional third cell (the *title*), so
 import pytest
 
 from automana.core.services.app_integration.pricecharting.pc_sales_scrape_service import (
+    _consensus_tcg_id,
     _detect_source,
     _parse_sales_page,
 )
@@ -124,6 +125,24 @@ def test_empty_page_yields_no_sales():
     out = _parse_sales_page("<html><body>no tables</body></html>", product_id="0")
     assert out["sales"] == []
     assert out["tcgplayer_id"] is None
+    assert out["tcgplayer_id_votes"] == 0
+
+
+# ── _consensus_tcg_id (per-listing votes vs page-level fallback) ──────────────
+def test_consensus_prefers_majority_of_per_listing():
+    tid, votes = _consensus_tcg_id("111111", ["239857", "239857", "239857", "999999"])
+    assert tid == "239857"      # majority wins over the page-level link
+    assert votes == 3
+
+
+def test_consensus_falls_back_to_page_level_when_no_listings():
+    tid, votes = _consensus_tcg_id("111111", [])
+    assert tid == "111111"
+    assert votes == 0
+
+
+def test_consensus_none_when_nothing():
+    assert _consensus_tcg_id(None, []) == (None, 0)
 
 
 @pytest.mark.parametrize(
