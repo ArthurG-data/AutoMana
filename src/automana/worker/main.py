@@ -63,6 +63,32 @@ def run_service(self,prev=None, path: str = None, **kwargs):
     if isinstance(prev, dict):
         kwargs = {**prev, **kwargs}
 
+    # Redelivery idempotency guard.
+    # Tasks run with acks_late=True and the Redis broker uses the default 1h
+    # visibility_timeout, so any step that outlives the timeout (or any worker
+    # restart) gets the SAME message redelivered and re-executed — even though
+    # its ingestion run already concluded. When THIS delivery is a redelivery
+    # AND the run it belongs to is finished, the step is stale: no-op and
+    # return the context so the message is acked. Gating on `redelivered`
+    # keeps legitimate post-finish_run steps (e.g. the Scryfall integrity tail,
+    # which run after the run is marked success) from being skipped on their
+    # first delivery.
+    delivery_info = getattr(self.request, "delivery_info", None) or {}
+    guard_run_id = context.get("ingestion_run_id")
+    if delivery_info.get("redelivered") and guard_run_id:
+        finished = state.loop.run_until_complete(
+            ServiceManager.execute_service(
+                "ops.pipeline_services.is_run_finished",
+                ingestion_run_id=guard_run_id,
+            )
+        )
+        if finished and finished.get("is_finished"):
+            logger.warning(
+                "Skipping redelivered step for already-finished run",
+                extra={"service_path": path, "ingestion_run_id": guard_run_id},
+            )
+            return context
+
     service_func = ServiceManager.get_service_function(path)
     sig = inspect.signature(service_func)
     allowed_keys = set(sig.parameters.keys())

@@ -49,6 +49,17 @@ worker_prefetch_multiplier = 1
 task_always_eager = False
 task_store_eager_result = True
 
+# Redis broker redelivery window. Tasks run with acks_late=True, so a message
+# is only acked once its task returns. Redis re-queues any message left
+# un-acked longer than `visibility_timeout`, which then re-executes on the
+# next pickup (or any worker restart). The default is 1h — far shorter than
+# our long pipeline steps (e.g. the ~11h mtgstock slice download), so the
+# default guarantees duplicate downloads. 24h sits comfortably above the
+# longest single task message. The `run_service` redelivery guard
+# (ops.pipeline_services.is_run_finished) is the belt to this suspenders:
+# it no-ops a redelivered step whose ingestion run already finished.
+broker_transport_options = {"visibility_timeout": 86400}
+
 timezone = os.getenv("CELERY_TIMEZONE", "Australia/Sydney")
 
 beat_schedule = {

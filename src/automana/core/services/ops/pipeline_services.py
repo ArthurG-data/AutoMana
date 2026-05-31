@@ -106,6 +106,23 @@ async def is_run_active(
 
 
 @ServiceRegistry.register(
+    "ops.pipeline_services.is_run_finished",
+    db_repositories=["ops"]
+)
+async def is_run_finished(
+    ops_repository: OpsRepository,
+    ingestion_run_id: int,
+) -> dict:
+    """Whether the given ingestion run has already concluded (terminal).
+
+    Backs the ``run_service`` redelivery guard: a redelivered step whose run
+    is already finished is a stale broker artifact and should be skipped.
+    """
+    finished = await ops_repository.get_run_is_finished(ingestion_run_id=ingestion_run_id)
+    return {"is_finished": bool(finished)}
+
+
+@ServiceRegistry.register(
     "ops.pipeline_services.reconcile_orphaned_runs",
     db_repositories=["ops"]
 )
