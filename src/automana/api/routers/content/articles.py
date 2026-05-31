@@ -2,7 +2,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 
 from automana.api.dependancies.service_deps import ServiceManagerDep
-from automana.api.dependancies.auth.users import CurrentUserDep, get_current_active_user
+from automana.api.dependancies.auth.users import AdminUserDep, require_admin
 from automana.api.schemas.StandardisedQueryResponse import ApiResponse
 from automana.core.models.content.article import ArticleCreate, ArticleUpdate
 from automana.core.exceptions.service_layer_exceptions.content.content_exceptions import (
@@ -42,14 +42,14 @@ async def get_article(slug: str, service_manager: ServiceManagerDep) -> ApiRespo
 admin_router = APIRouter(
     prefix="/articles/admin",
     tags=["Articles (admin)"],
-    dependencies=[Depends(get_current_active_user)],
+    dependencies=[Depends(require_admin)],  # admin-only: any logged-in user must not author public content
 )
 
 
 @admin_router.get("/", summary="List all articles (draft + published)",
                   response_model=ApiResponse, operation_id="articles_list_admin")
 async def list_admin(
-    service_manager: ServiceManagerDep, current_user: CurrentUserDep,
+    service_manager: ServiceManagerDep, current_user: AdminUserDep,
     limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0),
 ) -> ApiResponse:
     result = await service_manager.execute_service(
@@ -61,7 +61,7 @@ async def list_admin(
 @admin_router.get("/{article_id}", summary="Get any article by id",
                   response_model=ApiResponse, operation_id="articles_get_admin")
 async def get_admin(article_id: UUID, service_manager: ServiceManagerDep,
-                    current_user: CurrentUserDep) -> ApiResponse:
+                    current_user: AdminUserDep) -> ApiResponse:
     try:
         result = await service_manager.execute_service("content.article.get_admin", article_id=article_id)
     except ArticleNotFoundError:
@@ -72,7 +72,7 @@ async def get_admin(article_id: UUID, service_manager: ServiceManagerDep,
 @admin_router.post("/", summary="Create an article", response_model=ApiResponse,
                    status_code=status.HTTP_201_CREATED, operation_id="articles_create")
 async def create(payload: ArticleCreate, service_manager: ServiceManagerDep,
-                 current_user: CurrentUserDep) -> ApiResponse:
+                 current_user: AdminUserDep) -> ApiResponse:
     result = await service_manager.execute_service(
         "content.article.create", payload=payload, user=current_user
     )
@@ -82,7 +82,7 @@ async def create(payload: ArticleCreate, service_manager: ServiceManagerDep,
 @admin_router.patch("/{article_id}", summary="Update an article", response_model=ApiResponse,
                     operation_id="articles_update")
 async def update(article_id: UUID, payload: ArticleUpdate, service_manager: ServiceManagerDep,
-                 current_user: CurrentUserDep) -> ApiResponse:
+                 current_user: AdminUserDep) -> ApiResponse:
     try:
         result = await service_manager.execute_service(
             "content.article.update", article_id=article_id, payload=payload
@@ -97,7 +97,7 @@ async def update(article_id: UUID, payload: ArticleUpdate, service_manager: Serv
 @admin_router.post("/{article_id}/publish", summary="Publish/unpublish an article",
                    response_model=ApiResponse, operation_id="articles_publish")
 async def publish(article_id: UUID, service_manager: ServiceManagerDep,
-                  current_user: CurrentUserDep, published: bool = Query(True)) -> ApiResponse:
+                  current_user: AdminUserDep, published: bool = Query(True)) -> ApiResponse:
     try:
         result = await service_manager.execute_service(
             "content.article.publish", article_id=article_id, published=published
@@ -110,7 +110,7 @@ async def publish(article_id: UUID, service_manager: ServiceManagerDep,
 @admin_router.delete("/{article_id}", summary="Delete an article", response_model=ApiResponse,
                      operation_id="articles_delete")
 async def delete(article_id: UUID, service_manager: ServiceManagerDep,
-                 current_user: CurrentUserDep) -> ApiResponse:
+                 current_user: AdminUserDep) -> ApiResponse:
     try:
         result = await service_manager.execute_service("content.article.delete", article_id=article_id)
     except ArticleNotFoundError:
