@@ -9,14 +9,16 @@ PIPELINES = [
     ("automana.worker.tasks.pipelines.open_tcg_pricing_pipeline", "open_tcg_pricing_pipeline"),
     ("automana.worker.tasks.pipelines.shopify_weekly_pipeline", "shopify_weekly_pipeline"),
     ("automana.worker.tasks.pipelines.mtgstock_build_id_mapping", "mtgstock_build_id_mapping"),
-    # Rolling refresh tasks
-    ("automana.worker.tasks.pipelines.mtgstock_slice_refresh", "mtgstock_slice_refresh"),
+    # Tiered refresh tasks
+    ("automana.worker.tasks.pipelines.mtgstock_tier1_refresh", "mtgstock_tier1_refresh"),
+    ("automana.worker.tasks.pipelines.mtgstock_tier2_refresh", "mtgstock_tier2_refresh"),
+    ("automana.worker.tasks.pipelines.mtgstock_tier3_refresh", "mtgstock_tier3_refresh"),
     ("automana.worker.tasks.pipelines.mtgstock_incremental_load", "mtgstock_incremental_load"),
     ("automana.worker.tasks.pipelines.mtgstock_discover_new_ids", "mtgstock_discover_new_ids"),
 ]
 
 _EXTRA_KWARGS = {
-    "mtgstock_slice_refresh": {"hour_slot": 0},
+    "mtgstock_tier1_refresh": {"slot": 0},
 }
 
 
