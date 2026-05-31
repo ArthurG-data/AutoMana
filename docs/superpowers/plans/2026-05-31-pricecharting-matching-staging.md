@@ -131,3 +131,22 @@ work once; record the match + certainty"; "use the per-listing tcgplayer ids";
   each run; add overrides as needed.
 - A small review/QA surface over low-certainty map rows would let a human confirm
   (set `verified=true`) the fuzzy matches.
+
+### Known limitations (advisor-flagged)
+- **Re-match does not re-stage.** The staging `item_id` hashes
+  (product_id, sold_at, price, title) but NOT card_version_id, and
+  insert_scraped_sold is ON CONFLICT (item_id) DO NOTHING. So if a product's match
+  later changes, rows already staged/promoted under the old card_version are NOT
+  updated. Acceptable while matches are overwhelmingly high-certainty tcg, but a
+  true "improve later" workflow needs a re-stage/cleanup step (delete old
+  source_product's staged rows, or include card_version_id in the hash).
+- **Fresh-rebuild path not exercised.** The schema-file additions
+  (`06_prices.sql` map table, `02_card_schema.sql` pricecharting_id seed) were only
+  validated via the migrations against the live DB; a full rebuild_dev_db run has
+  not been executed. CREATE is identical to the migrations, so risk is low.
+
+### Real-data validation of recovery (The List)
+Ran 8 real List cards through build_match_catalog AS app_celery: 8/8 resolved into
+`plst` via tcg consensus (certainty 95-98), all ≥70 so all 8 got the pricecharting_id
+external id. The flat-#N / multi-wave worst case (Brainstorm [SS1]→SS1-3) was
+disambiguated correctly by the per-listing tcg id.
