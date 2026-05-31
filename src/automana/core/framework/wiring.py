@@ -124,6 +124,11 @@ ServiceRegistry.register_db_repository(
     "analytics", "automana.core.repositories.analytics_repositories.analytics_repository", "AnalyticsRepository"
 )
 
+# Content repositories
+ServiceRegistry.register_db_repository(
+    "article", "automana.core.repositories.content.article_repository", "ArticleRepository"
+)
+
 # API repositories
 ServiceRegistry.register_api_repository(
     "auth_oauth", "automana.core.repositories.app_integration.ebay.ApiAuth_repository", "EbayAuthAPIRepository"
