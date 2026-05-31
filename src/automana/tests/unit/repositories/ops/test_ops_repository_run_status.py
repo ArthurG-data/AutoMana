@@ -56,3 +56,28 @@ async def test_get_running_ingestion_runs_returns_empty_list_when_none():
     repo.execute_query = AsyncMock(return_value=[])
     result = await repo.get_running_ingestion_runs()
     assert result == []
+
+
+@pytest.mark.asyncio
+async def test_get_run_is_finished_true_when_ended_at_set():
+    repo = OpsRepository.__new__(OpsRepository)
+    repo.execute_query = AsyncMock(return_value=[{"finished": True}])
+    result = await repo.get_run_is_finished(39)
+    assert result is True
+    repo.execute_query.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_get_run_is_finished_false_when_ended_at_null():
+    repo = OpsRepository.__new__(OpsRepository)
+    repo.execute_query = AsyncMock(return_value=[{"finished": False}])
+    result = await repo.get_run_is_finished(39)
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_get_run_is_finished_false_when_no_row():
+    repo = OpsRepository.__new__(OpsRepository)
+    repo.execute_query = AsyncMock(return_value=[])
+    result = await repo.get_run_is_finished(999)
+    assert result is False

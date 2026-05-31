@@ -1,6 +1,10 @@
 import pytest
 from unittest.mock import AsyncMock
-from automana.core.services.ops.pipeline_services import is_run_active, reconcile_orphaned_runs
+from automana.core.services.ops.pipeline_services import (
+    is_run_active,
+    is_run_finished,
+    reconcile_orphaned_runs,
+)
 
 
 @pytest.mark.asyncio
@@ -33,6 +37,23 @@ async def test_is_run_active_false_when_no_row():
     repo.get_run_status_for_key = AsyncMock(return_value=None)
     result = await is_run_active(ops_repository=repo, run_key="mtgStock_All:2026-05-30")
     assert result == {"is_active": False}
+
+
+@pytest.mark.asyncio
+async def test_is_run_finished_true_when_repo_reports_finished():
+    repo = AsyncMock()
+    repo.get_run_is_finished = AsyncMock(return_value=True)
+    result = await is_run_finished(ops_repository=repo, ingestion_run_id=39)
+    assert result == {"is_finished": True}
+    repo.get_run_is_finished.assert_awaited_once_with(ingestion_run_id=39)
+
+
+@pytest.mark.asyncio
+async def test_is_run_finished_false_when_repo_reports_not_finished():
+    repo = AsyncMock()
+    repo.get_run_is_finished = AsyncMock(return_value=False)
+    result = await is_run_finished(ops_repository=repo, ingestion_run_id=39)
+    assert result == {"is_finished": False}
 
 
 @pytest.mark.asyncio
