@@ -192,8 +192,9 @@ async def get_card(
     summary="Get card price history",
     description=(
         "Returns aggregated daily price history for a card. Supports time range selection "
-        "via the `price_range` parameter. Prices are aggregated across all sources "
-        "(MTGStocks, TCGPlayer, etc.) and are in USD. Responses are cached for 24 hours."
+        "via the `price_range` parameter and currency scoping via `currency` (default USD). "
+        "Prices are aggregated across all sources in the selected currency (e.g. USD: TCGPlayer, "
+        "MTGStocks; EUR: Cardmarket). Responses are cached for 24 hours."
     ),
     response_model=ApiResponse[PriceHistoryResponse],
     operation_id="cards_price_history",
@@ -208,6 +209,7 @@ async def get_card_price_history(
     service_manager: ServiceManagerDep,
     price_range: str = Query('1m', pattern='^(1w|1m|3m|1y|all)$', description="Time range: 1w, 1m, 3m, 1y, or all"),
     finish: Optional[str] = Query(None, pattern='^(nonfoil|foil|etched|surge_foil|ripple_foil|rainbow_foil)$', description="Finish type (nonfoil, foil, etched, etc.). Omit to aggregate all finishes."),
+    currency: str = Query('USD', pattern='^(USD|EUR|CAD|JPY)$', description="Currency to scope prices to. Sources are filtered strictly; a card with no data in this currency returns an empty series."),
 ) -> ApiResponse[PriceHistoryResponse]:
     try:
         range_map = {
@@ -225,6 +227,7 @@ async def get_card_price_history(
             days_back=days_back,
             finish=finish,
             aggregation=aggregation,
+            currency=currency,
         )
 
         return ApiResponse(
