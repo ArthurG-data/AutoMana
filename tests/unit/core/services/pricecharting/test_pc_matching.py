@@ -27,7 +27,23 @@ def index():
         {"set_name": "Magic 2014 Core Set", "set_code": "M14"},
         {"set_name": "Revised Edition", "set_code": "3ED"},
         {"set_name": "Dominaria United", "set_code": "DMU"},
+        {"set_name": "Duel Decks: Elves vs. Goblins", "set_code": "dd1"},
+        {"set_name": "Duel Decks Anthology: Elves vs. Goblins", "set_code": "evg"},
+        {"set_name": "The List", "set_code": "plst"},
     ])
+
+
+def test_match_duel_deck(index):
+    assert m.match_set_code("magic elves vs goblins", index) == ("dd1", "duel_deck")
+
+
+def test_match_duel_deck_anthology(index):
+    assert m.match_set_code("magic anthology elves vs goblins", index) == ("evg", "duel_deck")
+
+
+def test_match_the_list_override(index):
+    # "the list reprints" -> plst override (PC's flat-numbered List set)
+    assert m.match_set_code("magic the list reprints", index) == ("plst", "override")
 
 
 def test_match_exact(index):
@@ -178,3 +194,38 @@ def test_resolve_lowest_collector_fallback():
     ]
     out = m.resolve_card_match(cands, "Card #55", None)
     assert out["card_version_id"] == "low"
+
+
+# ── certainty scoring ────────────────────────────────────────────────────────
+def test_certainty_tcg_confirmed_is_high():
+    cands = [
+        {"card_version_id": "a", "frame_effects": [], "border_color_name": "black", "collector_number": "1", "tcgplayer_id": "500"},
+        {"card_version_id": "b", "frame_effects": [], "border_color_name": "black", "collector_number": "1", "tcgplayer_id": "600"},
+    ]
+    out = m.resolve_card_match(cands, "Card #1", "500", tcg_votes=30)
+    assert out["card_version_id"] == "a"
+    assert out["match_method"] == "tcg"
+    assert out["certainty"] >= 95
+
+
+def test_certainty_unique_name():
+    cands = [{"card_version_id": "a", "collector_number": "1"}]
+    out = m.resolve_card_match(cands, "Card #1", None)
+    assert out["match_method"] == "name"
+    assert out["certainty"] == 80
+
+
+def test_certainty_ambiguous_fallback_is_low():
+    cands = [
+        {"card_version_id": "a", "frame_effects": [], "border_color_name": "black", "collector_number": "5"},
+        {"card_version_id": "b", "frame_effects": [], "border_color_name": "black", "collector_number": "9"},
+    ]
+    out = m.resolve_card_match(cands, "Card with no number", None)
+    assert out["match_method"] == "ambiguous"
+    assert out["certainty"] == 40
+
+
+def test_certainty_penalised_for_fuzzy_set():
+    cands = [{"card_version_id": "a", "collector_number": "1"}]
+    out = m.resolve_card_match(cands, "Card #1", None, set_method="fuzzy")
+    assert out["certainty"] == 60   # 80 name - 20 fuzzy-set penalty

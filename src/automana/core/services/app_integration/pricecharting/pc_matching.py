@@ -36,15 +36,24 @@ NAME_OVERRIDES: dict[str, str] = {
     "summer edition": "sum",               # Summer Magic / Edgar
     "jurassic world": "rex",
     "beta": "leb",                         # Beta Edition (too short for prefix match)
+    # ── recovered sets (PC name -> DB set_code) ──────────────────────────────
+    "the list reprints": "plst",           # The List (3.7k singles); flat #N numbering
+    "vintage masters": "vma",
+    "the big score": "big",
+    "masterpiece series amonkhet invocations": "mp2",
+    "amonkhet invocations": "mp2",
+    "guilds of ravnica guild kits": "gk1",
+    "ravnica allegiance guild kits": "gk2",
 }
 
 
 def normalize_set_name(name: str) -> str:
-    """Lower, strip leading 'the', drop colons/apostrophes, normalise ordinals
-    and core-set aliases (m10 -> magic 2010)."""
+    """Lower, strip leading 'the', drop colons/apostrophes, normalise ordinals,
+    core-set aliases (m10 -> magic 2010), and the 'vs.' duel-deck separator."""
     n = name.lower().strip()
     n = re.sub(r"^the\s+", "", n)
     n = re.sub(r"[:'']", "", n)
+    n = re.sub(r"\bvs\.", "vs", n)         # "Elves vs. Goblins" -> "elves vs goblins"
     n = re.sub(r"\s+", " ", n).strip()
     for word, num in _ORDINAL_MAP.items():
         n = re.sub(rf"\b{word}\b", num, n)
@@ -74,6 +83,17 @@ def match_set_code(pc_name: str, db_index: dict[str, str]) -> tuple[str | None, 
     # Pass 1: exact normalised name
     if pc in db_index:
         return db_index[pc], "exact"
+
+    # Pass 1b: duel decks — PC drops the "Duel Decks[ Anthology]:" prefix.
+    # "elves vs goblins" -> "duel decks elves vs goblins";
+    # "anthology elves vs goblins" -> "duel decks anthology elves vs goblins".
+    if " vs " in pc:
+        if pc.startswith("anthology "):
+            cand = "duel decks anthology " + pc[len("anthology "):]
+        else:
+            cand = "duel decks " + pc
+        if cand in db_index:
+            return db_index[cand], "duel_deck"
 
     # Pass 2: DB name is a suffix of PC name (>= 3 words) — Commander precons
     for dn in db_norms:
@@ -180,33 +200,52 @@ def extract_collector_number(title: str) -> str | None:
     return m.group(1) if m else None
 
 
+# Base certainty (0-100) by the signal that singled out the winner.
+_CERTAINTY = {
+    "tcg": 95,          # winner's tcgplayer_id == the scraped (consensus) id
+    "collector": 85,    # collector #NNN pinned to exactly one candidate
+    "name": 80,         # only one candidate by name
+    "treatment": 65,    # treatment scoring broke a tie
+    "ambiguous": 40,    # fell through to lowest-collector
+}
+
+
 def resolve_card_match(
-    candidates: list[dict], title: str, pc_tcgplayer_id: str | None
+    candidates: list[dict],
+    title: str,
+    pc_tcgplayer_id: str | None,
+    set_method: str = "exact",
+    tcg_votes: int = 0,
 ) -> dict | None:
-    """Pick the winning card_version from name-match candidates.
+    """Pick the winning card_version from name-match candidates and score it.
 
     Selection order:
       0. collector-number filter — if the title has ``#NNN`` and any candidate
-         shares that collector number, restrict to those (the doc's "Pass 1":
-         the printing is the strongest signal). Skipped if nothing matches.
+         shares it, restrict to those (the doc's "Pass 1"; strongest signal).
     Then, while >1 candidate remains:
       1. treatment score (highest, if any positive)
-      2. PriceCharting-scraped TCGPlayer id == candidate tcgplayer_id (unique hit)
-      3. lowest collector number
+      2. scraped (consensus) TCGPlayer id == candidate tcgplayer_id (unique hit)
+      3. lowest collector number (ambiguous fallback)
 
-    Returns {card_version_id, card_name, collector_number, finish_id} or None.
+    Returns {card_version_id, card_name, collector_number, finish_id,
+    match_method, certainty} or None. ``certainty`` (0-100) reflects how
+    decisively the winner was singled out, the TCGPlayer-id confirmation and
+    its vote count, and whether the set itself matched fuzzily.
     """
     if not candidates:
         return None
 
     winners = list(candidates)
     tag = extract_bracket_tag(title)
+    n_candidates = len(candidates)
 
     collector = extract_collector_number(title)
+    collector_pinned = False
     if collector:
         by_collector = [r for r in winners if r.get("collector_number") == collector]
         if by_collector:
             winners = by_collector
+            collector_pinned = len(winners) == 1
 
     if len(winners) > 1:
         clean_tag = _FINISH_WORDS_RE.sub("", tag).strip()
@@ -214,21 +253,53 @@ def resolve_card_match(
         top = max(s for _, s in scored)
         if top > 0:
             winners = [r for r, s in scored if s == top]
+        treatment_used = len(winners) == 1
+    else:
+        treatment_used = False
 
+    tcg_used = False
     if len(winners) > 1 and pc_tcgplayer_id:
         tcg_hits = [r for r in winners if str(r.get("tcgplayer_id")) == str(pc_tcgplayer_id)]
         if len(tcg_hits) == 1:
             winners = tcg_hits
+            tcg_used = True
 
-    if len(winners) > 1:
+    ambiguous = len(winners) > 1
+    if ambiguous:
         winners = sorted(winners, key=lambda r: _collector_int(r.get("collector_number")))
 
     w = winners[0]
+
+    # ── derive method + certainty ────────────────────────────────────────────
+    tcg_confirmed = bool(
+        pc_tcgplayer_id and str(w.get("tcgplayer_id")) == str(pc_tcgplayer_id)
+    )
+    if tcg_used or tcg_confirmed:
+        method = "tcg"
+    elif n_candidates == 1:
+        method = "name"
+    elif collector_pinned:
+        method = "collector"
+    elif treatment_used:
+        method = "treatment"
+    elif ambiguous:
+        method = "ambiguous"
+    else:
+        method = "collector" if collector else "name"
+
+    certainty = _CERTAINTY.get(method, 50)
+    if tcg_confirmed and tcg_votes >= 5:
+        certainty = min(99, certainty + 3)     # strong consensus on the id
+    if set_method in ("fuzzy", "prefix"):
+        certainty = max(20, certainty - 20)    # set itself matched loosely
+
     return {
         "card_version_id": str(w["card_version_id"]),
         "card_name": w.get("card_name"),
         "collector_number": w.get("collector_number"),
         "finish_id": parse_finish(title),
+        "match_method": method,
+        "certainty": certainty,
     }
 
 
