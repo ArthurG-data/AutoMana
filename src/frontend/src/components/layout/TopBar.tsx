@@ -1,9 +1,37 @@
 // src/frontend/src/components/layout/TopBar.tsx
 import React from 'react'
 import { Icon } from '../design-system/Icon'
-import { useUIStore } from '../../store/ui'
+import { useUIStore, type CurrencyCode } from '../../store/ui'
 import { UserMenu } from './UserMenu'
 import styles from './TopBar.module.css'
+
+// Sitewide display-currency selector. USD/EUR have live data; CAD/JPY are listed
+// but disabled until their price sources are ingested.
+const CURRENCY_OPTIONS: { code: CurrencyCode; label: string; enabled: boolean }[] = [
+  { code: 'USD', label: 'USD $', enabled: true },
+  { code: 'EUR', label: 'EUR €', enabled: true },
+  { code: 'CAD', label: 'CAD $', enabled: false },
+  { code: 'JPY', label: 'JPY ¥', enabled: false },
+]
+
+function CurrencySelector() {
+  const { currency, setCurrency } = useUIStore()
+  return (
+    <select
+      className={styles.currencySelect}
+      value={currency}
+      onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
+      title="Display currency"
+      aria-label="Display currency"
+    >
+      {CURRENCY_OPTIONS.map((opt) => (
+        <option key={opt.code} value={opt.code} disabled={!opt.enabled}>
+          {opt.label}{opt.enabled ? '' : ' (soon)'}
+        </option>
+      ))}
+    </select>
+  )
+}
 
 interface AttentionChipProps {
   count: number
@@ -39,6 +67,7 @@ export function TopBar({ title, subtitle, breadcrumb, actions }: TopBarProps) {
       </div>
       <div className={styles.right}>
         {actions}
+        <CurrencySelector />
         <button
           className={styles.themeToggle}
           onClick={toggleTheme}

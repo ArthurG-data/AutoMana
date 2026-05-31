@@ -67,6 +67,7 @@ export function CardDetailView({ card, versionsInSet, otherSets }: CardDetailVie
           </div>
           <div className={styles.marketSlot}>
             <MarketCard
+              cardVersionId={card.card_version_id.toString()}
               price={card.price}
               selectedFinish={selectedFinish}
               finishes={finishes}

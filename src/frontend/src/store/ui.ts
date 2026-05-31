@@ -4,10 +4,16 @@ import { persist } from 'zustand/middleware'
 
 type Theme = 'dark' | 'light'
 
+// Sitewide display currency. USD/EUR are live today; CAD/JPY are typed ahead of
+// their price data being ingested so the UI can enable them with zero churn.
+export type CurrencyCode = 'USD' | 'EUR' | 'CAD' | 'JPY'
+
 interface UIState {
   theme: Theme
   setTheme: (theme: Theme) => void
   toggleTheme: () => void
+  currency: CurrencyCode
+  setCurrency: (currency: CurrencyCode) => void
 }
 
 function applyTheme(theme: Theme) {
@@ -27,6 +33,8 @@ export const useUIStore = create<UIState>()(
         applyTheme(next)
         set({ theme: next })
       },
+      currency: 'USD',
+      setCurrency: (currency) => set({ currency }),
     }),
     {
       name: 'automana-ui',
