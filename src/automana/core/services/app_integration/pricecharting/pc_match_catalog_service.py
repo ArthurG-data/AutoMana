@@ -60,6 +60,7 @@ async def build_match_catalog(
     """Resolve PriceCharting products to card_versions and persist the matches.
 
     Requires ``pricecharting.scrape_catalog`` (sets.json + products/{uid}.json).
+    Issues one DB query per set (not per product) for card_version candidates.
     """
     if not await storage_service.file_exists("sets.json"):
         logger.warning("pricecharting_match_no_sets_file")
@@ -70,6 +71,9 @@ async def build_match_catalog(
     db_sets = await set_repository.fetch_sets_for_matching()
     set_index = pc_matching.build_set_code_index([dict(r) for r in db_sets])
     pc_sets = (await storage_service.load_json("sets.json")).get("sets", [])
+
+    # Resolve the tcgplayer_id ref_id once — it's constant across all sets.
+    tcgplayer_ref_id = await card_repository.get_tcgplayer_ref_id()
 
     upserts: list[dict] = []
     new_matched = new_unmatched = skipped_existing = skipped_sets = identifiers_registered = 0
@@ -95,20 +99,23 @@ async def build_match_catalog(
 
         tcg = await _load_tcgplayer_ids(storage_service, uid)
 
+        # One query fetches all card_versions for the set; products look up by name.
+        set_versions = await card_repository.get_all_card_versions_for_set(
+            set_code, tcgplayer_ref_id
+        )
+
         for product in singles:
             pid = product["product_id"]
             prior = existing.get(pid)
-            # Skip the heuristic only for already-resolved or manually-locked rows;
-            # always re-attempt recorded misses so matching improvements apply.
             if prior and (prior.get("card_version_id") is not None or prior.get("verified")):
                 skipped_existing += 1
                 continue
 
             card_name = pc_matching.clean_card_name(product["title"])
-            candidates = await card_repository.fetch_versions_by_set_and_name(set_code, card_name)
+            candidates = set_versions.get(card_name.lower(), [])
             tcg_id, tcg_votes = tcg.get(pid, (None, 0))
             match = pc_matching.resolve_card_match(
-                [dict(c) for c in candidates], product["title"], tcg_id,
+                candidates, product["title"], tcg_id,
                 set_method=set_method, tcg_votes=tcg_votes,
             )
 
