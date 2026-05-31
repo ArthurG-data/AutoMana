@@ -23,10 +23,12 @@ WITH tiered AS (
 """
 
 # Each predicate is the complement of the higher tiers, so every mapped
-# print_id falls into exactly one tier (null price -> tier 3).
-_TIER1 = "(released_at >= CURRENT_DATE - INTERVAL '120 days' OR list_avg_cents >= 500)"
-_TIER2 = f"NOT {_TIER1} AND list_avg_cents >= 100"
-_TIER3 = f"NOT {_TIER1} AND NOT (list_avg_cents >= 100)"
+# print_id falls into exactly one tier. COALESCE treats a null price as 0,
+# so null-price cards that are not recent sets land in tier 3 (without
+# COALESCE, `NOT (NULL >= 100)` is NULL and the row would fall through all tiers).
+_TIER1 = "(released_at >= CURRENT_DATE - INTERVAL '120 days' OR COALESCE(list_avg_cents, 0) >= 500)"
+_TIER2 = f"NOT {_TIER1} AND COALESCE(list_avg_cents, 0) >= 100"
+_TIER3 = f"NOT {_TIER1} AND COALESCE(list_avg_cents, 0) < 100"
 
 _TIER_PREDICATE = {1: _TIER1, 2: _TIER2, 3: _TIER3}
 
