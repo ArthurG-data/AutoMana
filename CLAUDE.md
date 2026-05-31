@@ -45,6 +45,7 @@ AutoMana is a FastAPI backend for tracking Magic: The Gathering card collections
 | Database health metrics (card_catalog.*, pricing.*) and the on-demand scryfall audit | [`docs/operations/HEALTH_METRICS.md`](docs/operations/HEALTH_METRICS.md) |
 | Manual API testing flow (create user, auth, test, cleanup) | [`docs/testing/TESTING_API_FLOW.md`](docs/testing/TESTING_API_FLOW.md) |
 | React SPA (design system, routing, stores, MSW, testing) | [`docs/frontend/FRONTEND.md`](docs/frontend/FRONTEND.md) |
+| Articles (Analysis) section — feature, API, how to add an article | [`docs/analysis/ARTICLES_FEATURE.md`](docs/analysis/ARTICLES_FEATURE.md) |
 | API layer bugs and technical debt backlog | [`docs/api/API_LAYER_BACKLOG.md`](docs/api/API_LAYER_BACKLOG.md) |
 | Consolidated technical debt backlog (all layers) | [`docs/MASTER_TECHNICAL_DEBT.md`](docs/MASTER_TECHNICAL_DEBT.md) |
 | Pending work backlog (features + debt, by domain) | [`docs/BACKLOG.md`](docs/BACKLOG.md) |
