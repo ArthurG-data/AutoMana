@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { DualAreaChart } from '../../../components/design-system/DualAreaChart'
 import { cardPriceHistoryQueryOptions } from '../api'
+import { useUIStore } from '../../../store/ui'
 import type { CardDetail } from '../types'
 import styles from './PriceCharts.module.css'
 
@@ -45,9 +46,10 @@ function trimNulls(
 
 export function PriceCharts({ card, finish }: PriceChartsProps) {
   const [selectedRange, setSelectedRange] = useState<'1w' | '1m' | '3m' | '1y' | 'all'>('1m')
+  const currency = useUIStore((s) => s.currency)
 
   const { data: priceData, isLoading } = useQuery(
-    cardPriceHistoryQueryOptions(card.card_version_id, selectedRange, finish)
+    cardPriceHistoryQueryOptions(card.card_version_id, selectedRange, finish, currency)
   )
 
   const rawList = priceData?.price_history_list_avg ?? []
@@ -88,6 +90,7 @@ export function PriceCharts({ card, finish }: PriceChartsProps) {
             soldAvg={soldAvg}
             dates={dates}
             height={200}
+            currency={currency}
           />
           <div className={styles.legend}>
             <span className={styles.legendItem}>

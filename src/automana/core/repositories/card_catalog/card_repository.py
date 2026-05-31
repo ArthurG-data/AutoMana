@@ -1206,9 +1206,10 @@ WHERE cv.card_version_id = ei.card_version_id
         end_date: date,
         finish: Optional[str] = None,
         aggregation: str = 'daily',
+        currency: str = 'USD',
     ) -> Dict[str, Any]:
         """
-        Fetch aggregated price history for a card across all sources.
+        Fetch aggregated price history for a card, scoped to a single currency.
 
         Args:
             card_version_id: Card version ID
@@ -1216,6 +1217,9 @@ WHERE cv.card_version_id = ei.card_version_id
             end_date: End date (inclusive)
             finish: Optional finish code string ('NONFOIL', 'FOIL', 'ETCHED', etc.)
             aggregation: 'daily' or 'weekly' aggregation (default='daily')
+            currency: ISO currency to scope sources to (default='USD'). Filtered strictly via
+                pricing.price_source.currency_code, so a card with no data in this currency
+                returns an empty series rather than silently mixing currencies.
 
         Returns:
             Dict with keys: list_avg, sold_avg, dates
@@ -1228,6 +1232,8 @@ WHERE cv.card_version_id = ei.card_version_id
         if finish:
             finish_filter = f"AND f.code = ${len(params) + 1}"
             params.append(finish.upper())
+        currency_filter = f"AND ps.currency_code = ${len(params) + 1}"
+        params.append(currency.upper())
 
         if aggregation == 'weekly':
             query = f"""
@@ -1241,10 +1247,12 @@ WHERE cv.card_version_id = ei.card_version_id
                     AVG(ppd.sold_avg_cents)::float / 100 AS sold_avg_price
                 FROM pricing.print_price_daily ppd
                 JOIN card_catalog.card_finished f ON f.finish_id = ppd.finish_id
+                JOIN pricing.price_source ps ON ps.source_id = ppd.source_id
                 WHERE ppd.card_version_id = $1
                   AND ppd.price_date >= $2
                   AND ppd.price_date <= $3
                   {finish_filter}
+                  {currency_filter}
                 GROUP BY date_trunc('week', ppd.price_date)
             ),
             tier3_prices AS (
@@ -1254,10 +1262,12 @@ WHERE cv.card_version_id = ei.card_version_id
                     AVG(ppw.sold_avg_cents)::float / 100 AS sold_avg_price
                 FROM pricing.print_price_weekly ppw
                 JOIN card_catalog.card_finished f ON f.finish_id = ppw.finish_id
+                JOIN pricing.price_source ps ON ps.source_id = ppw.source_id
                 WHERE ppw.card_version_id = $1
                   AND ppw.price_week >= $2
                   AND ppw.price_week <= $3
                   {finish_filter}
+                  {currency_filter}
                 GROUP BY ppw.price_week
             ),
             combined AS (
@@ -1287,10 +1297,12 @@ WHERE cv.card_version_id = ei.card_version_id
                     AVG(ppd.sold_avg_cents)::float / 100 AS sold_avg_price
                 FROM pricing.print_price_daily ppd
                 JOIN card_catalog.card_finished f ON f.finish_id = ppd.finish_id
+                JOIN pricing.price_source ps ON ps.source_id = ppd.source_id
                 WHERE ppd.card_version_id = $1
                   AND ppd.price_date >= $2
                   AND ppd.price_date <= $3
                   {finish_filter}
+                  {currency_filter}
                 GROUP BY ppd.price_date
             )
             SELECT
