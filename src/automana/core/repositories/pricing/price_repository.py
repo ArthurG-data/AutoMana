@@ -73,6 +73,14 @@ WHERE sp.product_id = ANY($1::uuid[])
 AND ps.code = ANY($2::text[])
 """
 
+_UPSERT_PRICE_SOURCE_SQL = """
+INSERT INTO pricing.price_source (code, currency_code, name)
+VALUES ($1, $2, $3)
+ON CONFLICT (code) DO UPDATE SET currency_code = EXCLUDED.currency_code,
+                                 name          = EXCLUDED.name
+RETURNING source_id
+"""
+
 _UPSERT_PRICE_OBSERVATION_SQL = """
 INSERT INTO pricing.price_observation (
     ts_date, source_product_id, price_type_id, finish_id,
@@ -560,6 +568,55 @@ class PricingTierRepository(AbstractRepository):
             return int(status.split()[-1])
         except (IndexError, ValueError):
             return len(obs_sp_ids)
+
+    async def upsert_price_source(self, code: str, currency_code: str, name: str) -> int:
+        """Register (or refresh) a price source by its natural key ``code`` and
+        return its ``source_id``. Idempotent — re-runs return the same id."""
+        return await self.execute_fetchval(
+            _UPSERT_PRICE_SOURCE_SQL, (code, currency_code, name)
+        )
+
+    async def upsert_source_products_for_cards(
+        self, card_version_ids: list[str], source_code: str
+    ) -> dict[str, int]:
+        """Resolve a ``source_product_id`` for each card_version under one source,
+        creating the ``product_ref`` / ``mtg_card_products`` / ``source_product``
+        rows as needed. Returns ``{card_version_id: source_product_id}``.
+
+        The price source identified by ``source_code`` must already exist
+        (call :meth:`upsert_price_source` first) — ``_ENSURE_SOURCE_PRODUCT_SQL``
+        joins ``price_source`` by code.
+        """
+        if not card_version_ids:
+            return {}
+
+        cv_ids = list(dict.fromkeys(card_version_ids))  # de-dup, preserve order
+
+        # 1. Create product_ref + mtg_card_products for any unlinked card_version.
+        await self.execute_command(_INSERT_PRODUCTS_BATCH_SQL, (cv_ids,))
+
+        # 2. Resolve card_version_id -> product_id (uuid) for the full set.
+        product_rows = await self.execute_query(_GET_PRODUCT_IDS_FOR_CARDS_SQL, (cv_ids,))
+        cv_to_product = {str(r["card_version_id"]): r["product_id"] for r in product_rows}
+        product_ids = list(cv_to_product.values())
+        if not product_ids:
+            return {}
+
+        # 3. Ensure a source_product row exists for each (product, source).
+        source_codes = [source_code] * len(product_ids)
+        await self.execute_command(_ENSURE_SOURCE_PRODUCT_SQL, (product_ids, source_codes))
+
+        # 4. Fetch the resulting source_product_ids and key back to card_version.
+        sp_rows = await self.execute_query(
+            _FETCH_SOURCE_PRODUCT_IDS_SQL, (product_ids, [source_code])
+        )
+        product_to_spid = {r["product_id"]: r["source_product_id"] for r in sp_rows}
+
+        return {
+            cv_id: product_to_spid[pid]
+            for cv_id, pid in cv_to_product.items()
+            if pid in product_to_spid
+        }
 
     async def add(self, item: Any) -> None:
         raise NotImplementedError
