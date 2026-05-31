@@ -1,0 +1,1575 @@
+# Analysis / Articles Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Add a publicly-readable "Analysis" section where the author writes Markdown articles in-app; backed by Postgres, rendered as a magazine-grid hub and a centered reading view.
+
+**Architecture:** Standard AutoMana layering — `content` schema table → `ArticleRepository(AbstractRepository)` → `@ServiceRegistry.register`ed services (public reads hard-filter `status='published'`) → `content_router` (public GETs + auth-guarded writes). Frontend: a `features/articles/` folder, three TanStack routes under `/analysis` (`/analysis`, `/analysis/$slug`, `/analysis/admin[/$id]`), Markdown rendered with `react-markdown` + `rehype-sanitize`. Body is stored as raw Markdown so live data embeds can be added later via a directive plugin without a schema change.
+
+**Tech Stack:** FastAPI, asyncpg, PostgreSQL, Pydantic; React 18 + Vite + TanStack Router/Query + Zustand + CSS modules; Vitest + Testing Library + MSW; pytest.
+
+**Spec:** `docs/superpowers/specs/2026-05-31-analysis-articles-design.md`
+
+---
+
+## Conventions reference (verified against the codebase)
+
+- **Repository base:** `automana.core.repositories.abstract_repositories.AbstractDBRepository.AbstractRepository`. Concrete repos call `self.execute_query(sql, values_tuple)` (returns rows) and `self.execute_command(sql, values_tuple)` (returns status string like `"UPDATE 1"`). **Never** touch `self.connection` directly. The ABC declares abstract `get/add/update/delete/list`; existing repos implement them or stub with `NotImplementedError` (see `collection_repository.py:72`).
+- **Service registration:** `@ServiceRegistry.register("dotted.path", db_repositories=["name"])`; the repo is injected as `name_repository`. New repo names must be wired in `automana/core/framework/wiring.py` via `ServiceRegistry.register_db_repository("name", "module.path", "ClassName")`.
+- **Router → service:** `await service_manager.execute_service("dotted.path", **kwargs)`; inject `service_manager: ServiceManagerDep` and (for guarded routes) `current_user: CurrentUserDep`. Auth at router level: `APIRouter(..., dependencies=[Depends(get_current_active_user)])`. Public routers omit that dependency. Imports: `from automana.api.dependancies.service_deps import ServiceManagerDep`, `from automana.api.dependancies.auth.users import CurrentUserDep, get_current_active_user`, `from automana.api.schemas.StandardisedQueryResponse import ApiResponse`. (Note: the directory is spelled `dependancies`.)
+- **Response envelope:** endpoints return `ApiResponse(data=...)`; `apiClient` on the frontend auto-unwraps `.data`.
+- **Migrations:** `src/automana/database/SQL/migrations/migration_<n>_<desc>.sql`, wrapped in `BEGIN;`/`COMMIT;`, idempotent (`IF NOT EXISTS`), applied by directory glob in sorted order (no manifest). Next free number: **61**.
+- **Grants:** write roles `app_celery, app_rw, app_admin`; read role `app_ro`.
+- **Frontend HTTP:** `import { apiClient } from '../../lib/apiClient'`; `apiClient('/content/articles', opts)` prepends `/api` and attaches the bearer token.
+- **Public routes:** add the path to `PUBLIC_PATHS` (or a `startsWith` check) in `src/frontend/src/routes/__root.tsx:beforeLoad`.
+- **Frontend tests:** Vitest + Testing Library, MSW handlers in `src/frontend/src/mocks/handlers.ts`. Run `npm test` from `src/frontend`.
+- **Backend tests:** pytest, `asyncio_mode=auto`, repos/services mocked with `AsyncMock`. Run `pytest tests/unit/... -v` from repo root.
+
+---
+
+## File Structure
+
+**Backend (create):**
+- `src/automana/database/SQL/migrations/migration_61_article.sql`
+- `src/automana/core/repositories/content/__init__.py`
+- `src/automana/core/repositories/content/article_repository.py`
+- `src/automana/core/models/content/__init__.py`
+- `src/automana/core/models/content/article.py` (Pydantic models)
+- `src/automana/core/services/content/__init__.py`
+- `src/automana/core/services/content/article_service.py`
+- `src/automana/api/routers/content/__init__.py`
+- `src/automana/api/routers/content/articles.py`
+- `tests/unit/core/repositories/test_article_repository.py`
+- `tests/unit/core/services/test_article_service.py`
+
+**Backend (modify):**
+- `src/automana/core/framework/wiring.py` — register `article` repo
+- `src/automana/api/__init__.py` — include `content_router`
+
+**Frontend (create):**
+- `src/frontend/src/features/articles/types.ts`
+- `src/frontend/src/features/articles/api.ts`
+- `src/frontend/src/features/articles/components/ArticleGrid.tsx` (+ `.module.css`)
+- `src/frontend/src/features/articles/components/MarkdownView.tsx`
+- `src/frontend/src/features/articles/components/ArticleEditor.tsx` (+ `.module.css`)
+- `src/frontend/src/features/articles/__tests__/api.test.ts`
+- `src/frontend/src/features/articles/components/__tests__/MarkdownView.test.tsx`
+- `src/frontend/src/routes/analysis.tsx` (hub, public)
+- `src/frontend/src/routes/analysis.$slug.tsx` (reading view, public)
+- `src/frontend/src/routes/analysis.admin.tsx` (admin list, guarded)
+- `src/frontend/src/routes/analysis.admin.$id.tsx` (editor, guarded)
+- `src/frontend/src/routes/analysis.module.css`
+
+**Frontend (modify):**
+- `src/frontend/package.json` — add `react-markdown`, `remark-gfm`, `rehype-sanitize`
+- `src/frontend/src/routes/__root.tsx` — public carve-out for `/analysis` (but not `/analysis/admin`)
+- `src/frontend/src/components/layout/Sidebar.tsx` — add "Analysis" nav item
+- `src/frontend/src/mocks/handlers.ts` — articles handlers
+
+---
+
+# PHASE 1 — BACKEND
+
+### Task 1: Migration — `content.article` table
+
+**Files:**
+- Create: `src/automana/database/SQL/migrations/migration_61_article.sql`
+
+- [ ] **Step 1: Write the migration**
+
+```sql
+-- migration_61_article.sql
+--
+-- Adds the editorial "Analysis" articles feature: a new `content` schema with a
+-- single `article` table. Articles are authored in-app (Markdown body stored
+-- verbatim), publicly readable when status='published'. The Markdown body leaves
+-- a clean seam for live data embeds (directive syntax) in a later iteration —
+-- no schema change needed then.
+--
+-- Rollback:
+--   DROP TABLE IF EXISTS content.article;
+--   DROP SCHEMA IF EXISTS content;
+
+BEGIN;
+
+CREATE SCHEMA IF NOT EXISTS content;
+GRANT USAGE ON SCHEMA content TO app_celery, app_rw, app_admin, app_ro;
+
+CREATE TABLE IF NOT EXISTS content.article (
+    article_id       UUID        NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
+    slug             TEXT        NOT NULL UNIQUE,
+    title            TEXT        NOT NULL,
+    excerpt          TEXT        NOT NULL DEFAULT '',
+    cover_image_url  TEXT,
+    body_markdown    TEXT        NOT NULL DEFAULT '',
+    status           TEXT        NOT NULL DEFAULT 'draft'
+                                 CHECK (status IN ('draft', 'published')),
+    tags             TEXT[]      NOT NULL DEFAULT '{}',
+    read_minutes     INTEGER     NOT NULL DEFAULT 1,
+    author_id        UUID        REFERENCES user_management.users(unique_id),
+    published_at     TIMESTAMPTZ,
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Hub query: published articles, newest first.
+CREATE INDEX IF NOT EXISTS idx_article_published
+    ON content.article (published_at DESC)
+    WHERE status = 'published';
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON content.article TO app_celery, app_rw, app_admin;
+GRANT SELECT ON content.article TO app_ro;
+
+COMMIT;
+```
+
+- [ ] **Step 2: Apply against the dev DB and verify the table exists**
+
+Run:
+```bash
+docker exec -i automana-postgres-dev psql -U automana_admin automana \
+  -f - < src/automana/database/SQL/migrations/migration_61_article.sql && \
+docker exec automana-postgres-dev psql -U automana_admin automana \
+  -c "\d content.article"
+```
+Expected: `BEGIN ... COMMIT` with no errors, then a table description listing `article_id, slug, title, ... updated_at`.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add src/automana/database/SQL/migrations/migration_61_article.sql
+git commit -m "feat(content): add content.article table migration"
+```
+
+---
+
+### Task 2: `ArticleRepository`
+
+**Files:**
+- Create: `src/automana/core/repositories/content/__init__.py` (empty)
+- Create: `src/automana/core/repositories/content/article_repository.py`
+- Test: `tests/unit/core/repositories/test_article_repository.py`
+
+- [ ] **Step 1: Write the failing test**
+
+```python
+# tests/unit/core/repositories/test_article_repository.py
+import pytest
+from unittest.mock import AsyncMock
+from uuid import uuid4
+
+pytestmark = pytest.mark.repository
+
+from automana.core.repositories.content.article_repository import ArticleRepository
+
+
+def _repo():
+    repo = ArticleRepository(connection=AsyncMock(), executor=None)
+    repo.execute_query = AsyncMock()
+    repo.execute_command = AsyncMock()
+    return repo
+
+
+async def test_list_published_filters_status_and_paginates():
+    repo = _repo()
+    repo.execute_query.return_value = [{"slug": "a"}]
+    rows = await repo.list_published(limit=10, offset=0, tag=None)
+    sql, values = repo.execute_query.call_args.args
+    assert "status = 'published'" in sql
+    assert values == (10, 0)
+    assert rows == [{"slug": "a"}]
+
+
+async def test_list_published_adds_tag_filter():
+    repo = _repo()
+    repo.execute_query.return_value = []
+    await repo.list_published(limit=5, offset=0, tag="spec")
+    sql, values = repo.execute_query.call_args.args
+    assert "$3 = ANY(tags)" in sql
+    assert values == (5, 0, "spec")
+
+
+async def test_get_by_slug_published_only_appends_status_clause():
+    repo = _repo()
+    repo.execute_query.return_value = [{"slug": "x", "status": "published"}]
+    result = await repo.get_by_slug("x", published_only=True)
+    sql, values = repo.execute_query.call_args.args
+    assert "status = 'published'" in sql
+    assert values == ("x",)
+    assert result == {"slug": "x", "status": "published"}
+
+
+async def test_get_by_slug_returns_none_when_missing():
+    repo = _repo()
+    repo.execute_query.return_value = []
+    assert await repo.get_by_slug("nope", published_only=True) is None
+
+
+async def test_insert_article_returns_row():
+    repo = _repo()
+    new_id = uuid4()
+    repo.execute_query.return_value = [{"article_id": new_id, "slug": "t"}]
+    result = await repo.insert_article(
+        slug="t", title="T", excerpt="e", cover_image_url=None,
+        body_markdown="# hi", tags=["spec"], read_minutes=2, author_id=uuid4(),
+    )
+    sql, _ = repo.execute_query.call_args.args
+    assert sql.strip().upper().startswith("INSERT INTO CONTENT.ARTICLE")
+    assert result["slug"] == "t"
+
+
+async def test_update_publish_status_sets_published_at_on_publish():
+    repo = _repo()
+    repo.execute_query.return_value = [{"status": "published"}]
+    await repo.update_publish_status(article_id=uuid4(), published=True)
+    sql, _ = repo.execute_query.call_args.args
+    assert "published_at = now()" in sql
+    assert "status = 'published'" in sql
+```
+
+- [ ] **Step 2: Run to verify it fails**
+
+Run: `pytest tests/unit/core/repositories/test_article_repository.py -v`
+Expected: FAIL — `ModuleNotFoundError: No module named 'automana.core.repositories.content'`.
+
+- [ ] **Step 3: Implement the repository**
+
+```python
+# src/automana/core/repositories/content/article_repository.py
+from typing import Optional, List
+from uuid import UUID
+
+from automana.core.repositories.abstract_repositories.AbstractDBRepository import AbstractRepository
+
+_COLUMNS = """article_id, slug, title, excerpt, cover_image_url, body_markdown,
+              status, tags, read_minutes, author_id, published_at,
+              created_at, updated_at"""
+
+
+class ArticleRepository(AbstractRepository):
+    """DB access for content.article. All queries go through the AbstractRepository
+    wrappers (execute_query/execute_command). Service-facing methods follow CQS
+    naming; the ABC's generic get/add/update/delete/list are stubbed (this repo
+    exposes explicit, intention-revealing methods instead)."""
+
+    def __init__(self, connection, executor=None):
+        super().__init__(connection, executor)
+
+    @property
+    def name(self) -> str:
+        return "ArticleRepository"
+
+    # ---- queries (reads) -------------------------------------------------
+    async def list_published(self, limit: int, offset: int, tag: Optional[str]) -> List[dict]:
+        tag_clause = "AND $3 = ANY(tags)" if tag else ""
+        query = f"""
+            SELECT {_COLUMNS}
+            FROM content.article
+            WHERE status = 'published'
+            {tag_clause}
+            ORDER BY published_at DESC
+            LIMIT $1 OFFSET $2;
+        """
+        values = (limit, offset, tag) if tag else (limit, offset)
+        rows = await self.execute_query(query, values)
+        return [dict(r) for r in rows]
+
+    async def list_all(self, limit: int, offset: int) -> List[dict]:
+        query = f"""
+            SELECT {_COLUMNS}
+            FROM content.article
+            ORDER BY created_at DESC
+            LIMIT $1 OFFSET $2;
+        """
+        rows = await self.execute_query(query, (limit, offset))
+        return [dict(r) for r in rows]
+
+    async def get_by_slug(self, slug: str, published_only: bool) -> Optional[dict]:
+        status_clause = "AND status = 'published'" if published_only else ""
+        query = f"""
+            SELECT {_COLUMNS}
+            FROM content.article
+            WHERE slug = $1 {status_clause};
+        """
+        rows = await self.execute_query(query, (slug,))
+        return dict(rows[0]) if rows else None
+
+    async def get_by_id(self, article_id: UUID) -> Optional[dict]:
+        query = f"SELECT {_COLUMNS} FROM content.article WHERE article_id = $1;"
+        rows = await self.execute_query(query, (article_id,))
+        return dict(rows[0]) if rows else None
+
+    async def exists_slug(self, slug: str) -> bool:
+        rows = await self.execute_query(
+            "SELECT 1 FROM content.article WHERE slug = $1;", (slug,)
+        )
+        return bool(rows)
+
+    # ---- commands (writes) ----------------------------------------------
+    async def insert_article(self, slug, title, excerpt, cover_image_url,
+                             body_markdown, tags, read_minutes, author_id) -> Optional[dict]:
+        query = f"""
+            INSERT INTO content.article
+                (slug, title, excerpt, cover_image_url, body_markdown,
+                 tags, read_minutes, author_id)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            RETURNING {_COLUMNS};
+        """
+        rows = await self.execute_query(
+            query,
+            (slug, title, excerpt, cover_image_url, body_markdown,
+             tags, read_minutes, author_id),
+        )
+        return dict(rows[0]) if rows else None
+
+    async def update_article(self, article_id: UUID, fields: dict) -> Optional[dict]:
+        # Build a dynamic SET clause from a whitelisted dict (keys validated by the service).
+        keys = list(fields.keys())
+        set_clause = ", ".join(f"{k} = ${i + 1}" for i, k in enumerate(keys))
+        query = f"""
+            UPDATE content.article
+            SET {set_clause}, updated_at = now()
+            WHERE article_id = ${len(keys) + 1}
+            RETURNING {_COLUMNS};
+        """
+        values = (*fields.values(), article_id)
+        rows = await self.execute_query(query, values)
+        return dict(rows[0]) if rows else None
+
+    async def update_publish_status(self, article_id: UUID, published: bool) -> Optional[dict]:
+        if published:
+            query = f"""
+                UPDATE content.article
+                SET status = 'published', published_at = now(), updated_at = now()
+                WHERE article_id = $1
+                RETURNING {_COLUMNS};
+            """
+        else:
+            query = f"""
+                UPDATE content.article
+                SET status = 'draft', updated_at = now()
+                WHERE article_id = $1
+                RETURNING {_COLUMNS};
+            """
+        rows = await self.execute_query(query, (article_id,))
+        return dict(rows[0]) if rows else None
+
+    async def delete_article(self, article_id: UUID) -> bool:
+        result = await self.execute_command(
+            "DELETE FROM content.article WHERE article_id = $1;", (article_id,)
+        )
+        return result != "DELETE 0"
+
+    # ---- ABC contract (intentionally unused; explicit methods above) -----
+    async def get(self, id):       raise NotImplementedError
+    async def add(self, item):     raise NotImplementedError
+    async def update(self, item):  raise NotImplementedError
+    async def delete(self, id):    raise NotImplementedError
+    async def list(self, items):   raise NotImplementedError
+```
+
+Also create the empty package marker:
+```python
+# src/automana/core/repositories/content/__init__.py
+```
+
+- [ ] **Step 4: Run to verify it passes**
+
+Run: `pytest tests/unit/core/repositories/test_article_repository.py -v`
+Expected: PASS (6 passed).
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/automana/core/repositories/content tests/unit/core/repositories/test_article_repository.py
+git commit -m "feat(content): add ArticleRepository with CQS query/command methods"
+```
+
+---
+
+### Task 3: Register the repository in wiring
+
+**Files:**
+- Modify: `src/automana/core/framework/wiring.py`
+
+- [ ] **Step 1: Add the registration line**
+
+Append alongside the other `register_db_repository` calls:
+```python
+ServiceRegistry.register_db_repository(
+    "article",
+    "automana.core.repositories.content.article_repository",
+    "ArticleRepository",
+)
+```
+
+- [ ] **Step 2: Verify it imports/registers**
+
+Run:
+```bash
+python -c "import automana.core.framework.wiring as w; from automana.core.framework.registry import ServiceRegistry; print(ServiceRegistry.get_db_repository('article'))"
+```
+Expected: prints `('automana.core.repositories.content.article_repository', 'ArticleRepository')`.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add src/automana/core/framework/wiring.py
+git commit -m "feat(content): wire ArticleRepository into ServiceRegistry"
+```
+
+---
+
+### Task 4: Pydantic models
+
+**Files:**
+- Create: `src/automana/core/models/content/__init__.py` (empty)
+- Create: `src/automana/core/models/content/article.py`
+
+- [ ] **Step 1: Write the models** (no separate test — exercised by service tests)
+
+```python
+# src/automana/core/models/content/article.py
+from typing import Optional, List
+from datetime import datetime
+from uuid import UUID
+from pydantic import BaseModel, Field
+
+
+class ArticleCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=300)
+    excerpt: str = Field(default="", max_length=500)
+    body_markdown: str = Field(default="")
+    cover_image_url: Optional[str] = None
+    tags: List[str] = Field(default_factory=list)
+
+
+class ArticleUpdate(BaseModel):
+    title: Optional[str] = Field(default=None, min_length=1, max_length=300)
+    excerpt: Optional[str] = Field(default=None, max_length=500)
+    body_markdown: Optional[str] = None
+    cover_image_url: Optional[str] = None
+    tags: Optional[List[str]] = None
+
+
+class Article(BaseModel):
+    article_id: UUID
+    slug: str
+    title: str
+    excerpt: str
+    cover_image_url: Optional[str] = None
+    body_markdown: str
+    status: str
+    tags: List[str]
+    read_minutes: int
+    author_id: Optional[UUID] = None
+    published_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+```
+
+- [ ] **Step 2: Verify import**
+
+Run: `python -c "from automana.core.models.content.article import ArticleCreate, ArticleUpdate, Article; print('ok')"`
+Expected: `ok`
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add src/automana/core/models/content
+git commit -m "feat(content): add article Pydantic models"
+```
+
+---
+
+### Task 5: Article services
+
+**Files:**
+- Create: `src/automana/core/services/content/__init__.py` (empty)
+- Create: `src/automana/core/services/content/article_service.py`
+- Test: `tests/unit/core/services/test_article_service.py`
+
+- [ ] **Step 1: Write the failing tests**
+
+```python
+# tests/unit/core/services/test_article_service.py
+import pytest
+from unittest.mock import AsyncMock, MagicMock
+from uuid import uuid4
+
+pytestmark = pytest.mark.service
+
+from automana.core.services.content import article_service
+from automana.core.models.content.article import ArticleCreate, ArticleUpdate
+
+
+def _repo():
+    repo = MagicMock()
+    repo.list_published = AsyncMock(return_value=[])
+    repo.get_by_slug = AsyncMock(return_value=None)
+    repo.exists_slug = AsyncMock(return_value=False)
+    repo.insert_article = AsyncMock(return_value={"slug": "x"})
+    repo.update_article = AsyncMock(return_value={"slug": "x"})
+    repo.update_publish_status = AsyncMock(return_value={"slug": "x", "status": "published"})
+    repo.delete_article = AsyncMock(return_value=True)
+    repo.get_by_id = AsyncMock(return_value={"article_id": "1"})
+    return repo
+
+
+def test_slugify_and_read_minutes():
+    assert article_service.slugify("Sheoldred Is a Pillar!") == "sheoldred-is-a-pillar"
+    # ~230 wpm, always at least 1
+    assert article_service.estimate_read_minutes("word " * 460) == 2
+    assert article_service.estimate_read_minutes("") == 1
+
+
+async def test_get_public_article_raises_when_unpublished_missing():
+    repo = _repo()
+    repo.get_by_slug = AsyncMock(return_value=None)
+    with pytest.raises(ValueError, match="not found"):
+        await article_service.get_public_article(article_repository=repo, slug="ghost")
+    # public read MUST request published_only=True
+    assert repo.get_by_slug.call_args.kwargs["published_only"] is True
+
+
+async def test_list_public_articles_passes_published_filter():
+    repo = _repo()
+    await article_service.list_public_articles(article_repository=repo, limit=10, offset=0, tag=None)
+    repo.list_published.assert_awaited_once_with(limit=10, offset=0, tag=None)
+
+
+async def test_create_article_generates_unique_slug_and_read_minutes():
+    repo = _repo()
+    repo.exists_slug = AsyncMock(side_effect=[True, False])  # first collides, second free
+    user = MagicMock(); user.unique_id = uuid4()
+    payload = ArticleCreate(title="Hot Take", body_markdown="word " * 230)
+    await article_service.create_article(article_repository=repo, payload=payload, user=user)
+    kwargs = repo.insert_article.call_args.kwargs
+    assert kwargs["slug"] == "hot-take-2"   # de-duplicated
+    assert kwargs["read_minutes"] == 1
+    assert kwargs["author_id"] == user.unique_id
+
+
+async def test_publish_article_raises_for_missing():
+    repo = _repo()
+    repo.update_publish_status = AsyncMock(return_value=None)
+    with pytest.raises(ValueError, match="not found"):
+        await article_service.publish_article(article_repository=repo, article_id=uuid4(), published=True)
+```
+
+- [ ] **Step 2: Run to verify it fails**
+
+Run: `pytest tests/unit/core/services/test_article_service.py -v`
+Expected: FAIL — `ModuleNotFoundError: No module named 'automana.core.services.content'`.
+
+- [ ] **Step 3: Implement the services**
+
+```python
+# src/automana/core/services/content/article_service.py
+import re
+from uuid import UUID
+
+from automana.core.framework.registry import ServiceRegistry
+from automana.core.models.content.article import ArticleCreate, ArticleUpdate
+
+_WORDS_PER_MINUTE = 230
+_ALLOWED_UPDATE_FIELDS = {"title", "excerpt", "body_markdown", "cover_image_url", "tags", "read_minutes"}
+
+
+def slugify(title: str) -> str:
+    s = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
+    return s or "article"
+
+
+def estimate_read_minutes(body_markdown: str) -> int:
+    words = len(body_markdown.split())
+    return max(1, round(words / _WORDS_PER_MINUTE))
+
+
+async def _unique_slug(article_repository, title: str) -> str:
+    base = slugify(title)
+    candidate, n = base, 1
+    while await article_repository.exists_slug(candidate):
+        n += 1
+        candidate = f"{base}-{n}"
+    return candidate
+
+
+@ServiceRegistry.register("content.article.list_public", db_repositories=["article"])
+async def list_public_articles(article_repository, limit: int = 20, offset: int = 0, tag: str | None = None):
+    return await article_repository.list_published(limit=limit, offset=offset, tag=tag)
+
+
+@ServiceRegistry.register("content.article.get_public", db_repositories=["article"])
+async def get_public_article(article_repository, slug: str):
+    article = await article_repository.get_by_slug(slug=slug, published_only=True)
+    if not article:
+        raise ValueError(f"Article not found: {slug}")
+    return article
+
+
+@ServiceRegistry.register("content.article.list_admin", db_repositories=["article"])
+async def list_admin_articles(article_repository, limit: int = 50, offset: int = 0):
+    return await article_repository.list_all(limit=limit, offset=offset)
+
+
+@ServiceRegistry.register("content.article.get_admin", db_repositories=["article"])
+async def get_admin_article(article_repository, article_id: UUID):
+    article = await article_repository.get_by_id(article_id)
+    if not article:
+        raise ValueError(f"Article not found: {article_id}")
+    return article
+
+
+@ServiceRegistry.register("content.article.create", db_repositories=["article"])
+async def create_article(article_repository, payload: ArticleCreate, user):
+    slug = await _unique_slug(article_repository, payload.title)
+    return await article_repository.insert_article(
+        slug=slug,
+        title=payload.title,
+        excerpt=payload.excerpt,
+        cover_image_url=payload.cover_image_url,
+        body_markdown=payload.body_markdown,
+        tags=payload.tags,
+        read_minutes=estimate_read_minutes(payload.body_markdown),
+        author_id=user.unique_id,
+    )
+
+
+@ServiceRegistry.register("content.article.update", db_repositories=["article"])
+async def update_article(article_repository, article_id: UUID, payload: ArticleUpdate):
+    fields = {k: v for k, v in payload.model_dump(exclude_unset=True).items()
+              if k in _ALLOWED_UPDATE_FIELDS}
+    if "body_markdown" in fields:
+        fields["read_minutes"] = estimate_read_minutes(fields["body_markdown"])
+    if not fields:
+        raise ValueError("No updatable fields supplied")
+    updated = await article_repository.update_article(article_id, fields)
+    if not updated:
+        raise ValueError(f"Article not found: {article_id}")
+    return updated
+
+
+@ServiceRegistry.register("content.article.publish", db_repositories=["article"])
+async def publish_article(article_repository, article_id: UUID, published: bool):
+    updated = await article_repository.update_publish_status(article_id, published)
+    if not updated:
+        raise ValueError(f"Article not found: {article_id}")
+    return updated
+
+
+@ServiceRegistry.register("content.article.delete", db_repositories=["article"])
+async def delete_article(article_repository, article_id: UUID):
+    deleted = await article_repository.delete_article(article_id)
+    if not deleted:
+        raise ValueError(f"Article not found: {article_id}")
+    return {"deleted": True, "article_id": str(article_id)}
+```
+
+> Note: `create_article`'s test expects `slug == "hot-take-2"` after one collision — `_unique_slug` increments starting at `-2`. The mock returns `[True, False]`, so base `hot-take` collides, `hot-take-2` is free. ✔
+
+- [ ] **Step 4: Run to verify it passes**
+
+Run: `pytest tests/unit/core/services/test_article_service.py -v`
+Expected: PASS (6 passed).
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/automana/core/services/content tests/unit/core/services/test_article_service.py
+git commit -m "feat(content): add article services (public reads filter published)"
+```
+
+---
+
+### Task 6: Router + app registration
+
+**Files:**
+- Create: `src/automana/api/routers/content/__init__.py`
+- Create: `src/automana/api/routers/content/articles.py`
+- Modify: `src/automana/api/__init__.py`
+
+- [ ] **Step 1: Write the articles router**
+
+```python
+# src/automana/api/routers/content/articles.py
+from uuid import UUID
+from fastapi import APIRouter, Depends, status, Query
+
+from automana.api.dependancies.service_deps import ServiceManagerDep
+from automana.api.dependancies.auth.users import CurrentUserDep, get_current_active_user
+from automana.api.schemas.StandardisedQueryResponse import ApiResponse
+from automana.core.models.content.article import ArticleCreate, ArticleUpdate
+
+# ── Public router (no auth) ──────────────────────────────────────────────
+public_router = APIRouter(prefix="/articles", tags=["Articles"])
+
+
+@public_router.get("/", summary="List published articles", response_model=ApiResponse,
+                   operation_id="articles_list_public")
+async def list_articles(
+    service_manager: ServiceManagerDep,
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    tag: str | None = Query(None),
+) -> ApiResponse:
+    result = await service_manager.execute_service(
+        "content.article.list_public", limit=limit, offset=offset, tag=tag
+    )
+    return ApiResponse(data=result)
+
+
+@public_router.get("/{slug}", summary="Get a published article by slug",
+                   response_model=ApiResponse, operation_id="articles_get_public")
+async def get_article(slug: str, service_manager: ServiceManagerDep) -> ApiResponse:
+    result = await service_manager.execute_service("content.article.get_public", slug=slug)
+    return ApiResponse(data=result)
+
+
+# ── Admin router (auth-guarded) ──────────────────────────────────────────
+admin_router = APIRouter(
+    prefix="/articles/admin",
+    tags=["Articles (admin)"],
+    dependencies=[Depends(get_current_active_user)],
+)
+
+
+@admin_router.get("/", summary="List all articles (draft + published)",
+                  response_model=ApiResponse, operation_id="articles_list_admin")
+async def list_admin(
+    service_manager: ServiceManagerDep, current_user: CurrentUserDep,
+    limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0),
+) -> ApiResponse:
+    result = await service_manager.execute_service(
+        "content.article.list_admin", limit=limit, offset=offset
+    )
+    return ApiResponse(data=result)
+
+
+@admin_router.get("/{article_id}", summary="Get any article by id",
+                  response_model=ApiResponse, operation_id="articles_get_admin")
+async def get_admin(article_id: UUID, service_manager: ServiceManagerDep,
+                    current_user: CurrentUserDep) -> ApiResponse:
+    result = await service_manager.execute_service("content.article.get_admin", article_id=article_id)
+    return ApiResponse(data=result)
+
+
+@admin_router.post("/", summary="Create an article", response_model=ApiResponse,
+                   status_code=status.HTTP_201_CREATED, operation_id="articles_create")
+async def create(payload: ArticleCreate, service_manager: ServiceManagerDep,
+                 current_user: CurrentUserDep) -> ApiResponse:
+    result = await service_manager.execute_service(
+        "content.article.create", payload=payload, user=current_user
+    )
+    return ApiResponse(data=result)
+
+
+@admin_router.patch("/{article_id}", summary="Update an article", response_model=ApiResponse,
+                    operation_id="articles_update")
+async def update(article_id: UUID, payload: ArticleUpdate, service_manager: ServiceManagerDep,
+                 current_user: CurrentUserDep) -> ApiResponse:
+    result = await service_manager.execute_service(
+        "content.article.update", article_id=article_id, payload=payload
+    )
+    return ApiResponse(data=result)
+
+
+@admin_router.post("/{article_id}/publish", summary="Publish/unpublish an article",
+                   response_model=ApiResponse, operation_id="articles_publish")
+async def publish(article_id: UUID, service_manager: ServiceManagerDep,
+                  current_user: CurrentUserDep, published: bool = Query(True)) -> ApiResponse:
+    result = await service_manager.execute_service(
+        "content.article.publish", article_id=article_id, published=published
+    )
+    return ApiResponse(data=result)
+
+
+@admin_router.delete("/{article_id}", summary="Delete an article", response_model=ApiResponse,
+                     operation_id="articles_delete")
+async def delete(article_id: UUID, service_manager: ServiceManagerDep,
+                 current_user: CurrentUserDep) -> ApiResponse:
+    result = await service_manager.execute_service("content.article.delete", article_id=article_id)
+    return ApiResponse(data=result)
+```
+
+> Route order matters: `admin_router` has prefix `/articles/admin`; `public_router` has `/articles` with a `/{slug}` catch. Mount **admin first** so `/articles/admin/...` is matched before `/{slug}` (see Step 2).
+
+- [ ] **Step 2: Write the content router package init**
+
+```python
+# src/automana/api/routers/content/__init__.py
+from fastapi import APIRouter
+from automana.api.routers.content.articles import public_router, admin_router
+
+content_router = APIRouter(prefix="/content")
+content_router.include_router(admin_router)   # mount admin BEFORE public so /articles/admin wins over /{slug}
+content_router.include_router(public_router)
+```
+
+- [ ] **Step 3: Register in the app**
+
+In `src/automana/api/__init__.py`, add the import and include:
+```python
+from automana.api.routers.content import content_router
+# ...
+api_router.include_router(content_router)
+```
+
+- [ ] **Step 4: Verify the app boots and routes are registered**
+
+Run:
+```bash
+python -c "
+import automana.core.framework.wiring
+from automana.api import api_router
+paths = [r.path for r in api_router.routes]
+assert any('/content/articles' in p for p in paths), paths
+print('routes ok:', [p for p in paths if 'content' in p])
+"
+```
+Expected: prints the `/api/content/articles*` paths including `/content/articles/admin/{article_id}/publish`.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/automana/api/routers/content src/automana/api/__init__.py
+git commit -m "feat(content): add public + admin articles router"
+```
+
+---
+
+### Task 7: Backend integration smoke (optional but recommended)
+
+**Files:**
+- Test: `tests/integration/api/test_articles_api.py`
+
+- [ ] **Step 1: Write an integration test asserting draft articles never leak publicly**
+
+```python
+# tests/integration/api/test_articles_api.py
+import pytest
+from datetime import timedelta
+
+pytestmark = [pytest.mark.integration, pytest.mark.api]
+
+
+@pytest.mark.asyncio
+async def test_public_list_excludes_drafts(client, auth_headers):
+    # create (draft) via admin
+    create = await client.post("/api/content/articles/admin/",
+                               headers=auth_headers,
+                               json={"title": "Draft Piece", "body_markdown": "hello"})
+    assert create.status_code == 201
+    # public list should not contain the draft
+    pub = await client.get("/api/content/articles/")
+    assert pub.status_code == 200
+    slugs = [a["slug"] for a in pub.json()["data"]]
+    assert "draft-piece" not in slugs
+
+
+@pytest.mark.asyncio
+async def test_public_get_draft_returns_404(client, auth_headers):
+    await client.post("/api/content/articles/admin/", headers=auth_headers,
+                      json={"title": "Secret", "body_markdown": "x"})
+    resp = await client.get("/api/content/articles/secret")
+    assert resp.status_code in (404, 500)  # service raises ValueError -> mapped error
+```
+
+> Reuses the existing `client` and `auth_headers` fixtures (see `tests/integration/api/test_collection_entries_pagination.py`). If your error handler maps `ValueError` to 404, tighten the second assertion to `== 404`.
+
+- [ ] **Step 2: Run (requires Docker DB)**
+
+Run: `pytest tests/integration/api/test_articles_api.py -m integration -v`
+Expected: PASS (or skip if integration DB unavailable — note that and move on).
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add tests/integration/api/test_articles_api.py
+git commit -m "test(content): integration smoke — drafts never leak to public endpoints"
+```
+
+---
+
+# PHASE 2 — FRONTEND
+
+(run all commands from `src/frontend`)
+
+### Task 8: Add Markdown dependencies
+
+**Files:**
+- Modify: `src/frontend/package.json` (+ lockfile)
+
+- [ ] **Step 1: Install**
+
+Run: `cd src/frontend && npm install react-markdown remark-gfm rehype-sanitize`
+Expected: dependencies added, `package-lock.json` updated, no peer-dep errors.
+
+- [ ] **Step 2: Commit**
+
+```bash
+git add src/frontend/package.json src/frontend/package-lock.json
+git commit -m "build(frontend): add react-markdown, remark-gfm, rehype-sanitize"
+```
+
+---
+
+### Task 9: Types + API client
+
+**Files:**
+- Create: `src/frontend/src/features/articles/types.ts`
+- Create: `src/frontend/src/features/articles/api.ts`
+- Test: `src/frontend/src/features/articles/__tests__/api.test.ts`
+
+- [ ] **Step 1: Write types**
+
+```typescript
+// src/frontend/src/features/articles/types.ts
+export interface ArticleSummary {
+  article_id: string
+  slug: string
+  title: string
+  excerpt: string
+  cover_image_url: string | null
+  status: 'draft' | 'published'
+  tags: string[]
+  read_minutes: number
+  published_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface Article extends ArticleSummary {
+  body_markdown: string
+  author_id: string | null
+}
+
+export interface ArticleCreate {
+  title: string
+  excerpt?: string
+  body_markdown?: string
+  cover_image_url?: string | null
+  tags?: string[]
+}
+
+export type ArticleUpdate = Partial<ArticleCreate>
+```
+
+- [ ] **Step 2: Write the failing API test**
+
+```typescript
+// src/frontend/src/features/articles/__tests__/api.test.ts
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import * as client from '../../../lib/apiClient'
+import { listPublicArticles, getPublicArticle, createArticle } from '../api'
+
+describe('articles api', () => {
+  beforeEach(() => vi.restoreAllMocks())
+
+  it('listPublicArticles calls the public list endpoint', async () => {
+    const spy = vi.spyOn(client, 'apiClient').mockResolvedValue([])
+    await listPublicArticles({ tag: 'spec' })
+    expect(spy).toHaveBeenCalledWith('/content/articles/?tag=spec')
+  })
+
+  it('getPublicArticle fetches by slug', async () => {
+    const spy = vi.spyOn(client, 'apiClient').mockResolvedValue({ slug: 'x' })
+    await getPublicArticle('x')
+    expect(spy).toHaveBeenCalledWith('/content/articles/x')
+  })
+
+  it('createArticle POSTs to the admin endpoint', async () => {
+    const spy = vi.spyOn(client, 'apiClient').mockResolvedValue({ slug: 'x' })
+    await createArticle({ title: 'Hi' })
+    expect(spy).toHaveBeenCalledWith('/content/articles/admin/', {
+      method: 'POST',
+      body: JSON.stringify({ title: 'Hi' }),
+    })
+  })
+})
+```
+
+- [ ] **Step 3: Run to verify it fails**
+
+Run: `npm test -- articles/__tests__/api.test.ts`
+Expected: FAIL — cannot resolve `../api`.
+
+- [ ] **Step 4: Write the API module**
+
+```typescript
+// src/frontend/src/features/articles/api.ts
+import { queryOptions } from '@tanstack/react-query'
+import { apiClient } from '../../lib/apiClient'
+import type { Article, ArticleSummary, ArticleCreate, ArticleUpdate } from './types'
+
+export async function listPublicArticles(params: { tag?: string } = {}): Promise<ArticleSummary[]> {
+  const qs = new URLSearchParams()
+  if (params.tag) qs.set('tag', params.tag)
+  const suffix = qs.toString() ? `?${qs}` : ''
+  return apiClient<ArticleSummary[]>(`/content/articles/${suffix}`)
+}
+
+export async function getPublicArticle(slug: string): Promise<Article> {
+  return apiClient<Article>(`/content/articles/${slug}`)
+}
+
+export async function listAdminArticles(): Promise<ArticleSummary[]> {
+  return apiClient<ArticleSummary[]>('/content/articles/admin/')
+}
+
+export async function getAdminArticle(id: string): Promise<Article> {
+  return apiClient<Article>(`/content/articles/admin/${id}`)
+}
+
+export async function createArticle(payload: ArticleCreate): Promise<Article> {
+  return apiClient<Article>('/content/articles/admin/', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function updateArticle(id: string, payload: ArticleUpdate): Promise<Article> {
+  return apiClient<Article>(`/content/articles/admin/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function publishArticle(id: string, published: boolean): Promise<Article> {
+  return apiClient<Article>(`/content/articles/admin/${id}/publish?published=${published}`, {
+    method: 'POST',
+  })
+}
+
+export function publicArticlesQueryOptions(tag?: string) {
+  return queryOptions({
+    queryKey: ['articles', 'public', tag ?? null],
+    queryFn: () => listPublicArticles({ tag }),
+  })
+}
+
+export function publicArticleQueryOptions(slug: string) {
+  return queryOptions({
+    queryKey: ['articles', 'public', 'detail', slug],
+    queryFn: () => getPublicArticle(slug),
+  })
+}
+```
+
+- [ ] **Step 5: Run to verify it passes**
+
+Run: `npm test -- articles/__tests__/api.test.ts`
+Expected: PASS (3 passed).
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add src/frontend/src/features/articles/types.ts src/frontend/src/features/articles/api.ts src/frontend/src/features/articles/__tests__/api.test.ts
+git commit -m "feat(frontend): articles api client + types"
+```
+
+---
+
+### Task 10: MarkdownView component (sanitized)
+
+**Files:**
+- Create: `src/frontend/src/features/articles/components/MarkdownView.tsx`
+- Test: `src/frontend/src/features/articles/components/__tests__/MarkdownView.test.tsx`
+
+- [ ] **Step 1: Write the failing test**
+
+```typescript
+// src/frontend/src/features/articles/components/__tests__/MarkdownView.test.tsx
+import { render, screen } from '@testing-library/react'
+import { describe, it, expect } from 'vitest'
+import { MarkdownView } from '../MarkdownView'
+
+describe('MarkdownView', () => {
+  it('renders headings and paragraphs from markdown', () => {
+    render(<MarkdownView markdown={'# Title\n\nSome **bold** text.'} />)
+    expect(screen.getByRole('heading', { name: 'Title' })).toBeInTheDocument()
+    expect(screen.getByText(/bold/)).toBeInTheDocument()
+  })
+
+  it('does not render raw HTML script tags', () => {
+    const { container } = render(<MarkdownView markdown={'<script>alert(1)</script>hello'} />)
+    expect(container.querySelector('script')).toBeNull()
+  })
+})
+```
+
+- [ ] **Step 2: Run to verify it fails**
+
+Run: `npm test -- MarkdownView`
+Expected: FAIL — cannot resolve `../MarkdownView`.
+
+- [ ] **Step 3: Write the component**
+
+```typescript
+// src/frontend/src/features/articles/components/MarkdownView.tsx
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import rehypeSanitize from 'rehype-sanitize'
+
+interface MarkdownViewProps {
+  markdown: string
+}
+
+export function MarkdownView({ markdown }: MarkdownViewProps) {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      rehypePlugins={[rehypeSanitize]}
+    >
+      {markdown}
+    </ReactMarkdown>
+  )
+}
+```
+
+- [ ] **Step 4: Run to verify it passes**
+
+Run: `npm test -- MarkdownView`
+Expected: PASS (2 passed).
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/frontend/src/features/articles/components/MarkdownView.tsx src/frontend/src/features/articles/components/__tests__/MarkdownView.test.tsx
+git commit -m "feat(frontend): sanitized MarkdownView component"
+```
+
+---
+
+### Task 11: ArticleGrid + public hub route `/analysis`
+
+**Files:**
+- Create: `src/frontend/src/features/articles/components/ArticleGrid.tsx` (+ `ArticleGrid.module.css`)
+- Create: `src/frontend/src/routes/analysis.tsx`
+- Create: `src/frontend/src/routes/analysis.module.css`
+
+- [ ] **Step 1: Write the ArticleGrid component**
+
+```typescript
+// src/frontend/src/features/articles/components/ArticleGrid.tsx
+import { Link } from '@tanstack/react-router'
+import type { ArticleSummary } from '../types'
+import styles from './ArticleGrid.module.css'
+
+// Deterministic gradient placeholder cover until cover_image_url lands.
+function gradientFor(seed: string): string {
+  let h = 0
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) % 360
+  return `linear-gradient(135deg, hsl(${h} 45% 22%), hsl(${(h + 40) % 360} 55% 12%))`
+}
+
+export function ArticleGrid({ articles }: { articles: ArticleSummary[] }) {
+  if (articles.length === 0) {
+    return <p className={styles.empty}>No articles published yet.</p>
+  }
+  return (
+    <div className={styles.grid}>
+      {articles.map((a) => (
+        <Link key={a.article_id} to="/analysis/$slug" params={{ slug: a.slug }} className={styles.card}>
+          <div
+            className={styles.cover}
+            style={a.cover_image_url
+              ? { backgroundImage: `url(${a.cover_image_url})` }
+              : { backgroundImage: gradientFor(a.slug) }}
+          />
+          <div className={styles.body}>
+            {a.tags[0] && <span className={styles.tag}>{a.tags[0]}</span>}
+            <h3 className={styles.title}>{a.title}</h3>
+            <p className={styles.excerpt}>{a.excerpt}</p>
+            <div className={styles.meta}>
+              {a.published_at ? new Date(a.published_at).toLocaleDateString() : 'Draft'} · {a.read_minutes} min
+            </div>
+          </div>
+        </Link>
+      ))}
+    </div>
+  )
+}
+```
+
+```css
+/* src/frontend/src/features/articles/components/ArticleGrid.module.css */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+.card { display: flex; flex-direction: column; border: 1px solid var(--hd-border, #2a2a2a); border-radius: 10px; overflow: hidden; text-decoration: none; color: inherit; transition: transform .12s ease; }
+.card:hover { transform: translateY(-2px); }
+.cover { height: 140px; background-size: cover; background-position: center; }
+.body { padding: 14px 16px; }
+.tag { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--hd-accent, #b8860b); }
+.title { font-size: 18px; margin: 6px 0; line-height: 1.2; }
+.excerpt { font-size: 13px; color: var(--hd-muted, #999); line-height: 1.5; margin: 0 0 10px; }
+.meta { font-size: 12px; color: var(--hd-muted, #777); }
+.empty { color: var(--hd-muted, #999); padding: 40px 0; text-align: center; }
+```
+
+- [ ] **Step 2: Write the hub route**
+
+```typescript
+// src/frontend/src/routes/analysis.tsx
+import { createFileRoute } from '@tanstack/react-router'
+import { useSuspenseQuery } from '@tanstack/react-query'
+import { AppShell } from '../components/layout/AppShell'
+import { TopBar } from '../components/layout/TopBar'
+import { publicArticlesQueryOptions } from '../features/articles/api'
+import { ArticleGrid } from '../features/articles/components/ArticleGrid'
+import styles from './analysis.module.css'
+
+export const Route = createFileRoute('/analysis')({
+  loader: ({ context: { queryClient } }) =>
+    queryClient.ensureQueryData(publicArticlesQueryOptions()),
+  component: AnalysisHubPage,
+})
+
+function AnalysisHubPage() {
+  const { data: articles } = useSuspenseQuery(publicArticlesQueryOptions())
+  return (
+    <AppShell active="analysis">
+      <TopBar title="Analysis" />
+      <div className={styles.page}>
+        <p className={styles.lede}>Market reads, specs, and arbitrage notes.</p>
+        <ArticleGrid articles={articles} />
+      </div>
+    </AppShell>
+  )
+}
+```
+
+```css
+/* src/frontend/src/routes/analysis.module.css */
+.page { max-width: 1100px; margin: 0 auto; padding: 24px 20px 60px; }
+.lede { color: var(--hd-muted, #999); margin-bottom: 24px; }
+/* Reading view */
+.reading { max-width: 680px; margin: 0 auto; padding: 32px 20px 80px; line-height: 1.7; }
+.kicker { text-transform: uppercase; letter-spacing: .12em; font-size: 12px; color: var(--hd-accent, #b8860b); }
+.readTitle { font-size: 34px; line-height: 1.15; margin: 8px 0; }
+.readMeta { color: var(--hd-muted, #888); font-size: 14px; margin-bottom: 28px; }
+```
+
+- [ ] **Step 3: Verify it builds/types**
+
+Run: `npm run build` (or `npx tsc --noEmit`)
+Expected: no TypeScript errors. (TanStack route tree regenerates on dev/build.)
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add src/frontend/src/features/articles/components/ArticleGrid.tsx src/frontend/src/features/articles/components/ArticleGrid.module.css src/frontend/src/routes/analysis.tsx src/frontend/src/routes/analysis.module.css
+git commit -m "feat(frontend): public /analysis hub with magazine grid"
+```
+
+---
+
+### Task 12: Reading view route `/analysis/$slug`
+
+**Files:**
+- Create: `src/frontend/src/routes/analysis.$slug.tsx`
+
+- [ ] **Step 1: Write the reading route**
+
+```typescript
+// src/frontend/src/routes/analysis.$slug.tsx
+import { createFileRoute, Link } from '@tanstack/react-router'
+import { useSuspenseQuery } from '@tanstack/react-query'
+import { AppShell } from '../components/layout/AppShell'
+import { TopBar } from '../components/layout/TopBar'
+import { publicArticleQueryOptions } from '../features/articles/api'
+import { MarkdownView } from '../features/articles/components/MarkdownView'
+import styles from './analysis.module.css'
+
+export const Route = createFileRoute('/analysis/$slug')({
+  loader: ({ params, context: { queryClient } }) =>
+    queryClient.ensureQueryData(publicArticleQueryOptions(params.slug)),
+  component: ArticleReadingPage,
+})
+
+function ArticleReadingPage() {
+  const { slug } = Route.useParams()
+  const { data: article } = useSuspenseQuery(publicArticleQueryOptions(slug))
+  return (
+    <AppShell active="analysis">
+      <TopBar title="Analysis" />
+      <article className={styles.reading}>
+        {article.tags[0] && <div className={styles.kicker}>{article.tags[0]}</div>}
+        <h1 className={styles.readTitle}>{article.title}</h1>
+        <div className={styles.readMeta}>
+          {article.published_at ? new Date(article.published_at).toLocaleDateString() : 'Draft'} · {article.read_minutes} min read
+        </div>
+        <MarkdownView markdown={article.body_markdown} />
+        <p style={{ marginTop: 40 }}><Link to="/analysis">← All analysis</Link></p>
+      </article>
+    </AppShell>
+  )
+}
+```
+
+- [ ] **Step 2: Verify build**
+
+Run: `npx tsc --noEmit`
+Expected: no errors.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add src/frontend/src/routes/analysis.\$slug.tsx
+git commit -m "feat(frontend): centered article reading view"
+```
+
+---
+
+### Task 13: Admin list + Markdown editor routes
+
+**Files:**
+- Create: `src/frontend/src/features/articles/components/ArticleEditor.tsx` (+ `.module.css`)
+- Create: `src/frontend/src/routes/analysis.admin.tsx`
+- Create: `src/frontend/src/routes/analysis.admin.$id.tsx`
+
+- [ ] **Step 1: Write the editor component (textarea + live preview)**
+
+```typescript
+// src/frontend/src/features/articles/components/ArticleEditor.tsx
+import { useState } from 'react'
+import { MarkdownView } from './MarkdownView'
+import type { Article, ArticleCreate } from '../types'
+import styles from './ArticleEditor.module.css'
+
+interface ArticleEditorProps {
+  initial?: Article
+  onSave: (payload: ArticleCreate) => void
+  saving?: boolean
+}
+
+export function ArticleEditor({ initial, onSave, saving }: ArticleEditorProps) {
+  const [title, setTitle] = useState(initial?.title ?? '')
+  const [excerpt, setExcerpt] = useState(initial?.excerpt ?? '')
+  const [tags, setTags] = useState((initial?.tags ?? []).join(', '))
+  const [body, setBody] = useState(initial?.body_markdown ?? '')
+
+  return (
+    <div className={styles.editor}>
+      <div className={styles.fields}>
+        <input className={styles.input} placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
+        <input className={styles.input} placeholder="Excerpt" value={excerpt} onChange={(e) => setExcerpt(e.target.value)} />
+        <input className={styles.input} placeholder="Tags (comma-separated)" value={tags} onChange={(e) => setTags(e.target.value)} />
+      </div>
+      <div className={styles.split}>
+        <textarea className={styles.textarea} value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write Markdown…" />
+        <div className={styles.preview}><MarkdownView markdown={body} /></div>
+      </div>
+      <button
+        className={styles.save}
+        disabled={saving || !title.trim()}
+        onClick={() => onSave({
+          title, excerpt, body_markdown: body,
+          tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
+        })}
+      >
+        {saving ? 'Saving…' : 'Save'}
+      </button>
+    </div>
+  )
+}
+```
+
+```css
+/* src/frontend/src/features/articles/components/ArticleEditor.module.css */
+.editor { max-width: 1100px; margin: 0 auto; padding: 20px; }
+.fields { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+.input { padding: 10px 12px; border: 1px solid var(--hd-border, #2a2a2a); border-radius: 6px; background: transparent; color: inherit; font-size: 15px; }
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; height: 60vh; }
+.textarea { width: 100%; height: 100%; resize: none; padding: 14px; border: 1px solid var(--hd-border, #2a2a2a); border-radius: 6px; background: transparent; color: inherit; font-family: var(--hd-mono, monospace); font-size: 14px; line-height: 1.6; }
+.preview { overflow-y: auto; padding: 14px; border: 1px solid var(--hd-border, #2a2a2a); border-radius: 6px; line-height: 1.7; }
+.save { margin-top: 14px; padding: 10px 22px; border: none; border-radius: 6px; background: var(--hd-accent, #b8860b); color: #111; font-weight: 600; cursor: pointer; }
+.save:disabled { opacity: .5; cursor: not-allowed; }
+```
+
+- [ ] **Step 2: Write the admin list route**
+
+```typescript
+// src/frontend/src/routes/analysis.admin.tsx
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { AppShell } from '../components/layout/AppShell'
+import { TopBar } from '../components/layout/TopBar'
+import { listAdminArticles, createArticle, publishArticle } from '../features/articles/api'
+import styles from './analysis.module.css'
+
+export const Route = createFileRoute('/analysis/admin')({
+  component: AdminListPage,
+})
+
+function AdminListPage() {
+  const navigate = useNavigate()
+  const qc = useQueryClient()
+  const { data: articles = [] } = useQuery({ queryKey: ['articles', 'admin'], queryFn: listAdminArticles })
+  const create = useMutation({
+    mutationFn: () => createArticle({ title: 'Untitled draft' }),
+    onSuccess: (a) => navigate({ to: '/analysis/admin/$id', params: { id: a.article_id } }),
+  })
+  const publish = useMutation({
+    mutationFn: ({ id, published }: { id: string; published: boolean }) => publishArticle(id, published),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['articles'] }),
+  })
+  return (
+    <AppShell active="analysis">
+      <TopBar title="Analysis — Admin" />
+      <div className={styles.page}>
+        <button className={styles.lede} onClick={() => create.mutate()}>+ New article</button>
+        <ul>
+          {articles.map((a) => (
+            <li key={a.article_id} style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '8px 0' }}>
+              <Link to="/analysis/admin/$id" params={{ id: a.article_id }}>{a.title}</Link>
+              <span style={{ fontSize: 12, color: '#888' }}>{a.status}</span>
+              <button onClick={() => publish.mutate({ id: a.article_id, published: a.status !== 'published' })}>
+                {a.status === 'published' ? 'Unpublish' : 'Publish'}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </AppShell>
+  )
+}
+```
+
+- [ ] **Step 3: Write the editor route**
+
+```typescript
+// src/frontend/src/routes/analysis.admin.$id.tsx
+import { createFileRoute } from '@tanstack/react-router'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { AppShell } from '../components/layout/AppShell'
+import { TopBar } from '../components/layout/TopBar'
+import { getAdminArticle, updateArticle } from '../features/articles/api'
+import { ArticleEditor } from '../features/articles/components/ArticleEditor'
+
+export const Route = createFileRoute('/analysis/admin/$id')({
+  component: EditorPage,
+})
+
+function EditorPage() {
+  const { id } = Route.useParams()
+  const qc = useQueryClient()
+  const { data: article } = useQuery({ queryKey: ['articles', 'admin', id], queryFn: () => getAdminArticle(id) })
+  const save = useMutation({
+    mutationFn: (payload: Parameters<typeof updateArticle>[1]) => updateArticle(id, payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['articles'] }),
+  })
+  return (
+    <AppShell active="analysis">
+      <TopBar title="Edit article" />
+      {article && <ArticleEditor initial={article} saving={save.isPending} onSave={(p) => save.mutate(p)} />}
+    </AppShell>
+  )
+}
+```
+
+- [ ] **Step 4: Verify build**
+
+Run: `npx tsc --noEmit`
+Expected: no errors.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/frontend/src/features/articles/components/ArticleEditor.tsx src/frontend/src/features/articles/components/ArticleEditor.module.css "src/frontend/src/routes/analysis.admin.tsx" "src/frontend/src/routes/analysis.admin.\$id.tsx"
+git commit -m "feat(frontend): admin article list + markdown editor with live preview"
+```
+
+---
+
+### Task 14: Public carve-out + nav + MSW handlers
+
+**Files:**
+- Modify: `src/frontend/src/routes/__root.tsx`
+- Modify: `src/frontend/src/components/layout/Sidebar.tsx`
+- Modify: `src/frontend/src/mocks/handlers.ts`
+
+- [ ] **Step 1: Carve out `/analysis` as public (but keep `/analysis/admin` guarded)**
+
+In `__root.tsx`, update the unauthenticated branch in `beforeLoad`:
+```typescript
+if (!token) {
+  const isAnalysisPublic =
+    (pathname === '/analysis' || pathname.startsWith('/analysis/')) &&
+    !pathname.startsWith('/analysis/admin')
+  const isPublicPath =
+    PUBLIC_PATHS.includes(pathname) || pathname.startsWith('/cards/') || isAnalysisPublic
+  if (isPublicPath) return
+  if (pathname === '/') throw redirect({ to: '/search' })
+  throw redirect({ to: '/login' })
+}
+```
+
+- [ ] **Step 2: Add the Analysis nav item**
+
+In `Sidebar.tsx`, add to `NAV_ITEMS` (use an existing valid `IconKind`; if no `analysis` icon exists, use `'cards'` or `'tag'` — confirm against `design-system/Icon`):
+```typescript
+{ kind: 'tag', label: 'Analysis', id: 'analysis' },
+```
+The sidebar navigates to `/${id}` → `/analysis`. ✔
+
+- [ ] **Step 3: Add MSW handlers**
+
+In `src/frontend/src/mocks/handlers.ts`, add to the `handlers` array:
+```typescript
+http.get('/api/content/articles/', () =>
+  HttpResponse.json({ success: true, data: [
+    { article_id: '1', slug: 'sheoldred-pillar', title: 'Sheoldred Is a Pillar',
+      excerpt: 'Demand outruns supply.', cover_image_url: null, status: 'published',
+      tags: ['Standard'], read_minutes: 6, published_at: '2026-05-31T00:00:00Z',
+      created_at: '2026-05-31T00:00:00Z', updated_at: '2026-05-31T00:00:00Z' },
+  ] })
+),
+http.get('/api/content/articles/:slug', ({ params }) =>
+  HttpResponse.json({ success: true, data: {
+    article_id: '1', slug: params.slug, title: 'Sheoldred Is a Pillar', excerpt: 'Demand outruns supply.',
+    cover_image_url: null, status: 'published', tags: ['Standard'], read_minutes: 6,
+    body_markdown: '# Heading\n\nBody text.', author_id: null,
+    published_at: '2026-05-31T00:00:00Z', created_at: '2026-05-31T00:00:00Z', updated_at: '2026-05-31T00:00:00Z',
+  } })
+),
+```
+
+- [ ] **Step 4: Run the full frontend test suite**
+
+Run: `cd src/frontend && npm test`
+Expected: all tests pass (existing + the new api/MarkdownView tests).
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/frontend/src/routes/__root.tsx src/frontend/src/components/layout/Sidebar.tsx src/frontend/src/mocks/handlers.ts
+git commit -m "feat(frontend): public /analysis carve-out, nav item, MSW handlers"
+```
+
+---
+
+### Task 15: Manual end-to-end verification
+
+- [ ] **Step 1: Start the stack and verify the flow**
+
+Run the dev stack (per CLAUDE.md), then:
+1. Log in → sidebar shows **Analysis** → `/analysis/admin` → **+ New article** → editor opens.
+2. Write Markdown, watch the live preview update, **Save**, then **Publish**.
+3. Log out (or open an incognito window) → visit `/analysis` → the published article appears in the grid → click it → centered reading view renders the Markdown.
+4. Confirm a **draft** article does NOT appear at `/analysis` and `/analysis/<draft-slug>` is not readable while logged out.
+5. Confirm `/analysis/admin` redirects to `/login` when logged out.
+
+- [ ] **Step 2: Final commit (if any cleanup)**
+
+```bash
+git add -A && git commit -m "chore(content): analysis articles feature polish" || echo "nothing to commit"
+```
+
+---
+
+## Self-Review (completed)
+
+- **Spec coverage:** hub grid (Task 11), reading view (Task 12), editor + DB persistence (Tasks 1–6, 13), public/SEO-later (public routes, no SSR), embed-ready (raw Markdown body), draft-leak guard (service `published_only=True` + Task 7 test), editorial guidance (lives in the spec doc, not code). ✔
+- **Placeholders:** none — every code/test step is complete. The one judgment call (Icon `kind`) is flagged with a concrete fallback.
+- **Type/name consistency:** repo methods (`list_published`, `get_by_slug`, `insert_article`, `update_publish_status`) match service calls and tests; service paths (`content.article.*`) match router `execute_service` calls; frontend `apiClient` paths (`/content/articles/...`) match backend router prefixes (`/api` + `/content` + `/articles`); route ids (`analysis`) match Sidebar nav id and `AppShell active`.
+- **Known follow-ups (out of v1 scope):** cover-image upload, live data embeds, SEO prerender, error-handler mapping of service `ValueError` → HTTP 404 (verify the existing global handler; tighten Task 7 assertion accordingly).
