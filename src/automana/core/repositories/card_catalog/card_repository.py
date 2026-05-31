@@ -259,7 +259,7 @@ class CardReferenceRepository(AbstractRepository[Any]):
             LEFT JOIN card_catalog.card_external_identifier cei
                    ON  cei.card_version_id        = cv.card_version_id
                    AND cei.card_identifier_ref_id = $2
-            WHERE  s.set_code = UPPER($1)
+            WHERE  s.set_code = LOWER($1)
         """
         rows = await self.execute_query(sql, (set_code, tcgplayer_ref_id))
         result: dict[str, list[dict]] = {}
