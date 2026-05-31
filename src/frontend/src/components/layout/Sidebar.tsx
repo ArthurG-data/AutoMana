@@ -13,6 +13,7 @@ const NAV_ITEMS: NavItem[] = [
   { kind: 'search',   label: 'Search',     id: 'search'     },
   { kind: 'wallet',   label: 'Portfolio',  id: 'portfolio'  },
   { kind: 'cards',    label: 'Collection', id: 'collection' },
+  { kind: 'chart',    label: 'Analysis',   id: 'analysis'   },
   { kind: 'bag',      label: 'Listings',   id: 'listings'   },
   { kind: 'tag',      label: 'eBay',       id: 'ebay'       },
 ]

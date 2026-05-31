@@ -62,6 +62,24 @@ export const handlers = [
   }),
 
 
+  // ── Analysis articles ────────────────────────────────────────────────────
+  http.get('/api/content/articles/', () =>
+    HttpResponse.json({ success: true, data: [
+      { article_id: '1', slug: 'sheoldred-pillar', title: 'Sheoldred Is a Pillar',
+        excerpt: 'Demand outruns supply.', cover_image_url: null, status: 'published',
+        tags: ['Standard'], read_minutes: 6, published_at: '2026-05-31T00:00:00Z',
+        created_at: '2026-05-31T00:00:00Z', updated_at: '2026-05-31T00:00:00Z' },
+    ] })
+  ),
+  http.get('/api/content/articles/:slug', ({ params }) =>
+    HttpResponse.json({ success: true, data: {
+      article_id: '1', slug: params.slug, title: 'Sheoldred Is a Pillar', excerpt: 'Demand outruns supply.',
+      cover_image_url: null, status: 'published', tags: ['Standard'], read_minutes: 6,
+      body_markdown: '# Heading\n\nBody text.', author_id: null,
+      published_at: '2026-05-31T00:00:00Z', created_at: '2026-05-31T00:00:00Z', updated_at: '2026-05-31T00:00:00Z',
+    } })
+  ),
+
   http.get('/api/catalog/mtg/card-reference/', () => passthrough()),
   http.get('/api/catalog/mtg/card-reference/suggest', () => passthrough()),
   http.get('/api/catalog/mtg/card-reference/stats', () => passthrough()),

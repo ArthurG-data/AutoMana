@@ -15,6 +15,7 @@ import { Route as PortfolioRouteImport } from './routes/portfolio'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ListingsRouteImport } from './routes/listings'
 import { Route as CollectionRouteImport } from './routes/collection'
+import { Route as AnalysisRouteImport } from './routes/analysis'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as EbayIndexRouteImport } from './routes/ebay/index'
 import { Route as ListingsNewRouteImport } from './routes/listings_.new'
@@ -24,6 +25,9 @@ import { Route as EbayShareRouteImport } from './routes/ebay/share'
 import { Route as EbaySetupRouteImport } from './routes/ebay/setup'
 import { Route as EbayConnectedRouteImport } from './routes/ebay/connected'
 import { Route as CardsIdRouteImport } from './routes/cards.$id'
+import { Route as AnalysisAdminRouteImport } from './routes/analysis.admin'
+import { Route as AnalysisSlugRouteImport } from './routes/analysis.$slug'
+import { Route as AnalysisAdminIdRouteImport } from './routes/analysis.admin.$id'
 
 const SearchRoute = SearchRouteImport.update({
   id: '/search',
@@ -53,6 +57,11 @@ const ListingsRoute = ListingsRouteImport.update({
 const CollectionRoute = CollectionRouteImport.update({
   id: '/collection',
   path: '/collection',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AnalysisRoute = AnalysisRouteImport.update({
+  id: '/analysis',
+  path: '/analysis',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -100,15 +109,33 @@ const CardsIdRoute = CardsIdRouteImport.update({
   path: '/cards/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AnalysisAdminRoute = AnalysisAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AnalysisRoute,
+} as any)
+const AnalysisSlugRoute = AnalysisSlugRouteImport.update({
+  id: '/$slug',
+  path: '/$slug',
+  getParentRoute: () => AnalysisRoute,
+} as any)
+const AnalysisAdminIdRoute = AnalysisAdminIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AnalysisAdminRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/analysis': typeof AnalysisRouteWithChildren
   '/collection': typeof CollectionRoute
   '/listings': typeof ListingsRoute
   '/login': typeof LoginRoute
   '/portfolio': typeof PortfolioRoute
   '/reset-password': typeof ResetPasswordRoute
   '/search': typeof SearchRoute
+  '/analysis/$slug': typeof AnalysisSlugRoute
+  '/analysis/admin': typeof AnalysisAdminRouteWithChildren
   '/cards/$id': typeof CardsIdRoute
   '/ebay/connected': typeof EbayConnectedRoute
   '/ebay/setup': typeof EbaySetupRoute
@@ -117,15 +144,19 @@ export interface FileRoutesByFullPath {
   '/listings/match': typeof ListingsMatchRoute
   '/listings/new': typeof ListingsNewRoute
   '/ebay/': typeof EbayIndexRoute
+  '/analysis/admin/$id': typeof AnalysisAdminIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/analysis': typeof AnalysisRouteWithChildren
   '/collection': typeof CollectionRoute
   '/listings': typeof ListingsRoute
   '/login': typeof LoginRoute
   '/portfolio': typeof PortfolioRoute
   '/reset-password': typeof ResetPasswordRoute
   '/search': typeof SearchRoute
+  '/analysis/$slug': typeof AnalysisSlugRoute
+  '/analysis/admin': typeof AnalysisAdminRouteWithChildren
   '/cards/$id': typeof CardsIdRoute
   '/ebay/connected': typeof EbayConnectedRoute
   '/ebay/setup': typeof EbaySetupRoute
@@ -134,16 +165,20 @@ export interface FileRoutesByTo {
   '/listings/match': typeof ListingsMatchRoute
   '/listings/new': typeof ListingsNewRoute
   '/ebay': typeof EbayIndexRoute
+  '/analysis/admin/$id': typeof AnalysisAdminIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/analysis': typeof AnalysisRouteWithChildren
   '/collection': typeof CollectionRoute
   '/listings': typeof ListingsRoute
   '/login': typeof LoginRoute
   '/portfolio': typeof PortfolioRoute
   '/reset-password': typeof ResetPasswordRoute
   '/search': typeof SearchRoute
+  '/analysis/$slug': typeof AnalysisSlugRoute
+  '/analysis/admin': typeof AnalysisAdminRouteWithChildren
   '/cards/$id': typeof CardsIdRoute
   '/ebay/connected': typeof EbayConnectedRoute
   '/ebay/setup': typeof EbaySetupRoute
@@ -152,17 +187,21 @@ export interface FileRoutesById {
   '/listings_/match': typeof ListingsMatchRoute
   '/listings_/new': typeof ListingsNewRoute
   '/ebay/': typeof EbayIndexRoute
+  '/analysis/admin/$id': typeof AnalysisAdminIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/analysis'
     | '/collection'
     | '/listings'
     | '/login'
     | '/portfolio'
     | '/reset-password'
     | '/search'
+    | '/analysis/$slug'
+    | '/analysis/admin'
     | '/cards/$id'
     | '/ebay/connected'
     | '/ebay/setup'
@@ -171,15 +210,19 @@ export interface FileRouteTypes {
     | '/listings/match'
     | '/listings/new'
     | '/ebay/'
+    | '/analysis/admin/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/analysis'
     | '/collection'
     | '/listings'
     | '/login'
     | '/portfolio'
     | '/reset-password'
     | '/search'
+    | '/analysis/$slug'
+    | '/analysis/admin'
     | '/cards/$id'
     | '/ebay/connected'
     | '/ebay/setup'
@@ -188,15 +231,19 @@ export interface FileRouteTypes {
     | '/listings/match'
     | '/listings/new'
     | '/ebay'
+    | '/analysis/admin/$id'
   id:
     | '__root__'
     | '/'
+    | '/analysis'
     | '/collection'
     | '/listings'
     | '/login'
     | '/portfolio'
     | '/reset-password'
     | '/search'
+    | '/analysis/$slug'
+    | '/analysis/admin'
     | '/cards/$id'
     | '/ebay/connected'
     | '/ebay/setup'
@@ -205,10 +252,12 @@ export interface FileRouteTypes {
     | '/listings_/match'
     | '/listings_/new'
     | '/ebay/'
+    | '/analysis/admin/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AnalysisRoute: typeof AnalysisRouteWithChildren
   CollectionRoute: typeof CollectionRoute
   ListingsRoute: typeof ListingsRoute
   LoginRoute: typeof LoginRoute
@@ -267,6 +316,13 @@ declare module '@tanstack/react-router' {
       path: '/collection'
       fullPath: '/collection'
       preLoaderRoute: typeof CollectionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/analysis': {
+      id: '/analysis'
+      path: '/analysis'
+      fullPath: '/analysis'
+      preLoaderRoute: typeof AnalysisRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -332,11 +388,59 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CardsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/analysis/admin': {
+      id: '/analysis/admin'
+      path: '/admin'
+      fullPath: '/analysis/admin'
+      preLoaderRoute: typeof AnalysisAdminRouteImport
+      parentRoute: typeof AnalysisRoute
+    }
+    '/analysis/$slug': {
+      id: '/analysis/$slug'
+      path: '/$slug'
+      fullPath: '/analysis/$slug'
+      preLoaderRoute: typeof AnalysisSlugRouteImport
+      parentRoute: typeof AnalysisRoute
+    }
+    '/analysis/admin/$id': {
+      id: '/analysis/admin/$id'
+      path: '/$id'
+      fullPath: '/analysis/admin/$id'
+      preLoaderRoute: typeof AnalysisAdminIdRouteImport
+      parentRoute: typeof AnalysisAdminRoute
+    }
   }
 }
 
+interface AnalysisAdminRouteChildren {
+  AnalysisAdminIdRoute: typeof AnalysisAdminIdRoute
+}
+
+const AnalysisAdminRouteChildren: AnalysisAdminRouteChildren = {
+  AnalysisAdminIdRoute: AnalysisAdminIdRoute,
+}
+
+const AnalysisAdminRouteWithChildren = AnalysisAdminRoute._addFileChildren(
+  AnalysisAdminRouteChildren,
+)
+
+interface AnalysisRouteChildren {
+  AnalysisSlugRoute: typeof AnalysisSlugRoute
+  AnalysisAdminRoute: typeof AnalysisAdminRouteWithChildren
+}
+
+const AnalysisRouteChildren: AnalysisRouteChildren = {
+  AnalysisSlugRoute: AnalysisSlugRoute,
+  AnalysisAdminRoute: AnalysisAdminRouteWithChildren,
+}
+
+const AnalysisRouteWithChildren = AnalysisRoute._addFileChildren(
+  AnalysisRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AnalysisRoute: AnalysisRouteWithChildren,
   CollectionRoute: CollectionRoute,
   ListingsRoute: ListingsRoute,
   LoginRoute: LoginRoute,
