@@ -42,7 +42,12 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 
     // Unauthenticated: public paths are always allowed; / redirects to /search (marketing page is for guests, app shell is not)
     if (!token) {
-      const isPublicPath = PUBLIC_PATHS.includes(pathname) || pathname.startsWith('/cards/')
+      // /analysis and /analysis/<slug> are public, but /analysis/admin stays guarded.
+      const isAnalysisPublic =
+        (pathname === '/analysis' || pathname.startsWith('/analysis/')) &&
+        !pathname.startsWith('/analysis/admin')
+      const isPublicPath =
+        PUBLIC_PATHS.includes(pathname) || pathname.startsWith('/cards/') || isAnalysisPublic
       if (isPublicPath) return
       if (pathname === '/') throw redirect({ to: '/search' })
       throw redirect({ to: '/login' })

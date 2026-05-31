@@ -1,14 +1,16 @@
 """Dedicated Celery tasks for eBay sold-price persistence.
 
-Sync and scrape use dedicated tasks (not run_service) because they iterate
+Own-sales sync uses a dedicated task (not run_service) because it iterates
 all active sellers internally; promote uses run_service.
+
+NOTE: The external sold-price scrapers (global-market, category-sweep,
+scrape-external-sold) were removed when eBay deprecated the Finding API
+`findCompletedItems` (sold/completed-items) endpoint. Only the Fulfillment-API
+own-sales path remains.
 """
 import logging
 
-import automana.core.services.app_integration.ebay.category_sweep_service  # noqa: F401
-import automana.core.services.app_integration.ebay.refresh_scrape_targets_service  # noqa: F401
 import automana.core.services.app_integration.ebay.sales_sync_service  # noqa: F401
-import automana.core.services.app_integration.ebay.scrape_global_market_service  # noqa: F401
 from automana.core.services.app_integration.ebay.ebay_raw_io import get_ebay_raw_dir
 
 from automana.worker.main import app
@@ -52,43 +54,6 @@ def ebay_sync_own_sales_task(self, days_back: int = 90):
         "integrations.ebay.sync_own_sales",
         "ebay_sync_own_sales_task",
         days_back=days_back,
-    )
-
-
-@app.task(
-    name="automana.worker.tasks.ebay.ebay_scrape_external_sold_task",
-    bind=True,
-    acks_late=True,
-    max_retries=0,
-)
-def ebay_scrape_external_sold_task(
-    self,
-    days_back: int = 30,
-    score_threshold: float = 0.7,
-    limit_per_card: int = 50,
-):
-    return _run_ebay_service(
-        self,
-        "integrations.ebay.scrape_external_sold",
-        "ebay_scrape_external_sold_task",
-        days_back=days_back,
-        score_threshold=score_threshold,
-        limit_per_card=limit_per_card,
-    )
-
-
-@app.task(
-    name="automana.worker.tasks.ebay.ebay_category_sweep_task",
-    bind=True,
-    acks_late=True,
-    max_retries=0,
-)
-def ebay_category_sweep_task(self):
-    """Daily category-wide eBay sold sweep across EBAY-US, EBAY-AU, EBAY-ENCA."""
-    return _run_ebay_service(
-        self,
-        "integrations.ebay.category_sweep",
-        "ebay_category_sweep_task",
     )
 
 

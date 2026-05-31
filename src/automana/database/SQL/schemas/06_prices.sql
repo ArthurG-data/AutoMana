@@ -84,6 +84,26 @@ CREATE TABLE IF NOT EXISTS pricing.mtgstock_token_set_map (
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Persistent PriceCharting product -> card_version match cache + provenance.
+-- Populated by pricecharting.build_match_catalog; read by pricecharting.stage_sold.
+-- See migration_62_pricecharting_card_map.sql for the full rationale.
+CREATE TABLE IF NOT EXISTS pricing.pricecharting_card_map (
+    pc_product_id    TEXT PRIMARY KEY,
+    card_version_id  UUID REFERENCES card_catalog.card_version(card_version_id),
+    set_code         TEXT,
+    finish_id        SMALLINT,
+    match_method     TEXT       NOT NULL DEFAULT 'none',
+    certainty        SMALLINT   NOT NULL DEFAULT 0,
+    tcg_vote_count   SMALLINT   NOT NULL DEFAULT 0,
+    verified         BOOLEAN    NOT NULL DEFAULT false,
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_pricecharting_card_map_cv
+    ON pricing.pricecharting_card_map (card_version_id);
+GRANT SELECT, INSERT, UPDATE, DELETE ON pricing.pricecharting_card_map
+    TO app_backend, app_celery;
+
 INSERT INTO pricing.mtgstock_art_set_map (mtgstocks_set_code, scryfall_set_code) VALUES
     ('AAINR', 'ainr'),
     ('ADFT',  'adft'),

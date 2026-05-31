@@ -34,7 +34,6 @@ AutoMana is a FastAPI backend for tracking Magic: The Gathering card collections
 | MTGJson ETL pipeline | [`docs/pipelines/MTGJSON_PIPELINE.md`](docs/pipelines/MTGJSON_PIPELINE.md) |
 | MTGStocks ETL pipeline | [`docs/pipelines/MTGSTOCK_PIPELINE.md`](docs/pipelines/MTGSTOCK_PIPELINE.md) |
 | Shopify storefront integration | [`docs/backend/integrations/SHOPIFY_INTEGRATION.md`](docs/backend/integrations/SHOPIFY_INTEGRATION.md) |
-| eBay global market scraper | [`docs/pipelines/EBAY_GLOBAL_MARKET_SCRAPER.md`](docs/pipelines/EBAY_GLOBAL_MARKET_SCRAPER.md) |
 | PriceCharting sold price pipeline | [`docs/pipelines/PRICECHARTING_PIPELINE.md`](docs/pipelines/PRICECHARTING_PIPELINE.md) |
 | Database roles and permissions | [`docs/infrastructure/DATABASE_ROLES.md`](docs/infrastructure/DATABASE_ROLES.md) |
 | Deployment and Docker | [`docs/infrastructure/DEPLOYMENT.md`](docs/infrastructure/DEPLOYMENT.md) |
@@ -46,6 +45,7 @@ AutoMana is a FastAPI backend for tracking Magic: The Gathering card collections
 | Database health metrics (card_catalog.*, pricing.*) and the on-demand scryfall audit | [`docs/operations/HEALTH_METRICS.md`](docs/operations/HEALTH_METRICS.md) |
 | Manual API testing flow (create user, auth, test, cleanup) | [`docs/testing/TESTING_API_FLOW.md`](docs/testing/TESTING_API_FLOW.md) |
 | React SPA (design system, routing, stores, MSW, testing) | [`docs/frontend/FRONTEND.md`](docs/frontend/FRONTEND.md) |
+| Articles (Analysis) section — feature, API, how to add an article | [`docs/analysis/ARTICLES_FEATURE.md`](docs/analysis/ARTICLES_FEATURE.md) |
 | API layer bugs and technical debt backlog | [`docs/api/API_LAYER_BACKLOG.md`](docs/api/API_LAYER_BACKLOG.md) |
 | Consolidated technical debt backlog (all layers) | [`docs/MASTER_TECHNICAL_DEBT.md`](docs/MASTER_TECHNICAL_DEBT.md) |
 | Pending work backlog (features + debt, by domain) | [`docs/BACKLOG.md`](docs/BACKLOG.md) |

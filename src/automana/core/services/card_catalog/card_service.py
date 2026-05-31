@@ -317,6 +317,7 @@ async def get_card_price_history(
     days_back: Optional[int] = 30,
     finish: Optional[str] = None,
     aggregation: str = 'daily',
+    currency: str = 'USD',
 ) -> PriceHistoryResponse:
     """
     Fetch aggregated price history for a card.
@@ -327,6 +328,8 @@ async def get_card_price_history(
         days_back: Number of days back from today (None = all available data, default=30)
         finish: Optional finish name string ('nonfoil', 'foil', 'etched', etc.)
         aggregation: 'daily' or 'weekly' aggregation (default='daily')
+        currency: ISO currency to scope prices to (default='USD'). Sources are filtered strictly,
+            so a card lacking data in this currency yields an empty series (no currency mixing).
 
     Returns:
         PriceHistoryResponse with price arrays and date range info
@@ -334,7 +337,7 @@ async def get_card_price_history(
     Raises:
         CardRetrievalError: On repository-level failures
     """
-    cache_key = f"price_history:{card_id}:{finish}:{days_back}:{aggregation}"
+    cache_key = f"price_history:{card_id}:{finish}:{days_back}:{aggregation}:{currency}"
     cached_result = await get_from_cache(cache_key)
     if cached_result is not None:
         logger.debug("price_cache_hit", extra={"card_id": str(card_id), "finish": finish})
@@ -350,7 +353,7 @@ async def get_card_price_history(
             start_date = end_date - timedelta(days=days_back)
 
         # Call repository to fetch aggregated prices
-        result = await card_repository.get_price_history(card_id, start_date, end_date, finish=finish, aggregation=aggregation)
+        result = await card_repository.get_price_history(card_id, start_date, end_date, finish=finish, aggregation=aggregation, currency=currency)
 
         # Build response
         response = PriceHistoryResponse(

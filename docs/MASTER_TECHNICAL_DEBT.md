@@ -4,7 +4,6 @@ Consolidated inventory of all known technical debt across AutoMana. Items are co
 
 - `docs/api/API_LAYER_BACKLOG.md` (senior review 2026-05-22)
 - `docs/pipelines/MTGSTOCK_REJECT_ANALYSIS.md`
-- `docs/pipelines/EBAY_GLOBAL_MARKET_SCRAPER.md`
 - `docs/infrastructure/CACHING.md`
 - `docs/testing/UNIT_TEST_PLAN.md`
 - `docs/architecture/ARCHITECTURE.md`
@@ -25,7 +24,7 @@ These items are either data-correctness risks or complete feature blockers.
 |---|-------|------|----------|--------|
 | C1 | ✅ MTGStock 0% link rate — 5.8M reject rows (**FIXED 2026-05-23**) | Pipelines | — (fixed) | `docs/pipelines/MTGSTOCK_REJECT_ANALYSIS.md` |
 | C2 | ✅ `check_expiry` validator always sets `is_expired = False` (**FIXED 2026-05-23**) | API — Auth | — (fixed) | `docs/api/API_LAYER_BACKLOG.md` H1 |
-| C3 | FX normalization absent in `promote_sold_obs` — AUD/CAD prices stored at face value | Pipelines | Critical | `docs/pipelines/EBAY_GLOBAL_MARKET_SCRAPER.md` Known Limitations |
+| C3 | ✅ FX normalization absent in `promote_sold_obs` — AUD/CAD prices stored at face value (**MOOT 2026-05-31** — the only foreign-currency source, the eBay Finding-API scraper, was decommissioned; see P4) | Pipelines | — (moot) | — |
 | C4 | ✅ SQL injection via f-string in `role_repository.py` `SET LOCAL` (**FIXED 2026-05-22**) | API — Repositories | — (fixed) | `docs/api/API_LAYER_BACKLOG.md` fixed section |
 
 ---
@@ -260,31 +259,24 @@ This procedure commits mid-transaction, which is why the service must run with `
 
 ---
 
-### eBay Global Market Scraper Pipeline
+### eBay Global Market Scraper Pipeline — ✅ DECOMMISSIONED 2026-05-31
 
-**P4 — FX normalization absent in `promote_sold_obs`**
+The entire eBay external sold-price scraper (`scrape_global_market`, `category_sweep`,
+`scrape_external_sold`, `refresh_scrape_targets`) was removed when eBay deprecated the
+Finding API `findCompletedItems` endpoint (decommissioned Feb 2025). The items below are
+resolved by removal, not by fixing. `pricing.ebay_scraped_sold` and `promote_sold_obs`
+remain — now fed by the PriceCharting pipeline (see `docs/pipelines/PRICECHARTING_PIPELINE.md`).
 
-AUD and CAD prices from `ebay_scraped_sold` land in `price_observation` at face value (not converted to USD). This means all cross-currency price observations are incorrect.
-
-- Severity: **Critical**
-- Source: `docs/pipelines/EBAY_GLOBAL_MARKET_SCRAPER.md` Known Limitations
-- Fix options: Convert at scrape time (multiply by `fx_rates.rate`), or make `promote_sold_obs` FX-aware.
-- Deferred to follow-up PR.
-
----
-
-**P5 — Watchlist capped at 500 cards per nightly run**
-
-`GET_SCRAPE_TARGETS` limits the nightly `scrape_global_market` run to 500 cards. With 3 marketplaces × 50 items each = up to 75,000 Finding API calls per night. Cap may need raising once production throughput is measured.
-
-- Severity: **Low**
-- Source: `docs/pipelines/EBAY_GLOBAL_MARKET_SCRAPER.md` Known Limitations
+- **P4 — FX normalization absent in `promote_sold_obs`** — MOOT. The scraper was the only
+  AUD/CAD source; all remaining `ebay_scraped_sold` rows are USD. (`promote_sold_obs` already
+  carries an `fx_map` path for the day foreign-currency rows reappear.)
+- **P5 — Watchlist capped at 500 cards per nightly run** — MOOT (`ebay_scrape_targets` dropped).
 
 ---
 
 ### eBay API Quotas & Limits
 
-**P6 — Apply for eBay Partner Network (EPN) to raise Finding API quota from 5k to 50k–100k/day**
+**P6 — Apply for eBay Partner Network (EPN) to raise Finding API quota from 5k to 50k–100k/day** — ✅ MOOT (Finding-API scraper decommissioned 2026-05-31)
 
 The Finding API default quota is **5,000 calls/day per App ID** (separate from the 9M platform ceiling shown in the developer portal, which is a shared total). At 500 cards × 3 marketplaces = 1,500 calls/run, the quota is fine today but becomes a hard wall at ~1,500 cards. Applying to EPN and requesting a call limit increase raises the per-App-ID quota to 50k–100k/day, removing the ceiling for foreseeable scale.
 
@@ -295,7 +287,7 @@ The Finding API default quota is **5,000 calls/day per App ID** (separate from t
 
 ---
 
-**P8 — Finding API: No scrape-frequency tiering — all cards scraped equally nightly**
+**P8 — Finding API: No scrape-frequency tiering — all cards scraped equally nightly** — ✅ MOOT (Finding-API scraper decommissioned 2026-05-31)
 
 All watchlist cards are scraped every night across all 3 marketplaces regardless of price velocity. A Reserved List staple sells 5–10 times/month globally; a playable uncommon sells 500+. Treating them identically wastes ~40–60% of the daily quota as the watchlist grows past 150 cards.
 
@@ -397,6 +389,19 @@ Cache hit/miss rates are not tracked. There is no visibility into cache efficien
 ---
 
 ### Architecture
+
+**I5 — Orphaned run reconciliation assumes single Celery worker**
+
+`_reconcile_orphaned_runs` (added in #329, `worker/main.py`) marks ALL `running` ingestion rows as `failed` on `worker_ready`. This is safe for a single-worker setup but will incorrectly close legitimately-running jobs if multiple workers are ever introduced.
+
+**If moving to multiple workers**, update to:
+1. Call `celery inspect active` across all workers to collect active `celery_task_id` values
+2. Only mark a run `failed` if its stored `celery_task_id` is absent from all active sets
+
+- Severity: **Low** (single-worker today; not a current risk)
+- Source: `docs/superpowers/specs/2026-05-30-orphaned-run-reconciliation-design.md`
+
+---
 
 **✅ I4 — `AbstractRepository` base class has `print()` debug statements (ALREADY CLEAN)**
 

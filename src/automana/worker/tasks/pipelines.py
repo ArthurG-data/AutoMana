@@ -1,9 +1,12 @@
 from celery import group, shared_task, chain
+import json
 import logging
+from pathlib import Path
 from automana.worker.main import run_service
 from automana.core.log.logging_context import set_task_id
-from datetime import datetime
+from datetime import datetime, date
 from automana.core.services.ops.log_analysis_service import run_daily_log_summary  # noqa: F401 — registers service
+from automana.core.services.app_integration.mtg_stock import identifier_service  # noqa: F401 — registers service
 
 logger = logging.getLogger(__name__)
 
@@ -297,3 +300,232 @@ def shopify_weekly_pipeline(self):
         run_service.s("ops.pipeline_services.finish_run", status="success"),
     )
     return wf.apply_async().id
+
+
+@shared_task(name="automana.worker.tasks.pipelines.mtgstock_build_id_mapping", bind=True)
+def mtgstock_build_id_mapping(self):
+    """Weekly: resolve print_id -> card_version_id and populate card_external_identifier."""
+    set_task_id(self.request.id)
+    today = datetime.utcnow().date().isoformat()
+    run_key = f"mtgStock_id_mapping:{today}"
+    logger.info("Starting MTGStock ID mapping build", extra={"run_key": run_key})
+
+    result = run_service("ops.pipeline_services.is_run_active", run_key=run_key)
+    if result.get("is_active"):
+        logger.warning("Duplicate pipeline skipped", extra={"run_key": run_key})
+        return
+
+    wf = chain(
+        run_service.s("ops.pipeline_services.start_run",
+                      pipeline_name="mtgstock_build_id_mapping",
+                      source_name="mtgstocks",
+                      run_key=run_key,
+                      celery_task_id=self.request.id),
+        run_service.s("mtg_stock.identifier.build_mapping",
+                      destination_folder="/data/automana_data/mtgstocks/raw/prints/",
+                      batch_size=500),
+        run_service.s("ops.pipeline_services.finish_run", status="success"),
+    )
+    return wf.apply_async().id
+
+
+@shared_task(name="automana.worker.tasks.pipelines.mtgstock_discover_new_ids", bind=True)
+def mtgstock_discover_new_ids(self):
+    """Weekly: probe MTGStocks for print IDs beyond the local maximum and download them."""
+    set_task_id(self.request.id)
+    today = datetime.utcnow().date().isoformat()
+    run_key = f"mtgStock_discover:{today}"
+    logger.info("Starting MTGStock new ID discovery", extra={"run_key": run_key})
+
+    result = run_service("ops.pipeline_services.is_run_active", run_key=run_key)
+    if result.get("is_active"):
+        logger.warning("Duplicate pipeline skipped", extra={"run_key": run_key})
+        return
+
+    wf = chain(
+        run_service.s("ops.pipeline_services.start_run",
+                      pipeline_name="mtgstock_discover_new_ids",
+                      source_name="mtgstocks",
+                      run_key=run_key,
+                      celery_task_id=self.request.id),
+        run_service.s("mtg_stock.data_loader.discover_and_fetch_new_ids",
+                      destination_folder="/data/automana_data/mtgstocks/raw/prints/",
+                      batch_size=500,
+                      market="tcg"),
+        run_service.s("ops.pipeline_services.finish_run", status="success"),
+    )
+    return wf.apply_async().id
+
+
+# == MTGStock tiered multi-market refresh ======================================
+
+_MTGSTOCK_EPOCH = date(2026, 6, 1)
+_MTGSTOCK_PRINTS_DIR = "/data/automana_data/mtgstocks/raw/prints/"
+
+_TIER_MARKETS = {
+    1: ["tcg", "cardmarket", "cardkingdom", "starcity"],
+    2: ["tcg", "cardmarket"],
+    3: ["tcg"],
+}
+# (window_days, slots_per_day) per tier
+_TIER_WINDOW = {1: (7, 4), 2: (14, 1), 3: (30, 1)}
+
+# Market name -> pricing.price_source.code (starcity differs)
+_MARKET_SOURCE = {
+    "tcg": "tcg",
+    "cardmarket": "cardmarket",
+    "cardkingdom": "cardkingdom",
+    "starcity": "starcitygames",
+}
+
+
+def _tier_worklist(print_ids: list[int], tier: int) -> list[tuple[int, str]]:
+    """Full (print_id, market) work-list for a tier, sorted deterministically."""
+    markets = _TIER_MARKETS[tier]
+    pairs = [(pid, m) for pid in sorted(print_ids) for m in markets]
+    pairs.sort()
+    return pairs
+
+
+def _tier_slice_pairs(print_ids: list[int], tier: int, slot: int) -> list[tuple[int, str]]:
+    """Return the (print_id, market) pairs assigned to this tier+slot on today's date."""
+    pairs = _tier_worklist(print_ids, tier)
+    window_days, slots_per_day = _TIER_WINDOW[tier]
+    total_slots = window_days * slots_per_day
+    if not pairs:
+        return []
+    slice_size = len(pairs) // total_slots
+    day_offset = (date.today() - _MTGSTOCK_EPOCH).days
+    slice_idx = (day_offset * slots_per_day + slot) % total_slots
+    start = slice_idx * slice_size
+    end = start + slice_size if slice_idx < total_slots - 1 else len(pairs)
+    return pairs[start:end]
+
+
+def _group_pairs_by_market(pairs: list[tuple[int, str]]) -> dict[str, list[int]]:
+    """Group (print_id, market) pairs into {market: [print_id, ...]}."""
+    grouped: dict[str, list[int]] = {}
+    for pid, market in pairs:
+        grouped.setdefault(market, []).append(pid)
+    return grouped
+
+
+def _tier_today_ids_for_market(tier: int, market: str) -> list[int]:
+    """All print_ids of a tier refreshed for `market` across today's slots."""
+    result = run_service("mtg_stock.priority.get_tier_print_ids", tier=tier)
+    print_ids = result.get("print_ids", [])
+    _, slots_per_day = _TIER_WINDOW[tier]
+    ids: set[int] = set()
+    for slot in range(slots_per_day):
+        for pid, m in _tier_slice_pairs(print_ids, tier, slot):
+            if m == market:
+                ids.add(pid)
+    return sorted(ids)
+
+
+def _tier_refresh(self, tier: int, slot: int):
+    """Shared body for the three tier tasks."""
+    set_task_id(self.request.id)
+    today = datetime.utcnow().date().isoformat()
+    run_key = f"mtgStock_tier{tier}:{today}:{slot}"
+    logger.info("Starting MTGStock tier refresh", extra={"run_key": run_key, "tier": tier, "slot": slot})
+
+    result = run_service("ops.pipeline_services.is_run_active", run_key=run_key)
+    if result.get("is_active"):
+        logger.warning("Duplicate pipeline skipped", extra={"run_key": run_key})
+        return
+
+    ids_result = run_service("mtg_stock.priority.get_tier_print_ids", tier=tier)
+    print_ids = ids_result.get("print_ids", [])
+    pairs = _tier_slice_pairs(print_ids, tier, slot)
+    by_market = _group_pairs_by_market(pairs)
+    logger.info("MTGStock tier slice computed",
+                extra={"tier": tier, "slot": slot, "pairs": len(pairs),
+                       "markets": sorted(by_market)})
+
+    steps = [
+        run_service.s("ops.pipeline_services.start_run",
+                      pipeline_name=f"mtgstock_tier{tier}_refresh",
+                      source_name="mtgstocks",
+                      run_key=run_key,
+                      celery_task_id=self.request.id),
+    ]
+    for market, mids in sorted(by_market.items()):
+        steps.append(
+            run_service.s("mtg_stock.data_loader.run_list_id_load",
+                          destination_folder=_MTGSTOCK_PRINTS_DIR,
+                          batch_size=500,
+                          ids_list=mids,
+                          market=market)
+        )
+    steps.append(run_service.s("ops.pipeline_services.finish_run", status="success"))
+    return chain(*steps).apply_async().id
+
+
+@shared_task(name="automana.worker.tasks.pipelines.mtgstock_tier1_refresh", bind=True)
+def mtgstock_tier1_refresh(self, slot: int):
+    """Tier 1 (recent/valuable, 4 markets) - one of 4 daily slots over a 7-day window."""
+    return _tier_refresh(self, tier=1, slot=slot)
+
+
+@shared_task(name="automana.worker.tasks.pipelines.mtgstock_tier2_refresh", bind=True)
+def mtgstock_tier2_refresh(self):
+    """Tier 2 ($1-$5, tcg+cardmarket) - one daily slot over a 14-day window."""
+    return _tier_refresh(self, tier=2, slot=0)
+
+
+@shared_task(name="automana.worker.tasks.pipelines.mtgstock_tier3_refresh", bind=True)
+def mtgstock_tier3_refresh(self):
+    """Tier 3 (bulk, tcg only) - one daily slot over a 30-day window."""
+    return _tier_refresh(self, tier=3, slot=0)
+
+
+@shared_task(name="automana.worker.tasks.pipelines.mtgstock_incremental_load", bind=True)
+def mtgstock_incremental_load(self):
+    """Stage today's refreshed IDs into price_observation, one pass per market."""
+    set_task_id(self.request.id)
+    today = datetime.utcnow().date().isoformat()
+    run_key = f"mtgStock_load:{today}"
+    logger.info("Starting MTGStock incremental DB load", extra={"run_key": run_key})
+
+    result = run_service("ops.pipeline_services.is_run_active", run_key=run_key)
+    if result.get("is_active"):
+        logger.warning("Duplicate pipeline skipped", extra={"run_key": run_key})
+        return
+
+    # Union, per market, of today's IDs across all tiers that fetch that market.
+    market_ids: dict[str, set[int]] = {}
+    for tier in (1, 2, 3):
+        for market in _TIER_MARKETS[tier]:
+            ids = _tier_today_ids_for_market(tier, market)
+            if ids:
+                market_ids.setdefault(market, set()).update(ids)
+
+    steps = [
+        run_service.s("ops.pipeline_services.start_run",
+                      pipeline_name="mtgstock_incremental_load",
+                      source_name="mtgstocks",
+                      run_key=run_key,
+                      celery_task_id=self.request.id),
+    ]
+    # One bulk_load + stage cycle per market. bulk_load clears raw each call,
+    # so raw is always single-market when load_staging_prices_batched runs.
+    for market in ["tcg", "cardmarket", "cardkingdom", "starcity"]:
+        ids = sorted(market_ids.get(market, set()))
+        if not ids:
+            continue
+        steps.append(
+            run_service.s("mtg_stock.data_staging.bulk_load",
+                          root_folder=_MTGSTOCK_PRINTS_DIR,
+                          batch_size=2000,
+                          ids_filter=ids,
+                          market=market)
+        )
+        steps.append(
+            run_service.s("mtg_stock.data_staging.from_raw_to_staging",
+                          source_name=_MARKET_SOURCE[market])
+        )
+    steps.append(run_service.s("mtg_stock.data_staging.retry_rejects"))
+    steps.append(run_service.s("mtg_stock.data_staging.from_staging_to_prices"))
+    steps.append(run_service.s("ops.pipeline_services.finish_run", status="success"))
+    return chain(*steps).apply_async().id

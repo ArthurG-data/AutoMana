@@ -71,6 +71,16 @@ ServiceRegistry.register_db_repository(
 ServiceRegistry.register_db_repository(
     "price", "automana.core.repositories.app_integration.mtg_stock.price_repository", "PriceRepository"
 )
+ServiceRegistry.register_db_repository(
+    "mtg_stock_identifier",
+    "automana.core.repositories.app_integration.mtg_stock.identifier_repository",
+    "MtgstockIdentifierRepository",
+)
+ServiceRegistry.register_db_repository(
+    "mtg_stock_priority",
+    "automana.core.repositories.app_integration.mtg_stock.priority_repository",
+    "MtgstockPriorityRepository",
+)
 
 # Pricing Tier repositories
 ServiceRegistry.register_db_repository(
@@ -80,6 +90,11 @@ ServiceRegistry.register_db_repository(
     "fx_rates",
     "automana.core.repositories.pricing.fx_rates_repository",
     "FxRatesRepository",
+)
+ServiceRegistry.register_db_repository(
+    "pricecharting_map",
+    "automana.core.repositories.app_integration.pricecharting.pc_map_repository",
+    "PricechartingMapRepository",
 )
 ServiceRegistry.register_db_repository(
     "sealed_pricing",
@@ -109,6 +124,11 @@ ServiceRegistry.register_db_repository(
     "analytics", "automana.core.repositories.analytics_repositories.analytics_repository", "AnalyticsRepository"
 )
 
+# Content repositories
+ServiceRegistry.register_db_repository(
+    "article", "automana.core.repositories.content.article_repository", "ArticleRepository"
+)
+
 # API repositories
 ServiceRegistry.register_api_repository(
     "auth_oauth", "automana.core.repositories.app_integration.ebay.ApiAuth_repository", "EbayAuthAPIRepository"
@@ -121,9 +141,6 @@ ServiceRegistry.register_api_repository(
 )
 ServiceRegistry.register_api_repository(
     "selling", "automana.core.repositories.app_integration.ebay.ApiSelling_repository", "EbaySellingRepository"
-)
-ServiceRegistry.register_api_repository(
-    "ebay_finding", "automana.core.repositories.app_integration.ebay.ApiFinding_repository", "EbayFindingAPIRepository"
 )
 ServiceRegistry.register_api_repository(
     "mtg_stock", "automana.core.repositories.app_integration.mtg_stock.ApiMtgStock_repository", "ApiMtgStockRepository"

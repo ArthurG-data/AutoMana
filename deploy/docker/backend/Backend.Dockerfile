@@ -19,6 +19,14 @@ COPY uv.lock /app/uv.lock
 COPY src /app/src
 RUN uv sync --frozen
 
+# Install Playwright browser binaries (needed by pc_catalog_scrape_service)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libnss3 libnspr4 libdbus-1-3 libatk1.0-0 libatk-bridge2.0-0 \
+    libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 \
+    libxfixes3 libxrandr2 libgbm1 libasound2 \
+ && rm -rf /var/lib/apt/lists/* \
+ && /app/.venv/bin/playwright install chromium
+
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONPATH="/app/src"
 
