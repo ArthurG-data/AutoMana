@@ -85,7 +85,11 @@ class ShopifyPipelineRepository(AbstractRepository):
         return [r["name"] for r in rows]
 
     async def fetch_any_tcg_id_matches(self, tcg_ids: list[int]) -> bool:
-        """Return True if any of the given TCG IDs exist in the card catalog."""
+        """Return True if any of the given TCG IDs exist in the card catalog.
+
+        Compares as TEXT to avoid BIGINT cast errors on UUID values stored in
+        card_external_identifier for other identifier types (e.g. scryfall_id).
+        """
         if not tcg_ids:
             return False
         result = await self.execute_fetchrow(
@@ -95,10 +99,10 @@ class ShopifyPipelineRepository(AbstractRepository):
                 JOIN card_catalog.card_identifier_ref cir
                     ON cir.card_identifier_ref_id = cei.card_identifier_ref_id
                    AND cir.identifier_name = 'tcgplayer_id'
-                WHERE cei.value::BIGINT = ANY($1::BIGINT[])
+                WHERE cei.value = ANY($1::TEXT[])
             )
             """,
-            (tcg_ids,),
+            ([str(t) for t in tcg_ids],),
         )
         return result["exists"]
 
