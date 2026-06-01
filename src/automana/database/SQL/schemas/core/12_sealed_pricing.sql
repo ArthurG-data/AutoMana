@@ -112,8 +112,7 @@ CREATE TABLE card_catalog.sealed_external_identifier (
         UNIQUE (sealed_identifier_ref_id, value)
 );
 
-CREATE INDEX idx_sealed_ext_id_type_value
-    ON card_catalog.sealed_external_identifier (sealed_identifier_ref_id, value);
+-- idx_sealed_ext_id_type_value removed: covered by sealed_external_identifier_type_value_key UNIQUE constraint (migration_57)
 
 -- ── pricing.sealed_products ──────────────────────────────────────────────────
 

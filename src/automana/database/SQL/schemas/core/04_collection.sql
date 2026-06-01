@@ -43,8 +43,18 @@ CREATE TABLE IF NOT EXISTS user_collection.collection_items (
     purchase_price DECIMAL(10,2),
     condition VARCHAR(5) NOT NULL DEFAULT 'NM',
     currency_code VARCHAR(3) NOT NULL DEFAULT 'USD',
-    language_id INT REFERENCES card_catalog.language_ref(language_id)
+    language_id INT REFERENCES card_catalog.language_ref(language_id),
+    status VARCHAR(10) NOT NULL DEFAULT 'purchased'
+        CHECK (status IN ('purchased', 'listed', 'stashed', 'sold')),
+    ebay_item_id TEXT NULL,
+    is_wishlist BOOLEAN NOT NULL DEFAULT FALSE
 );
+
+CREATE INDEX IF NOT EXISTS idx_collection_items_status
+    ON user_collection.collection_items (status);
+
+CREATE INDEX IF NOT EXISTS idx_collection_items_wishlist
+    ON user_collection.collection_items (is_wishlist);
 
 
 /*

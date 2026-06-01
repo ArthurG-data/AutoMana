@@ -404,3 +404,5 @@ END;
 $$;
 
 COMMIT;
+
+GRANT TRUNCATE ON pricing.mtgjson_card_prices_staging TO app_rw, app_admin;

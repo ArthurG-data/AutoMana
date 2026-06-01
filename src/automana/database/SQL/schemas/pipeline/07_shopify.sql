@@ -128,3 +128,27 @@ BEGIN
 END;
 $$;
 COMMIT;
+
+-- ── Market seeds (migration_48) ───────────────────────────────────────────────────────
+
+INSERT INTO markets.market_ref (name, city, country_code, api_url, source_id)
+SELECT
+    'Good Games Brisbane',
+    'Brisbane',
+    'AUD',
+    'https://tcg.goodgames.com.au',
+    source_id
+FROM pricing.price_source
+WHERE code = 'gg_brisbane'
+ON CONFLICT (name) DO NOTHING;
+
+INSERT INTO markets.market_ref (name, city, country_code, api_url, source_id)
+SELECT
+    'Good Games Sydney',
+    'Sydney',
+    'AUD',
+    'https://tcg.goodgames.com.au/collections/magic-the-gathering',
+    source_id
+FROM pricing.price_source
+WHERE code = 'gg_sydney'
+ON CONFLICT (name) DO NOTHING;

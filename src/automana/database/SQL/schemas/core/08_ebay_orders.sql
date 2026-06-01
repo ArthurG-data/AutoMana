@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS app_integration.ebay_order_source_product (
     sold_at           TIMESTAMPTZ  NOT NULL,
     buyer_username    TEXT,
     promoted_to_obs   BOOLEAN      NOT NULL DEFAULT FALSE,
+    marketplace_id    VARCHAR(10),
     created_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
     UNIQUE (order_id, app_code, item_id)

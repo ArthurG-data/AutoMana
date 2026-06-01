@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS markets.market_ref (
     country_code VARCHAR(3) NOT NULL DEFAULT 'AUD',
     city VARCHAR(20) NOT NULL DEFAULT 'Unknown',
     api_url TEXT,
+    source_id SMALLINT REFERENCES pricing.price_source(source_id),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE (name, city, country_code)
@@ -41,6 +42,8 @@ CREATE TABLE IF NOT EXISTS markets.product_ref (
     product_shop_id VARCHAR(64) PRIMARY KEY,
     product_id TEXT NOT NULL,
     market_id INT NOT NULL REFERENCES markets.market_ref(market_id) ON DELETE CASCADE,
+    handle TEXT,
+    title TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE (market_id, product_id)
@@ -73,6 +76,7 @@ CREATE TABLE IF NOT EXISTS markets.collection_handles (
     name TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
+    game_code VARCHAR,
     UNIQUE (market_id, name)
 );
 
