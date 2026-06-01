@@ -168,10 +168,18 @@ async def classify_collections(
             classified_count = 0
             async with shopify_api_repository:
                 for handle in handles:
-                    # Fetch sample — one at a time to avoid 429s on public storefront
-                    products = await shopify_api_repository.get_collection_products_page(
-                        api_url, handle, since_id=0, limit=10
-                    )
+                    try:
+                        products = await shopify_api_repository.get_collection_products_page(
+                            api_url, handle, since_id=0, limit=10
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            "shopify_classify: fetch failed, skipping",
+                            extra={"handle": handle, "error": str(e)[:80]},
+                        )
+                        await asyncio.sleep(2.0)
+                        continue
+
                     tcg_ids = []
                     for p in products:
                         m = re.search(r'data-tcgid="(\d+)"', p.get("body_html", "") or "")
@@ -185,7 +193,7 @@ async def classify_collections(
                     if is_mtg:
                         logger.info("shopify_classify: mtg", extra={"handle": handle})
 
-                    await asyncio.sleep(0.5)
+                    await asyncio.sleep(1.0)
 
             total_classified += classified_count
             logger.info(
