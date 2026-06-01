@@ -14,7 +14,9 @@ from typing import Any
 from automana.core.framework.registry import ServiceRegistry
 from automana.core.repositories.app_integration.mtgjson.Apimtgjson_repository import ApimtgjsonRepository
 from automana.core.repositories.app_integration.mtgjson.mtgjson_repository import MtgjsonRepository
+from automana.core.repositories.ops.ops_repository import OpsRepository
 from automana.core.repositories.pricing.sealed_pricing_repository import SealedPricingRepository
+from automana.core.services.ops.pipeline_services import track_step
 from automana.core.storage import StorageService
 
 # Module-level logger — per CLAUDE.md logging rules. Re-fetching `getLogger`
@@ -33,53 +35,64 @@ _COPY_BATCH_SIZE = 10_000
 @ServiceRegistry.register(
     "mtgjson.data.download.last90",
     api_repositories=["mtgjson"],
+    db_repositories=["ops"],
     storage_services=["mtgjson"],
 )
 async def download_mtgjson_data_last_90(
     mtgjson_repository: ApimtgjsonRepository,
+    ops_repository: OpsRepository,
     storage_service: StorageService,
+    ingestion_run_id: int = None,
 ) -> dict:
     """Stream the 90-day `AllPrices.json.xz` archive directly to disk.
 
     Not wired into the active daily chain — kept as a registered entry point
     for manual catch-ups or future weekly pipelines.
     """
-    logger.info("Starting MTGJson 90-day price download")
-    dest_path = storage_service.build_timestamped_path("AllPrices.json.xz")
-    await mtgjson_repository.fetch_all_prices_stream(dest_path)
-    logger.info("Streamed MTGJson 90-day data to disk", extra={"file": str(dest_path)})
+    async with track_step(ops_repository, ingestion_run_id, "download_90day_prices", error_code="download_90day_failed"):
+        logger.info("Starting MTGJson 90-day price download")
+        dest_path = storage_service.build_timestamped_path("AllPrices.json.xz")
+        await mtgjson_repository.fetch_all_prices_stream(dest_path)
+        logger.info("Streamed MTGJson 90-day data to disk", extra={"file": str(dest_path)})
     return {"file_path_prices": str(dest_path)}
 
 
 @ServiceRegistry.register(
     "mtgjson.data.download.today",
     api_repositories=["mtgjson"],
+    db_repositories=["ops"],
     storage_services=["mtgjson"],
 )
 async def stage_mtgjson_data(
     mtgjson_repository: ApimtgjsonRepository,
+    ops_repository: OpsRepository,
     storage_service: StorageService,
+    ingestion_run_id: int = None,
 ) -> dict:
     """Stream today's `AllPricesToday.json.xz` directly to disk.
 
     Returns `file_path_prices` so the next chain step
     (`staging.mtgjson.stream_to_staging`) can decompress and stage it.
     """
-    logger.info("Starting MTGJson today prices download")
-    dest_path = storage_service.build_timestamped_path("AllPricesToday.json.xz")
-    await mtgjson_repository.fetch_price_today_stream(dest_path)
-    logger.info("Streamed MTGJson today prices to disk", extra={"file": str(dest_path)})
+    async with track_step(ops_repository, ingestion_run_id, "download_today_prices", error_code="download_today_failed"):
+        logger.info("Starting MTGJson today prices download")
+        dest_path = storage_service.build_timestamped_path("AllPricesToday.json.xz")
+        await mtgjson_repository.fetch_price_today_stream(dest_path)
+        logger.info("Streamed MTGJson today prices to disk", extra={"file": str(dest_path)})
     return {"file_path_prices": str(dest_path)}
 
 
 @ServiceRegistry.register(
     "mtgjson.data.download.all_identifiers",
     api_repositories=["mtgjson"],
+    db_repositories=["ops"],
     storage_services=["mtgjson"],
 )
 async def download_all_identifiers(
     mtgjson_repository: ApimtgjsonRepository,
+    ops_repository: OpsRepository,
     storage_service: StorageService,
+    ingestion_run_id: int = None,
 ) -> dict:
     """Stream AllIdentifiers.json from the MTGJson API to a fixed path on disk.
 
@@ -88,22 +101,25 @@ async def download_all_identifiers(
     Fixed filename (no timestamp) — sync_uuid_mappings reads it by name and
     the file is always current after this step runs.
     """
-    dest_path = storage_service.build_path("AllIdentifiers.json")
-    logger.info("Starting MTGJson AllIdentifiers download")
-    await mtgjson_repository.fetch_all_identifiers_stream(dest_path)
-    logger.info("Streamed AllIdentifiers.json to disk", extra={"file": str(dest_path)})
+    async with track_step(ops_repository, ingestion_run_id, "download_all_identifiers", error_code="download_identifiers_failed"):
+        dest_path = storage_service.build_path("AllIdentifiers.json")
+        logger.info("Starting MTGJson AllIdentifiers download")
+        await mtgjson_repository.fetch_all_identifiers_stream(dest_path)
+        logger.info("Streamed AllIdentifiers.json to disk", extra={"file": str(dest_path)})
     return {"identifiers_filename": "AllIdentifiers.json"}
 
 
 @ServiceRegistry.register(
     "staging.mtgjson.sync_uuid_mappings",
-    db_repositories=["mtgjson"],
+    db_repositories=["mtgjson", "ops"],
     storage_services=["mtgjson"],
 )
 async def sync_uuid_mappings(
     mtgjson_repository: MtgjsonRepository,
+    ops_repository: OpsRepository,
     storage_service: StorageService,
     identifiers_filename: str = "AllIdentifiers.json",
+    ingestion_run_id: int = None,
 ) -> dict:
     """Populate card_external_identifier.mtgjson_id from AllIdentifiers.json.
 
@@ -119,34 +135,35 @@ async def sync_uuid_mappings(
     Default filename resolves to {DATA_DIR}/mtgjson/raw/AllIdentifiers.json.
     Pass --identifiers_filename to override.
     """
-    logger.info("Loading MTGJson identifier mappings", extra={"file": identifiers_filename})
-    raw = await storage_service.load_json(identifiers_filename)
+    async with track_step(ops_repository, ingestion_run_id, "sync_uuid_mappings", error_code="sync_uuid_failed"):
+        logger.info("Loading MTGJson identifier mappings", extra={"file": identifiers_filename})
+        raw = await storage_service.load_json(identifiers_filename)
 
-    data = raw.get("data", raw)
-    pairs: list[tuple[str, str]] = []
-    for mtgjson_uuid, card_data in data.items():
-        scryfall_id = card_data.get("identifiers", {}).get("scryfallId")
-        if scryfall_id:
-            pairs.append((mtgjson_uuid, scryfall_id))
-        # foreignData carries separate MTGJson UUIDs for non-English prints,
-        # each with their own scryfallId. Without this loop, Japanese/French/etc.
-        # prints imported from Scryfall never get an mtgjson_id and therefore
-        # never get priced.
-        for fd in card_data.get("foreignData", []):
-            fd_uuid = fd.get("uuid")
-            fd_scryfall = fd.get("identifiers", {}).get("scryfallId")
-            if fd_uuid and fd_scryfall:
-                pairs.append((fd_uuid, fd_scryfall))
+        data = raw.get("data", raw)
+        pairs: list[tuple[str, str]] = []
+        for mtgjson_uuid, card_data in data.items():
+            scryfall_id = card_data.get("identifiers", {}).get("scryfallId")
+            if scryfall_id:
+                pairs.append((mtgjson_uuid, scryfall_id))
+            # foreignData carries separate MTGJson UUIDs for non-English prints,
+            # each with their own scryfallId. Without this loop, Japanese/French/etc.
+            # prints imported from Scryfall never get an mtgjson_id and therefore
+            # never get priced.
+            for fd in card_data.get("foreignData", []):
+                fd_uuid = fd.get("uuid")
+                fd_scryfall = fd.get("identifiers", {}).get("scryfallId")
+                if fd_uuid and fd_scryfall:
+                    pairs.append((fd_uuid, fd_scryfall))
 
-    logger.info(
-        "MTGJson UUID pairs extracted",
-        extra={"total_uuids": len(data), "with_scryfall_id": len(pairs)},
-    )
-    inserted = await mtgjson_repository.upsert_mtgjson_id_mappings(pairs)
-    logger.info(
-        "mtgjson_id mappings upserted",
-        extra={"inserted": inserted, "skipped": len(pairs) - inserted},
-    )
+        logger.info(
+            "MTGJson UUID pairs extracted",
+            extra={"total_uuids": len(data), "with_scryfall_id": len(pairs)},
+        )
+        inserted = await mtgjson_repository.upsert_mtgjson_id_mappings(pairs)
+        logger.info(
+            "mtgjson_id mappings upserted",
+            extra={"inserted": inserted, "skipped": len(pairs) - inserted},
+        )
     return {"mappings_inserted": inserted}
 
 
@@ -241,14 +258,16 @@ def _iter_sealed_rows(sealed_uuid: str, entry: Any) -> list[tuple]:
 
 @ServiceRegistry.register(
     "staging.mtgjson.stream_to_staging",
-    db_repositories=["mtgjson", "sealed_pricing"],
+    db_repositories=["mtgjson", "sealed_pricing", "ops"],
     storage_services=["mtgjson"],
 )
 async def stream_to_staging(
     mtgjson_repository: MtgjsonRepository,
     sealed_pricing_repository: SealedPricingRepository,
+    ops_repository: OpsRepository,
     storage_service: StorageService,
     file_path_prices: str,
+    ingestion_run_id: int = None,
 ) -> dict:
     """Stream an MTGJson `.xz` payload into card and sealed staging tables.
 
@@ -266,58 +285,59 @@ async def stream_to_staging(
     (see ``StorageService.iter_xz_json_kvitems``). Rows are COPY-ed into
     Postgres in batches of ``_COPY_BATCH_SIZE``.
     """
-    logger.info("Streaming MTGJson payload to staging", extra={"file": file_path_prices})
+    async with track_step(ops_repository, ingestion_run_id, "stream_to_staging", error_code="stream_to_staging_failed"):
+        logger.info("Streaming MTGJson payload to staging", extra={"file": file_path_prices})
 
-    # Serialize concurrent streamers against this staging table. See
-    # docs/MTGJSON_PIPELINE.md §"Concurrency" for the rationale — cheap
-    # insurance against cron + manual-trigger collisions.
-    await mtgjson_repository.acquire_streaming_lock()
+        # Serialize concurrent streamers against this staging table. See
+        # docs/MTGJSON_PIPELINE.md §"Concurrency" for the rationale — cheap
+        # insurance against cron + manual-trigger collisions.
+        await mtgjson_repository.acquire_streaming_lock()
 
-    # Pre-load sealed UUIDs so routing is O(1) per card in the stream.
-    sealed_uuids: set[str] = await sealed_pricing_repository.fetch_all_sealed_uuids()
-    logger.info("Sealed UUID set loaded", extra={"count": len(sealed_uuids)})
+        # Pre-load sealed UUIDs so routing is O(1) per card in the stream.
+        sealed_uuids: set[str] = await sealed_pricing_repository.fetch_all_sealed_uuids()
+        logger.info("Sealed UUID set loaded", extra={"count": len(sealed_uuids)})
 
-    batch: list[tuple] = []
-    sealed_batch: list[tuple] = []
-    total_rows = 0
-    sealed_rows = 0
-    cards_seen = 0
+        batch: list[tuple] = []
+        sealed_batch: list[tuple] = []
+        total_rows = 0
+        sealed_rows = 0
+        cards_seen = 0
 
-    async for uuid_key, card in storage_service.iter_xz_json_kvitems(
-        file_path_prices, prefix="data"
-    ):
-        cards_seen += 1
-        if uuid_key in sealed_uuids:
-            sealed_batch.extend(_iter_sealed_rows(uuid_key, card))
-            if len(sealed_batch) >= _COPY_BATCH_SIZE:
-                sealed_rows += await sealed_pricing_repository.copy_sealed_staging_batch(sealed_batch)
-                sealed_batch = []
-        else:
-            batch.extend(_iter_card_rows(uuid_key, card))
-            if len(batch) >= _COPY_BATCH_SIZE:
-                total_rows += await mtgjson_repository.copy_staging_batch(batch)
-                batch = []
+        async for uuid_key, card in storage_service.iter_xz_json_kvitems(
+            file_path_prices, prefix="data"
+        ):
+            cards_seen += 1
+            if uuid_key in sealed_uuids:
+                sealed_batch.extend(_iter_sealed_rows(uuid_key, card))
+                if len(sealed_batch) >= _COPY_BATCH_SIZE:
+                    sealed_rows += await sealed_pricing_repository.copy_sealed_staging_batch(sealed_batch)
+                    sealed_batch = []
+            else:
+                batch.extend(_iter_card_rows(uuid_key, card))
+                if len(batch) >= _COPY_BATCH_SIZE:
+                    total_rows += await mtgjson_repository.copy_staging_batch(batch)
+                    batch = []
 
-    if batch:
-        total_rows += await mtgjson_repository.copy_staging_batch(batch)
-    if sealed_batch:
-        sealed_rows += await sealed_pricing_repository.copy_sealed_staging_batch(sealed_batch)
+        if batch:
+            total_rows += await mtgjson_repository.copy_staging_batch(batch)
+        if sealed_batch:
+            sealed_rows += await sealed_pricing_repository.copy_sealed_staging_batch(sealed_batch)
 
-    logger.info(
-        "MTGJson streaming complete",
-        extra={
-            "cards": cards_seen,
-            "rows_staged": total_rows,
-            "sealed_rows_staged": sealed_rows,
-            "file": file_path_prices,
-        },
-    )
+        logger.info(
+            "MTGJson streaming complete",
+            extra={
+                "cards": cards_seen,
+                "rows_staged": total_rows,
+                "sealed_rows_staged": sealed_rows,
+                "file": file_path_prices,
+            },
+        )
     return {"rows_staged": total_rows, "cards_seen": cards_seen, "sealed_rows_staged": sealed_rows}
 
 
 @ServiceRegistry.register(
     "staging.mtgjson.promote_to_price_observation",
-    db_repositories=["mtgjson"],
+    db_repositories=["mtgjson", "ops"],
     # The underlying proc issues COMMIT/ROLLBACK per batch, which Postgres
     # forbids when CALL is invoked from an atomic block. Running without
     # an outer transaction lets the proc's own checkpointing do its job.
@@ -328,11 +348,14 @@ async def stream_to_staging(
 )
 async def promote_to_price_observation(
     mtgjson_repository: MtgjsonRepository,
+    ops_repository: OpsRepository,
+    ingestion_run_id: int = None,
 ) -> dict:
     """Promote staged rows into `pricing.price_observation` via the batched proc."""
-    logger.info("Promoting MTGJson staged data to price observations")
-    await mtgjson_repository.promote_staging_to_production()
-    logger.info("Promotion complete")
+    async with track_step(ops_repository, ingestion_run_id, "promote_to_price_observation", error_code="promote_failed"):
+        logger.info("Promoting MTGJson staged data to price observations")
+        await mtgjson_repository.promote_staging_to_production()
+        logger.info("Promotion complete")
     return {}
 
 
@@ -345,11 +368,14 @@ _DEFAULT_DAILY_RETENTION = 29
 
 @ServiceRegistry.register(
     "staging.mtgjson.cleanup_raw_files",
+    db_repositories=["ops"],
     storage_services=["mtgjson"],
 )
 async def cleanup_raw_files(
+    ops_repository: OpsRepository,
     storage_service: StorageService,
     retention_days: int = _DEFAULT_DAILY_RETENTION,
+    ingestion_run_id: int = None,
 ) -> dict:
     """Trim the on-disk MTGJson `.xz` archive to a sliding retention window.
 
@@ -362,61 +388,65 @@ async def cleanup_raw_files(
     Per-file delete failures are logged and skipped; one bad path shouldn't
     block the sweep.
     """
-    all_files = await storage_service.list_directory(pattern="*.json.xz")
+    async with track_step(ops_repository, ingestion_run_id, "cleanup_raw_files", error_code="cleanup_raw_failed"):
+        all_files = await storage_service.list_directory(pattern="*.json.xz")
 
-    dailies = sorted(f for f in all_files if f.startswith("AllPricesToday_"))
-    bulks = [
-        f for f in all_files
-        if f.startswith("AllPrices_") and not f.startswith("AllPricesToday_")
-    ]
+        dailies = sorted(f for f in all_files if f.startswith("AllPricesToday_"))
+        bulks = [
+            f for f in all_files
+            if f.startswith("AllPrices_") and not f.startswith("AllPricesToday_")
+        ]
 
-    if bulks:
-        to_delete = list(dailies)
-    elif len(dailies) > retention_days:
-        to_delete = dailies[:-retention_days]
-    else:
-        to_delete = []
+        if bulks:
+            to_delete = list(dailies)
+        elif len(dailies) > retention_days:
+            to_delete = dailies[:-retention_days]
+        else:
+            to_delete = []
 
-    deleted = 0
-    for filename in to_delete:
-        try:
-            if await storage_service.delete_file(filename):
-                deleted += 1
-        except Exception as exc:
-            logger.warning(
-                "Failed to delete MTGJson raw file",
-                extra={"file": filename, "error": str(exc)},
-            )
+        deleted = 0
+        for filename in to_delete:
+            try:
+                if await storage_service.delete_file(filename):
+                    deleted += 1
+            except Exception as exc:
+                logger.warning(
+                    "Failed to delete MTGJson raw file",
+                    extra={"file": filename, "error": str(exc)},
+                )
 
-    logger.info(
-        "MTGJson raw cleanup complete",
-        extra={
-            "deleted": deleted,
-            "retained_dailies": max(0, len(dailies) - deleted),
-            "bulk_present": bool(bulks),
-        },
-    )
+        logger.info(
+            "MTGJson raw cleanup complete",
+            extra={
+                "deleted": deleted,
+                "retained_dailies": max(0, len(dailies) - deleted),
+                "bulk_present": bool(bulks),
+            },
+        )
     return {"files_deleted": deleted}
 
 
 @ServiceRegistry.register(
     "staging.mtgjson.cleanup_staging_db",
-    db_repositories=["mtgjson"],
+    db_repositories=["mtgjson", "ops"],
 )
 async def cleanup_staging_db(
     mtgjson_repository: MtgjsonRepository,
+    ops_repository: OpsRepository,
+    ingestion_run_id: int = None,
 ) -> dict:
     """Truncate any remaining rows from mtgjson_card_prices_staging after promotion.
 
     Rows that survive promotion are unresolvable (no catalog entry for their UUID).
     Logging them as a warning makes the residual visible without failing the pipeline.
     """
-    unresolved = await mtgjson_repository.truncate_staging_after_promotion()
-    if unresolved:
-        logger.warning(
-            "MTGJson staging cleanup: unresolved rows deleted",
-            extra={"unresolved_rows": unresolved},
-        )
-    else:
-        logger.info("MTGJson staging cleanup: staging table is clean")
+    async with track_step(ops_repository, ingestion_run_id, "cleanup_staging_db", error_code="cleanup_staging_failed"):
+        unresolved = await mtgjson_repository.truncate_staging_after_promotion()
+        if unresolved:
+            logger.warning(
+                "MTGJson staging cleanup: unresolved rows deleted",
+                extra={"unresolved_rows": unresolved},
+            )
+        else:
+            logger.info("MTGJson staging cleanup: staging table is clean")
     return {"staging_rows_deleted": unresolved}

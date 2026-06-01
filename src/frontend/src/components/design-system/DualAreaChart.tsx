@@ -8,12 +8,14 @@ interface DualAreaChartProps {
   height?: number
   listAvgColor?: string
   soldAvgColor?: string
+  currency?: string
 }
 
 const PAD = { top: 8, right: 8, bottom: 52, left: 52 }
 
-function formatPrice(v: number): string {
-  return v >= 10 ? `$${v.toFixed(0)}` : `$${v.toFixed(2)}`
+function currencySymbol(currency: string): string {
+  const parts = new Intl.NumberFormat('en-US', { style: 'currency', currency }).formatToParts(0)
+  return parts.find((p) => p.type === 'currency')?.value ?? '$'
 }
 
 function formatFullDate(d: Date): string {
@@ -28,9 +30,13 @@ export function DualAreaChart({
   height = 200,
   listAvgColor = 'var(--hd-accent)',
   soldAvgColor = '#3b82f6',
+  currency = 'USD',
 }: DualAreaChartProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const [hoverIdx, setHoverIdx] = useState<number | null>(null)
+  const sym = currencySymbol(currency)
+  const formatPrice = (v: number): string =>
+    v >= 10 ? `${sym}${v.toFixed(0)}` : `${sym}${v.toFixed(2)}`
 
   const allValues = [...listAvg, ...soldAvg].filter((v) => v !== null) as number[]
   if (allValues.length < 1 || dates.length < 1) return null

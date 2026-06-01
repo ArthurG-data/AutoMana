@@ -49,6 +49,17 @@ worker_prefetch_multiplier = 1
 task_always_eager = False
 task_store_eager_result = True
 
+# Redis broker redelivery window. Tasks run with acks_late=True, so a message
+# is only acked once its task returns. Redis re-queues any message left
+# un-acked longer than `visibility_timeout`, which then re-executes on the
+# next pickup (or any worker restart). The default is 1h — far shorter than
+# our long pipeline steps (e.g. the ~11h mtgstock slice download), so the
+# default guarantees duplicate downloads. 24h sits comfortably above the
+# longest single task message. The `run_service` redelivery guard
+# (ops.pipeline_services.is_run_finished) is the belt to this suspenders:
+# it no-ops a redelivered step whose ingestion run already finished.
+broker_transport_options = {"visibility_timeout": 86400}
+
 timezone = os.getenv("CELERY_TIMEZONE", "Australia/Sydney")
 
 beat_schedule = {
@@ -114,50 +125,20 @@ beat_schedule = {
         "task": "automana.worker.tasks.ebay.ebay_sync_own_sales_task",
         "schedule": crontab(hour=7, minute=0),   # 07:00 AEST
     },
-    # eBay sold-price persistence — external scrape (Finding API, per listed card).
-    "ebay-scrape-external-sold-nightly": {
-        "task": "automana.worker.tasks.ebay.ebay_scrape_external_sold_task",
-        "schedule": crontab(hour=9, minute=45),  # 09:45 AEST (was 07:15; shifted for category sweep)
-    },
-    # eBay category sweep: fetch all MTG sold listings, match to known cards.
-    # Runs before external scrape so quota consumption is tracked jointly.
-    "ebay-category-sweep-daily": {
-        "task": "automana.worker.tasks.ebay.ebay_category_sweep_task",
-        "schedule": crontab(hour=9, minute=0),   # 09:00 AEST
-    },
-    # eBay sold-price promotion — aggregate both staging tables → price_observation.
-    # Runs after sync (07:00), category sweep (09:00), and scrape (09:45).
-    # refresh-scrape-targets (11:00) and scrape-global-market (11:15) depend on this.
+    # eBay sold-price promotion — promote own-sales (Fulfillment) plus any
+    # externally-written scrape rows (e.g. TCGPLAYER) into price_observation.
+    # Runs after own-sales sync (07:00).
     "ebay-promote-sold-obs-nightly": {
         "task": "run_service",
         "schedule": crontab(hour=10, minute=30),  # 10:30 AEST
         "kwargs": {"path": "integrations.ebay.promote_sold_obs"},
     },
-    # FX rates: fetch AUD→USD and CAD→USD from frankfurter.app before market scrape.
+    # FX rates: fetch AUD→USD and CAD→USD from frankfurter.app. Kept for future
+    # cross-currency price normalisation; the pricing.fx_rates table is retained.
     "pricing-fetch-fx-rates-nightly": {
         "task": "run_service",
         "schedule": crontab(hour=6, minute=45),   # 06:45 AEST
         "kwargs": {"path": "integrations.pricing.fetch_fx_rates"},
-    },
-    # eBay global market: refresh rare/mythic/promo watchlist.
-    # Runs after promote_sold_obs (10:30) so price_observation has fresh data for
-    # the sell_avg_cents >= threshold filter.
-    "ebay-refresh-scrape-targets-nightly": {
-        "task": "run_service",
-        "schedule": crontab(hour=11, minute=0),   # 11:00 AEST — after promote_sold_obs (10:30)
-        "kwargs": {"path": "integrations.ebay.refresh_scrape_targets"},
-    },
-    # eBay global market: scrape sold prices across EBAY-US, EBAY-AU, EBAY-ENCA.
-    "ebay-scrape-global-market-nightly": {
-        "task": "run_service",
-        "schedule": crontab(hour=11, minute=15),   # 11:15 AEST — after targets refreshed
-        "kwargs": {
-            "path": "integrations.ebay.scrape_global_market",
-            "days_back": 30,
-            "score_threshold": 0.7,
-            "limit_per_card": 50,
-            "environment": "production",
-        },
     },
     # Weekly cleanup of eBay raw JSON files older than 7 days.
     "ebay-cleanup-raw-files-weekly": {
@@ -175,6 +156,55 @@ beat_schedule = {
     "open-tcg-pricing-daily": {
         "task": "automana.worker.tasks.pipelines.open_tcg_pricing_pipeline",
         "schedule": crontab(hour=1, minute=0),  # 01:00 AEST
+    },
+    # Weekly mtgstock_id -> card_version_id mapping build.
+    # Runs at 02:00 AEST Sunday, after discover-new-ids (01:00) so new IDs are mapped same run.
+    "mtgstock-build-id-mapping": {
+        "task": "automana.worker.tasks.pipelines.mtgstock_build_id_mapping",
+        "schedule": crontab(hour=2, minute=0, day_of_week=0),  # Sunday 02:00 AEST
+    },
+    # MTGStock tiered multi-market refresh.
+    # Tier 1 (recent/valuable, 4 markets): 4 daily slots over a 7-day window.
+    "mtgstock-tier1-slot0": {
+        "task": "automana.worker.tasks.pipelines.mtgstock_tier1_refresh",
+        "schedule": crontab(hour=0, minute=30),   # 00:30 AEST
+        "kwargs": {"slot": 0},
+    },
+    "mtgstock-tier1-slot1": {
+        "task": "automana.worker.tasks.pipelines.mtgstock_tier1_refresh",
+        "schedule": crontab(hour=6, minute=30),   # 06:30 AEST
+        "kwargs": {"slot": 1},
+    },
+    "mtgstock-tier1-slot2": {
+        "task": "automana.worker.tasks.pipelines.mtgstock_tier1_refresh",
+        "schedule": crontab(hour=12, minute=0),   # 12:00 AEST
+        "kwargs": {"slot": 2},
+    },
+    "mtgstock-tier1-slot3": {
+        "task": "automana.worker.tasks.pipelines.mtgstock_tier1_refresh",
+        "schedule": crontab(hour=17, minute=0),   # 17:00 AEST
+        "kwargs": {"slot": 3},
+    },
+    # Tier 2 ($1-$5, tcg+cardmarket): 1 daily slot over a 14-day window.
+    "mtgstock-tier2": {
+        "task": "automana.worker.tasks.pipelines.mtgstock_tier2_refresh",
+        "schedule": crontab(hour=8, minute=30),   # 08:30 AEST
+    },
+    # Tier 3 (bulk, tcg only): 1 daily slot over a 30-day window.
+    "mtgstock-tier3": {
+        "task": "automana.worker.tasks.pipelines.mtgstock_tier3_refresh",
+        "schedule": crontab(hour=14, minute=30),  # 14:30 AEST
+    },
+    # Incremental DB load: stage all of today's refreshed IDs into price_observation.
+    # Runs at 23:00 AEST after all 6 slice downloads have had time to complete.
+    "mtgstock-incremental-load": {
+        "task": "automana.worker.tasks.pipelines.mtgstock_incremental_load",
+        "schedule": crontab(hour=22, minute=0),   # 22:00 AEST
+    },
+    # Weekly new-ID discovery: probe API for print IDs above current local maximum.
+    "mtgstock-discover-new-ids": {
+        "task": "automana.worker.tasks.pipelines.mtgstock_discover_new_ids",
+        "schedule": crontab(hour=1, minute=0, day_of_week=0),  # Sunday 01:00 AEST
     },
 }
 

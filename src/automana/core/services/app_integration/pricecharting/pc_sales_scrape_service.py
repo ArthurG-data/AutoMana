@@ -6,6 +6,7 @@ import logging
 import re
 from datetime import date
 from typing import Any
+from urllib.parse import unquote
 
 from bs4 import BeautifulSoup
 
@@ -26,18 +27,68 @@ _GRADE_TABLES: dict[str, str] = {
 }
 
 
+def _detect_source(title_td) -> str:
+    """Detect the marketplace a PriceCharting sold row came from.
+
+    PriceCharting tags each completed-sale row's title cell with a ``[TCGPlayer]``
+    or ``[eBay]`` marker; fall back to the row link's href when the marker is absent.
+    """
+    text = title_td.get_text()
+    if "[TCGPlayer]" in text:
+        return "tcgplayer"
+    if "[eBay]" in text:
+        return "ebay"
+    link = title_td.find("a")
+    if link:
+        href = link.get("href", "")
+        if "tcgplayer" in href:
+            return "tcgplayer"
+        if "ebay" in href:
+            return "ebay"
+    return "unknown"
+
+
+def _extract_tcg_product_id(node) -> str | None:
+    """First ``/product/<id>`` found in any link href under ``node`` (decoded)."""
+    for a in node.find_all("a"):
+        m = re.search(r"/product/(\d+)", unquote(a.get("href", "")))
+        if m:
+            return m.group(1)
+    return None
+
+
+def _consensus_tcg_id(page_level: str | None, per_listing: list[str]) -> tuple[str | None, int]:
+    """Resolve the product's TCGPlayer id from the per-listing votes, falling
+    back to the page-level link. Returns (id, vote_count).
+
+    The individual TCGPlayer-sourced sold rows each link to the product, so a
+    majority vote across them is more robust than the single page-level link
+    (and still works when that link is absent). vote_count feeds match certainty.
+    """
+    if per_listing:
+        counts: dict[str, int] = {}
+        for pid in per_listing:
+            counts[pid] = counts.get(pid, 0) + 1
+        winner = max(counts, key=lambda k: counts[k])
+        return winner, counts[winner]
+    return page_level, 0
+
+
 def _parse_sales_page(html: str, product_id: str) -> dict:
     """Parse a PriceCharting card page, returning sales rows and TCGPlayer ID."""
     soup = BeautifulSoup(html, "html.parser")
 
     tcg_link = soup.select_one("a.js-tcgplayer-completed-sale")
-    tcg_id: str | None = None
+    page_tcg_id: str | None = None
     if tcg_link and tcg_link.get("href"):
-        m = re.search(r"/product/(\d+)", tcg_link["href"])
+        # The href is an affiliate redirect with the real TCGPlayer product URL
+        # percent-encoded in its `u=` param — decode before matching /product/{id}.
+        m = re.search(r"/product/(\d+)", unquote(tcg_link["href"]))
         if m:
-            tcg_id = m.group(1)
+            page_tcg_id = m.group(1)
 
     sales: list[dict] = []
+    per_listing_tcg: list[str] = []
     for css_class, grade in _GRADE_TABLES.items():
         # Each grade section has two divs with the same class: a tab label (carries
         # "tab" in its class list) and the content panel that holds the data table.
@@ -49,37 +100,46 @@ def _parse_sales_page(html: str, product_id: str) -> dict:
         if not table:
             continue
         for tr in table.select("tbody tr"):
-            tds = tr.find_all("td")
-            if len(tds) < 3:
+            # PriceCharting rows are: date | image | title | numeric(price) | ...
+            # The price lives in td.numeric > span.js-price — NOT a positional cell.
+            date_td = tr.find("td", class_="date")
+            title_td = tr.find("td", class_="title")
+            price_td = tr.find("td", class_="numeric")
+            if not (date_td and title_td and price_td):
                 continue
-            date_td = tr.select_one("td.date") or tds[0]
-            title_td = tr.select_one("td.title") or tds[1]
-            price_td = tr.select_one("td.price") or tds[2]
 
-            price_raw = price_td.get_text(strip=True).replace("$", "").replace(",", "")
+            price_span = price_td.find("span", class_="js-price")
+            price_text = price_span.get_text(strip=True) if price_span else price_td.get_text(strip=True)
+            price_raw = price_text.replace("$", "").replace(",", "")
             try:
                 price_cents = round(float(price_raw) * 100)
             except ValueError:
                 continue
 
-            link = tr.select_one("a")
-            source = "unknown"
-            if link:
-                href = link.get("href", "")
-                if "tcgplayer" in href:
-                    source = "tcgplayer"
-                elif "ebay" in href:
-                    source = "ebay"
+            link = title_td.find("a")
+            listing_title = link.get_text(strip=True) if link else title_td.get_text(strip=True)
+
+            source = _detect_source(title_td)
+            if source == "tcgplayer":
+                row_tcg = _extract_tcg_product_id(tr)
+                if row_tcg:
+                    per_listing_tcg.append(row_tcg)
 
             sales.append({
                 "grade": grade,
                 "sold_at": date_td.get_text(strip=True),
-                "title": title_td.get_text(strip=True),
+                "title": listing_title,
                 "price_cents": price_cents,
                 "source": source,
             })
 
-    return {"product_id": product_id, "tcgplayer_id": tcg_id, "sales": sales}
+    tcg_id, tcg_votes = _consensus_tcg_id(page_tcg_id, per_listing_tcg)
+    return {
+        "product_id": product_id,
+        "tcgplayer_id": tcg_id,
+        "tcgplayer_id_votes": tcg_votes,
+        "sales": sales,
+    }
 
 
 @ServiceRegistry.register(

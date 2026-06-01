@@ -556,6 +556,35 @@ class OpsRepository(AbstractRepository):
         rows = await self.execute_query(query, (run_key,))
         return rows[0]["status"] if rows else None
 
+    async def get_run_is_finished(self, ingestion_run_id: int) -> bool:
+        """Return True if the run has concluded (``ended_at`` is set).
+
+        ``ended_at`` is written only by ``finish_run`` / ``fail_run`` — never
+        by the per-step ``update_run`` — so it is the authoritative "the run
+        lifecycle is over" signal. Used by the ``run_service`` redelivery guard
+        to no-op stale steps that the broker re-delivered after the run already
+        finished (acks_late + Redis visibility_timeout). Returns False when the
+        run does not exist.
+        """
+        query = """
+        SELECT (ended_at IS NOT NULL) AS finished
+        FROM ops.ingestion_runs
+        WHERE id = $1
+        """
+        rows = await self.execute_query(query, (ingestion_run_id,))
+        return bool(rows[0]["finished"]) if rows else False
+
+    async def get_running_ingestion_runs(self) -> list[dict]:
+        """Return all ingestion runs currently in 'running' status."""
+        query = """
+        SELECT id, pipeline_name, run_key
+        FROM ops.ingestion_runs
+        WHERE status = 'running'
+        ORDER BY started_at DESC
+        """
+        rows = await self.execute_query(query, ())
+        return [dict(r) for r in rows]
+
     async def fetch_run_summary(self, ingestion_run_id: int) -> dict | None:
         """Return run-level fields used by several metrics in one round-trip.
 

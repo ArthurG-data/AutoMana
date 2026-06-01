@@ -30,7 +30,15 @@ async def process_info_file(path):
             # adjust key
     }
 
-async def process_prices_file(path, id_dict):
+_MARKET_SOURCE = {
+    "tcg": "tcg",
+    "cardmarket": "cardmarket",
+    "cardkingdom": "cardkingdom",
+    "starcity": "starcitygames",
+}
+
+
+async def process_prices_file(path, id_dict, market: str = "tcg"):
     df = await asyncio.to_thread(pd.read_parquet, path)
     # asyncpg.copy_to_table(..., header=True) maps by column NAME, so the
     # DataFrame columns must match pricing.raw_mtg_stock_price exactly.
@@ -38,7 +46,7 @@ async def process_prices_file(path, id_dict):
     df = df.rename(columns={"date": "ts_date"})
     df["print_id"] = id_dict.get("mtgstock", None)
     df['game_code'] =  "mtg"
-    df['source_code'] = 'mtgstocks'
+    df['source_code'] = _MARKET_SOURCE.get(market, market)
     df['scraped_at'] = pd.Timestamp.now()
     return df[["ts_date"
                ,"game_code"
@@ -66,7 +74,8 @@ async def bulk_load(price_repository: PriceRepository,
                     market: str = "tcg",
                     start_id: int | None = None,
                     end_id: int | None = None,
-                    concurrency: int = 20):  # wired in Task 2: asyncio.Semaphore slot count
+                    ids_filter: list[int] | None = None,
+                    concurrency: int = 20):
     """TODO: include scryfall_id, card_name, set_abbr, collector_number in the
     staging table to simplify dim/fact loads and avoid re-calling Scryfall API
     in the dimension load step."""
@@ -87,6 +96,10 @@ async def bulk_load(price_repository: PriceRepository,
             and (end_id is None or int(f) <= end_id)
         ]
 
+    if ids_filter is not None:
+        _ids_set = set(ids_filter)
+        folders = [f for f in folders if f.isdigit() and int(f) in _ids_set]
+
     deleted = await price_repository.clear_raw_prices()
     logger.info("bulk_load: cleared stale rows from raw_mtg_stock_price", extra={"deleted": deleted})
 
@@ -98,7 +111,7 @@ async def bulk_load(price_repository: PriceRepository,
                 pdir = os.path.join(root_folder, folder)
                 id_dict = await process_info_file(os.path.join(pdir, "info.json"))
                 price_df = await process_prices_file(
-                    os.path.join(pdir, f"prices.{market}.parquet"), id_dict
+                    os.path.join(pdir, f"prices.{market}.parquet"), id_dict, market=market
                 )
                 price_df["card_name"] = id_dict.get("card_name")
                 price_df["set_abbr"] = id_dict.get("set_abbr")

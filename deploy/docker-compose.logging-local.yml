@@ -1,15 +1,56 @@
+# Local dev observability stack: Loki + promtail + Grafana, all on this machine.
+#
+# Dev logs stay local instead of shipping to the VPS Loki over the internet
+# (the VPS Loki port 3100 is firewalled to internal-only). Grafana is bound to
+# 127.0.0.1 so the UI is reachable only from this host.
+#
+#   docker compose -f deploy/docker-compose.logging-local.yml up -d
+#   open http://127.0.0.1:3000  (anonymous, Loki datasource pre-provisioned)
 services:
+  loki:
+    image: grafana/loki:latest
+    container_name: automana-loki-local
+    restart: unless-stopped
+    volumes:
+      - ./logging-local/loki-config.yml:/etc/loki/local-config.yaml:ro
+      - loki-data-local:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    # No healthcheck: the grafana/loki image ships no wget/curl, so any
+    # HTTP-based check is a false negative. Loki logs "ready" on startup;
+    # promtail retries pushes until it's up.
+
   promtail-local:
     image: grafana/promtail:latest
     container_name: automana-promtail-local
     restart: unless-stopped
     environment:
-      LOKI_URL: ${LOKI_URL:?set LOKI_URL=http://<vps-ip>:3100 in config/env/.env.dev}
+      LOKI_URL: http://loki:3100      # local Loki, not the VPS
     volumes:
       - ./vps/promtail-local-config.yml:/etc/promtail/config.yml:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock
       - promtail-local-positions:/run/promtail
     command: -config.file=/etc/promtail/config.yml -config.expand-env=true
+    depends_on:
+      - loki
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: automana-grafana-local
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"          # localhost only
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+    volumes:
+      - grafana-data-local:/var/lib/grafana
+      - ./logging-local/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - loki
+
 volumes:
   promtail-local-positions:
+  loki-data-local:
+  grafana-data-local:

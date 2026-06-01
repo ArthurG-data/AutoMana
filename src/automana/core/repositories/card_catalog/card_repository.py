@@ -219,6 +219,56 @@ class CardReferenceRepository(AbstractRepository[Any]):
         rows = await self.execute_query(sql, (set_code, collector_number))
         return dict(rows[0]) if rows else None
 
+    async def get_tcgplayer_ref_id(self) -> int:
+        """Look up the card_identifier_ref_id for 'tcgplayer_id' (constant — call once)."""
+        sql = """
+            SELECT card_identifier_ref_id
+            FROM   card_catalog.card_identifier_ref
+            WHERE  identifier_name = 'tcgplayer_id'
+        """
+        rows = await self.execute_query(sql)
+        if not rows:
+            raise ValueError("card_identifier_ref row for 'tcgplayer_id' not found")
+        return rows[0]["card_identifier_ref_id"]
+
+    async def get_all_card_versions_for_set(
+        self, set_code: str, tcgplayer_ref_id: int
+    ) -> dict[str, list[dict]]:
+        """All card_version rows for a set, keyed by lowercased card name.
+
+        Returns {card_name.lower(): [row_dict, ...]} so the caller can look up
+        candidates by name in O(1) without issuing a query per product.
+        The tcgplayer_id column is populated via the pre-resolved ref_id to avoid
+        a correlated subquery on every call.
+        """
+        sql = """
+            SELECT cv.card_version_id,
+                   cv.collector_number,
+                   cv.frame_effects,
+                   cv.full_art,
+                   bc.border_color_name,
+                   uc.card_name,
+                   cei.value AS tcgplayer_id
+            FROM   card_catalog.card_version cv
+            JOIN   card_catalog.sets s
+                   ON s.set_id = cv.set_id
+            JOIN   card_catalog.unique_cards_ref uc
+                   ON uc.unique_card_id = cv.unique_card_id
+            JOIN   card_catalog.border_color_ref bc
+                   ON bc.border_color_id = cv.border_color_id
+            LEFT JOIN card_catalog.card_external_identifier cei
+                   ON  cei.card_version_id        = cv.card_version_id
+                   AND cei.card_identifier_ref_id = $2
+            WHERE  s.set_code = LOWER($1)
+        """
+        rows = await self.execute_query(sql, (set_code, tcgplayer_ref_id))
+        result: dict[str, list[dict]] = {}
+        for row in rows:
+            r = dict(row)
+            key = r["card_name"].lower()
+            result.setdefault(key, []).append(r)
+        return result
+
     async def _fetch_prices_for_cards(self, card_ids: list) -> dict:
         """
         Fetch price analytics from tier 2 (print_price_daily) for a batch of cards.
@@ -1206,9 +1256,10 @@ WHERE cv.card_version_id = ei.card_version_id
         end_date: date,
         finish: Optional[str] = None,
         aggregation: str = 'daily',
+        currency: str = 'USD',
     ) -> Dict[str, Any]:
         """
-        Fetch aggregated price history for a card across all sources.
+        Fetch aggregated price history for a card, scoped to a single currency.
 
         Args:
             card_version_id: Card version ID
@@ -1216,6 +1267,9 @@ WHERE cv.card_version_id = ei.card_version_id
             end_date: End date (inclusive)
             finish: Optional finish code string ('NONFOIL', 'FOIL', 'ETCHED', etc.)
             aggregation: 'daily' or 'weekly' aggregation (default='daily')
+            currency: ISO currency to scope sources to (default='USD'). Filtered strictly via
+                pricing.price_source.currency_code, so a card with no data in this currency
+                returns an empty series rather than silently mixing currencies.
 
         Returns:
             Dict with keys: list_avg, sold_avg, dates
@@ -1228,6 +1282,8 @@ WHERE cv.card_version_id = ei.card_version_id
         if finish:
             finish_filter = f"AND f.code = ${len(params) + 1}"
             params.append(finish.upper())
+        currency_filter = f"AND ps.currency_code = ${len(params) + 1}"
+        params.append(currency.upper())
 
         if aggregation == 'weekly':
             query = f"""
@@ -1241,10 +1297,12 @@ WHERE cv.card_version_id = ei.card_version_id
                     AVG(ppd.sold_avg_cents)::float / 100 AS sold_avg_price
                 FROM pricing.print_price_daily ppd
                 JOIN card_catalog.card_finished f ON f.finish_id = ppd.finish_id
+                JOIN pricing.price_source ps ON ps.source_id = ppd.source_id
                 WHERE ppd.card_version_id = $1
                   AND ppd.price_date >= $2
                   AND ppd.price_date <= $3
                   {finish_filter}
+                  {currency_filter}
                 GROUP BY date_trunc('week', ppd.price_date)
             ),
             tier3_prices AS (
@@ -1254,10 +1312,12 @@ WHERE cv.card_version_id = ei.card_version_id
                     AVG(ppw.sold_avg_cents)::float / 100 AS sold_avg_price
                 FROM pricing.print_price_weekly ppw
                 JOIN card_catalog.card_finished f ON f.finish_id = ppw.finish_id
+                JOIN pricing.price_source ps ON ps.source_id = ppw.source_id
                 WHERE ppw.card_version_id = $1
                   AND ppw.price_week >= $2
                   AND ppw.price_week <= $3
                   {finish_filter}
+                  {currency_filter}
                 GROUP BY ppw.price_week
             ),
             combined AS (
@@ -1287,10 +1347,12 @@ WHERE cv.card_version_id = ei.card_version_id
                     AVG(ppd.sold_avg_cents)::float / 100 AS sold_avg_price
                 FROM pricing.print_price_daily ppd
                 JOIN card_catalog.card_finished f ON f.finish_id = ppd.finish_id
+                JOIN pricing.price_source ps ON ps.source_id = ppd.source_id
                 WHERE ppd.card_version_id = $1
                   AND ppd.price_date >= $2
                   AND ppd.price_date <= $3
                   {finish_filter}
+                  {currency_filter}
                 GROUP BY ppd.price_date
             )
             SELECT

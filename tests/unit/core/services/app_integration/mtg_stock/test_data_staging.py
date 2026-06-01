@@ -41,7 +41,7 @@ def _fake_folder_fns():
             "cardtrader_id": None,
         }
 
-    async def fake_prices(path: str, id_dict: dict) -> pd.DataFrame:
+    async def fake_prices(path: str, id_dict: dict, market: str = "tcg") -> pd.DataFrame:
         return pd.DataFrame({
             "ts_date": ["2024-01-01"],
             "price_low": [1.0],

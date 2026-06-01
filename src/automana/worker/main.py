@@ -1,5 +1,8 @@
+import base64 as _base64
+import json as _json
+import redis as redis_lib
 from celery import Celery
-from celery.signals import worker_process_init, worker_process_shutdown
+from celery.signals import worker_process_init, worker_process_shutdown, worker_ready
 from automana.core.framework.service_manager import ServiceManager
 from automana.worker.ressources import get_state, init_backend_runtime, shutdown_backend_runtime
 from automana.core.log.logging_config import configure_logging
@@ -10,6 +13,8 @@ import inspect, logging
 
 configure_logging()
 logger = logging.getLogger(__name__)
+
+from automana.worker.celeryconfig import beat_schedule as _beat_schedule
 
 app = Celery('etl')
 app.config_from_object("automana.worker.celeryconfig")
@@ -58,6 +63,32 @@ def run_service(self,prev=None, path: str = None, **kwargs):
     if isinstance(prev, dict):
         kwargs = {**prev, **kwargs}
 
+    # Redelivery idempotency guard.
+    # Tasks run with acks_late=True and the Redis broker uses the default 1h
+    # visibility_timeout, so any step that outlives the timeout (or any worker
+    # restart) gets the SAME message redelivered and re-executed — even though
+    # its ingestion run already concluded. When THIS delivery is a redelivery
+    # AND the run it belongs to is finished, the step is stale: no-op and
+    # return the context so the message is acked. Gating on `redelivered`
+    # keeps legitimate post-finish_run steps (e.g. the Scryfall integrity tail,
+    # which run after the run is marked success) from being skipped on their
+    # first delivery.
+    delivery_info = getattr(self.request, "delivery_info", None) or {}
+    guard_run_id = context.get("ingestion_run_id")
+    if delivery_info.get("redelivered") and guard_run_id:
+        finished = state.loop.run_until_complete(
+            ServiceManager.execute_service(
+                "ops.pipeline_services.is_run_finished",
+                ingestion_run_id=guard_run_id,
+            )
+        )
+        if finished and finished.get("is_finished"):
+            logger.warning(
+                "Skipping redelivered step for already-finished run",
+                extra={"service_path": path, "ingestion_run_id": guard_run_id},
+            )
+            return context
+
     service_func = ServiceManager.get_service_function(path)
     sig = inspect.signature(service_func)
     allowed_keys = set(sig.parameters.keys())
@@ -89,3 +120,66 @@ def run_service(self,prev=None, path: str = None, **kwargs):
         set_service_path(None)
         set_request_id(None)
         set_task_id(None)
+
+
+def _build_beat_fingerprints() -> set:
+    fps: set = set()
+    for entry in _beat_schedule.values():
+        task = entry["task"]
+        if task == "run_service":
+            path = entry.get("kwargs", {}).get("path")
+            if path:
+                fps.add(("run_service", path))
+        else:
+            fps.add((task,))
+    return fps
+
+
+def _task_fingerprint(raw: bytes):
+    try:
+        msg = _json.loads(raw)
+        task_name = msg.get("headers", {}).get("task")
+        if not task_name:
+            return None
+        if task_name == "run_service":
+            body = _json.loads(_base64.b64decode(msg["body"]))
+            kwargs = body[1] if isinstance(body, list) and len(body) > 1 else {}
+            path = kwargs.get("path") if isinstance(kwargs, dict) else None
+            return ("run_service", path) if path else None
+        return (task_name,)
+    except Exception:
+        return None
+
+
+@worker_ready.connect
+def _purge_stale_beat_tasks(sender, **_):
+    beat_fingerprints = _build_beat_fingerprints()
+    r = redis_lib.from_url(sender.app.conf.broker_url)
+    raw_items = r.lrange("celery", 0, -1)
+
+    groups: dict = {}
+    for raw in raw_items:
+        fp = _task_fingerprint(raw)
+        if fp and fp in beat_fingerprints:
+            groups.setdefault(fp, []).append(raw)
+
+    purged: dict = {}
+    for fp, items in groups.items():
+        if len(items) > 1:
+            for duplicate in items[1:]:
+                r.lrem("celery", 1, duplicate)
+            label = fp[1] if fp[0] == "run_service" else fp[0].split(".")[-1]
+            purged[label] = len(items) - 1
+
+    if purged:
+        logger.warning("Stale beat tasks purged on startup", extra={"purged": purged})
+
+
+@worker_ready.connect
+def _reconcile_orphaned_runs(sender, **_):
+    result = run_service("ops.pipeline_services.reconcile_orphaned_runs")
+    if result.get("reconciled", 0) > 0:
+        logger.warning(
+            "Orphaned ingestion runs closed on startup",
+            extra={"reconciled_runs": result["runs"]}
+        )

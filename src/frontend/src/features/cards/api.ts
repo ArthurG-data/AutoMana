@@ -3,6 +3,7 @@ import { queryOptions, infiniteQueryOptions } from '@tanstack/react-query'
 import { apiClient } from '../../lib/apiClient'
 import { useAuthStore } from '../../store/auth'
 import type { CardDetail, CardSearchParams, CardSearchResponse, CardSuggestParams, CardSuggestResponse, CatalogStats, SetBrowseItem, CardVersionRow, OtherSetRow } from './types'
+import type { CurrencyCode } from '../../store/ui'
 
 export function cardInfiniteSearchQueryOptions(params: Omit<CardSearchParams, 'page'>) {
   const { group: _group, ...apiParams } = params
@@ -130,12 +131,13 @@ export function cardOtherSetsQueryOptions(uniqueCardId: string) {
 export function cardPriceHistoryQueryOptions(
   cardId: string,
   range: '1w' | '1m' | '3m' | '1y' | 'all' = '1m',
-  finish?: string
+  finish?: string,
+  currency: CurrencyCode = 'USD'
 ) {
   return queryOptions({
-    queryKey: ['cards', cardId, 'price-history', range, finish ?? 'all'],
+    queryKey: ['cards', cardId, 'price-history', range, finish ?? 'all', currency],
     queryFn: async () => {
-      const qs = new URLSearchParams({ price_range: range })
+      const qs = new URLSearchParams({ price_range: range, currency })
       if (finish) qs.set('finish', finish)
 
       const res = await fetch(

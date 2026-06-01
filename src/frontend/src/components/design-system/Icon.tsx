@@ -7,6 +7,7 @@ export type IconKind =
   | 'diamond' | 'star' | 'settings' | 'more' | 'sparkle'
   | 'bot' | 'flag' | 'tag'
   | 'copy' | 'check' | 'users' | 'shield' | 'key' | 'link' | 'close'
+  | 'article'
 
 interface IconProps {
   kind: IconKind
@@ -62,6 +63,7 @@ export function Icon({
     key:        <g {...p}><circle cx="6.5" cy="8" r="3" /><path d="M9 8 H14 M12 8 V10 M14 8 V10" /></g>,
     link:       <g {...p}><path d="M7 9 A3 3 0 0 1 9 7 L12 4 A2.8 2.8 0 1 1 12 4 L12 4 A2.8 2.8 0 0 1 12 9 L9 12 A3 3 0 0 1 4 12" /><path d="M9 7 L7 9" /></g>,
     close:      <path d="M4 4 L12 12 M12 4 L4 12" {...p} />,
+    article:    <g {...p}><path d="M4 2 H9 L12 5 V14 H4 Z" /><path d="M9 2 V5 H12" /><path d="M6 8 H10 M6 10.5 H8.5" /></g>,
   }
 
   return (

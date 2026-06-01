@@ -374,6 +374,60 @@ async def end_of_batch_process(ops_repository,
     return processed, errored, step
 
 
+@ServiceRegistry.register(
+    "mtg_stock.data_loader.discover_and_fetch_new_ids",
+    api_repositories=["mtg_stock"],
+    db_repositories=["ops"],
+)
+async def discover_and_fetch_new_ids(
+        mtg_stock_repository: ApiMtgStockRepository,
+        destination_folder: str,
+        ingestion_run_id: int,
+        batch_size: int = 500,
+        ops_repository: OpsRepository | None = None,
+        market: str = "tcg",
+) -> dict:
+    """Probe for print IDs beyond the current local maximum and download them."""
+    ids_path = Path(destination_folder) / "existing_ids.json"
+    existing_ids: List[int] = sorted(json.loads(ids_path.read_text())) if ids_path.exists() else []
+    max_known = max(existing_ids) if existing_ids else 0
+
+    last_id = await get_last_print_id(mtg_stock_repository, max_known)
+
+    if last_id <= max_known:
+        logger.info("No new print IDs discovered", extra={"max_known": max_known})
+        return {"new_ids_count": 0, "processed": 0}
+
+    new_ids = list(range(max_known + 1, last_id + 1))
+    logger.info(
+        "New print IDs discovered",
+        extra={"count": len(new_ids), "from": max_known + 1, "to": last_id},
+    )
+
+    if ops_repository and ingestion_run_id is not None:
+        await ops_repository.update_run(
+            ingestion_run_id, status="running", current_step="discover_new_ids"
+        )
+
+    processed = 0
+    for start in range(0, len(new_ids), batch_size):
+        batch_ids = new_ids[start : start + batch_size]
+        batch_result = await mtg_stock_repository.fetch_card_data_batches(batch_ids, market=market)
+        cleaned = [d for d in batch_result.get("data", []) if "error" not in d]
+        await write_batch(cleaned, Path(destination_folder), market=market)
+        processed += len(cleaned)
+        logger.info(
+            "discover_new_ids batch complete",
+            extra={"batch_start": start, "fetched": len(cleaned)},
+        )
+
+    all_ids = sorted(set(existing_ids) | set(new_ids))
+    ids_path.write_text(json.dumps(all_ids))
+    logger.info("existing_ids.json updated", extra={"total_ids": len(all_ids)})
+
+    return {"new_ids_count": len(new_ids), "processed": processed}
+
+
 
 
 

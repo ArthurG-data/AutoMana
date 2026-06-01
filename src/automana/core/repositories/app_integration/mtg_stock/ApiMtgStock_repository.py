@@ -1,4 +1,4 @@
-﻿import asyncio, httpx, hashlib, json, logging, random
+import asyncio, httpx, json, logging, random
 from typing import Any, Dict, List, Optional, Union
 from automana.core.exceptions.repository_layer_exceptions.api_errors import ExternalApiConnectionError
 from automana.core.repositories.abstract_repositories.AbstractAPIRepository import BaseApiClient
@@ -16,7 +16,6 @@ class ApiMtgStockRepository(BaseApiClient):
                  , delay_base: Optional[int] = 180
                  , max_attempts: Optional[int] = 6
                  , max_concurrency: int=1
-                 , etag_ttl: int = 3600
                  , environment: str | None = None
                  , **kwargs):
         self._headers = {
@@ -48,43 +47,20 @@ class ApiMtgStockRepository(BaseApiClient):
         self.MAX_ATTEMPTS = max_attempts
         self.SEM = asyncio.Semaphore(max_concurrency)
 
-        # persistent client used when entering context
         super().__init__(timeout=timeout)
-        # ETag cache: url -> {etag, body, expires_at}
-        self._etag_cache: Dict[str, Dict[str, Any]] = {}
-        self._etag_ttl = etag_ttl
         self.rate_limiter = AsyncTokenBucket(rate_per_sec=rate_per_sec, capacity=burst)
 
     def name(self) -> str:
         """Return the name of the repository"""
         return "API_mtgStockRepository"
-    
+
     def default_headers(self) -> Dict[str, str]:
         return dict(self._headers)
-    
-    def _get_cached(self, url: str) -> Optional[bytes]:
-        entry = self._etag_cache.get(url)
-        if not entry:
-            return None
-        if entry["expires_at"] < asyncio.get_event_loop().time():
-            self._etag_cache.pop(url, None)
-            return None
-        return entry["body"]
-
-    def _store_cache(self, url: str, body: bytes, etag: Optional[str]):
-        self._etag_cache[url] = {
-            "etag": etag,
-            "body": body,
-            "expires_at": asyncio.get_event_loop().time() + self._etag_ttl,
-        }
 
     def _get_base_url(self) -> str:
         return "https://api.mtgstocks.com"
 
-
     async def _get_bytes_or_none(self, endpoint: str) -> Optional[bytes]:
-        # We need 404 => None, so we call send() once to inspect status,
-        # then parse content consistently.
         logger.debug("GET %s", endpoint)
         resp = await self.send("GET", endpoint)
         logger.debug("GET %s -> %s", endpoint, resp.status_code)
@@ -93,14 +69,14 @@ class ApiMtgStockRepository(BaseApiClient):
         resp.raise_for_status()
         logger.debug("GET %s len=%d", endpoint, len(resp.content))
         return resp.content
-    
+
     async def fetch_card_prices(self, card_id: int, market: str = "tcg"):
         path = self.market_path_mapping.get(market, "tcgplayer")
         return await self._get_bytes_or_none(f"/prints/{card_id}/prices/{path}")
-    
+
     async def fetch_card_details(self, card_id: int):
         return await self._get_bytes_or_none(f"/prints/{card_id}")
-    
+
     async def send(
         self,
         method: str,
@@ -115,69 +91,42 @@ class ApiMtgStockRepository(BaseApiClient):
         url = self.get_full_url(endpoint)
         backoff = self.DELAY_BASE
 
-        for attempt in range(1, self.MAX_ATTEMPTS + 1):
+        async with self.SEM:
+            for attempt in range(1, self.MAX_ATTEMPTS + 1):
 
-            # ðŸ”’ Rate limit before every attempt
-            await self.rate_limiter.acquire()
-            await asyncio.sleep(random.uniform(0.3, 1.2))
-            hdrs = dict(headers or {})
+                await self.rate_limiter.acquire()
+                await asyncio.sleep(random.uniform(0.3, 1.2))
 
-            # ðŸ” ETag support
-            cache_entry = self._etag_cache.get(url)
-            if cache_entry and cache_entry.get("etag"):
-                hdrs["If-None-Match"] = cache_entry["etag"]
-            resp = await super().send(
-                method,
-                endpoint,
-                params=params,
-                headers=hdrs,#base will handle if header is passed
-                json=json,
-                data=data,
-                timeout=timeout,
-            )
-            # ðŸŸ¢ 304 Not Modified -> reuse cached body
-            if resp.status_code == 304:
-                cached = self._get_cached(url)
-                if cached is not None:
-                    logger.debug("ETag hit for %s", url)
-                    return httpx.Response(
-                        status_code=200,
-                        content=cached,
-                        headers=resp.headers,
-                        request=resp.request,
-                    )
-            # ðŸ” Rate limited
-            if resp.status_code == 429:
-                retry_after = resp.headers.get("Retry-After")
-                try:
-                    wait = float(retry_after) if retry_after else backoff
-                except ValueError:
-                    wait = backoff
-
-                jitter = wait * (0.7 + random.random() * 0.6)
-                logger.warning(
-                    "MTGStocks 429. Retry in %.2fs (attempt %d/%d)",
-                    jitter, attempt, self.MAX_ATTEMPTS
+                resp = await super().send(
+                    method,
+                    endpoint,
+                    params=params,
+                    headers=dict(headers or {}),
+                    json=json,
+                    data=data,
+                    timeout=timeout,
                 )
-                await asyncio.sleep(jitter)
-                backoff = min(backoff * 2, 30)
-                continue
 
-            # âŒ Not found -> return immediately
-            if resp.status_code == 404:
-                return resp
+                if resp.status_code == 429:
+                    retry_after = resp.headers.get("Retry-After")
+                    try:
+                        wait = float(retry_after) if retry_after else backoff
+                    except ValueError:
+                        wait = backoff
 
-            # Success -> store ETag if present
-            if resp.status_code < 400:
-                etag = resp.headers.get("ETag")
-                if etag:
-                    self._store_cache(url, resp.content, etag)
+                    jitter = wait * (0.7 + random.random() * 0.6)
+                    logger.warning(
+                        "MTGStocks 429. Retry in %.2fs (attempt %d/%d)",
+                        jitter, attempt, self.MAX_ATTEMPTS
+                    )
+                    await asyncio.sleep(jitter)
+                    backoff = min(backoff * 2, 30)
+                    continue
+
                 return resp
 
             return resp
 
-        return resp
-    
 
     async def fetch_card_price_data_batch(self, card_ids: List[int], market: str = "tcg") -> Dict[str, Any]:
         logger.debug(f"Fetching price data for {len(card_ids)} cards")
@@ -189,7 +138,7 @@ class ApiMtgStockRepository(BaseApiClient):
         item_failed = 0
         bytes_processed = 0
         for cid, r in zip(card_ids, result):
-           
+
             if isinstance(r, Exception):
                 processed.append({"card_id": cid, "error": str(r)})
                 item_failed += 1
@@ -204,7 +153,7 @@ class ApiMtgStockRepository(BaseApiClient):
                 , "items_ok": item_ok
                 , "items_failed": item_failed
                 , "bytes_processed": bytes_processed}
-    
+
     async def fetch_card_data_batches(self, card_ids: List[int], market: str = "tcg") -> List[Dict[str, Any]]:
         async def fetch_data(card_id: int) -> Dict[str, Any]:
             try:
@@ -237,4 +186,3 @@ class ApiMtgStockRepository(BaseApiClient):
                 data = r.get("data", {})
                 bytes_processed += len(data.get("details", b"")) + len(data.get("prices", b""))
         return {"data": processed, "items_ok": item_ok, "items_failed": item_failed, "bytes_processed": bytes_processed}
-    

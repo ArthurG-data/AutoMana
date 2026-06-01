@@ -23,7 +23,10 @@ services:
       POSTGRES_PASSWORD_FILE: /run/secrets/admin_db_password
       POSTGRES_DB: ${DB_NAME}
     ports:
-      - "5433:5432"
+      # Localhost only — the DB must never be published to the LAN/internet.
+      # Containers reach it via the docker network (postgres:5432); host tooling
+      # uses 127.0.0.1:5433. For remote access, use an SSH tunnel.
+      - "127.0.0.1:5433:5432"
     volumes:
       - /data/postgres:/var/lib/postgresql/data
       - /data/pg_restore:/restore:ro
@@ -67,7 +70,9 @@ services:
         - pgp_secret_key
     container_name: automana-backend-dev
     ports:
-      - "8000:8000"
+      # Localhost only — public traffic goes through the nginx proxy (80/443),
+      # not the app port directly.
+      - "127.0.0.1:8000:8000"
     volumes:
       - ../src:/app/src
     env_file:
@@ -79,7 +84,7 @@ services:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       MODULES_NAMESPACE: backend
-      REDIS_CACHE_URL: redis://redis:6379/1
+      REDIS_CACHE_URL: redis://:${REDIS_PASSWORD}@redis:6379/1
       FRONTEND_BASE_URL: https://automana.duckdns.org
       AGENT_DB_PASSWORD_FILE: /run/secrets/agent_db_password
     networks:
@@ -101,7 +106,9 @@ services:
       dockerfile: deploy/docker/frontend/Frontend.dev.Dockerfile
     container_name: automana-frontend-dev
     ports:
-      - "5173:5173"
+      # Localhost only — the Vite dev server is served to users via the nginx
+      # proxy; it should not be exposed directly.
+      - "127.0.0.1:5173:5173"
     volumes:
       - ../src/frontend:/app
       - frontend-node-modules:/app/node_modules
@@ -151,16 +158,21 @@ services:
     image: redis:7.0-alpine
     container_name: automana-redis-dev
     restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
     ports:
-      - "6379:6379"
+      # Localhost only. Also password-protected via requirepass below — an
+      # unauthenticated, exposed Redis is a full-compromise vector (FLUSHALL,
+      # RCE via CONFIG SET dir + SAVE). Containers reach it via redis:6379.
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis-data-dev:/data
       - redis-config-dev:/usr/local/etc/redis
     networks:
       - backend-network
-    command: redis-server --appendonly yes
+    command: redis-server --appendonly yes --requirepass "${REDIS_PASSWORD}"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -186,7 +198,7 @@ services:
       POSTGRES_PASSWORD_FILE: /run/secrets/celery_db_password
       CELERY_POOL: "prefork"
       MODULES_NAMESPACE: celery
-      REDIS_CACHE_URL: redis://redis:6379/1
+      REDIS_CACHE_URL: redis://:${REDIS_PASSWORD}@redis:6379/1
     depends_on:
       postgres:
           condition: service_healthy
