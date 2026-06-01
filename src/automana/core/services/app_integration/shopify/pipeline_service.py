@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
@@ -148,8 +149,6 @@ async def fetch_all_markets(
     First-run behaviour: if no collections are marked game_code='mtg' for a market,
     logs a warning and skips that market. Run fetch_collections first, then classify.
     """
-    import asyncio
-
     markets = await shopify_pipeline_repository.get_active_pipeline_markets()
     logger.info("shopify_fetch: found active markets", extra={"count": len(markets)})
     market_dirs = {}
