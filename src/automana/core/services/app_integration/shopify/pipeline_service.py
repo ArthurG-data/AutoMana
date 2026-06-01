@@ -181,7 +181,11 @@ async def classify_collections(
 
                     tcg_ids = []
                     for p in products:
-                        m = re.search(r'data-tcgid="(\d+)"', p.get("body_html", "") or "")
+                        html_body = p.get("body_html", "") or ""
+                        # Only extract TCG IDs from products explicitly marked as MTG
+                        if 'data-cardtype="mtg"' not in html_body:
+                            continue
+                        m = re.search(r'data-tcgid="(\d+)"', html_body)
                         if m:
                             tcg_ids.append(int(m.group(1)))
 
