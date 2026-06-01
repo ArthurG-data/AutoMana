@@ -64,6 +64,18 @@ class ShopifyPipelineRepository(AbstractRepository):
             [(str(r["product_id"]), r["market_id"], r.get("handle"), r.get("title")) for r in rows],
         )
 
+    async def get_mtg_collection_handles(self, market_id: int) -> list[str]:
+        """Return collection handles marked game_code='mtg' for the given market."""
+        rows = await self.execute_query(
+            """
+            SELECT name
+            FROM markets.collection_handles
+            WHERE market_id = $1 AND game_code = 'mtg'
+            """,
+            (market_id,),
+        )
+        return [r["name"] for r in rows]
+
     async def find_card_versions_by_tcg_ids(self, tcg_ids: list[int]) -> dict[int, str]:
         """Map tcg_id -> card_version_id (UUID as str). Unmapped IDs are omitted."""
         if not tcg_ids:
