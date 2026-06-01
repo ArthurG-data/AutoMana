@@ -80,10 +80,18 @@ def _row_group_offsets(n_rows: int, group_size: int) -> list[int]:
 def _dedupe_batch(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
         return df
-    return (
-        df.sort_values(["product_id", "date", "variation", "scraped_at"])
+    sort_cols = ["product_id", "date", "variation"]
+    if "collection_tier" in df.columns:
+        sort_cols.append("collection_tier")
+    else:
+        sort_cols.append("scraped_at")
+    result = (
+        df.sort_values(sort_cols)
         .drop_duplicates(["product_id", "date", "variation"], keep="last")
     )
+    if "collection_tier" in result.columns:
+        result = result.drop(columns=["collection_tier"])
+    return result
 
 
 def _append_product_file(parquet_path: str, df_batch: pd.DataFrame, group_size: int = 50000) -> None:
@@ -226,6 +234,15 @@ async def process_json_dir_to_parquet(
             logger.info("parquet_process_file_empty", extra={"file": json_file.name})
             continue
 
+        # Read collection handle embedded in JSON metadata to derive dedup priority.
+        # _collection_handle is written first in the payload by fetch_all_markets so
+        # ijson finds it before scanning the (large) items array.
+        # When absent (old JSON files), defaults to "" → collection_tier=0 (safe fallback).
+        _collection_handle = ""
+        with open(json_file, "rb") as _fh:
+            _collection_handle = next(ijson.items(_fh, "_collection_handle"), "")
+        _collection_tier = 1 if "in-stock" in _collection_handle or "instock" in _collection_handle else 0
+
         items_processed = 0
         with open(json_file, "rb") as f:
             try:
@@ -238,6 +255,7 @@ async def process_json_dir_to_parquet(
                     if df_item.empty:
                         continue
 
+                    df_item["collection_tier"] = _collection_tier
                     meta_data = await extract_all_metadata_from_html(item.get("body_html", ""))
                     df_item["card_id"] = meta_data.get("card_id")
                     df_item["tcg_id"] = meta_data.get("tcg_id")

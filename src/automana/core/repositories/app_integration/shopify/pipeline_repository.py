@@ -64,6 +64,55 @@ class ShopifyPipelineRepository(AbstractRepository):
             [(str(r["product_id"]), r["market_id"], r.get("handle"), r.get("title")) for r in rows],
         )
 
+    async def get_mtg_collection_handles(self, market_id: int) -> list[str]:
+        """Return collection handles marked game_code='mtg' for the given market."""
+        rows = await self.execute_query(
+            """
+            SELECT name
+            FROM markets.collection_handles
+            WHERE market_id = $1 AND game_code = 'mtg'
+            """,
+            (market_id,),
+        )
+        return [r["name"] for r in rows]
+
+    async def get_unclassified_collection_handles(self, market_id: int) -> list[str]:
+        """Return handles that have not yet been classified (game_code IS NULL)."""
+        rows = await self.execute_query(
+            "SELECT name FROM markets.collection_handles WHERE market_id = $1 AND game_code IS NULL",
+            (market_id,),
+        )
+        return [r["name"] for r in rows]
+
+    async def fetch_any_tcg_id_matches(self, tcg_ids: list[int]) -> bool:
+        """Return True if any of the given TCG IDs exist in the card catalog.
+
+        Compares as TEXT to avoid BIGINT cast errors on UUID values stored in
+        card_external_identifier for other identifier types (e.g. scryfall_id).
+        """
+        if not tcg_ids:
+            return False
+        result = await self.execute_fetchrow(
+            """
+            SELECT EXISTS(
+                SELECT 1 FROM card_catalog.card_external_identifier cei
+                JOIN card_catalog.card_identifier_ref cir
+                    ON cir.card_identifier_ref_id = cei.card_identifier_ref_id
+                   AND cir.identifier_name = 'tcgplayer_id'
+                WHERE cei.value = ANY($1::TEXT[])
+            )
+            """,
+            ([str(t) for t in tcg_ids],),
+        )
+        return result["exists"]
+
+    async def update_collection_game_code(self, market_id: int, handle: str, game_code: str) -> None:
+        """Set game_code on a single collection handle."""
+        await self.execute_command(
+            "UPDATE markets.collection_handles SET game_code = $1 WHERE market_id = $2 AND name = $3",
+            (game_code, market_id, handle),
+        )
+
     async def find_card_versions_by_tcg_ids(self, tcg_ids: list[int]) -> dict[int, str]:
         """Map tcg_id -> card_version_id (UUID as str). Unmapped IDs are omitted."""
         if not tcg_ids:

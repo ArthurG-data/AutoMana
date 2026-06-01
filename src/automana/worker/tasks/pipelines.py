@@ -271,12 +271,16 @@ def log_analysis_daily_task(self) -> dict:
 
 @shared_task(name="automana.worker.tasks.pipelines.shopify_weekly_pipeline", bind=True)
 def shopify_weekly_pipeline(self):
-    """Weekly Celery Beat job: fetch /products.json from every registered Shopify
-    storefront, process to parquet, stage into pricing.shopify_staging_raw, and
+    """Weekly Celery Beat job: discover collections via sitemap, fetch
+    /collections/{handle}/products.json for MTG-classified collections,
+    process to parquet, stage into pricing.shopify_staging_raw, and
     promote into pricing.price_observation.
 
     Per project rules this task does NOT use ``autoretry_for``; retry policy
     lives at the run_service layer.
+
+    First run: fetch_collections populates markets.collection_handles.
+    Operator must then classify MTG collections before products are fetched.
     """
     set_task_id(self.request.id)
     run_key = f"shopify_weekly:{datetime.utcnow().date().isoformat()}"
@@ -293,6 +297,8 @@ def shopify_weekly_pipeline(self):
             run_key=run_key,
             celery_task_id=self.request.id,
         ),
+        run_service.s("shopify.pipeline.fetch_collections"),
+        run_service.s("shopify.pipeline.classify_collections"),
         run_service.s("shopify.pipeline.fetch_all_markets"),
         run_service.s("shopify.pipeline.process_to_parquet"),
         run_service.s("shopify.pipeline.stage_raw"),
