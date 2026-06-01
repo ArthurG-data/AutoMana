@@ -414,8 +414,8 @@ class AsyncRepository(AbstractDBRepository):
 - PostgreSQL 14+ with TimescaleDB extension (for hypertables) and pgvector (for embeddings)
 - Connection pooling via asyncpg (async) and psycopg2 (sync)
 - Transactions managed by `ServiceManager`
-- Schema defined in `database/SQL/schemas/`
-- Migrations stored in `database/SQL/migrations/`
+- Schemas split into `schemas/core/` (prod + dev) and `schemas/pipeline/` (dev only)
+- Migrations in `migrations/core/V<N>__desc.sql` or `migrations/pipeline/V<N>__desc.sql`; applied via Flyway (`flyway migrate`)
 
 ### Connection Pooling
 

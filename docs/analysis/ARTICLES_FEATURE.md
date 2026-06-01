@@ -122,10 +122,9 @@ curl -X POST "https://<host>/api/content/articles/admin/<article_id>/publish?pub
 
 ## Data & migrations
 
-Articles are persisted in PostgreSQL (content schema). The table and any schema
-changes are introduced via a migration under
-`src/automana/database/SQL/migrations/` (see the
-`feat(content): analysis articles backend` commit for the initial migration).
+Articles are persisted in PostgreSQL (content schema, defined in `schemas/core/13_content.sql`). Future schema
+changes are introduced via a versioned migration in `migrations/core/V<N>__desc.sql` (see the
+`feat(content): analysis articles backend` commit for the initial migration, now squashed into the core schema).
 
 ---
 

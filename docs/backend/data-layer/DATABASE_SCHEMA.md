@@ -2,7 +2,7 @@
 
 This document describes the complete schema structure, normalization strategy, indexing approach, constraints, and special PostgreSQL/TimescaleDB features used in AutoMana.
 
-**Schema Files:** [`src/automana/database/SQL/schemas/`](../../../src/automana/database/SQL/schemas/)
+**Schema Files:** `schemas/core/` (prod + dev) and `schemas/pipeline/` (dev only) under `src/automana/database/SQL/`
 
 ---
 
@@ -53,7 +53,7 @@ AutoMana uses a **mixed normalization strategy**:
 
 Manages Magic: The Gathering card definitions and metadata.
 
-**File:** [`02_card_schema.sql`](../../../src/automana/database/SQL/schemas/02_card_schema.sql)
+**File:** [`schemas/core/02_card_schema.sql`](../../../src/automana/database/SQL/schemas/core/02_card_schema.sql)
 
 #### `unique_cards_ref`
 Canonical card identity (one row per unique card name/properties).
@@ -148,7 +148,7 @@ Small dimension tables for normalized fields:
 
 High-volume time-series pricing data with multi-tier storage and compression.
 
-**File:** [`06_prices.sql`](../../../src/automana/database/SQL/schemas/06_prices.sql)
+**File:** `schemas/core/06_prices.sql` (core Tier 2/3/snapshot) + `schemas/pipeline/06_prices_pipeline.sql` (Tier 1, staging, procedures)
 
 #### Dimension Tables (Reference)
 
@@ -302,7 +302,7 @@ Used by `refresh_daily_prices()` and `archive_to_weekly()` to resume from the co
 
 User authentication, sessions, roles, permissions, and audit logs.
 
-**File:** [`03_users.sql`](../../../src/automana/database/SQL/schemas/03_users.sql)
+**File:** [`schemas/core/03_users.sql`](../../../src/automana/database/SQL/schemas/core/03_users.sql)
 
 #### `users`
 User accounts (application users, not database roles).
@@ -412,7 +412,7 @@ User collection management (cards a user owns).
 
 Third-party API credentials, OAuth tokens, and listing management (eBay, Shopify, Scryfall).
 
-**File:** [`05_app_integration_schema.sql`](../../../src/automana/database/SQL/schemas/05_app_integration_schema.sql) and migrations 31, 32, 37, 38, 39
+**File:** [`schemas/core/07_ebay.sql`](../../../src/automana/database/SQL/schemas/core/07_ebay.sql) (squashed from migrations 31, 32, 37, 38, 39)
 
 #### OAuth & Credentials Tables
 
@@ -529,7 +529,7 @@ Third-party API credentials, OAuth tokens, and listing management (eBay, Shopify
 
 Operational metadata (pipeline runs, ingestion status, error tracking).
 
-**File:** [`09_ops_schema.sql`](../../../src/automana/database/SQL/schemas/09_ops_schema.sql)
+**File:** [`schemas/pipeline/09_ops.sql`](../../../src/automana/database/SQL/schemas/pipeline/09_ops.sql)
 
 | Table | Purpose |
 |-------|---------|

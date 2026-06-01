@@ -5,7 +5,7 @@
 AutoMana uses PostgreSQL role-based access control (RBAC) with a strict separation between DDL (schema changes) and DML (data operations). The key principle is: **only the object owner can DROP or ALTER a table** — so keeping DDL and DML in separate roles makes destructive operations impossible for application users by design, not by policy.
 
 **Source:** [`infra/db/init/02-app-roles.sql.tpl`](../infra/db/init/02-app-roles.sql.tpl)
-**Migration (existing DBs):** [`database/SQL/migrations/10_rbac_db_owner.sql`](../src/automana/database/SQL/migrations/10_rbac_db_owner.sql)
+**Migration (existing DBs):** [`migrations/archive/migration_10_rbac_db_owner.sql`](../src/automana/database/SQL/migrations/archive/migration_10_rbac_db_owner.sql) (archived flat migration)
 
 ---
 
@@ -175,7 +175,7 @@ If you create a new schema, add it to the `schemas` array in `02-app-roles.sql.t
 
 **Root cause:** `ALTER DEFAULT PRIVILEGES` only covers tables created *after* the privilege statement was issued. If the grants migration (e.g. migration 13) was applied before a new table was added to the schema, that table is not retroactively covered.
 
-**Fix:** Create a new numbered migration that re-applies grants to the affected schema:
+**Fix:** Create a new versioned migration `migrations/core/V<N>__regrant_<schema>.sql` that re-applies grants to the affected schema:
 
 ```sql
 -- Re-apply grants on card_catalog (idempotent — safe to run multiple times)
@@ -190,4 +190,4 @@ GRANT SELECT ON ALL TABLES IN SCHEMA card_catalog TO app_ro, agent_reader;
 
 `GRANT ... ON ALL TABLES IN SCHEMA` is idempotent — re-running it on a table that already has grants is a no-op.
 
-See migrations `13_grant_card_catalog.sql` and `14_grant_card_catalog_sets.sql` for real examples of this pattern.
+See `migrations/archive/migration_13_grant_card_catalog.sql` and `migrations/archive/migration_14_grant_card_catalog_sets.sql` for historical examples of this pattern.

@@ -464,5 +464,5 @@ These architectural rules are enforced by the patterns above:
 | No reserved `LogRecord` keys in `extra={}` | `_RESERVED` set in `logging_config.py` (line 12) filters collisions in `JsonFormatter` |
 | No `autoretry_for` in pipeline tasks | Chain pattern (retry at `run_service` level, not per-pipeline-task) |
 | All config via `core/settings.py` | Strategy (`Settings` with Pydantic `BaseSettings`, `@lru_cache`, secret cascade) |
-| Schema changes need a migration | Repository pattern (all DDL under `database/SQL/migrations/`, enforced by `db_owner` RBAC) |
+| Schema changes need a migration | Repository pattern (all DDL in `migrations/core/V<N>__desc.sql` or `migrations/pipeline/V<N>__desc.sql`, applied via `flyway migrate`, enforced by `db_owner` RBAC) |
 | Pipeline services must use `track_step` for step ops tracking | Step Tracking pattern (`pipeline_services.py`) — direct `update_run(status=...)` calls inside services are forbidden |

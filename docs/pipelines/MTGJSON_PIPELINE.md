@@ -291,8 +291,8 @@ Execution flow:
 
 ## Database schema
 
-Schema file: `src/automana/database/SQL/schemas/10_mtgjson_schema.sql`
-Migration removing the JSONB archive: `src/automana/database/SQL/migrations/15_drop_mtgjson_payloads.sql`
+Schema file: `src/automana/database/SQL/schemas/pipeline/10_mtgjson.sql`
+Migration removing the JSONB archive: `src/automana/database/SQL/migrations/archive/migration_15_drop_mtgjson_payloads.sql` (archived flat migration)
 
 ### Tables
 

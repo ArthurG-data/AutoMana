@@ -199,8 +199,8 @@ The Celery beat schedule is in `src/automana/worker/celeryconfig.py` under the k
 | `src/automana/core/repositories/app_integration/shopify/pipeline_repository.py` | All DB operations for the pipeline |
 | `src/automana/core/services/app_integration/shopify/data_staging_service.py` | `process_json_dir_to_parquet` + `stage_data_from_parquet` (shared with the file-based ingestion endpoint) |
 | `src/automana/core/repositories/app_integration/shopify/market_queries.py` | SQL for market lookups |
-| `src/automana/database/SQL/migrations/migration_46_shopify_market_pipeline.sql` | Schema additions + seed data |
-| `src/automana/database/SQL/schemas/07_shopify_staging.sql` | Staging table + no-op `stage_to_price_observation` procedure |
+| `src/automana/database/SQL/migrations/archive/migration_46_shopify_market_pipeline.sql` | Schema additions + seed data (archived flat migration, squashed into schemas) |
+| `src/automana/database/SQL/schemas/pipeline/07_shopify.sql` | Staging table + no-op `stage_to_price_observation` procedure |
 | `tests/unit/core/test_shopify_pipeline.py` | Unit tests for `_map_variation`, `_price_to_cents`, `_build_obs_dataframe` |
 
 ---

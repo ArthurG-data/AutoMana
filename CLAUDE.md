@@ -17,7 +17,7 @@ AutoMana is a FastAPI backend for tracking Magic: The Gathering card collections
 - Pipeline services must use `async with track_step(ops_repository, ingestion_run_id, "step_name")` for step-level ops tracking (see `docs/architecture/DESIGN_PATTERNS.md` §Pipeline Step Tracking). Never call `ops_repository.update_run(status="running"/"success"/"failed")` directly inside a service function — `track_step` handles the None guard, the running/success/failed lifecycle, and the `error_details` key format (`"message"`).
 - Context keys returned by a pipeline step must exactly match the parameter names of the next step in the chain (the `run_service` dispatcher filters by signature).
 - All config comes from `core/settings.py` via env vars or Docker secrets. No hardcoded credentials or paths.
-- New schema changes require a migration file under `database/SQL/migrations/`.
+- New schema changes require a versioned migration file in `migrations/core/V<N>__desc.sql` (schema/app changes, applied to prod + dev) or `migrations/pipeline/V<N>__desc.sql` (pipeline-only changes, dev only). Run `flyway migrate` (or restart the dev stack) to apply. Old flat `migration_XX_*.sql` files are archived in `migrations/archive/`.
 - Git workflow: always open PRs against `dev`, never directly against `main`. Feature branches branch off `dev` and merge back into `dev`. Only `dev` merges into `main` for releases.
 - Repository separation of concerns: when creating or registering a new service, each data-access concern must live in its own repository class — never mixed. Specifically: DB queries → an `AbstractDBRepository` subclass; external API calls → an `AbstractAPIRepository` subclass; file/storage I/O → a dedicated storage service. If a service needs more than one concern, wire multiple repositories via the `@ServiceRegistry.register` decorator (`db_repositories`, `api_repositories`, `storage_services`). A service that mixes DB queries and external HTTP in the same repository class violates this rule and must be refactored before merging.
 - DB repository method naming enforces CQS (Command-Query Separation): methods that only read data and produce no side effects on the database must be named with a `get_*` / `fetch_*` / `list_*` / `exists_*` prefix (queries); methods that write, update, delete, or call a stored procedure that issues `COMMIT`/`ROLLBACK` must be named with an `insert_*` / `update_*` / `delete_*` / `upsert_*` / `execute_*` prefix (commands). If a method has any side effect on the database it is a command, regardless of whether it also returns data — use a command prefix.
@@ -78,7 +78,7 @@ This prevents loss of pricing data, pipeline progress, and testing work during d
 bash ./src/automana/database/SQL/maintenance/rebuild_dev_db.sh --preserve-data
 ```
 
-This applies schemas + migrations incrementally without destroying pricing data or pipeline progress.
+This applies schemas incrementally and runs `flyway migrate` for any pending versioned migrations, without destroying pricing data or pipeline progress.
 
 **OPTION B (Full rebuild):** If you need a clean slate, create a dump first, then rebuild:
 
@@ -98,8 +98,8 @@ bash ./src/automana/database/SQL/maintenance/rebuild_dev_db.sh --skip-rebuild
 
 Notes:
 - `down` only removes containers; bind mounts (`/data/postgres`, `/data/automana_data/mtgstocks/raw/prints`, `/data/mtgjson`) survive.
-- `--only rebuild` does DROP + CREATE + schemas + grants and exits — its preflight does not require celery.
-- `--preserve-data` applies schemas + migrations without DROP — use when you want to keep pricing data and work-in-progress.
+- `--only rebuild` does DROP + CREATE + schemas + grants + `flyway baseline --baselineVersion=0` and exits — its preflight does not require celery.
+- `--preserve-data` applies schemas incrementally then runs `flyway migrate` (applies only pending versioned migrations) — use when you want to keep pricing data and work-in-progress.
 - `--skip-rebuild` runs scryfall → mtgstock → mtgjson → verify, polling `ops.ingestion_runs` for terminal status.
 - `mtgStock_download_pipeline` reads from disk; it does not download. The data must already exist at `/data/automana_data/mtgstocks/raw/prints/`.
 - The `pricing.load_staging_prices_batched` procedure does runtime DDL; the schema files now pre-create the required objects (`stg_price_observation_reject`, `stg_price_obs_date_spid_foil_idx`) so the procedure's IF NOT EXISTS clauses no-op under app_celery's USAGE-only grant.
