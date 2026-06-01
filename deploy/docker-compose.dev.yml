@@ -37,6 +37,23 @@ services:
     networks:
             - backend-network
 
+  flyway:
+    image: flyway/flyway:10
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ../src/automana/database/SQL/migrations:/flyway/migrations
+      - ../src/automana/database/SQL/flyway-dev.conf:/flyway/conf/flyway.conf
+    env_file:
+      - ../config/env/.env.dev
+    environment:
+      FLYWAY_PASSWORD: ${AUTOMANA_ADMIN_DB_PASSWORD}
+    command: migrate
+    restart: "no"
+    networks:
+      - backend-network
+
   backend:
     build:
       context: ..
