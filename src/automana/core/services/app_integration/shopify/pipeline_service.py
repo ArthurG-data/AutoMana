@@ -165,11 +165,11 @@ async def classify_collections(
         )
 
         async with track_step(ops_repository, ingestion_run_id, f"classify_collections_{market_id}"):
+            # Phase 1: concurrent HTTP — fetch sample products per collection.
+            # asyncpg connections are not re-entrant, so DB ops must stay outside.
             sem = asyncio.Semaphore(5)
-            classified_count = 0
 
-            async def classify_one(handle: str) -> None:
-                nonlocal classified_count
+            async def fetch_sample(handle: str) -> tuple[str, list[int]]:
                 async with sem:
                     products = await shopify_api_repository.get_collection_products_page(
                         api_url, handle, since_id=0, limit=10
@@ -179,18 +179,20 @@ async def classify_collections(
                         m = re.search(r'data-tcgid="(\d+)"', p.get("body_html", "") or "")
                         if m:
                             tcg_ids.append(int(m.group(1)))
-
-                    is_mtg = bool(tcg_ids) and await shopify_pipeline_repository.fetch_any_tcg_id_matches(tcg_ids)
-                    game_code = "mtg" if is_mtg else "other"
-
-                    await shopify_pipeline_repository.update_collection_game_code(market_id, handle, game_code)
-                    classified_count += 1
-
-                    if is_mtg:
-                        logger.info("shopify_classify: mtg", extra={"handle": handle})
+                    return handle, tcg_ids
 
             async with shopify_api_repository:
-                await asyncio.gather(*[classify_one(h) for h in handles])
+                samples = await asyncio.gather(*[fetch_sample(h) for h in handles])
+
+            # Phase 2: sequential DB — check catalog + write game_code.
+            classified_count = 0
+            for handle, tcg_ids in samples:
+                is_mtg = bool(tcg_ids) and await shopify_pipeline_repository.fetch_any_tcg_id_matches(tcg_ids)
+                game_code = "mtg" if is_mtg else "other"
+                await shopify_pipeline_repository.update_collection_game_code(market_id, handle, game_code)
+                classified_count += 1
+                if is_mtg:
+                    logger.info("shopify_classify: mtg", extra={"handle": handle})
 
             total_classified += classified_count
             logger.info(
