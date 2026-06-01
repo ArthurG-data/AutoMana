@@ -6,6 +6,7 @@ from typing import Optional
 import pandas as pd
 
 from automana.core.repositories.app_integration.shopify.ApiShopify_repository import ShopifyAPIRepository
+from automana.core.repositories.app_integration.shopify.collection_repository import ShopifyCollectionRepository
 from automana.core.repositories.app_integration.shopify.market_repository import MarketRepository
 from automana.core.repositories.app_integration.shopify.pipeline_repository import (
     ShopifyPipelineRepository,
@@ -14,6 +15,7 @@ from automana.core.repositories.app_integration.shopify.pipeline_repository impo
 from automana.core.repositories.app_integration.shopify.product_repository import ProductRepository
 from automana.core.repositories.ops.ops_repository import OpsRepository
 from automana.core.framework.registry import ServiceRegistry
+from automana.core.models.shopify.shopify_theme import InsertCollection
 from automana.core.services.ops.pipeline_services import track_step
 from automana.core.storage import StorageService
 
@@ -73,6 +75,54 @@ def _build_obs_dataframe(
         "sold_count", "source_product_id", "data_provider_id", "scraped_at",
     ]
     return pd.DataFrame(rows) if rows else pd.DataFrame(columns=_COLS)
+
+
+@ServiceRegistry.register(
+    path="shopify.pipeline.fetch_collections",
+    db_repositories=["shopify_pipeline", "collection", "ops"],
+    api_repositories=["shopify_api"],
+    runs_in_transaction=False,
+    command_timeout=3600,
+)
+async def fetch_collections(
+    shopify_pipeline_repository: ShopifyPipelineRepository,
+    collection_repository: ShopifyCollectionRepository,
+    ops_repository: OpsRepository,
+    shopify_api_repository: ShopifyAPIRepository,
+    ingestion_run_id: int = None,
+) -> dict:
+    """Discover all collection handles for every active market via the Shopify sitemap.
+
+    Stores handles in markets.collection_handles with game_code=NULL (unclassified).
+    Existing rows (already classified by operator) are untouched — add_many uses
+    ON CONFLICT DO NOTHING so game_code marks survive weekly re-runs.
+
+    After the first run, the operator classifies MTG collections:
+        UPDATE markets.collection_handles SET game_code = 'mtg'
+        WHERE market_id = X AND name IN ('magic-the-gathering-singles-in-stock', ...);
+    """
+    markets = await shopify_pipeline_repository.get_active_pipeline_markets()
+    total_synced = 0
+
+    for market in markets:
+        market_id = market["market_id"]
+        api_url = market["api_url"]
+
+        async with track_step(ops_repository, ingestion_run_id, f"fetch_collections_{market_id}"):
+            handles = await shopify_api_repository.get_sitemap_collection_handles(api_url)
+            rows = [{"market_id": market_id, "name": h} for h in handles]
+
+            if rows:
+                insert_rows = [InsertCollection(market_id=r["market_id"], name=r["name"]) for r in rows]
+                await collection_repository.add_many(insert_rows)
+
+            total_synced += len(rows)
+            logger.info(
+                "shopify_collections: synced",
+                extra={"market_id": market_id, "handles": len(handles)},
+            )
+
+    return {"collections_synced": total_synced}
 
 
 @ServiceRegistry.register(
