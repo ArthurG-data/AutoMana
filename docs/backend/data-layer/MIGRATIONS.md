@@ -2,7 +2,11 @@
 
 This document explains how to safely evolve the database schema over time, with patterns for zero-downtime migrations, backward compatibility, and testing strategies.
 
-**Migration Files:** [`src/automana/database/SQL/migrations/`](../../../src/automana/database/SQL/migrations/)
+**Migration Files:**
+- New migrations: `migrations/core/V<N>__desc.sql` (prod + dev) or `migrations/pipeline/V<N>__desc.sql` (dev only)
+- Historical flat migrations (archived, read-only): `migrations/archive/migration_XX_*.sql`
+
+**Migration runner:** [Flyway 10](https://documentation.red-gate.com/flyway) — tracks applied migrations in `flyway_schema_history` table
 
 ---
 
@@ -20,40 +24,58 @@ This document explains how to safely evolve the database schema over time, with 
 
 ## Migration Strategy & Framework
 
-### Tool: SQL Scripts (Manual)
+### Tool: Flyway
 
-AutoMana uses **manual SQL migration files** rather than a framework like Alembic or Flyway.
+AutoMana uses **[Flyway 10](https://documentation.red-gate.com/flyway)** to version and apply SQL migrations. Flyway tracks applied migrations in a `flyway_schema_history` table, checksums each file for integrity, and applies pending versions in order.
 
-**Why?**
-1. **Transparency:** Migration logic is plain SQL (no ORM abstractions)
-2. **Control:** Complex transformations stay in SQL (stored procedures, bulk updates)
-3. **Debugging:** Easy to inspect what changed by reading the file
-4. **Flexibility:** Can mix DDL, DML, and PL/pgSQL procedures in one file
+**Why Flyway?**
+1. **Tracking:** knows exactly which migrations have been applied to which DB
+2. **Integrity:** checksum validation prevents silent drift between environments
+3. **Transparency:** migration logic is still plain SQL (no ORM abstractions)
+4. **Control:** complex transformations stay in SQL (stored procedures, bulk updates)
+
+### Schema split: core vs pipeline
+
+Schemas are split into two directories applied differently per environment:
+
+| Directory | Applied to | Contains |
+|---|---|---|
+| `schemas/core/` | prod + dev | card_catalog, users, collection, eBay, pricing Tier 2/3, sealed, content |
+| `schemas/pipeline/` | dev only | price_observation (Tier 1), staging tables, ops, shopify, mtgjson |
 
 ### Migration Naming Convention
 
+Versioned migrations use Flyway's `V<version>__description.sql` format:
+
 ```
-migration_N_descriptive_name.sql
+V<N>__snake_case_description.sql
 ```
 
 **Examples:**
-- `migration_17_foil_finish_suffix.sql` — add finish codes and mapping table
-- `migration_18_pricing_tiers.sql` — restructure pricing tables
-- `migration_19_refresh_views_security_definer.sql` — fix view permissions
-- `migration_22_ebay_refresh_tokens.sql` — add token storage
+- `V1__smoke_test_comment.sql` — first migration after baseline
+- `V2__add_price_alert_table.sql` — new feature migration
+- `V2__add_gg_sydney_prices_pipeline.sql` — pipeline-only migration
+
+**Directory:**
+- `migrations/core/V<N>__desc.sql` — applies to prod + dev (schema/app changes)
+- `migrations/pipeline/V<N>__desc.sql` — applies to dev only (pipeline-only changes)
+
+Each directory has its own independent sequence starting at V1.
 
 ### Execution Framework
 
 **File:** [`src/automana/database/SQL/maintenance/rebuild_dev_db.sh`](../../../src/automana/database/SQL/maintenance/rebuild_dev_db.sh)
 
 Migrations are run by:
-1. **Development:** `bash rebuild_dev_db.sh` (idempotent, runs all migrations)
-2. **Production:** CI/CD pipeline applies migrations during deployment
+1. **Development (preserve-data):** `rebuild_dev_db.sh --preserve-data` calls `flyway migrate` — applies only pending migrations, leaves data intact
+2. **Development (full rebuild):** `rebuild_dev_db.sh --only rebuild` applies all schemas then runs `flyway baseline --baselineVersion=0` to stamp the starting point
+3. **Dev stack startup:** the `flyway` service in `docker-compose.dev.yml` runs `flyway migrate` automatically when postgres becomes healthy
+4. **Ad-hoc:** `docker compose run --rm flyway migrate` (or `flyway info` to check state)
 
 **File ordering:**
-- Schemas first (`01_set_schema.sql`, `02_card_schema.sql`, ...)
-- Then migrations in numeric order (`migration_17_...`, `migration_18_...`, ...)
-- Ensures dependencies resolve correctly
+- Core schemas applied first (`schemas/core/01_set_schema.sql`, `02_card_schema.sql`, …)
+- Then pipeline schemas (`schemas/pipeline/06_prices_pipeline.sql`, …)
+- Flyway applies `migrations/core/` and `migrations/pipeline/` in version order after schemas
 
 ### Idempotency
 
@@ -724,8 +746,12 @@ jobs:
       - uses: actions/checkout@v3
       - name: Run migrations
         run: |
-          psql -h localhost -U postgres -d automana < \
-            src/automana/database/SQL/migrations/*.sql
+          docker run --rm \
+            --network host \
+            -v ./src/automana/database/SQL/migrations:/flyway/migrations \
+            -v ./src/automana/database/SQL/flyway-dev.conf:/flyway/conf/flyway.conf \
+            -e FLYWAY_PASSWORD=${{ secrets.DB_PASSWORD }} \
+            flyway/flyway:10 migrate
       - name: Verify schema
         run: |
           psql -h localhost -U postgres -d automana -c \
@@ -740,7 +766,7 @@ jobs:
 
 **Context:** Add fine-grained card finish codes (Surge Foil, Ripple Foil, Rainbow Foil) instead of generic FOIL.
 
-**File:** [`migration_17_foil_finish_suffix.sql`](../../../src/automana/database/SQL/migrations/migration_17_foil_finish_suffix.sql)
+**File:** [`migrations/archive/migration_17_foil_finish_suffix.sql`](../../../src/automana/database/SQL/migrations/archive/migration_17_foil_finish_suffix.sql)
 
 **Key steps:**
 1. Insert new finish codes (SURGE_FOIL, RIPPLE_FOIL, RAINBOW_FOIL)
@@ -752,7 +778,7 @@ jobs:
 
 **Context:** Restructure pricing from single table to three-tier (observation → daily → weekly) with TimescaleDB hypertables.
 
-**File:** [`migration_18_pricing_tiers.sql`](../../../src/automana/database/SQL/migrations/migration_18_pricing_tiers.sql)
+**File:** [`migrations/archive/migration_18_pricing_tiers.sql`](../../../src/automana/database/SQL/migrations/archive/migration_18_pricing_tiers.sql)
 
 **Key steps:**
 1. Create new hypertables (print_price_daily, print_price_weekly)
@@ -770,7 +796,7 @@ jobs:
 
 **Context:** Apply SECURITY DEFINER to views so they inherit owner privileges and work correctly with RBAC roles.
 
-**File:** [`migration_19_refresh_views_security_definer.sql`](../../../src/automana/database/SQL/migrations/migration_19_refresh_views_security_definer.sql)
+**File:** [`migrations/archive/migration_19_refresh_views_security_definer.sql`](../../../src/automana/database/SQL/migrations/archive/migration_19_refresh_views_security_definer.sql)
 
 **Key step:**
 ```sql
@@ -791,5 +817,8 @@ AS SELECT ... FROM ...;
 - [`docs/DATABASE_SCHEMA.md`](DATABASE_SCHEMA.md) — Table definitions affected by migrations
 - [`docs/DEPLOYMENT.md`](../DEPLOYMENT.md) — Deployment pipeline and infrastructure
 - [`docs/TROUBLESHOOTING.md`](../TROUBLESHOOTING.md) — Migration debugging tips
-- [`src/automana/database/SQL/schemas/`](../../../src/automana/database/SQL/schemas/) — Initial schema files
-- [`src/automana/database/SQL/migrations/`](../../../src/automana/database/SQL/migrations/) — All migration files
+- [`schemas/core/`](../../../src/automana/database/SQL/schemas/core/) — Core schema files (prod + dev)
+- [`schemas/pipeline/`](../../../src/automana/database/SQL/schemas/pipeline/) — Pipeline-only schema files (dev only)
+- [`migrations/core/`](../../../src/automana/database/SQL/migrations/core/) — Active versioned migrations (prod + dev)
+- [`migrations/pipeline/`](../../../src/automana/database/SQL/migrations/pipeline/) — Active versioned migrations (dev only)
+- [`migrations/archive/`](../../../src/automana/database/SQL/migrations/archive/) — Historical flat migration files (read-only reference)

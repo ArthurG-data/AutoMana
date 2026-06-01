@@ -302,7 +302,7 @@ When adding a new feature:
 - **No reserved `LogRecord` keys in `extra={}`** — use unambiguous names (e.g., `file` instead of `filename`)
 - **No `autoretry_for` in pipeline tasks** — retry logic is handled at the `run_service` level
 - **All config via `core/settings.py`** — no hardcoded credentials or paths
-- **New schema changes need a migration** under `database/SQL/migrations/`
+- **New schema changes need a migration** in `migrations/core/V<N>__desc.sql` (prod + dev) or `migrations/pipeline/V<N>__desc.sql` (dev only); run `flyway migrate` to apply
 
 ## Known sharp edges / follow-ups
 
