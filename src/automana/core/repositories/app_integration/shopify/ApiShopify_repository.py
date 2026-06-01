@@ -80,7 +80,12 @@ class ShopifyAPIRepository(BaseApiClient):
             for link in collection_sitemap_links:
                 resp = await self.send("GET", html.unescape(link))
                 resp.raise_for_status()
-                found = re.findall(r"/collections/([^<\s?#/]+)", resp.text)
+                # Only match <loc> tags — excludes <image:loc> CDN paths that
+                # also contain /collections/ (e.g. .../files/.../collections/img.jpg)
+                found = re.findall(
+                    r"<loc>https?://[^<]*/collections/([a-z0-9][a-z0-9\-]*[a-z0-9])</loc>",
+                    resp.text,
+                )
                 handles.update(found)
 
         return list(handles)

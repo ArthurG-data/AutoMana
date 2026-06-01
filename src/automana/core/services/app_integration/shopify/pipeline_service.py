@@ -98,9 +98,8 @@ async def fetch_collections(
     Existing rows (already classified by operator) are untouched — add_many uses
     ON CONFLICT DO NOTHING so game_code marks survive weekly re-runs.
 
-    After the first run, the operator classifies MTG collections:
-        UPDATE markets.collection_handles SET game_code = 'mtg'
-        WHERE market_id = X AND name IN ('magic-the-gathering-singles-in-stock', ...);
+    Stores handles with game_code=NULL. classify_collections (next step) auto-classifies
+    them by sampling products and checking for TCG IDs in the card catalog.
     """
     markets = await shopify_pipeline_repository.get_active_pipeline_markets()
     total_synced = 0
@@ -124,6 +123,82 @@ async def fetch_collections(
             )
 
     return {"collections_synced": total_synced}
+
+
+@ServiceRegistry.register(
+    path="shopify.pipeline.classify_collections",
+    db_repositories=["shopify_pipeline", "ops"],
+    api_repositories=["shopify_api"],
+    runs_in_transaction=False,
+    command_timeout=7200,
+)
+async def classify_collections(
+    shopify_pipeline_repository: ShopifyPipelineRepository,
+    ops_repository: OpsRepository,
+    shopify_api_repository: ShopifyAPIRepository,
+    ingestion_run_id: int = None,
+) -> dict:
+    """Auto-classify unclassified collection handles by sampling products.
+
+    For each handle with game_code=NULL, fetches the first 10 products and
+    checks if any have a data-tcgid present in the card catalog.
+    Sets game_code='mtg' on match, 'other' otherwise.
+    Already-classified handles are skipped — manual overrides survive re-runs.
+    """
+    import re
+
+    markets = await shopify_pipeline_repository.get_active_pipeline_markets()
+    total_classified = 0
+
+    for market in markets:
+        market_id = market["market_id"]
+        api_url = market["api_url"]
+
+        handles = await shopify_pipeline_repository.get_unclassified_collection_handles(market_id)
+        if not handles:
+            logger.info("shopify_classify: all handles already classified", extra={"market_id": market_id})
+            continue
+
+        logger.info(
+            "shopify_classify: classifying handles",
+            extra={"market_id": market_id, "count": len(handles)},
+        )
+
+        async with track_step(ops_repository, ingestion_run_id, f"classify_collections_{market_id}"):
+            sem = asyncio.Semaphore(5)
+            classified_count = 0
+
+            async def classify_one(handle: str) -> None:
+                nonlocal classified_count
+                async with sem:
+                    products = await shopify_api_repository.get_collection_products_page(
+                        api_url, handle, since_id=0, limit=10
+                    )
+                    tcg_ids = []
+                    for p in products:
+                        m = re.search(r'data-tcgid="(\d+)"', p.get("body_html", "") or "")
+                        if m:
+                            tcg_ids.append(int(m.group(1)))
+
+                    is_mtg = bool(tcg_ids) and await shopify_pipeline_repository.fetch_any_tcg_id_matches(tcg_ids)
+                    game_code = "mtg" if is_mtg else "other"
+
+                    await shopify_pipeline_repository.update_collection_game_code(market_id, handle, game_code)
+                    classified_count += 1
+
+                    if is_mtg:
+                        logger.info("shopify_classify: mtg", extra={"handle": handle})
+
+            async with shopify_api_repository:
+                await asyncio.gather(*[classify_one(h) for h in handles])
+
+            total_classified += classified_count
+            logger.info(
+                "shopify_classify: market done",
+                extra={"market_id": market_id, "classified": classified_count},
+            )
+
+    return {"collections_classified": total_classified}
 
 
 @ServiceRegistry.register(

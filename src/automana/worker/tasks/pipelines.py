@@ -298,6 +298,7 @@ def shopify_weekly_pipeline(self):
             celery_task_id=self.request.id,
         ),
         run_service.s("shopify.pipeline.fetch_collections"),
+        run_service.s("shopify.pipeline.classify_collections"),
         run_service.s("shopify.pipeline.fetch_all_markets"),
         run_service.s("shopify.pipeline.process_to_parquet"),
         run_service.s("shopify.pipeline.stage_raw"),
