@@ -350,8 +350,6 @@ CREATE INDEX IF NOT EXISTS idx_mtgjson_uuid_alias_card_version
 
 GRANT SELECT, INSERT ON card_catalog.mtgjson_uuid_alias TO app_rw, app_admin, app_celery, app_backend;
 
-GRANT TRUNCATE ON pricing.mtgjson_card_prices_staging TO app_rw, app_admin;
-
 CREATE TABLE IF NOT EXISTS card_catalog.card_games_ref (
     game_id SERIAL PRIMARY KEY,
     code VARCHAR(10) UNIQUE NOT NULL,

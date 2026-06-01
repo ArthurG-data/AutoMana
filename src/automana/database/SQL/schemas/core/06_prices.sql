@@ -656,3 +656,5 @@ CREATE UNLOGGED TABLE IF NOT EXISTS pricing.shopify_staging_raw (
     tcg_id      BIGINT,
     source_id   SMALLINT
 );
+
+COMMIT;
