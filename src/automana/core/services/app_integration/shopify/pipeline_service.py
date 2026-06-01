@@ -177,7 +177,6 @@ async def classify_collections(
                             "shopify_classify: fetch failed, skipping",
                             extra={"handle": handle, "error": str(e)[:80]},
                         )
-                        await asyncio.sleep(2.0)
                         continue
 
                     tcg_ids = []
@@ -192,8 +191,6 @@ async def classify_collections(
                     classified_count += 1
                     if is_mtg:
                         logger.info("shopify_classify: mtg", extra={"handle": handle})
-
-                    await asyncio.sleep(1.0)
 
             total_classified += classified_count
             logger.info(
