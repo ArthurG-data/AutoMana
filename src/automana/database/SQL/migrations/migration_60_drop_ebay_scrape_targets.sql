@@ -1,0 +1,23 @@
+-- migration_60_drop_ebay_scrape_targets.sql
+--
+-- Decommission the eBay external sold-price scraper.
+--
+-- eBay deprecated/deprioritized the Finding API `findCompletedItems`
+-- (sold/completed-items) endpoint, so the global-market scraper, category
+-- sweep, external-sold scrape, and watchlist refresh services were removed
+-- (they could never return data again). pricing.ebay_scrape_targets was the
+-- watchlist those services maintained — created in migration_45 and extended
+-- with priority_score in migration_47. With refresh_scrape_targets and
+-- scrape_global_market gone, nothing reads or writes this table, so it is
+-- dropped here.
+--
+-- NOT dropped (intentionally retained):
+--   * pricing.fx_rates           — kept for future cross-currency normalisation.
+--   * pricing.ebay_scraped_sold  — still holds historical rows and receives
+--                                  externally-written entries (e.g. TCGPLAYER)
+--                                  that promote_sold_obs continues to promote.
+--
+-- DROP TABLE removes the table's indexes and grants implicitly. No other object
+-- references ebay_scrape_targets (verified: no FKs point at it).
+
+DROP TABLE IF EXISTS pricing.ebay_scrape_targets;

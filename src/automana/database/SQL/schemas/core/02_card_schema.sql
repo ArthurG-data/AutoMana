@@ -11,8 +11,14 @@ CREATE TABLE IF NOT EXISTS card_catalog.unique_cards_ref (
     reserved BOOL DEFAULT(false),
     other_face_id UUID DEFAULT(NULL),
     created_at TIMESTAMPTZ DEFAULT now(),
-    updated_at TIMESTAMPTZ DEFAULT now()
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    CONSTRAINT fk_unique_cards_other_face FOREIGN KEY (other_face_id)
+        REFERENCES card_catalog.unique_cards_ref(unique_card_id)
 );
+
+CREATE INDEX IF NOT EXISTS idx_unique_cards_ref_other_face
+    ON card_catalog.unique_cards_ref(other_face_id)
+    WHERE other_face_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS card_catalog.border_color_ref (
     border_color_id SERIAL PRIMARY KEY, 
@@ -47,7 +53,7 @@ CREATE TABLE IF NOT EXISTS card_catalog.artists_ref (
     updated_at TIMESTAMPTZ DEFAULT now(),
     UNIQUE (artist_name)
 );
-CREATE INDEX IF NOT EXISTS idx_artists_name ON card_catalog.artists_ref(artist_name);
+-- idx_artists_name removed: covered by artists_ref_artist_name_key UNIQUE constraint (migration_57)
 
 -- Sentinel row used by card_catalog.insert_full_card_version when the
 -- Scryfall payload carries neither `artist_ids` nor `artist` (basic
@@ -176,6 +182,8 @@ CREATE TABLE IF NOT EXISTS card_catalog.card_version (
     updated_at TIMESTAMPTZ DEFAULT now(),
     frame_effects TEXT[] NOT NULL DEFAULT '{}',
     lang VARCHAR(5) NOT NULL DEFAULT 'en',
+    card_back_id UUID,
+    purchase_uris JSONB,
     CONSTRAINT card_version_unique_per_print UNIQUE (unique_card_id, set_id, collector_number, lang)
 );
 
@@ -303,6 +311,7 @@ INSERT INTO card_catalog.card_identifier_ref (identifier_name) VALUES
     ('tcgplayer_etched_id'),
     ('cardmarket_id'),
     ('mtgjson_id'),
+    ('mtgstock_id'),
     ('pricecharting_id')
 ON CONFLICT (identifier_name) DO NOTHING;
 
@@ -328,6 +337,20 @@ CREATE TABLE IF NOT EXISTS card_catalog.card_external_identifier (
 CREATE INDEX IF NOT EXISTS idx_card_external_identifier_ref_value
     ON card_catalog.card_external_identifier (card_identifier_ref_id, value);
 
+-- DFC back-face UUID alias (migration_49): captures back-face UUIDs that
+-- collide with the card_external_identifier PK.
+CREATE TABLE IF NOT EXISTS card_catalog.mtgjson_uuid_alias (
+    uuid            TEXT        PRIMARY KEY,
+    card_version_id UUID        NOT NULL REFERENCES card_catalog.card_version(card_version_id),
+    created_at      TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_mtgjson_uuid_alias_card_version
+    ON card_catalog.mtgjson_uuid_alias (card_version_id);
+
+GRANT SELECT, INSERT ON card_catalog.mtgjson_uuid_alias TO app_rw, app_admin, app_celery, app_backend;
+
+GRANT TRUNCATE ON pricing.mtgjson_card_prices_staging TO app_rw, app_admin;
 
 CREATE TABLE IF NOT EXISTS card_catalog.card_games_ref (
     game_id SERIAL PRIMARY KEY,
@@ -1400,9 +1423,7 @@ JOIN card_catalog.set_type_list_ref stl ON s.set_type_id = stl.set_type_id
 JOIN card_catalog.card_version cv ON cv.set_id = s.set_id
 GROUP BY s.set_id, s.set_name, s.set_code, stl.set_type, s.released_at, s.digital;
 
--- Speeds up the JOIN between card_version and sets used by the view above.
-CREATE INDEX IF NOT EXISTS idx_card_version_set_id
-    ON card_catalog.card_version(set_id);
+-- idx_card_version_set_id removed: covered by card_version_set_coll_idx (set_id, collector_number) (migration_57)
 
 CREATE INDEX IF NOT EXISTS idx_v_joined_set_materialized_set_code
     ON card_catalog.v_joined_set_materialized(set_code);
