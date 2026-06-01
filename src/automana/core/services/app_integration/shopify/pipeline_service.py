@@ -140,26 +140,75 @@ async def fetch_all_markets(
     storage_service: StorageService,
     ingestion_run_id: int = None,
 ):
+    """Fetch products for every MTG-classified collection across all active markets.
+
+    Uses since_id pagination (no page cap) and asyncio.gather with a semaphore
+    for concurrent collection fetching within a market.
+
+    First-run behaviour: if no collections are marked game_code='mtg' for a market,
+    logs a warning and skips that market. Run fetch_collections first, then classify.
+    """
+    import asyncio
+
     markets = await shopify_pipeline_repository.get_active_pipeline_markets()
     logger.info("shopify_fetch: found active markets", extra={"count": len(markets)})
     market_dirs = {}
+
     for market in markets:
         market_id = market["market_id"]
         source_id = market["source_id"]
         api_url = market["api_url"]
-        async with track_step(ops_repository, ingestion_run_id, f"fetch_storefront_{market_id}"):
-            pages = 0
-            async for page_index, products in shopify_api_repository.iter_products_pages(api_url, source_id):
-                await storage_service.save_json(
-                    f"{source_id}_fetch/page_{page_index}_products.json",
-                    {"items": products},
-                )
-                pages += 1
-            logger.info(
-                "shopify_fetch: fetched pages",
-                extra={"market_id": market_id, "source_id": source_id, "pages": pages},
+
+        handles = await shopify_pipeline_repository.get_mtg_collection_handles(market_id)
+        if not handles:
+            logger.warning(
+                "shopify_fetch: no mtg collections, skipping market",
+                extra={
+                    "market_id": market_id,
+                    "hint": "run fetch_collections then: UPDATE markets.collection_handles "
+                            "SET game_code='mtg' WHERE market_id=<id> AND name IN (...)",
+                },
             )
-            market_dirs[market_id] = str(storage_service.backend.resolve_path(f"{source_id}_fetch"))
+            continue
+
+        async with track_step(ops_repository, ingestion_run_id, f"fetch_storefront_{market_id}"):
+            sem = asyncio.Semaphore(5)
+            pages_total = 0
+
+            async def fetch_one(handle: str) -> None:
+                nonlocal pages_total
+                async with sem:
+                    page = 0
+                    since_id = 0
+                    while True:
+                        products = await shopify_api_repository.get_collection_products_page(
+                            api_url, handle, since_id=since_id, limit=250
+                        )
+                        if not products:
+                            break
+                        await storage_service.save_json(
+                            f"{source_id}_fetch/{handle}_page_{page}_products.json",
+                            {"_collection_handle": handle, "items": products},
+                        )
+                        since_id = products[-1]["id"]
+                        page += 1
+                        pages_total += 1
+                    logger.info(
+                        "shopify_fetch: collection done",
+                        extra={"market_id": market_id, "handle": handle, "pages": page},
+                    )
+
+            async with shopify_api_repository:
+                await asyncio.gather(*[fetch_one(h) for h in handles])
+
+            logger.info(
+                "shopify_fetch: market done",
+                extra={"market_id": market_id, "handles": len(handles), "pages": pages_total},
+            )
+            market_dirs[market_id] = str(
+                storage_service.backend.resolve_path(f"{source_id}_fetch")
+            )
+
     return {"market_dirs": market_dirs, "markets": markets}
 
 
