@@ -1,4 +1,6 @@
+import html
 import logging
+import re
 from typing import AsyncIterator
 
 from automana.core.repositories.abstract_repositories.AbstractAPIRepository import BaseApiClient
@@ -65,8 +67,6 @@ class ShopifyAPIRepository(BaseApiClient):
         extracts collection handles from each collections sitemap.
         Returns a deduplicated list of handles.
         """
-        import re
-
         async with self:
             sitemap_resp = await self.send("GET", f"{api_url.rstrip('/')}/sitemap.xml")
             sitemap_resp.raise_for_status()
@@ -78,7 +78,7 @@ class ShopifyAPIRepository(BaseApiClient):
 
             handles: set[str] = set()
             for link in collection_sitemap_links:
-                resp = await self.send("GET", link)
+                resp = await self.send("GET", html.unescape(link))
                 resp.raise_for_status()
                 found = re.findall(r"/collections/([^<\s?#/]+)", resp.text)
                 handles.update(found)
