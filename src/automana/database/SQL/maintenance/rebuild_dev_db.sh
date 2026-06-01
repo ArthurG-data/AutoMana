@@ -239,6 +239,7 @@ _dry_run_summary() {
   fi
   if should_run mtgjson;  then echo "  MTGJson     : daily_mtgjson_data_pipeline (timeout ${MTGJSON_TIMEOUT}s)"; fi
   if should_run verify;   then echo "  Verify      : integrity_checks.sql + row counts"; fi
+  echo "  Flyway      : migrations/core + migrations/pipeline (baseline V0 on fresh install)"
   echo ""
   echo "  No role ALTER, no DROP, no celery dispatch performed."
 }
@@ -434,8 +435,8 @@ do_rebuild() {
   if [[ $PRESERVE_DATA -eq 1 ]]; then
     echo "== Preserving existing data: skipping DROP DATABASE =="
     echo "== Applying schemas (idempotent CREATE OR REPLACE) =="
-    for f in "$SCHEMAS_DIR"/*.sql; do
-      [[ "$(basename "$f")" == "integrity_checks.sql" ]] && continue
+    for f in "$SCHEMAS_DIR"/core/*.sql "$SCHEMAS_DIR"/pipeline/*.sql; do
+      [[ -f "$f" ]] || continue
       echo "  → $(basename "$f")"
       $EXEC psql -v ON_ERROR_STOP=1 -U "$DBOWNER" -d "$DBNAME" < "$f" > /dev/null || true
     done
@@ -444,11 +445,8 @@ do_rebuild() {
     $EXEC psql -v ON_ERROR_STOP=1 -U "$SUPERUSER" -d "$DBNAME" \
       < src/automana/database/SQL/maintenance/apply_schema_grants.sql > /dev/null || true
 
-    echo "== Applying migrations (incremental updates) =="
-    for f in "$MIGRATIONS_DIR"/*.sql; do
-      echo "  → $(basename "$f")"
-      $EXEC psql -v ON_ERROR_STOP=1 -U "$DBOWNER" -d "$DBNAME" < "$f" > /dev/null || true
-    done
+    echo "== Flyway: applying pending migrations =="
+    dcdev-automana run --rm flyway migrate
   else
     $EXEC psql -U "$SUPERUSER" -d postgres -c "
     SELECT pg_terminate_backend(pid)
@@ -462,8 +460,8 @@ do_rebuild() {
     $EXEC psql -U "$SUPERUSER" -d postgres -c "CREATE DATABASE $DBNAME OWNER $DBOWNER;"
 
     echo "== Applying schemas =="
-    for f in "$SCHEMAS_DIR"/*.sql; do
-      [[ "$(basename "$f")" == "integrity_checks.sql" ]] && continue
+    for f in "$SCHEMAS_DIR"/core/*.sql "$SCHEMAS_DIR"/pipeline/*.sql; do
+      [[ -f "$f" ]] || continue
       echo "  → $(basename "$f")"
       $EXEC psql -v ON_ERROR_STOP=1 -U "$DBOWNER" -d "$DBNAME" < "$f" > /dev/null
     done
@@ -472,8 +470,9 @@ do_rebuild() {
     $EXEC psql -v ON_ERROR_STOP=1 -U "$SUPERUSER" -d "$DBNAME" \
       < src/automana/database/SQL/maintenance/apply_schema_grants.sql > /dev/null
 
-    echo "== Skipping migrations =="
-    echo "  (migrations/ not replayed — schema files are authoritative for rebuilds.)"
+    echo "== Flyway: baseline V0 (fresh install) =="
+    dcdev-automana run --rm flyway \
+      baseline -baselineVersion=0 -baselineDescription="squashed_schema"
   fi
 }
 
